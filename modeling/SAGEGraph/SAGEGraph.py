@@ -10,10 +10,10 @@ class SAGEGraph(torch.nn.Module):
         self.conv2 = SAGEConv(embed_dim, embed_dim, adj_matrix)
         self.linear = torch.nn.Linear(embed_dim, num_classes)
     
-    def forward(self, x, edge_index):
+    def forward(self, x, adj_matrix):
 
-        x = self.conv1(x, edge_index)
-        x = self.conv2(x, edge_index)
+        x = self.conv1(x, adj_matrix)
+        x = self.conv2(x, adj_matrix)
 
         x = global_mean_pool(x, batch=None)
         
