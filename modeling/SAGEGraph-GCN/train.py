@@ -8,9 +8,7 @@ def train():
     model.train()
     optimizer.zero_grad()
     out = model(x)
-    print(out[train_mask])
-    print(data.y[train_mask])
-    loss = F.nll_loss(out[train_mask].float(), data.y[train_mask]) # TODO: need to be fixed
+    loss = loss_function(out[train_mask], data.y[train_mask]) # TODO: need to be fixed
     loss.backward()
     optimizer.step()
     return loss.item()
@@ -31,7 +29,6 @@ device = torch.device('cpu')
 data = dataset[0].to(device)
 x = data.x
 x = x.requires_grad_()
-print(x)
 
 adj_matrix = torch.sparse_coo_tensor(data.edge_index, [1. for i in range(data.edge_index.size(dim=1))], requires_grad=True)
 
@@ -46,9 +43,11 @@ val_mask = perm[num_train:num_train+num_val]
 test_mask = perm[num_train+num_val:]
 
 model = SAGEGraph(dataset.num_features, 16, adj_matrix, dataset.num_classes)
-optimizer = torch.optim.Adam(model.parameters(), lr=0.01, weight_decay=5e-4)
+# optimizer = torch.optim.Adam(model.parameters(), lr=0.01, weight_decay=5e-4)
+optimizer = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
 
 best_val_acc = test_acc = 0
+loss_function = torch.nn.CrossEntropyLoss()
 for epoch in range(200):
     loss = train()
     val_acc = test()

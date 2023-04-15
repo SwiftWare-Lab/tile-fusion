@@ -12,12 +12,12 @@ class SAGEConv(torch.nn.Module):
     def forward(self, x):
         neighbor_features = torch.sparse.mm(self.adj_matrix, x) #SpMM
 
-        # TODO: torch.sum does not work on torch sparse kernel
-        # #Mean pooling aggregator
-        # neighbor_counts = torch.sum(self.adj_matrix, dim=1).unsqueeze(1)
-        # pooled_features = torch.div(neighbor_features, neighbor_counts)
+        
+        # Mean pooling aggregator
+        neighbor_counts = torch.sparse.sum(self.adj_matrix, dim=1).to_dense().unsqueeze(dim=1)
+        pooled_features = torch.div(neighbor_features, neighbor_counts)
 
-        aggregated_features = F.relu(self.linear1(neighbor_features)) #MM 
+        aggregated_features = F.relu(self.linear1(pooled_features)) #MM 
         
         
         updated_features = F.relu(self.linear2(torch.cat([x, aggregated_features], dim=1)))#MM
