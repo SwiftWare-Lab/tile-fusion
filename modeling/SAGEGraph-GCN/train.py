@@ -31,7 +31,9 @@ x = data.x
 x = x.requires_grad_()
 
 adj_matrix = torch.sparse_coo_tensor(data.edge_index, [1. for i in range(data.edge_index.size(dim=1))], requires_grad=True)
-
+adj_matrix_2 = data.edge_index.to_sparse_csr()
+print(data.edge_index)
+print(adj_matrix_2)
 
 num_nodes = adj_matrix.size(dim=1)
 num_train = int(0.6 * num_nodes)
@@ -43,7 +45,6 @@ val_mask = perm[num_train:num_train+num_val]
 test_mask = perm[num_train+num_val:]
 
 model = SAGEGraph(dataset.num_features, 16, adj_matrix, dataset.num_classes)
-# optimizer = torch.optim.Adam(model.parameters(), lr=0.01, weight_decay=5e-4)
 optimizer = torch.optim.SGD(model.parameters(), lr=0.4)
 
 best_val_acc = test_acc = 0
