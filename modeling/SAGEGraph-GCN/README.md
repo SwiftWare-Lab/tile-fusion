@@ -15,4 +15,6 @@ and activate it using:
 conda activate fused-gnn
 ```
 ## Run the Training process
+```
 python train.py
+```
