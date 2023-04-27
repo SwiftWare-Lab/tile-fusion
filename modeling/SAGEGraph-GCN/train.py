@@ -19,7 +19,7 @@ def test():
         out = model(x)
         pred = out.argmax(dim=1)
         acc = pred[test_mask] == data.y[test_mask]
-        acc = int(acc.sum()) / int(test_mask.sum())
+        acc = int(acc.sum()) / int(test_mask.size(dim=0))
     return acc
 
 dataset = Planetoid(root='data/cora', name='Cora')
@@ -44,7 +44,7 @@ test_mask = perm[num_train+num_val:]
 
 model = SAGEGraph(dataset.num_features, 16, adj_matrix, dataset.num_classes)
 # optimizer = torch.optim.Adam(model.parameters(), lr=0.01, weight_decay=5e-4)
-optimizer = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
+optimizer = torch.optim.SGD(model.parameters(), lr=0.2)
 
 best_val_acc = test_acc = 0
 loss_function = torch.nn.CrossEntropyLoss()
