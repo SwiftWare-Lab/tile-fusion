@@ -44,7 +44,7 @@ test_mask = perm[num_train+num_val:]
 
 model = SAGEGraph(dataset.num_features, 16, adj_matrix, dataset.num_classes)
 # optimizer = torch.optim.Adam(model.parameters(), lr=0.01, weight_decay=5e-4)
-optimizer = torch.optim.SGD(model.parameters(), lr=0.2)
+optimizer = torch.optim.SGD(model.parameters(), lr=0.4)
 
 best_val_acc = test_acc = 0
 loss_function = torch.nn.CrossEntropyLoss()
