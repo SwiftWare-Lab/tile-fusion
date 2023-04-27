@@ -2,7 +2,7 @@
 
 This part of the code contain python models.
 
-## SAGEGraph-modelling
+## SAGEGraph-modeling
 
 this is a simple model of SAGEGraph network.
 
