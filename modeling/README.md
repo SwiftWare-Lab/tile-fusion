@@ -26,3 +26,4 @@ python SAGEGraph-GCN/train.py
 ### Visualize the model
 ```
 python SAGEGraph-GCN/train.py v
+```
