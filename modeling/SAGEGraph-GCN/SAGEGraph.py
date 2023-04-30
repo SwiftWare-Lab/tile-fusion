@@ -1,6 +1,7 @@
 from SAGEConv import SAGEConv
 import torch
 import torch.nn.functional as F
+from torchviz import make_dot
 
 class SAGEGraph(torch.nn.Module):
     def __init__(self, feat_dim, embed_dim, adj_matrix, num_classes):
@@ -11,9 +12,9 @@ class SAGEGraph(torch.nn.Module):
 
     def forward(self, x):
 
-        x = F.relu(self.conv1(x))
-        x = F.relu(self.conv2(x))
-        x = F.relu(self.linear(x))
+        x = self.conv1(x)
+        x = self.conv2(x)
+        x = self.linear(x)
         
         return F.log_softmax(x, dim=1)
 
