@@ -1,0 +1,77 @@
+//
+// Created by kazem on 2023-02-17.
+//
+
+#ifndef FUSION_SPARSEFUSION_H
+#define FUSION_SPARSEFUSION_H
+#include <vector>
+
+#include "aggregation/def.h"
+#include "sparse-fusion/Fusion_Defs.h"
+#include "sparse-fusion/DAG.h"
+#include "MultiDimensionalSet.h"
+
+namespace sym_lib{
+
+
+ class SparseFusion {
+
+  // List of fused node
+  std::vector<std::vector<FusedNode*>> _cur_node_list;
+  //
+  std::vector<std::vector<std::pair<int,int>>> _cur_to_final;
+  // Final node list
+  std::vector<std::vector<FusedNode*>> _final_node_list;
+
+
+
+  // mappings
+  std::vector<int> _vertex_to_part;
+  // Coordinate of partitions of last DAG
+  std::vector<std::vector<std::pair<int,int>>> _part_to_coordinate;
+
+
+  // list of pairs
+  std::vector<int> _pair_list;
+
+  // ID of nodes in node_list that has last graph
+  int _lb_g_prev, _ub_g_prev;
+  std::vector<int> _vertex_node_g1;
+
+  // Visited vertices in G1 so far
+  int dim1_g_prev, dim1_g_cur;
+  std::vector<bool> _visited_g_prev_sofar, _visited_g_cur_sofar;
+
+  // The infered partitioned DAG
+  DAG *_partitioned_DAG;
+
+  ScheduleParameters *_sp;
+
+  // total number of loops to be fused.
+  int _loop_count{};
+
+ public:
+
+  explicit SparseFusion(ScheduleParameters *sp, int loop_cnt);
+
+  void fuse(int loop_id, CSC *Gi, CSC *Di);
+
+  MultiDimensionalSet *getFusedCompressed();
+
+  void pairing(int loop_id, CSC *Gi, CSC *Di);
+
+  void merge_pairs();
+
+  void build_set();
+
+  void print_final_list();
+
+
+
+
+ };
+
+}
+
+
+#endif //FUSION_SPARSEFUSION_H
