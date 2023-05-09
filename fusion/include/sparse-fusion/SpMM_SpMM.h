@@ -1,0 +1,57 @@
+//
+// Created by kazem on 08/05/23.
+//
+
+#ifndef SPARSE_FUSION_SPMM_SPMM_H
+#define SPARSE_FUSION_SPMM_SPMM_H
+
+namespace swiftware {
+namespace sparse {
+
+/// C = A*B, where A is sparse CSR MxK and B (K x N) and C (MxN) are Dense
+/// \param M
+/// \param N
+/// \param K
+/// \param Ap : row pointer
+/// \param Ai : column index
+/// \param Ax : values
+/// \param Bx : values
+/// \param Cx : values
+void spmmCsrSequential(int M, int N, int K,
+                       const int *Ap, const int *Ai, const double *Ax,
+                       const double *Bx, double *Cx);
+void spmmCsrParallel(int M, int N, int K,
+                     const int *Ap, const int *Ai, const double *Ax,
+                     const double *Bx, double *Cx, int NThreads);
+
+
+/// D = B*A*C where A (MxK) and B (LxM) are sparse and C (KxN) and D (LxN) are dense
+/// \param M
+/// \param N
+/// \param K
+/// \param L
+/// \param Ap
+/// \param Ai
+/// \param Ax
+/// \param Bx
+/// \param Cx
+/// \param Dx
+/// \param ACx temporary values of AxC
+/// \param LevelNo
+/// \param LevelPtr
+/// \param ParPtr
+/// \param Partition
+/// \param ParType
+void spmmCsrSpmmCsrFused(int M, int N, int K,
+                         int L,
+                         const int *Ap, const int *Ai, const double *Ax,
+                         const int *Bp, const int *Bi,const double *Bx,
+                         const double *Cx,
+                         double *Dx,
+                         double *ACx,
+                         int LevelNo, const int *LevelPtr, const int *ParPtr,
+                         const int *Partition, const int *ParType);
+
+} // namespace sparse
+} // namespace swiftware
+#endif // SPARSE_FUSION_SPMM_SPMM_H

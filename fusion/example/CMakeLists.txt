@@ -27,6 +27,7 @@ add_executable(spmm_spmm_fusion
         )
 target_link_libraries(spmm_spmm_fusion
         fusion
+        swbench::swbench
         )
 
 #target_compile_options(dag_decomp PRIVATE

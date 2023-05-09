@@ -7,12 +7,15 @@ project(sparse_fusion CXX C )
 
 add_subdirectory(aggregation)
 
+add_subdirectory(benchmark)
+
 set(CMAKE_CXX_STANDARD 11)
 
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/lib/)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/lib/)
 
 set(SYM_AGG ${CMAKE_CURRENT_LIST_DIR}/aggregation/)
+set(SYM_BENCH ${CMAKE_CURRENT_LIST_DIR}/benchmark/)
 set(SYM_FUS ${CMAKE_CURRENT_LIST_DIR})
 
 list(APPEND CMAKE_MODULE_PATH
@@ -35,6 +38,7 @@ add_library(fusion STATIC
         )
 target_include_directories(fusion PRIVATE
         ${SYM_AGG}/include/
+        ${SYM_BENCH}/include/
         ${SYM_FUS}/include/
         )
 target_link_libraries(fusion PRIVATE
