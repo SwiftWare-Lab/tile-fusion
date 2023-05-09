@@ -33,7 +33,7 @@ void spmmCsrParallel(int M, int N, int K,
 
 
 /// D = B*A*C
-void spmmCsrSpmmCsrFused(int M, int N, int K,
+void spmmCsrSpmmCsrFused(int M, int N, int K, int L,
                          const int *Ap, const int *Ai, const double *Ax,
                          const int *Bp, const int *Bi,const double *Bx,
                          const double *Cx,
@@ -69,6 +69,7 @@ void spmmCsrSpmmCsrFused(int M, int N, int K,
     }
   }
 }
+
 
 } // namespace sparse
 } // namespace swiftware
