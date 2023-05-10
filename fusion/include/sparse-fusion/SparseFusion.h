@@ -66,6 +66,8 @@ namespace sym_lib{
 
   void print_final_list();
 
+  ~SparseFusion();
+
 
 
 

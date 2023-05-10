@@ -13,6 +13,20 @@ namespace sym_lib{
   _sp=Sp;
  }
 
+ SparseFusion::~SparseFusion(){
+  for (auto & i : _final_node_list) {
+   for (auto & j : i) {
+    delete j;
+   }
+  }
+  for (auto & i : _cur_node_list) {
+   for (auto & j : i) {
+    delete j;
+   }
+  }
+  delete _partitioned_DAG;
+ }
+
  void SparseFusion::fuse(int LoopId, CSC *Gi, CSC *Di){
  // when the first DAG comes
   if(_final_node_list.empty()){
@@ -46,12 +60,12 @@ namespace sym_lib{
     // pick a fused iteration group
     auto *fn = _final_node_list[i1][j1];
     // set G1 vertices since they are already there
-    std::cout<<"\n";
+    //std::cout<<"\n";
     for (int k : fn->_list[LoopId-1]) {
      _visited_g_prev_sofar[k] = true;
-     std::cout<< _visited_g_prev_sofar[k] <<",";
+     //std::cout<< _visited_g_prev_sofar[k] <<",";
     }
-    std::cout<<"\n";
+    //std::cout<<"\n";
     forward_pairing(Gi, Di, fn->_list[LoopId-1], fn->_list[LoopId],
                     _visited_g_prev_sofar, _visited_g_cur_sofar);
    }

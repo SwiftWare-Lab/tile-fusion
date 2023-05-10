@@ -46,9 +46,9 @@ void spmmCsrSpmmCsrFused(int M, int N, int K, int L,
                          int LevelNo, const int *LevelPtr, const int *ParPtr,
                          const int *Partition, const int *ParType) {
   for (int i1 = 0; i1 < LevelNo; ++i1) {
-//#pragma omp parallel
+#pragma omp parallel
     {
-//#pragma omp for schedule(auto) nowait
+#pragma omp for schedule(auto) nowait
       for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; ++j1) {
         for (int k1 = ParPtr[j1]; k1 < ParPtr[j1 + 1]; ++k1) {
           int i = Partition[k1];

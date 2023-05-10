@@ -9,6 +9,7 @@
 #include "aggregation/test_utils.h"
 #include <cstdlib>
 #include <fstream>
+#include <sstream>
 
 #ifdef METIS
 #include "aggregation/metis_interface.h"
@@ -223,6 +224,11 @@ namespace sym_lib{
 //    }
 //   }
 //  }
+  delete []finaLevelPtr;
+  if(G->m < G->nnz){
+   delete []finalPartPtr;
+   delete []finalNodePtr;
+  }
   return 0;
  }
 
@@ -241,6 +247,7 @@ namespace sym_lib{
    }
   }
  }
+
 
 
 

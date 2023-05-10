@@ -36,7 +36,7 @@ struct TensorInputs : public Inputs<T>{
 
   TensorInputs(int M1, int N1, int K1, int L1,
                sym_lib::CSC *A1, sym_lib::CSC *B1,
-               int NumThreads1, int NumTrial1, std::string ExpN):Inputs<T>(NumThreads1, NumTrial1, ExpN){
+               int NumThreads1, int NumTrial1, std::string ExpN):Inputs<T>(NumTrial1, NumThreads1, ExpN){
     M = M1;
     N = N1;
     K = K1;
@@ -53,6 +53,15 @@ struct TensorInputs : public Inputs<T>{
     CorrectMul = new double[L * N](); // the correct solution
     IsSolProvided = false;
     Inputs<T>::Threshold = 1e-6;
+  }
+
+  ~TensorInputs(){
+    delete[] Cx;
+    delete[] CorrectMul;
+    delete A;
+    delete B;
+    delete ACsr;
+    delete BCsr;
   }
 };
 
@@ -141,7 +150,7 @@ protected:
 
 public:
   TensorOutputs<double> *OutTensor;
-  SpMMSpMMUnFused(TensorInputs<double> *In1, Stats *Stat1) : SWTensorBench<double>(Stat1){
+  SpMMSpMMUnFused(TensorInputs<double> *In1, Stats *Stat1) : SWTensorBench<double>(In1, Stat1){
     OutTensor = new TensorOutputs<double>(In1->M, In1->N, In1->L);
     InTensor = In1;
   }
@@ -181,7 +190,6 @@ protected:
   }
 public:
   SpMMSpMMUnFusedParallel(TensorInputs<double> *In1, Stats *Stat1) : SpMMSpMMUnFused(In1, Stat1){
-
   }
 };
 
@@ -193,16 +201,18 @@ protected:
     Timer t;
     t.start();
     sym_lib::ScheduleParameters sp;
+    sp._num_threads = sp._num_w_partition = InTensor->NumThreads;
     // create the fused set
     auto *sf01 = new sym_lib::SparseFusion(&sp, 2);
     auto *mvDAG =  sym_lib::diagonal(InTensor->ACsr->m, 1.0);
     sf01->fuse(0, mvDAG, NULLPNTR);
     //sf01->print_final_list();
     sf01->fuse(1, mvDAG, InTensor->B);
-    sf01->print_final_list();
+    //sf01->print_final_list();
     FusedCompSet = sf01->getFusedCompressed();
-    FusedCompSet->print_3d();
-
+    //FusedCompSet->print_3d();
+    delete sf01;
+    delete mvDAG;
 
     t.stop();
     return t;
@@ -234,8 +244,12 @@ protected:
   }
 public:
   SpMMSpMMFusedInterLayer(TensorInputs<double> *In1, Stats *Stat1) : SpMMSpMMUnFused(In1, Stat1){
-
   }
+
+  ~SpMMSpMMFusedInterLayer(){
+    delete FusedCompSet;
+  }
+
 };
 
 #endif // SPARSE_FUSION_SPMM_SPMM_DEMO_UTILS_H

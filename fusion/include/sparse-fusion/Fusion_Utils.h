@@ -52,7 +52,8 @@ namespace sym_lib{
                                       const std::vector<std::vector<FusedNode*>>& cur_node_list,
                                       std::vector<std::pair<int,int>>& iteration_to_part);
 
-}
+
+} // End of namespace sym_lib
 
 
 #endif //SPARSE_FUSION_FUSION_UTILS_H

@@ -16,7 +16,7 @@ using namespace sym_lib;
 int main(const int argc, const char *argv[]){
   TestParameters tp;tp._order_method=SYM_ORDERING::NONE;
   ScheduleParameters sp;
-  Stats *stats = new swiftware::benchmark::Stats("SpMM_SpMM_Demo", "SpMM", 7);
+  Stats *stats;
   parse_args(argc, argv, &sp, &tp);
   CSC *aLtCsc=NULLPNTR;
   CSC *aCSC = get_matrix_from_parameter(&tp);
@@ -29,32 +29,40 @@ int main(const int argc, const char *argv[]){
     delete alCSC;
     alCSC = orderedVec[0];
   }
-  print_csc(1,"",aCSC);
-  int numThread = 1, numTrial = 7; std::string expName = "SpMM_SpMM_Demo";
+  //print_csc(1,"",aCSC);
+  int numThread = 20, numTrial = 7; std::string expName = "SpMM_SpMM_Demo";
   auto *inSpMM = new TensorInputs<double>(aCSC->m,  4, aCSC->n,
                                          bCSC->m, aCSC, bCSC,
                                           numThread, numTrial, expName);
 
+  stats = new swiftware::benchmark::Stats("SpMM_SpMM_Demo", "SpMM", 7, tp._matrix_name, numThread);
   auto *unfused = new SpMMSpMMUnFused(inSpMM, stats);
   unfused->run();
-  unfused->OutTensor->printDx();
+  //unfused->OutTensor->printDx();
   inSpMM->CorrectSol = std::copy(unfused->OutTensor->Dx, unfused->OutTensor->Dx + unfused->OutTensor->M * unfused->OutTensor->N, inSpMM->CorrectMul);
   inSpMM->IsSolProvided = true;
   auto headerStat = unfused->printStatsHeader();
   auto baselineStat = unfused->printStats();
   delete unfused;
+  delete stats;
 
+
+  stats = new swiftware::benchmark::Stats("SpMM_SpMM_Demo_UnFusedParallel", "SpMM", 7, tp._matrix_name, numThread);
   auto *unfusedParallel = new SpMMSpMMUnFusedParallel(inSpMM, stats);
   unfusedParallel->run();
   //unfusedParallel->OutTensor->printDx();
   auto unfusedParallelStat = unfusedParallel->printStats();
   delete unfusedParallel;
+  delete stats;
 
+
+  stats = new swiftware::benchmark::Stats("SpMM_SpMM_FusedParallel", "SpMM", 7, tp._matrix_name, numThread);
   auto *fusedParallel = new SpMMSpMMFusedInterLayer(inSpMM, stats);
   fusedParallel->run();
-  fusedParallel->OutTensor->printDx();
+  //fusedParallel->OutTensor->printDx();
   auto fusedParallelStat = fusedParallel->printStats();
   delete fusedParallel;
+  delete stats;
 
 
   std::cout<<headerStat<<std::endl;
@@ -92,7 +100,7 @@ int main(const int argc, const char *argv[]){
   delete aCSC;
   delete bCSC;
   delete alCSC;
-  delete stats;
+  delete inSpMM;
 
   return 0;
 }
