@@ -12,7 +12,7 @@
 
 using namespace sym_lib;
 
-// A is MxK, C is KxN, B is LxN, and D is LxM; AC is MxN
+// A is MxK, C is KxN, B is LxM, and D is LxN; AC is MxN
 int main(const int argc, const char *argv[]){
   TestParameters tp;tp._order_method=SYM_ORDERING::NONE;
   ScheduleParameters sp;
@@ -31,7 +31,7 @@ int main(const int argc, const char *argv[]){
   }
   print_csc(1,"",aCSC);
   int numThread = 1, numTrial = 7; std::string expName = "SpMM_SpMM_Demo";
-  auto *inSpMM = new TensorInputs<double>(aCSC->m, aCSC->n, 4,
+  auto *inSpMM = new TensorInputs<double>(aCSC->m,  4, aCSC->n,
                                          bCSC->m, aCSC, bCSC,
                                           numThread, numTrial, expName);
 
@@ -46,7 +46,7 @@ int main(const int argc, const char *argv[]){
 
   auto *unfusedParallel = new SpMMSpMMUnFusedParallel(inSpMM, stats);
   unfusedParallel->run();
-  unfusedParallel->OutTensor->printDx();
+  //unfusedParallel->OutTensor->printDx();
   auto unfusedParallelStat = unfusedParallel->printStats();
   delete unfusedParallel;
 
@@ -60,6 +60,7 @@ int main(const int argc, const char *argv[]){
   std::cout<<headerStat<<std::endl;
   std::cout<<baselineStat<<std::endl;
   std::cout<<unfusedParallelStat<<std::endl;
+  std::cout<<fusedParallelStat<<std::endl;
 
 //  sp._num_w_partition = 2;
 //  //print_csc(1,"",A_csc);

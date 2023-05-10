@@ -50,8 +50,9 @@ struct TensorInputs : public Inputs<T>{
     for(int i=0; i<K*N; ++i){
       Cx[i] = 1.0; //(double)rand()/RAND_MAX;
     }
-    CorrectMul = new double[L * M](); // the correct solution
+    CorrectMul = new double[L * N](); // the correct solution
     IsSolProvided = false;
+    Inputs<T>::Threshold = 1e-6;
   }
 };
 
@@ -62,8 +63,8 @@ struct TensorOutputs : public Outputs<T>{
   T *Dx, *ACx;
 
   TensorOutputs(int M, int N, int L):M(M), N(N), L(L){
-    Dx = new double[L * M]();
-    ACx = new double[M * N]();
+    Dx = new T[L * N]();
+    ACx = new T[M * N]();
   }
 
   ~TensorOutputs(){
@@ -72,11 +73,16 @@ struct TensorOutputs : public Outputs<T>{
   }
 
   void printDx(){
-    std::cout<<"\n Cx:\n";
-    printDense<T>(L, M, ACx);
+    std::cout<<"\n ACx:\n";
+    printDense<T>(M, N, ACx);
     std::cout<<"\n Dx:\n";
-    printDense<T>(M, N, Dx);
+    printDense<T>(L, N, Dx);
     std::cout<<"\n";
+  }
+
+  void reset(){
+    std::fill_n(Dx, L * N, 0.0);
+    std::fill_n(ACx, M * N, 0.0);
   }
 };
 
@@ -91,8 +97,9 @@ protected:
   }
 
   Timer execute() override {
-    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->M, 0.0);
-    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
+//    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+//    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
+    OutTensor->reset();
     Timer t;
     t.start();
     swiftware::sparse::spmmCsrSequential(InTensor->M, InTensor->N,
@@ -120,13 +127,13 @@ protected:
       return true;
     }
     double infNorm = 0;
-    for (int i = 0; i < InTensor->L * InTensor->M; ++i) {
+    for (int i = 0; i < InTensor->L * InTensor->N; ++i) {
       if (std::abs(OutTensor->Dx[i] - InTensor->CorrectMul[i]) > infNorm){
         infNorm = std::abs(OutTensor->Dx[i] - InTensor->CorrectMul[i]);
       }
     }
     Error = (double) infNorm;
-    if (infNorm > In->Threshold){
+    if (infNorm > InTensor->Threshold){
       retValue = false;
     }
     return retValue;
@@ -134,7 +141,7 @@ protected:
 
 public:
   TensorOutputs<double> *OutTensor;
-  SpMMSpMMUnFused(TensorInputs<double> *In1, Stats *Stat1) : SWTensorBench<double>(In1, Stat1){
+  SpMMSpMMUnFused(TensorInputs<double> *In1, Stats *Stat1) : SWTensorBench<double>(Stat1){
     OutTensor = new TensorOutputs<double>(In1->M, In1->N, In1->L);
     InTensor = In1;
   }
@@ -148,8 +155,9 @@ public:
 class SpMMSpMMUnFusedParallel : public SpMMSpMMUnFused {
 protected:
   Timer execute() override {
-    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->M, 0.0);
-    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
+//    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+//    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
+    OutTensor->reset();
     Timer t;
     t.start();
     swiftware::sparse::spmmCsrParallel(InTensor->M, InTensor->N,
@@ -193,6 +201,7 @@ protected:
     sf01->fuse(1, mvDAG, InTensor->B);
     sf01->print_final_list();
     FusedCompSet = sf01->getFusedCompressed();
+    FusedCompSet->print_3d();
 
 
     t.stop();
@@ -200,8 +209,9 @@ protected:
   }
 
   Timer execute() override {
-    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->M, 0.0);
-    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
+//    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+//    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
+    OutTensor->reset();
     Timer t;
     t.start();
     swiftware::sparse::spmmCsrSpmmCsrFused(InTensor->M, InTensor->N,
