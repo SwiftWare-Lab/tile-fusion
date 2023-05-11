@@ -5,7 +5,6 @@
 #include "SWTensorBench.h"
 #include "aggregation/sparse_io.h"
 #include "aggregation/sparse_utilities.h"
-#include "papi_wrapper.h"
 #include "sparse-fusion/SpMM_SpMM.h"
 #include <omp.h>
 

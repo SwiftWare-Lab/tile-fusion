@@ -36,8 +36,8 @@ make -j 40
 
 cd ..
 
-BINPATH=./build/demo/
-UFDB=$HOME/UFDB/SPD/
+BINPATH=./build/example/
+UFDB=$SCRATCH/UFDB/SPD/  #$HOME/UFDB/SPD/
 #UFDB=/scratch/m/mmehride/kazem/UFDB/SPD
 LOGS=./build/logs/
 SCRIPTPATH=./scripts/
