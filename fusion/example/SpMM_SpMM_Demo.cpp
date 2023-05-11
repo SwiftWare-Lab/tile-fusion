@@ -31,7 +31,7 @@ int main(const int argc, const char *argv[]){
   }
   //print_csc(1,"",aCSC);
   int numThread = 20, numTrial = 7; std::string expName = "SpMM_SpMM_Demo";
-  auto *inSpMM = new TensorInputs<double>(aCSC->m,  128, aCSC->n,
+  auto *inSpMM = new TensorInputs<double>(aCSC->m,  tp._b_cols, aCSC->n,
                                          bCSC->m, aCSC, bCSC,
                                           numThread, numTrial, expName);
 
@@ -41,7 +41,7 @@ int main(const int argc, const char *argv[]){
   //unfused->OutTensor->printDx();
   inSpMM->CorrectSol = std::copy(unfused->OutTensor->Dx, unfused->OutTensor->Dx + unfused->OutTensor->M * unfused->OutTensor->N, inSpMM->CorrectMul);
   inSpMM->IsSolProvided = true;
-  auto headerStat = unfused->printStatsHeader();
+  auto headerStat = unfused->printStatsHeader(); headerStat+="bCols,";
   auto baselineStat = unfused->printStats();
   delete unfused;
   delete stats;
@@ -66,9 +66,9 @@ int main(const int argc, const char *argv[]){
 
   if(tp.print_header)
     std::cout<<headerStat<<std::endl;
-  std::cout<<baselineStat<<std::endl;
-  std::cout<<unfusedParallelStat<<std::endl;
-  std::cout<<fusedParallelStat<<std::endl;
+  std::cout<<baselineStat<<","<<tp._b_cols<<std::endl;
+  std::cout<<unfusedParallelStat<<","<<tp._b_cols<<std::endl;
+  std::cout<<fusedParallelStat<<","<<tp._b_cols;
 
 //  sp._num_w_partition = 2;
 //  //print_csc(1,"",A_csc);

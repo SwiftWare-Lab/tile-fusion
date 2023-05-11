@@ -59,4 +59,11 @@ export OMP_DYNAMIC=FALSE;
 mkdir $LOGS
 
 
-bash $SCRIPTPATH/run_exp.sh $BINPATH/spmm_spmm_fusion $UFDB 1 $THRD $MATLIST > $LOGS/spmv_spmv.csv
+bash $SCRIPTPATH/run_exp.sh $BINPATH/spmm_spmm_fusion $UFDB 1 $THRD $MATLIST 4 > $LOGS/spmv_spmv_4.csv
+bash $SCRIPTPATH/run_exp.sh $BINPATH/spmm_spmm_fusion $UFDB 1 $THRD $MATLIST 32 > $LOGS/spmv_spmv_32.csv
+bash $SCRIPTPATH/run_exp.sh $BINPATH/spmm_spmm_fusion $UFDB 1 $THRD $MATLIST 64 > $LOGS/spmv_spmv_64.csv
+bash $SCRIPTPATH/run_exp.sh $BINPATH/spmm_spmm_fusion $UFDB 1 $THRD $MATLIST 128 > $LOGS/spmv_spmv_128.csv
+bash $SCRIPTPATH/run_exp.sh $BINPATH/spmm_spmm_fusion $UFDB 1 $THRD $MATLIST 256 > $LOGS/spmv_spmv_256.csv
+
+
+

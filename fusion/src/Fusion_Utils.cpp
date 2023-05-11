@@ -42,6 +42,8 @@ namespace sym_lib{
   Tp->_matrix_name = Tp->_matrix_path.substr(Tp->_matrix_path.find_last_of("/\\") + 1);;
   if(Argc >= 6)
    Tp->print_header = atoi(Argv[5]);
+  if(Argc >= 7)
+   Tp->_b_cols = atoi(Argv[6]);
  }
 
 
