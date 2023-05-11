@@ -26,12 +26,15 @@ void spmmCsrSequential(int M, int N, int K,
 void spmmCsrParallel(int M, int N, int K,
                      const int *Ap, const int *Ai, const double *Ax,
                      const double *Bx, double *Cx, int NThreads) {
-#pragma omp parallel for num_threads(NThreads)
-  for (int i = 0; i < M; ++i) {
-    for (int j = Ap[i]; j < Ap[i + 1]; ++j) {
-      int aij = Ai[j] * N;
-      for (int k = 0; k < N; ++k) {
-        Cx[i * N + k] += Ax[j] * Bx[aij + k];
+#pragma omp parallel num_threads(NThreads)
+  {
+#pragma omp for
+    for (int i = 0; i < M; ++i) {
+      for (int j = Ap[i]; j < Ap[i + 1]; ++j) {
+        int aij = Ai[j] * N;
+        for (int k = 0; k < N; ++k) {
+          Cx[i * N + k] += Ax[j] * Bx[aij + k];
+        }
       }
     }
   }
@@ -49,9 +52,9 @@ void spmmCsrSpmmCsrFused(int M, int N, int K, int L,
                          const int *Partition, const int *ParType,
                          int NThreads) {
   for (int i1 = 0; i1 < LevelNo; ++i1) {
-#pragma omp parallel
+//#pragma omp parallel num_threads(NThreads)
     {
-#pragma omp parallel for num_threads(NThreads)
+//#pragma omp  for
       for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; ++j1) {
         for (int k1 = ParPtr[j1]; k1 < ParPtr[j1 + 1]; ++k1) {
           int i = Partition[k1];

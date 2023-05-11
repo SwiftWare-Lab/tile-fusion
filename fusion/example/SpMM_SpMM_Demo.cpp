@@ -31,7 +31,7 @@ int main(const int argc, const char *argv[]){
   }
   //print_csc(1,"",aCSC);
   int numThread = 20, numTrial = 7; std::string expName = "SpMM_SpMM_Demo";
-  auto *inSpMM = new TensorInputs<double>(aCSC->m,  128, aCSC->n,
+  auto *inSpMM = new TensorInputs<double>(aCSC->m,  4, aCSC->n,
                                          bCSC->m, aCSC, bCSC,
                                           numThread, numTrial, expName);
 
@@ -56,7 +56,7 @@ int main(const int argc, const char *argv[]){
   delete stats;
 
 
-  stats = new swiftware::benchmark::Stats("SpMM_SpMM_FusedParallel", "SpMM", 7, tp._matrix_name, numThread);
+  stats = new swiftware::benchmark::Stats("SpMM_SpMM_FusedSeq", "SpMM", 7, tp._matrix_name, numThread);
   auto *fusedParallel = new SpMMSpMMFusedInterLayer(inSpMM, stats);
   fusedParallel->run();
   //fusedParallel->OutTensor->printDx();
