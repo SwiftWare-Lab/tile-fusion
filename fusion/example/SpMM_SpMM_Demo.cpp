@@ -41,7 +41,7 @@ int main(const int argc, const char *argv[]){
   //unfused->OutTensor->printDx();
   inSpMM->CorrectSol = std::copy(unfused->OutTensor->Dx, unfused->OutTensor->Dx + unfused->OutTensor->M * unfused->OutTensor->N, inSpMM->CorrectMul);
   inSpMM->IsSolProvided = true;
-  auto headerStat = unfused->printStatsHeader(); headerStat+="bCols,";
+  auto headerStat = unfused->printStatsHeader();
   auto baselineStat = unfused->printStats();
   delete unfused;
   delete stats;
@@ -64,11 +64,19 @@ int main(const int argc, const char *argv[]){
   delete fusedParallel;
   delete stats;
 
+  auto csvInfo = sp.print_csv(true);
+  std::string spHeader = std::get<0>(csvInfo);
+  std::string spStat = std::get<1>(csvInfo);
+
+  auto tpCsv = tp.print_csv(true);
+  std::string tpHeader = std::get<0>(tpCsv);
+  std::string tpStat = std::get<1>(tpCsv);
+
   if(tp.print_header)
-    std::cout<<headerStat<<std::endl;
-  std::cout<<baselineStat<<","<<tp._b_cols<<std::endl;
-  std::cout<<unfusedParallelStat<<","<<tp._b_cols<<std::endl;
-  std::cout<<fusedParallelStat<<","<<tp._b_cols;
+    std::cout<<headerStat+spHeader+tpHeader<<std::endl;
+  std::cout<<baselineStat<<spStat+tpStat<<std::endl;
+  std::cout<<unfusedParallelStat<<spStat+tpStat<<std::endl;
+  std::cout<<fusedParallelStat<<spStat+tpStat;
 
 //  sp._num_w_partition = 2;
 //  //print_csc(1,"",A_csc);

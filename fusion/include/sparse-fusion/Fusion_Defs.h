@@ -34,6 +34,8 @@ namespace sym_lib{
    * Prints header and info in csv format
    */
   std::tuple<std::string,std::string> print_csv(bool header= false) const;
+
+
  };
 
  /*
