@@ -40,6 +40,8 @@ namespace sym_lib{
    Sp->_lbc_agg = atoi(Argv[4]);
   Tp->_mode = "MTX";
   Tp->_matrix_name = Tp->_matrix_path.substr(Tp->_matrix_path.find_last_of("/\\") + 1);;
+  if(Argc >= 6)
+   Tp->print_header = atoi(Argv[5]);
  }
 
 

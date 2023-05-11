@@ -64,8 +64,8 @@ int main(const int argc, const char *argv[]){
   delete fusedParallel;
   delete stats;
 
-
-  std::cout<<headerStat<<std::endl;
+  if(tp.print_header)
+    std::cout<<headerStat<<std::endl;
   std::cout<<baselineStat<<std::endl;
   std::cout<<unfusedParallelStat<<std::endl;
   std::cout<<fusedParallelStat<<std::endl;

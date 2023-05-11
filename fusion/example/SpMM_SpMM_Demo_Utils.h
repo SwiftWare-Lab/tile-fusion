@@ -237,7 +237,8 @@ protected:
                                            OutTensor->ACx, FusedCompSet->n1_,
                                            FusedCompSet->ptr1_,
                                            FusedCompSet->ptr2_, FusedCompSet->id_,
-                                            FusedCompSet->type_);
+                                            FusedCompSet->type_,
+                                           InTensor->NumThreads);
 
     t.stop();
     return t;

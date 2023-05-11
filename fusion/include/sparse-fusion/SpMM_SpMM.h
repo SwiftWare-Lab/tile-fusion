@@ -50,7 +50,8 @@ void spmmCsrSpmmCsrFused(int M, int N, int K,
                          double *Dx,
                          double *ACx,
                          int LevelNo, const int *LevelPtr, const int *ParPtr,
-                         const int *Partition, const int *ParType);
+                         const int *Partition, const int *ParType,
+                         int NThreads);
 
 } // namespace sparse
 } // namespace swiftware
