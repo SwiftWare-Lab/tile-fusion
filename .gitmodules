@@ -1,0 +1,6 @@
+[submodule "fusion/aggregation"]
+	path = fusion/aggregation
+	url = https://github.com/sympiler/aggregation.git
+[submodule "fusion/benchmark"]
+	path = fusion/benchmark
+	url = https://github.com/SwiftWare-Lab/benchmark.git
