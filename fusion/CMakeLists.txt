@@ -22,6 +22,8 @@ list(APPEND CMAKE_MODULE_PATH
         ${SYM_AGG}/cmake
         "${SYM_AGG}/cmake/third_party"
         )
+find_package( OpenMP REQUIRED)
+
 
 include(metis)
 if(METIS_FOUND)
@@ -43,6 +45,7 @@ target_include_directories(fusion PRIVATE
         )
 target_link_libraries(fusion PRIVATE
         aggregation
+        OpenMP::OpenMP_CXX
         )
 
 
