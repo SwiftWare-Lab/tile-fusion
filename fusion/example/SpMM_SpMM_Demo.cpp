@@ -56,7 +56,7 @@ int main(const int argc, const char *argv[]){
   delete stats;
 
 
-  stats = new swiftware::benchmark::Stats("SpMM_SpMM_FusedSeq", "SpMM", 7, tp._matrix_name, numThread);
+  stats = new swiftware::benchmark::Stats("SpMM_SpMM_FusedParallel", "SpMM", 7, tp._matrix_name, numThread);
   auto *fusedParallel = new SpMMSpMMFusedInterLayer(inSpMM, stats);
   fusedParallel->run();
   //fusedParallel->OutTensor->printDx();
