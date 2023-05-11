@@ -85,8 +85,11 @@ namespace sym_lib{
                       const std::vector<bool>& VisitedG1, const std::vector<bool>& VisitedG2){
   std::vector<bool> tmpG1(G2->m, false);
   for (int id : InSet) {
-   //visited_g2[id] = true; // each node is visited itself
    tmpG1[id] = true; // each vertex in in_set is visited locally
+  }
+  for (int id : InSet) {
+   //visited_g2[id] = true; // each node is visited itself
+   //tmpG1[id] = true; // each vertex in in_set is visited locally
    bool selfDisjoint = true;
    // check all dependent G2 vertices are there
    for (int j = G2->p[id]; j < G2->p[id+1]; ++j) {
@@ -100,7 +103,8 @@ namespace sym_lib{
     // check all dependent G1 vertices are there
     for (int j = D->p[id]; j < D->p[id+1]; ++j) {
      auto reachedIter = D->i[j]; // an iteration of G1
-     if(!VisitedG1[reachedIter]){
+     //if(!VisitedG1[reachedIter]){
+     if(!tmpG1[reachedIter]){
       selfDisjoint = false;
       break;
      }

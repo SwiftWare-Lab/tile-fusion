@@ -52,9 +52,9 @@ void spmmCsrSpmmCsrFused(int M, int N, int K, int L,
                          const int *Partition, const int *ParType,
                          int NThreads) {
   for (int i1 = 0; i1 < LevelNo; ++i1) {
-//#pragma omp parallel num_threads(NThreads)
+#pragma omp parallel num_threads(NThreads)
     {
-//#pragma omp  for
+#pragma omp  for
       for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; ++j1) {
         for (int k1 = ParPtr[j1]; k1 < ParPtr[j1 + 1]; ++k1) {
           int i = Partition[k1];

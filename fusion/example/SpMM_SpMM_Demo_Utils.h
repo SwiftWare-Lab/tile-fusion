@@ -205,8 +205,10 @@ protected:
     auto *sf01 = new sym_lib::SparseFusion(&sp, 2);
     auto *mvDAG =  sym_lib::diagonal(InTensor->ACsr->m, 1.0);
     sf01->fuse(0, mvDAG, NULLPNTR);
+    auto *tmpCSCCSR = new sym_lib::CSC(InTensor->BCsr->m, InTensor->BCsr->n, InTensor->BCsr->nnz,
+                                   InTensor->BCsr->p, InTensor->BCsr->i, InTensor->BCsr->x);
     //sf01->print_final_list();
-    sf01->fuse(1, mvDAG, InTensor->B);
+    sf01->fuse(1, mvDAG, tmpCSCCSR);
     //sf01->print_final_list();
     FusedCompSet = sf01->getFusedCompressed();
     //FusedCompSet->print_3d();
