@@ -46,7 +46,7 @@ namespace sym_lib{
   std::string _matrix_name{}, _matrix_path{};
   std::string _mode{}; //"Random" or "MTX"
   std::string _algorithm_choice{};
-  int _density{}, _dim1{}, _dim2{}, _nnz{}; // for random mode
+  double _density{}, _dim1{}, _dim2{}, _nnz{}; // for random mode
   bool print_header{};
   int _b_cols{};
   TestParameters(){

@@ -20,6 +20,8 @@ int main(const int argc, const char *argv[]){
   parse_args(argc, argv, &sp, &tp);
   CSC *aLtCsc=NULLPNTR;
   CSC *aCSC = get_matrix_from_parameter(&tp);
+  tp._dim1 = aCSC->m; tp._dim2 = aCSC->n; tp._nnz = aCSC->nnz;
+  tp._density = (double)tp._nnz / (double)(tp._dim1 * tp._dim2);
   CSC *bCSC = sym_lib::copy_sparse(aCSC);
   auto *alCSC = make_half(aCSC->n, aCSC->p, aCSC->i, aCSC->x);
   std::vector<CSC*> orderedVec;
