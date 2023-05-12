@@ -25,7 +25,7 @@ def train(visualize, mask):
     optimizer.zero_grad()
     out = model(x, mask)
     if visualize:
-        make_dot(out, dict(model.named_parameters())).render("SAGEGraph", format="png")
+        make_dot(out, dict(model.named_parameters())).render("SAGEGraph-custom", format="png")
     loss = loss_function(out, data.y[mask])
     loss.backward()
     optimizer.step()
