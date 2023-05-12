@@ -44,6 +44,8 @@ namespace sym_lib{
    Tp->print_header = atoi(Argv[5]);
   if(Argc >= 7)
    Tp->_b_cols = atoi(Argv[6]);
+  if(Argc >= 8)
+   Sp->_num_w_partition = atoi(Argv[7]);
  }
 
 

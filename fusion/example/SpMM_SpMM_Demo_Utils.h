@@ -200,7 +200,7 @@ protected:
     Timer t;
     t.start();
     sym_lib::ScheduleParameters sp;
-    sp._num_threads = sp._num_w_partition = InTensor->NumThreads;
+    sp._num_threads = InTensor->NumThreads;
     // create the fused set
     auto *sf01 = new sym_lib::SparseFusion(&sp, 2);
     auto *mvDAG =  sym_lib::diagonal(InTensor->ACsr->m, 1.0);

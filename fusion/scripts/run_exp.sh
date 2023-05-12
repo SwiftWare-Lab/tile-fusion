@@ -15,6 +15,7 @@ export MKL_NUM_THREADS=$THRDS
 
 header=1
 
+# shellcheck disable=SC2039
 if [ "$TUNED" ==  1 ]; then
   while read line; do
     mat=$line
@@ -24,5 +25,23 @@ if [ "$TUNED" ==  1 ]; then
     if [ $header -eq 1 ]; then
        header=0
     fi
+  done < ${MATLIST}
+fi
+
+
+
+# shellcheck disable=SC2039
+if [ "$TUNED" ==  2 ]; then
+  while read line; do
+    mat=$line
+    # shellcheck disable=SC2039
+    for w in {40,400,4000,8000}; do
+      k=4
+      $BINLIB  $PATHMAIN/$mat $THRDS $k $k $header $BCOL $w
+      echo ""
+      if [ $header -eq 1 ]; then
+         header=0
+      fi
+    done
   done < ${MATLIST}
 fi

@@ -20,6 +20,8 @@ int main(const int argc, const char *argv[]){
   parse_args(argc, argv, &sp, &tp);
   CSC *aLtCsc=NULLPNTR;
   CSC *aCSC = get_matrix_from_parameter(&tp);
+  tp._dim1 = aCSC->m; tp._dim2 = aCSC->n; tp._nnz = aCSC->nnz;
+  tp._density = (double)tp._nnz / (double)(tp._dim1 * tp._dim2);
   CSC *bCSC = sym_lib::copy_sparse(aCSC);
   auto *alCSC = make_half(aCSC->n, aCSC->p, aCSC->i, aCSC->x);
   std::vector<CSC*> orderedVec;
@@ -30,7 +32,7 @@ int main(const int argc, const char *argv[]){
     alCSC = orderedVec[0];
   }
   //print_csc(1,"",aCSC);
-  int numThread = 20, numTrial = 7; std::string expName = "SpMM_SpMM_Demo";
+  int numThread = sp._num_threads, numTrial = 7; std::string expName = "SpMM_SpMM_Demo";
   auto *inSpMM = new TensorInputs<double>(aCSC->m,  tp._b_cols, aCSC->n,
                                          bCSC->m, aCSC, bCSC,
                                           numThread, numTrial, expName);
@@ -41,7 +43,7 @@ int main(const int argc, const char *argv[]){
   //unfused->OutTensor->printDx();
   inSpMM->CorrectSol = std::copy(unfused->OutTensor->Dx, unfused->OutTensor->Dx + unfused->OutTensor->M * unfused->OutTensor->N, inSpMM->CorrectMul);
   inSpMM->IsSolProvided = true;
-  auto headerStat = unfused->printStatsHeader(); headerStat+="bCols,";
+  auto headerStat = unfused->printStatsHeader();
   auto baselineStat = unfused->printStats();
   delete unfused;
   delete stats;
@@ -64,11 +66,19 @@ int main(const int argc, const char *argv[]){
   delete fusedParallel;
   delete stats;
 
+  auto csvInfo = sp.print_csv(true);
+  std::string spHeader = std::get<0>(csvInfo);
+  std::string spStat = std::get<1>(csvInfo);
+
+  auto tpCsv = tp.print_csv(true);
+  std::string tpHeader = std::get<0>(tpCsv);
+  std::string tpStat = std::get<1>(tpCsv);
+
   if(tp.print_header)
-    std::cout<<headerStat<<std::endl;
-  std::cout<<baselineStat<<","<<tp._b_cols<<std::endl;
-  std::cout<<unfusedParallelStat<<","<<tp._b_cols<<std::endl;
-  std::cout<<fusedParallelStat<<","<<tp._b_cols;
+    std::cout<<headerStat+spHeader+tpHeader<<std::endl;
+  std::cout<<baselineStat<<spStat+tpStat<<std::endl;
+  std::cout<<unfusedParallelStat<<spStat+tpStat<<std::endl;
+  std::cout<<fusedParallelStat<<spStat+tpStat;
 
 //  sp._num_w_partition = 2;
 //  //print_csc(1,"",A_csc);
