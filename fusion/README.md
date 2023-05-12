@@ -6,8 +6,11 @@ We explore possibilities of inter-layer fusion in GNN on hetergenous devices, CP
 - CMake
 - C++ compiler
 
+
 ## Build
 ```bash
+git clone --recursive https://github.com/SwiftWare-Lab/fused-gnn.git
+cd fused-gnn/fusion
 mkdir build
 cd build
 cmake ..
