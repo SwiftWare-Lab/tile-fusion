@@ -20,10 +20,12 @@ datasets = {
 }
 
 
-def train(mask):
+def train(visualize, mask):
     model.train()
     optimizer.zero_grad()
     out = model(x, mask)
+    if visualize:
+        make_dot(out, dict(model.named_parameters())).render("SAGEGraph", format="png")
     loss = loss_function(out, data.y[mask])
     loss.backward()
     optimizer.step()
@@ -77,15 +79,14 @@ for epoch in range(epochs):
     train_perm = torch.randperm(num_train)
     batch = train_mask[train_perm[:batch_count]]
     start_time = time.time()
-    loss = train(batch)
+    loss = train(args.visualize, batch)
     end_time = time.time()
     times.append(end_time-start_time)
     print('epoch: ', epoch, '- loss: ', loss)
         
 val_output = test(val_mask) 
 print ("Validation F1:", val_output)
-if args.visualize:
-        make_dot(val_output, dict(model.named_parameters())).render("SAGEGraph-custom", format="png")
+
 test_output =test(test_mask)
 print ("Test F1:", test_output)
 
