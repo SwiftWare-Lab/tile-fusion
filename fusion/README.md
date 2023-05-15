@@ -17,7 +17,16 @@ cmake ..
 make
 ```
 
+## Download dataset
+You also need to download the data where you like. The default location 
+is set to data in the current directory.
+```bash
+python scripts/dl_matrix.py
+```
+The script downloads SPD matrices. It can be changed. 
+
 ## On Niagara
+ You can run the script using:
 ```bash
 bash run_niagara.sh
 ```
@@ -27,7 +36,7 @@ sbatch run_niagara.sh
 ```
 to run as job.
 
-The `run_niagara.sh` script should work in a linux machine.
+The `run_niagara.sh` script should work in a linux machine. Make sure to set paths before running the script.
 
 ## Plotting
 

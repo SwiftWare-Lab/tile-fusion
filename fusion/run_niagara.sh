@@ -43,6 +43,8 @@ LOGS=./build/logs/
 SCRIPTPATH=./scripts/
 MATLIST=./scripts/spd_list.txt
 
+
+
 THRD=40
 NUM_THREAD=40
 export OMP_NUM_THREADS=40
