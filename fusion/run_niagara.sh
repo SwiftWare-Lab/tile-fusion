@@ -12,6 +12,9 @@
 #SBATCH -t 11:59:00
 #SBATCH --constraint=cascade
 
+DOWNLOAD=0
+DOWNLOAD=$1
+
 module load NiaEnv/.2022a
 module load intel/2022u2
 export MKL_DIR=$MKLROOT
@@ -41,13 +44,16 @@ UFDB=$SCRATCH/UFDB/SPD/  #$HOME/UFDB/SPD/
 #UFDB=/scratch/m/mmehride/kazem/UFDB/SPD
 LOGS=./build/logs/
 SCRIPTPATH=./scripts/
-MATLIST=./scripts/spd_list.txt
+MATLIST=./scripts/mat_list.txt
+
+if [ $DOWNLOAD -eq 1 ]; then
+    bash $SCRIPTPATH/dl_matrix.py $UFDB $MATLIST
+fi
 
 
-
-THRD=40
-NUM_THREAD=40
-export OMP_NUM_THREADS=40
+THRD=20
+NUM_THREAD=20
+export OMP_NUM_THREADS=20
 
 
 
@@ -61,12 +67,14 @@ export OMP_DYNAMIC=FALSE;
 mkdir $LOGS
 
 MODE=2
-
+# performing the experiments
 bash $SCRIPTPATH/run_exp.sh $BINPATH/spmm_spmm_fusion $UFDB $MODE $THRD $MATLIST 4 > $LOGS/spmv_spmv_4.csv
-bash $SCRIPTPATH/run_exp.sh $BINPATH/spmm_spmm_fusion $UFDB $MODE $THRD $MATLIST 32 > $LOGS/spmv_spmv_32.csv
-bash $SCRIPTPATH/run_exp.sh $BINPATH/spmm_spmm_fusion $UFDB $MODE $THRD $MATLIST 64 > $LOGS/spmv_spmv_64.csv
-bash $SCRIPTPATH/run_exp.sh $BINPATH/spmm_spmm_fusion $UFDB $MODE $THRD $MATLIST 128 > $LOGS/spmv_spmv_128.csv
-bash $SCRIPTPATH/run_exp.sh $BINPATH/spmm_spmm_fusion $UFDB $MODE $THRD $MATLIST 256 > $LOGS/spmv_spmv_256.csv
+#bash $SCRIPTPATH/run_exp.sh $BINPATH/spmm_spmm_fusion $UFDB $MODE $THRD $MATLIST 32 > $LOGS/spmv_spmv_32.csv
+#bash $SCRIPTPATH/run_exp.sh $BINPATH/spmm_spmm_fusion $UFDB $MODE $THRD $MATLIST 64 > $LOGS/spmv_spmv_64.csv
+#bash $SCRIPTPATH/run_exp.sh $BINPATH/spmm_spmm_fusion $UFDB $MODE $THRD $MATLIST 128 > $LOGS/spmv_spmv_128.csv
+#bash $SCRIPTPATH/run_exp.sh $BINPATH/spmm_spmm_fusion $UFDB $MODE $THRD $MATLIST 256 > $LOGS/spmv_spmv_256.csv
 
 
 
+# plotting
+python3 $SCRIPTPATH/plot.py $LOGS/spmv_spmv_4.csv

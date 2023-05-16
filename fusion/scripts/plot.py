@@ -32,7 +32,7 @@ def take_median(df, **kwargs):
     return np.median(time_array)
 
 
-def plot_spmv_spmv(input_path1):
+def plot_spmm_spmm(input_path1):
     df_fusion = pd.read_csv(input_path1)
     mat_list = df_fusion['MatrixName'].unique()
     seq_exe_time, separated_exe_time = [], []
@@ -96,9 +96,9 @@ def plot_spmv_spmv(input_path1):
     ax.legend(loc='upper left', fontsize=20, ncol=3, frameon=True, borderaxespad=1)
     ax.spines['left'].set_color('k')
     ax.spines['bottom'].set_color('k')
-    fig.show()
-    #fig.savefig('mv-mv.pdf', bbox_inches='tight')
+    #fig.show()
+    fig.savefig('mm-mm.pdf', bbox_inches='tight')
     #fig.show()
 
 if __name__ == '__main__':
-    plot_spmv_spmv(sys.argv[1])
+    plot_spmm_spmm(sys.argv[1])
