@@ -47,7 +47,7 @@ SCRIPTPATH=./scripts/
 MATLIST=./scripts/mat_list.txt
 
 if [ $DOWNLOAD -eq 1 ]; then
-    bash $SCRIPTPATH/dl_matrix.py $UFDB $MATLIST
+    python3 $SCRIPTPATH/dl_matrix.py $UFDB $MATLIST
 fi
 
 
