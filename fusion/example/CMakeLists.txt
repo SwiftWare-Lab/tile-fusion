@@ -25,7 +25,17 @@ target_link_libraries(dag_decomp
 add_executable(spmm_spmm_fusion
         SpMM_SpMM_Demo.cpp
         )
+
 target_link_libraries(spmm_spmm_fusion
+        fusion
+        swbench::swbench
+        OpenMP::OpenMP_CXX
+        )
+add_executable(spmm_spmm_example
+        SpMM_SpMM_Tutorial_Demo.cpp
+        )
+        
+target_link_libraries(spmm_spmm_example
         fusion
         swbench::swbench
         OpenMP::OpenMP_CXX

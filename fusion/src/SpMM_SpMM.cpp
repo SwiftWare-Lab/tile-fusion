@@ -21,6 +21,22 @@ void spmmCsrSequential(int M, int N, int K,
   }
 }
 
+void spmmCsrParallel2(int M, int N, int K,
+                     const int *Ap, const int *Ai, const double *Ax,
+                     const double *Bx, double *Cx, int NThreads) {
+#pragma omp parallel num_threads(NThreads)
+  {
+#pragma omp for
+    for (int i = 0; i < M; ++i) {
+      for (int j = Ap[i]; j < Ap[i + 1]; ++j) {
+        int aij = Ai[j] * N;
+        for (int k = 0; k < N; ++k) {
+          Cx[i * N + k] += Ax[j] * Bx[aij + k];
+        }
+      }
+    }
+  }
+}
 
 
 void spmmCsrParallel(int M, int N, int K,

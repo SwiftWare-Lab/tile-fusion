@@ -20,6 +20,9 @@ namespace sparse {
 void spmmCsrSequential(int M, int N, int K,
                        const int *Ap, const int *Ai, const double *Ax,
                        const double *Bx, double *Cx);
+void spmmCsrParallel2(int M, int N, int K,
+                     const int *Ap, const int *Ai, const double *Ax,
+                     const double *Bx, double *Cx, int NThreads);
 void spmmCsrParallel(int M, int N, int K,
                      const int *Ap, const int *Ai, const double *Ax,
                      const double *Bx, double *Cx, int NThreads);

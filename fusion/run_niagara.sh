@@ -40,8 +40,9 @@ make -j 40
 cd ..
 
 BINPATH=./build/example/
-UFDB=$SCRATCH/UFDB/SPD/  #$HOME/UFDB/SPD/
+# UFDB=$SCRATCH/UFDB/SPD/  #$HOME/UFDB/SPD/
 #UFDB=/scratch/m/mmehride/kazem/UFDB/SPD
+UFDB=./data
 LOGS=./build/logs/
 SCRIPTPATH=./scripts/
 MATLIST=./scripts/mat_list.txt
@@ -68,7 +69,7 @@ mkdir $LOGS
 
 MODE=2
 # performing the experiments
-bash $SCRIPTPATH/run_exp.sh $BINPATH/spmm_spmm_fusion $UFDB $MODE $THRD $MATLIST 4 > $LOGS/spmv_spmv_4.csv
+bash $SCRIPTPATH/run_exp.sh $BINPATH/spmm_spmm_example $UFDB $MODE $THRD $MATLIST 4 > $LOGS/spmv_spmv_4.csv
 #bash $SCRIPTPATH/run_exp.sh $BINPATH/spmm_spmm_fusion $UFDB $MODE $THRD $MATLIST 32 > $LOGS/spmv_spmv_32.csv
 #bash $SCRIPTPATH/run_exp.sh $BINPATH/spmm_spmm_fusion $UFDB $MODE $THRD $MATLIST 64 > $LOGS/spmv_spmv_64.csv
 #bash $SCRIPTPATH/run_exp.sh $BINPATH/spmm_spmm_fusion $UFDB $MODE $THRD $MATLIST 128 > $LOGS/spmv_spmv_128.csv
@@ -77,4 +78,4 @@ bash $SCRIPTPATH/run_exp.sh $BINPATH/spmm_spmm_fusion $UFDB $MODE $THRD $MATLIST
 
 
 # plotting
-python3 $SCRIPTPATH/plot.py $LOGS/spmv_spmv_4.csv
+python3 $SCRIPTPATH/plot_example.py $LOGS/spmv_spmv_4.csv

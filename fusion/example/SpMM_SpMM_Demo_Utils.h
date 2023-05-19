@@ -192,6 +192,36 @@ public:
   }
 };
 
+class SpMMSpMMUnFusedParallel2 : public SpMMSpMMUnFused {
+  protected: 
+    Timer execute() override {
+      OutTensor->reset();
+      Timer t;
+      t.start();
+      swiftware::sparse::spmmCsrParallel2(InTensor->M, InTensor->N,
+                                          InTensor->K,
+                                          InTensor->ACsr->p,
+                                          InTensor->ACsr->i,
+                                          InTensor->ACsr->x,
+                                          InTensor->Cx,
+                                          OutTensor->ACx,
+                                          InTensor->NumThreads);
+      swiftware::sparse::spmmCsrParallel2(InTensor->L, InTensor->N,
+                                          InTensor->M,
+                                          InTensor->BCsr->p,
+                                          InTensor->BCsr->i,
+                                          InTensor->BCsr->x,
+                                          OutTensor->ACx,
+                                          OutTensor->Dx,
+                                          InTensor->NumThreads);
+      t.stop();
+      return t;                                 
+    }
+  public:
+    SpMMSpMMUnFusedParallel2(TensorInputs<double> *In1, Stats *Stat1) : SpMMSpMMUnFused(In1, Stat1){
+    }
+};
+
 
 class SpMMSpMMFusedInterLayer : public SpMMSpMMUnFused {
 protected:
