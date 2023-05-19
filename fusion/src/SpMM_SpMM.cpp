@@ -28,9 +28,9 @@ void spmmCsrParallel2(int M, int N, int K,
   {
 #pragma omp for
     for (int i = 0; i < M; ++i) {
-      for (int j = Ap[i]; j < Ap[i + 1]; ++j) {
-        int aij = Ai[j] * N;
-        for (int k = 0; k < N; ++k) {
+      for (int k = 0; k < N; ++k) {
+        for (int j = Ap[i]; j < Ap[i + 1]; ++j) { 
+          int aij = Ai[j] * N;
           Cx[i * N + k] += Ax[j] * Bx[aij + k];
         }
       }
