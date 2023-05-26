@@ -5,7 +5,9 @@
 #include "SWTensorBench.h"
 #include "aggregation/sparse_io.h"
 #include "aggregation/sparse_utilities.h"
+#include "sparse-fusion/MultiDimensionalSet.h"
 #include "sparse-fusion/SpMM_SpMM.h"
+#include "sparse-fusion/SparseFusion.h"
 #include <omp.h>
 
 #ifndef SPARSE_FUSION_SPMM_SPMM_DEMO_UTILS_H
@@ -105,25 +107,25 @@ protected:
   }
 
   Timer execute() override {
-//    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
-//    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
     OutTensor->reset();
     Timer t;
     t.start();
     swiftware::sparse::spmmCsrSequential(InTensor->M, InTensor->N,
-                                       InTensor->K,
-                                       InTensor->ACsr->p,
-                                       InTensor->ACsr->i,
-                                       InTensor->ACsr->x,
-                                       InTensor->Cx,
-                                       OutTensor->ACx);
+                                         InTensor->K,
+                                         InTensor->ACsr->p,
+                                         InTensor->ACsr->i,
+                                         InTensor->ACsr->x,
+                                         InTensor->Cx,
+                                         OutTensor->ACx);
     swiftware::sparse::spmmCsrSequential(InTensor->L, InTensor->N,
-                                       InTensor->M,
-                                       InTensor->BCsr->p,
-                                       InTensor->BCsr->i,
-                                       InTensor->BCsr->x,
-                                       OutTensor->ACx,
-                                       OutTensor->Dx);
+                                         InTensor->M,
+                                         InTensor->BCsr->p,
+                                         InTensor->BCsr->i,
+                                         InTensor->BCsr->x,
+                                         OutTensor->ACx,
+                                         OutTensor->Dx);
     t.stop();
     return t;
   }
@@ -163,8 +165,8 @@ public:
 class SpMMSpMMUnFusedParallel : public SpMMSpMMUnFused {
 protected:
   Timer execute() override {
-//    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
-//    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
     OutTensor->reset();
     Timer t;
     t.start();
@@ -195,8 +197,8 @@ public:
 
 class SpMMSpMMFusedInterLayer : public SpMMSpMMUnFused {
 protected:
-    sym_lib::MultiDimensionalSet *FusedCompSet;
-      Timer analysis() override {
+  sym_lib::MultiDimensionalSet *FusedCompSet;
+  Timer analysis() override {
     Timer t;
     t.start();
     sym_lib::ScheduleParameters sp;
@@ -206,7 +208,7 @@ protected:
     auto *mvDAG =  sym_lib::diagonal(InTensor->ACsr->m, 1.0);
     sf01->fuse(0, mvDAG, NULLPNTR);
     auto *tmpCSCCSR = new sym_lib::CSC(InTensor->BCsr->m, InTensor->BCsr->n, InTensor->BCsr->nnz,
-                                   InTensor->BCsr->p, InTensor->BCsr->i, InTensor->BCsr->x);
+                                       InTensor->BCsr->p, InTensor->BCsr->i, InTensor->BCsr->x);
     //sf01->print_final_list();
     sf01->fuse(1, mvDAG, tmpCSCCSR);
     //sf01->print_final_list();
@@ -220,8 +222,8 @@ protected:
   }
 
   Timer execute() override {
-//    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
-//    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
     OutTensor->reset();
     Timer t;
     t.start();
@@ -238,7 +240,7 @@ protected:
                                            OutTensor->ACx, FusedCompSet->n1_,
                                            FusedCompSet->ptr1_,
                                            FusedCompSet->ptr2_, FusedCompSet->id_,
-                                            FusedCompSet->type_,
+                                           FusedCompSet->type_,
                                            InTensor->NumThreads);
 
     t.stop();

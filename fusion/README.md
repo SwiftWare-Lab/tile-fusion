@@ -24,19 +24,24 @@ is set to data in the current directory.
 python scripts/dl_matrix.py
 ```
 The script downloads SPD matrices. It can be changed by updating the `dl_matrix.py`. 
-
+## On Local
+you can build and run an experiment using:
+```bash
+bash run.sh -l -b SpMM_SpMM_MKL -d 4
+```
+learn about different parameters by running:
+```bash
+bash run.sh -h
+```
 ## On Niagara
  You can run the script using:
 ```bash
-bash run_niagara.sh 1
+bash run_niagara.sh
 ```
 or you can use:
 ```bash
-sbatch run_niagara.sh 1
+sbatch run_niagara.sh
 ```
-to run as job. The passed argument `1` specifies whether the matrices should be downloaded or not. 
-
-The `run_niagara.sh` script should work in a linux machine. Make sure to set paths before running the script.
 
 ## Plotting
 
