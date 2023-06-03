@@ -36,11 +36,11 @@ bash run.sh -h
 ## On Niagara
  You can run the script using:
 ```bash
-bash run_niagara.sh
+bash run_niagara.sh -b SpMM_SpMM_Demo_UnFusedParallel
 ```
 or you can use:
 ```bash
-sbatch run_niagara.sh
+sbatch run_niagara.sh -b SpMM_SpMM_Demo_UnFusedParallel
 ```
 
 ## Plotting
