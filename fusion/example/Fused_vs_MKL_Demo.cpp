@@ -2,8 +2,8 @@
 // Created by mehdi on 5/25/23.
 //
 
-#include "sparse-fusion/SparseFusion.h"
 #include "SpMM_SpMM_Demo_Utils.h"
+#include "SpMM_SpMM_MKL_Demo_Utils.h"
 #include "aggregation/def.h"
 #include "aggregation/sparse_io.h"
 #include "aggregation/sparse_utilities.h"
@@ -47,7 +47,7 @@ int main(const int argc, const char *argv[]){
   delete stats;
 
 
-  stats = new swiftware::benchmark::Stats("SpMM_SpMM_Demo_MKL", "SpMM", 7, tp._matrix_name, numThread);
+  stats = new swiftware::benchmark::Stats("SpMM_SpMM_MKL", "SpMM", 7, tp._matrix_name, numThread);
   auto *mklImpl = new SpMMSpMMMKL(inSpMM, stats);
   mklImpl->run();
   auto mklImplStat = mklImpl->printStats();

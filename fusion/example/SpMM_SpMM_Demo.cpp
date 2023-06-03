@@ -2,16 +2,15 @@
 // Created by kazem on 02/05/23.
 //
 
-#include "sparse-fusion/SparseFusion.h"
-#include "SpMM_SpMM_Demo_Utils.h"
 #include "aggregation/def.h"
+#include "SpMM_SpMM_Demo_Utils.h"
 #include "aggregation/sparse_io.h"
 #include "aggregation/sparse_utilities.h"
 #include "sparse-fusion/Fusion_Utils.h"
+#include "sparse-fusion/SparseFusion.h"
 #include <fstream>
 
 using namespace sym_lib;
-
 // A is MxK, C is KxN, B is LxM, and D is LxN; AC is MxN
 int main(const int argc, const char *argv[]){
   TestParameters tp;tp._order_method=SYM_ORDERING::NONE;
