@@ -6,7 +6,7 @@
 #SBATCH --job-name="fusion"
 #SBATCH --mail-type=begin  # email me when the job starts
 #SBATCH --mail-type=end    # email me when the job finishes
-#SBATCH --mail-user=kazem.cheshmi@gmail.com
+#SBATCH --mail-user=msalehid20@gmail.com
 #SBATCH --nodes=1
 #SBATCH --output="fusion.%j.%N.out"
 #SBATCH -t 11:59:00
@@ -27,10 +27,11 @@ while getopts ":b:l" arg; do
 done
 
 
-module load NiaEnv/.2022a
+module load NiaEnv/2022a
 module load intel/2022u2
 module load cmake
-module load gcc
+module load gcc/12.2.0
+module load mkl/2022.1.0
 
 if [ $TEST -eq 1 ]; then
   bash run.sh -b $BASE_LINE -l
