@@ -3,23 +3,28 @@
 BASELINE="SpMM_SpMM_Demo_UnFusedParallel"
 UFDB=$SCRATCH/UFDB/SPD/
 BCOL=4
-LOCAL=0
-while getopts ":b:ld:" arg; do
+TEST=0
+THRD=20
+while getopts ":b:lt:d:" arg; do
   case "${arg}" in
     b)
       BASELINE=$OPTARG
       ;;
     l)
-      LOCAL=1
+      TEST=1
       UFDB=./data
       ;;
     d)
       BCOL=$OPTARG
       ;;
+    t)
+      THRD=$OPTARG
+      ;;
     *) echo "Usage:
     -b BASELINE=SpMM_SpMM_Demo_UnFusedParallel        Choose a baseline to compare with Fused SpMM SpMM(Current base lines: SpMM_SpMM_Demo_UnFusedParallel,SpMM_SpMM_MKL)
-    -l LOCAL=FALSE                                    Set if you want to run the script locally
-    -d BCOL=4                                         num of the columns of the dense matrix"
+    -l TEST=FALSE                                     Set if you want to run the script for one b_col
+    -d BCOL=4                                         num of the columns of the dense matrix
+    -t THRD=20                                        num of threads"
       exit 0
   esac
 done
@@ -55,26 +60,20 @@ LOGS=./build/logs/
 SCRIPTPATH=./scripts/
 MATLIST=./scripts/mat_list.txt
 
-
-THRD=20
-NUM_THREAD=20
-export OMP_NUM_THREADS=20
-
-
-
-MKL_NUM_THREADS=$NUM_THREAD; export MKL_NUM_THREADS
-OMP_NUM_THREADS=$NUM_THREAD; export OMP_NUM_THREADS
-export MKL_DYNAMIC=FALSE;
-export OMP_DYNAMIC=FALSE;
-#export MKL_VERBOSE=1
-
-
 mkdir $LOGS
 
 MODE=2
 # performing the experiments
 
-if [ $LOCAL -eq 1 ]; then
+if [ $TEST -eq 1 ]; then
+  NUM_THREAD=$THRD
+  export OMP_NUM_THREADS=$NUM_THREAD
+  MKL_NUM_THREADS=$NUM_THREAD; export MKL_NUM_THREADS
+  OMP_NUM_THREADS=$NUM_THREAD; export OMP_NUM_THREADS
+  export MKL_DYNAMIC=FALSE;
+  export OMP_DYNAMIC=FALSE;
+  #export MKL_VERBOSE=1
+
   python3 $SCRIPTPATH/dl_matrix.py $UFDB $MATLIST
   bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE $THRD $MATLIST $BCOL > $LOGS/spmv_spmv_$BCOL.csv
   # plotting

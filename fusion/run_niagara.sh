@@ -13,10 +13,13 @@
 #SBATCH --constraint=cascade
 
 BASE_LINE="SpMM_SpMM_Demo_UnFusedParallel"
-while getopts ":b:" arg; do
+while getopts ":b:l" arg; do
   case "${arg}" in
     b)
       BASE_LINE=$OPTARG
+      ;;
+    l)
+      TEST=1
       ;;
     *) echo "usage: "
       exit 1
@@ -29,4 +32,8 @@ module load intel/2022u2
 module load cmake
 module load gcc
 
-bash run.sh -b $BASE_LINE
+if [ $TEST -eq 1 ]; then
+  bash run.sh -b $BASE_LINE -l
+else
+  bash run.sh -b $BASE_LINE -t 40
+fi

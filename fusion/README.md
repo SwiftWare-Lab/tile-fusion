@@ -34,13 +34,17 @@ learn about different parameters by running:
 bash run.sh -h
 ```
 ## On Niagara
- You can run the script using:
+ You can test the script on niagara using:
 ```bash
-bash run_niagara.sh -b SpMM_SpMM_Demo_UnFusedParallel
+bash run_niagara.sh -b SpMM_SpMM_Demo_UnFusedParallel -l
 ```
 or you can use:
 ```bash
 sbatch run_niagara.sh -b SpMM_SpMM_Demo_UnFusedParallel
+```
+note that in this method you should have run dl_matrix.py before:
+```bash
+python scripts/dl_matrix.py $SCRATCH/UFDB/SPD/ scripts/mat_list.txt
 ```
 
 ## Plotting
