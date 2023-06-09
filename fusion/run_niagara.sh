@@ -13,7 +13,8 @@
 #SBATCH --constraint=cascade
 
 BASE_LINE="SpMM_SpMM_Demo_UnFusedParallel"
-while getopts ":b:l" arg; do
+UFDB=$SCRATCH/UFDB/AM/
+while getopts ":b:lm:" arg; do
   case "${arg}" in
     b)
       BASE_LINE=$OPTARG
@@ -21,20 +22,26 @@ while getopts ":b:l" arg; do
     l)
       TEST=1
       ;;
-    *) echo "usage: "
-      exit 1
+    m)
+      UFDB=$OPTARG
+      ;;
+    *) echo "Usage:
+    -b BASELINE=SpMM_SpMM_Demo_UnFusedParallel        Choose a baseline to compare with Fused SpMM SpMM(Current base lines: SpMM_SpMM_Demo_UnFusedParallel,SpMM_SpMM_MKL)
+    -l TEST=FALSE                                     Set if you want to run the script for one b_col
+    -m UFDB=$SCRATCH/UFDB/AM/                        path of matrices data"
+      exit 0
   esac
 done
 
 
-module load NiaEnv/2022a
+module load NiaEnv/.2022a
 module load intel/2022u2
+export MKL_DIR=$MKLROOT
 module load cmake
-module load gcc/12.2.0
-module load mkl/2022.1.0
+module load gcc
 
 if [ $TEST -eq 1 ]; then
-  bash run.sh -b $BASE_LINE -l
+  bash run.sh -b $BASE_LINE -l -m $UFDB
 else
-  bash run.sh -b $BASE_LINE -t 40
+  bash run.sh -b $BASE_LINE -t 40 -m $UFDB
 fi

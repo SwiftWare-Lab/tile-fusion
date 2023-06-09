@@ -1,18 +1,17 @@
 #!/bin/bash
 
 BASELINE="SpMM_SpMM_Demo_UnFusedParallel"
-UFDB=$SCRATCH/UFDB/SPD/
+UFDB=./data
 BCOL=4
 TEST=0
 THRD=20
-while getopts ":b:lt:d:" arg; do
+while getopts ":b:lt:d:m:" arg; do
   case "${arg}" in
     b)
       BASELINE=$OPTARG
       ;;
     l)
       TEST=1
-      UFDB=./data
       ;;
     d)
       BCOL=$OPTARG
@@ -20,11 +19,15 @@ while getopts ":b:lt:d:" arg; do
     t)
       THRD=$OPTARG
       ;;
+    m)
+      UFDB=$OPTARG
+      ;;
     *) echo "Usage:
     -b BASELINE=SpMM_SpMM_Demo_UnFusedParallel        Choose a baseline to compare with Fused SpMM SpMM(Current base lines: SpMM_SpMM_Demo_UnFusedParallel,SpMM_SpMM_MKL)
     -l TEST=FALSE                                     Set if you want to run the script for one b_col
     -d BCOL=4                                         num of the columns of the dense matrix
-    -t THRD=20                                        num of threads"
+    -t THRD=20                                        num of threads
+    -m UFDB=./data                                    path of matrices data"
       exit 0
   esac
 done
@@ -58,7 +61,7 @@ cd ..
 BINPATH=./build/example/
 LOGS=./build/logs/
 SCRIPTPATH=./scripts/
-MATLIST=./scripts/mat_list.txt
+MATLIST=$UFDB/mat_list.txt
 
 mkdir $LOGS
 
@@ -77,7 +80,7 @@ if [ $TEST -eq 1 ]; then
   python3 $SCRIPTPATH/dl_matrix.py $UFDB $MATLIST
   bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE $THRD $MATLIST $BCOL > $LOGS/spmv_spmv_$BCOL.csv
   # plotting
-  python3 $SCRIPTPATH/plot.py $LOGS/spmv_spmv_$BCOL.csv $BASELINE
+  python3 $SCRIPTPATH/plot.py $LOGS $BASELINE
 else
   bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE $THRD $MATLIST 4 > $LOGS/spmv_spmv_4.csv
   bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE $THRD $MATLIST 32 > $LOGS/spmv_spmv_32.csv

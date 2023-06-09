@@ -4,7 +4,6 @@
 #include "sparse-fusion/Fusion_Utils.h"
 #include "aggregation/def.h"
 #include "aggregation/lbc.h"
-#include "aggregation/sparse_io.h"
 #include "aggregation/sparse_utilities.h"
 #include "aggregation/test_utils.h"
 #include <cstdlib>
@@ -12,6 +11,7 @@
 #include <sstream>
 
 #ifdef METIS
+#include "aggregation/exceptions.h"
 #include "aggregation/metis_interface.h"
 #endif
 
@@ -77,9 +77,39 @@ namespace sym_lib{
    aCSC = random_square_sparse(TP->_dim1, TP->_density);
   } else {
    std::ifstream fin(TP->_matrix_path);
-   sym_lib::read_mtx_csc_real(fin, aCSC);
+   sym_lib::read_mtx_csc_pattern(fin, aCSC);
   }
   return aCSC;
+ }
+
+ void read_mtx_csc_pattern(std::ifstream &in_file,CSC *&A, bool insert_diag){
+  int n, m;
+  int shape, arith, mtx_format;
+  size_t nnz;
+  std::vector<triplet> triplet_vec;
+  read_header(in_file, m, n, nnz, arith, shape, mtx_format);
+  if(arith != PATTERN)
+   throw mtx_arith_error("PATTERN", type_str(arith));
+  else if (mtx_format != COORDINATE)
+   throw mtx_format_error("COORDINATE", format_str(mtx_format));
+  A = new CSC(m,n,nnz,false, shape2int(shape));
+  sym_lib::read_pattern_coordinates_to_triplets(in_file, nnz, triplet_vec);
+  sym_lib::compress_triplets_to_csc(triplet_vec, A, insert_diag);
+  A->nnz = A->p[n];
+ }
+
+ void read_pattern_coordinates_to_triplets(std::ifstream &inFile, int nnz,
+                                           std::vector<triplet>& triplet_vec, bool zero_indexing){
+  for (int i = 0; i < nnz; ++i) {
+   triplet tmp;
+   inFile >> tmp.row;
+   inFile >> tmp.col;
+   tmp.val = 1;
+   if(!zero_indexing){
+     tmp.col--; tmp.row--;
+   }
+   triplet_vec.push_back(tmp);
+  }
  }
 
  // starts from in_set in G1 and reaches to all unvisited vertices in G2

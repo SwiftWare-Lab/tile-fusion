@@ -7,6 +7,7 @@
 
 #include "sparse-fusion/Fusion_Defs.h"
 #include "sparse-fusion/DAG.h"
+#include "aggregation/sparse_io.h"
 
 #include "aggregation/def.h"
 
@@ -27,6 +28,11 @@ namespace sym_lib{
   /// \param tp
   /// \return
   CSC* get_matrix_from_parameter(const TestParameters *tp);
+
+  void read_mtx_csc_pattern(std::ifstream &in_file, CSC *&A, bool insert_diag=false);
+
+  void read_pattern_coordinates_to_triplets(std::ifstream &inFile, int nnz,
+                          std::vector<triplet>& triplet_vec, bool zero_indexing=false);
 
  // starts from in_set in G1 and reaches to all unvisited vertices in G2
 // G1 -> G2 , D is transpose of dependence

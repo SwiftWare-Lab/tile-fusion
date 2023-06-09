@@ -6,7 +6,7 @@ from numpy import ma
 import pandas as pd
 from scipy.stats import gmean
 import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
+import os
 
 
 def filter(df, **kwargs):
@@ -34,8 +34,8 @@ def take_median(df, **kwargs):
     return np.median(time_array)
 
 
-def plot_spmm_spmm(input_path1, baseline_implementation):
-    df_fusion = pd.read_csv(input_path1)
+def plot_spmm_spmm(logs_folder, file_name, baseline_implementation):
+    df_fusion = pd.read_csv(os.path.join(logs_folder,file_name))
     mat_list = df_fusion['MatrixName'].unique()
     seq_exe_time, separated_exe_time = [], []
     fused_40, fused_400, fused_4000, fused_8000, fused_10000 = [], [], [], [], []
@@ -77,7 +77,7 @@ def plot_spmm_spmm(input_path1, baseline_implementation):
     ax.grid(False)
     # set x and y axis label
     ax.set_xlabel('Matrix ID', fontsize=20, fontweight='bold')
-    ax.set_ylabel('Speedup Fused vs Separated', fontsize=20, fontweight='bold')
+    ax.set_ylabel('Speedup Fused vs ' + baseline_implementation, fontsize=20, fontweight='bold')
     # set x and y axis tick size
     ax.tick_params(axis='x', labelsize=20)
     ax.tick_params(axis='y', labelsize=20)
@@ -100,9 +100,18 @@ def plot_spmm_spmm(input_path1, baseline_implementation):
     ax.spines['left'].set_color('k')
     ax.spines['bottom'].set_color('k')
     # fig.show()
-    fig.savefig('mm-mm.pdf', bbox_inches='tight')
+    plot_folder = "plots"
+    os.makedirs(plot_folder, exist_ok=True)
+    fig.savefig(os.path.join(plot_folder, file_name[:-4] + '.pdf'), bbox_inches='tight')
     # fig.show()
 
 
+def plot_spmm_spmm_for_logs(logs_folder, baseline_implementation):
+    with os.scandir(logs_folder) as entries:
+        for entry in entries:
+            print(entry.name)
+            plot_spmm_spmm(logs_folder, entry.name, baseline_implementation)
+
+
 if __name__ == '__main__':
-    plot_spmm_spmm(sys.argv[1], sys.argv[2])
+    plot_spmm_spmm_for_logs(sys.argv[1], sys.argv[2])
