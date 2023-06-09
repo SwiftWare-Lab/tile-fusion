@@ -30,7 +30,7 @@ int main(const int argc, const char *argv[]){
     delete alCSC;
     alCSC = orderedVec[0];
   }
-  //print_csc(1,"",aCSC);
+
   int numThread = sp._num_threads, numTrial = 7; std::string expName = "SpMM_SpMM_Demo";
   auto *inSpMM = new TensorInputs<double>(aCSC->m,  tp._b_cols, aCSC->n,
                                           bCSC->m, aCSC, bCSC,
@@ -76,32 +76,6 @@ int main(const int argc, const char *argv[]){
   std::cout<<mklImplStat<<spStat+tpStat<<std::endl;
   std::cout<<fusedParallelStat<<spStat+tpStat;
 
-  //  sp._num_w_partition = 2;
-  //  //print_csc(1,"",A_csc);
-  //  auto *sf01 = new SparseFusion(&sp, 2);
-  //  auto *mvDAG =  diagonal(alCSC->n, 1.0);
-  //  sf01->fuse(0, mvDAG, NULLPNTR);
-  //  //sf01->print_final_list();
-  //  sf01->fuse(1, mvDAG, alCSC);
-  //  sf01->print_final_list();
-  //
-  //
-  //  auto *sf02 = new SparseFusion(&sp, 2);
-  //  sf02->fuse(0, mvDAG, NULLPNTR);
-  //  //sf01->print_final_list();
-  //  sf02->fuse(1, mvDAG, alCSC);
-  //  auto *fusedCompSet = sf02->getFusedCompressed();
-  //  fusedCompSet->print_3d();
-  //
-  //
-  //
-  //
-  //  auto tpCsv = tp.print_csv(tp.print_header);
-  //  auto spCsv = sp.print_csv(tp.print_header);
-  //  if(tp.print_header){
-  //    std::cout<<std::get<0>(tpCsv)<<std::get<0>(spCsv)<<"\n";
-  //  }
-  //  std::cout<<std::get<1>(tpCsv)<<std::get<1>(spCsv);
 
   delete aCSC;
   delete bCSC;
