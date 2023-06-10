@@ -23,9 +23,12 @@ void spmmCsrSequential(int M, int N, int K,
 void spmmCsrParallel(int M, int N, int K,
                      const int *Ap, const int *Ai, const double *Ax,
                      const double *Bx, double *Cx, int NThreads);
+void spmmCsrInnerProductParallel(int M, int N, int K,
+                                 const int *Ap, const int *Ai, const double *Ax,
+                                 const double *Bx, double *Cx, int NThreads);
 
 
-/// D = B*A*C where A (MxK) and B (LxM) are sparse and C (KxN) and D (LxN) are dense
+    /// D = B*A*C where A (MxK) and B (LxM) are sparse and C (KxN) and D (LxN) are dense
 /// \param M
 /// \param N
 /// \param K
@@ -43,6 +46,16 @@ void spmmCsrParallel(int M, int N, int K,
 /// \param Partition
 /// \param ParType
 void spmmCsrSpmmCsrFused(int M, int N, int K,
+                         int L,
+                         const int *Ap, const int *Ai, const double *Ax,
+                         const int *Bp, const int *Bi,const double *Bx,
+                         const double *Cx,
+                         double *Dx,
+                         double *ACx,
+                         int LevelNo, const int *LevelPtr, const int *ParPtr,
+                         const int *Partition, const int *ParType,
+                         int NThreads);
+void spmmCsrSpmmCsrInnerProductFused(int M, int N, int K,
                          int L,
                          const int *Ap, const int *Ai, const double *Ax,
                          const int *Bp, const int *Bi,const double *Bx,

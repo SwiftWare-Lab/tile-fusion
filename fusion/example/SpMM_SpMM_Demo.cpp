@@ -57,13 +57,38 @@ int main(const int argc, const char *argv[]){
   delete stats;
 
 
-  stats = new swiftware::benchmark::Stats("SpMM_SpMM_FusedParallel", "SpMM", 7, tp._matrix_name, numThread);
+  stats = new swiftware::benchmark::Stats("SpMM_SpMM_Demo_OuterProduct_UnFusedParallel", "SpMM", 7, tp._matrix_name, numThread);
+  auto *unfusedOutParallel = new SpMMSpMMUnFusedParallel(inSpMM, stats);
+  unfusedOutParallel->run();
+  //unfusedParallel->OutTensor->printDx();
+  auto unfusedOutParallelStat = unfusedOutParallel->printStats();
+  delete unfusedOutParallel;
+  delete stats;
+
+
+  stats = new swiftware::benchmark::Stats("SpMM_SpMM_FusedParallel",
+                                          "SpMM", 7,
+                                          tp._matrix_name,
+                                          numThread);
   auto *fusedParallel = new SpMMSpMMFusedInterLayer(inSpMM, stats);
   fusedParallel->run();
   //fusedParallel->OutTensor->printDx();
   auto fusedParallelStat = fusedParallel->printStats();
   delete fusedParallel;
   delete stats;
+
+
+  stats = new swiftware::benchmark::Stats("SpMM_SpMM_OuterProduct_FusedParallel",
+                                          "SpMM", 7,
+                                          tp._matrix_name,
+                                          numThread);
+  auto *fusedOuterParallel = new SpMMSpMMFusedOuterProdInterLayer(inSpMM, stats);
+  fusedOuterParallel->run();
+  //fusedParallel->OutTensor->printDx();
+  auto fusedParallelOutStat = fusedOuterParallel->printStats();
+  delete fusedOuterParallel;
+  delete stats;
+
 
   auto csvInfo = sp.print_csv(true);
   std::string spHeader = std::get<0>(csvInfo);
@@ -77,7 +102,9 @@ int main(const int argc, const char *argv[]){
     std::cout<<headerStat+spHeader+tpHeader<<std::endl;
   std::cout<<baselineStat<<spStat+tpStat<<std::endl;
   std::cout<<unfusedParallelStat<<spStat+tpStat<<std::endl;
-  std::cout<<fusedParallelStat<<spStat+tpStat;
+  std::cout<<unfusedOutParallelStat<<spStat+tpStat<<std::endl;
+  std::cout<<fusedParallelStat<<spStat+tpStat<<std::endl;
+  std::cout<<fusedParallelOutStat<<spStat+tpStat;
 
 //  sp._num_w_partition = 2;
 //  //print_csc(1,"",A_csc);
