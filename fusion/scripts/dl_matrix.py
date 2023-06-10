@@ -5,7 +5,10 @@ import os
 
 def dl_save_list(matrix_directory, matrix_list_path):
     # specify what matrices should be downloaded
-    result = search(nzbounds=(100000, 1000000), isspd=True, limit=10000000000, dtype='real')
+    #result = search(nzbounds=(100000, 100000000), isspd=True, limit=10000000000, dtype='real')
+    result = search(nzbounds=(100000, 100000000), rowbounds=(1, 3000000), limit=1000000000000, dtype='real',
+                    kind='graph')
+
     result.download(extract=True, destpath=matrix_directory)
     # generate the list of downloaded matrices
     matrix_list = []
