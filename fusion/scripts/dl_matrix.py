@@ -4,8 +4,8 @@ import os
 
 
 def dl_save_list(matrix_directory, matrix_list_path):
-    # specify what matrices should be douwnloaded
-    result = search(nzbounds=(100000, 110000), isspd=True, limit=10000000000, dtype='real')
+    # specify what matrices should be downloaded
+    result = search(nzbounds=(100000, 1000000), isspd=True, limit=10000000000, dtype='real')
     result.download(extract=True, destpath=matrix_directory)
     # generate the list of downloaded matrices
     matrix_list = []

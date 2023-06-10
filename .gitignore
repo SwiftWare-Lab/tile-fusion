@@ -1,2 +1,5 @@
 data/
 __pycache__/
+.idea
+build/
+cmake-build-debug/
