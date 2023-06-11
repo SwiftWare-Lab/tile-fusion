@@ -1,8 +1,13 @@
 //
 // Created by kazem on 02/05/23.
 //
-
+#ifdef PROF_WITH_PAPI
 #include "papi_wrapper.h"
+#else
+#define pw_init_instruments
+#define pw_start_instruments_loop(th)
+#define pw_stop_instruments_loop(th)
+#endif
 #include <cassert>
 namespace swiftware {
 namespace sparse {
