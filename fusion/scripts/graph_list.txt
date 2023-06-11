@@ -5,11 +5,7 @@ cage12/cage12.mtx
 cage13/cage13.mtx
 cage14/cage14.mtx
 Andrews/Andrews.mtx
-graphics/graphics.mtx
 language/language.mtx
-mri1/mri1.mtx
-mri2/mri2.mtx
-Kemelmacher/Kemelmacher.mtx
 bundle1/bundle1.mtx
 EAT_RS/EAT_RS.mtx
 EAT_SR/EAT_SR.mtx
@@ -18,9 +14,6 @@ internet/internet.mtx
 patents_main/patents_main.mtx
 Reuters911/Reuters911.mtx
 Wordnet3/Wordnet3.mtx
-image_interp/image_interp.mtx
-mesh_deform/mesh_deform.mtx
-tomographic1/tomographic1.mtx
 human_gene1/human_gene1.mtx
 human_gene2/human_gene2.mtx
 mouse_gene/mouse_gene.mtx
@@ -39,7 +32,6 @@ kron_g500-logn17/kron_g500-logn17.mtx
 kron_g500-logn18/kron_g500-logn18.mtx
 kron_g500-logn19/kron_g500-logn19.mtx
 kron_g500-logn20/kron_g500-logn20.mtx
-FX_March2010/FX_March2010.mtx
 ak2010/ak2010.mtx
 al2010/al2010.mtx
 ar2010/ar2010.mtx
@@ -91,7 +83,6 @@ wi2010/wi2010.mtx
 wv2010/wv2010.mtx
 wy2010/wy2010.mtx
 Linux_call_graph/Linux_call_graph.mtx
-JP/JP.mtx
 sx-askubuntu/sx-askubuntu.mtx
 sx-mathoverflow/sx-mathoverflow.mtx
 sx-stackoverflow/sx-stackoverflow.mtx
@@ -99,7 +90,6 @@ sx-superuser/sx-superuser.mtx
 wiki-RfA/wiki-RfA.mtx
 wiki-talk-temporal/wiki-talk-temporal.mtx
 Hardesty1/Hardesty1.mtx
-Hardesty2/Hardesty2.mtx
 marine1/marine1.mtx
 Fashion_MNIST_norm_10NN/Fashion_MNIST_norm_10NN.mtx
 har_10NN/har_10NN.mtx
