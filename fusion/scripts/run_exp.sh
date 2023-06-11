@@ -35,7 +35,7 @@ if [ "$TUNED" ==  2 ]; then
   while read line; do
     mat=$line
     # shellcheck disable=SC2039
-    for w in {40,400,4000,8000,10000}; do
+    for w in {4,8,40,100,1000}; do
       k=4
       $BINLIB  $PATHMAIN/$mat $THRDS $k $k $header $BCOL $w
       echo ""
