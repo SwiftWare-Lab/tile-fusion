@@ -40,6 +40,7 @@ int main(const int argc, const char *argv[]){
                                           numThread, numTrial, expName);
 
   stats = new swiftware::benchmark::Stats("SpMM_SpMM_Demo", "SpMM", 7, tp._matrix_name, numThread);
+  stats->OtherStats["PackingType"] = {Interleaved};
   auto *unfused = new SpMMSpMMUnFused(inSpMM, stats);
   unfused->run();
   //unfused->OutTensor->printDx();
@@ -52,6 +53,7 @@ int main(const int argc, const char *argv[]){
 
 
   stats = new swiftware::benchmark::Stats("SpMM_SpMM_Demo_UnFusedParallel", "SpMM", 7, tp._matrix_name, numThread);
+  stats->OtherStats["PackingType"] = {Interleaved};
   auto *unfusedParallel = new SpMMSpMMUnFusedParallel(inSpMM, stats);
   unfusedParallel->run();
   //unfusedParallel->OutTensor->printDx();
@@ -61,6 +63,7 @@ int main(const int argc, const char *argv[]){
 
 
   stats = new swiftware::benchmark::Stats("SpMM_SpMM_Demo_InnerProduct_UnFusedParallel", "SpMM", 7, tp._matrix_name, numThread);
+  stats->OtherStats["PackingType"] = {Interleaved};
   auto *unfusedOutParallel = new SpMMSpMMUnFusedInnerParallel(inSpMM, stats);
   unfusedOutParallel->run();
   //unfusedParallel->OutTensor->printDx();
@@ -69,6 +72,7 @@ int main(const int argc, const char *argv[]){
   delete stats;
 
   stats = new swiftware::benchmark::Stats("SpMM_SpMM_Demo_CTiled_UnFusedParallel", "SpMM", 7, tp._matrix_name, numThread);
+  stats->OtherStats["PackingType"] = {Interleaved};
   auto *unfusedCTiledParallel = new SpMMSpMMUnFusedCTiledParallel(inSpMM, stats);
   unfusedCTiledParallel->run();
   auto unfusedCTiledParallelStat = unfusedCTiledParallel->printStats();
