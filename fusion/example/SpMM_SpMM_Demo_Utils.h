@@ -194,7 +194,7 @@ public:
   }
 };
 
-class SpMMSpMMUnFusedOuterParallel : public SpMMSpMMUnFused {
+class SpMMSpMMUnFusedInnerParallel : public SpMMSpMMUnFused {
 protected:
   Timer execute() override {
     //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
@@ -214,7 +214,32 @@ protected:
     return t;
   }
 public:
-  SpMMSpMMUnFusedOuterParallel(TensorInputs<double> *In1, Stats *Stat1) : SpMMSpMMUnFused(In1, Stat1){
+  SpMMSpMMUnFusedInnerParallel(TensorInputs<double> *In1, Stats *Stat1) : SpMMSpMMUnFused(In1, Stat1){
+  }
+};
+
+class SpMMSpMMUnFusedCTiledParallel : public SpMMSpMMUnFused {
+protected:
+  Timer execute() override {
+    //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
+    int tileM = 32, tileN = 32;
+    OutTensor->reset();
+    Timer t;
+    t.start();
+    swiftware::sparse::spmmCsrInnerProductTiledCParallel(
+        InTensor->M, InTensor->N, InTensor->K, InTensor->ACsr->p,
+        InTensor->ACsr->i, InTensor->ACsr->x, InTensor->Cx, OutTensor->ACx,
+        InTensor->NumThreads, tileM, tileN);
+    swiftware::sparse::spmmCsrInnerProductTiledCParallel(
+        InTensor->L, InTensor->N, InTensor->M, InTensor->BCsr->p,
+        InTensor->BCsr->i, InTensor->BCsr->x, OutTensor->ACx, OutTensor->Dx,
+        InTensor->NumThreads, tileM, tileN);
+    t.stop();
+    return t;
+  }
+public:
+  SpMMSpMMUnFusedCTiledParallel(TensorInputs<double> *In1, Stats *Stat1) : SpMMSpMMUnFused(In1, Stat1){
   }
 };
 
@@ -235,7 +260,8 @@ protected:
     //sf01->print_final_list();
     sf01->fuse(1, mvDAG, tmpCSCCSR);
     //sf01->print_final_list();
-    FusedCompSet = sf01->getFusedCompressed();
+    auto pt = St->OtherStats["PackingType"];
+    FusedCompSet = sf01->getFusedCompressed((int) pt[0]);
     //FusedCompSet->print_3d();
     delete sf01;
     delete mvDAG;
@@ -279,7 +305,7 @@ public:
 };
 
 
-class SpMMSpMMFusedOuterProdInterLayer : public SpMMSpMMFusedInterLayer{
+class SpMMSpMMFusedInnerProdInterLayer : public SpMMSpMMFusedInterLayer{
   Timer execute() override {
     //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
     //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
@@ -306,11 +332,42 @@ class SpMMSpMMFusedOuterProdInterLayer : public SpMMSpMMFusedInterLayer{
     return t;
   }
 public:
-  SpMMSpMMFusedOuterProdInterLayer(TensorInputs<double> *In1, Stats *Stat1)
+  SpMMSpMMFusedInnerProdInterLayer(TensorInputs<double> *In1, Stats *Stat1)
       : SpMMSpMMFusedInterLayer(In1, Stat1){
   }
-
-  ~SpMMSpMMFusedOuterProdInterLayer(){}
+  ~SpMMSpMMFusedInnerProdInterLayer(){}
 };
 
+class SpMMSpMMFusedSepInterLayer : public SpMMSpMMFusedInterLayer{
+  Timer execute() override {
+    //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
+    OutTensor->reset();
+    Timer t;
+    t.start();
+    swiftware::sparse::spmmCsrSpmmCsrSeparatedFused(InTensor->M, InTensor->N,
+                                                       InTensor->K, InTensor->L,
+                                                       InTensor->ACsr->p,
+                                                       InTensor->ACsr->i,
+                                                       InTensor->ACsr->x,
+                                                       InTensor->BCsr->p,
+                                                       InTensor->BCsr->i,
+                                                       InTensor->BCsr->x,
+                                                       InTensor->Cx,
+                                                       OutTensor->Dx,
+                                                       OutTensor->ACx, FusedCompSet->n1_,
+                                                       FusedCompSet->ptr1_,
+                                                       FusedCompSet->ptr2_, FusedCompSet->id_,
+                                                       FusedCompSet->type_,
+                                                    FusedCompSet->ker_begin_,
+                                                       InTensor->NumThreads);
+
+    t.stop();
+    return t;
+  }
+public:
+  SpMMSpMMFusedSepInterLayer(TensorInputs<double> *In1, Stats *Stat1)
+      : SpMMSpMMFusedInterLayer(In1, Stat1){
+  }
+};
 #endif // SPARSE_FUSION_SPMM_SPMM_DEMO_UTILS_H

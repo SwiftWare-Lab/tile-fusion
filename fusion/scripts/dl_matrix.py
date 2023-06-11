@@ -2,12 +2,13 @@ from ssgetpy import search, fetch
 import sys
 import os
 
-
+matrix_category = 1
 def dl_save_list(matrix_directory, matrix_list_path):
     # specify what matrices should be downloaded
-    #result = search(nzbounds=(100000, 100000000), isspd=True, limit=10000000000, dtype='real')
-    result = search(nzbounds=(100000, 100000000), rowbounds=(1, 3000000), limit=1000000000000, dtype='real',
-                    kind='graph')
+    if matrix_category ==0:
+        result = search(nzbounds=(100000, 100000000), isspd=True, limit=10000000000, dtype='real')
+    else:
+        result = search(nzbounds=(100000, 100000000), rowbounds=(1, 3000000), limit=1000000000000, dtype='real', kind='graph')
 
     result.download(extract=True, destpath=matrix_directory)
     # generate the list of downloaded matrices

@@ -13,6 +13,11 @@
 
 namespace sym_lib{
 
+  enum PackingType{
+    Interleaved,
+    Separated,
+    Tiled
+  };
 
  class SparseFusion {
 
@@ -52,13 +57,13 @@ namespace sym_lib{
 
  public:
 
-  explicit SparseFusion(ScheduleParameters *sp, int loop_cnt);
+  explicit SparseFusion(ScheduleParameters *Sp, int LoopCnt);
 
-  void fuse(int loop_id, CSC *Gi, CSC *Di);
+  void fuse(int LoopId, CSC *Gi, CSC *Di);
 
-  MultiDimensionalSet *getFusedCompressed();
+  MultiDimensionalSet *getFusedCompressed(int PT);
 
-  void pairing(int loop_id, CSC *Gi, CSC *Di);
+  void pairing(int LoopId, CSC *Gi, CSC *Di);
 
   void merge_pairs();
 

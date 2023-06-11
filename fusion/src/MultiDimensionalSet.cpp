@@ -120,6 +120,71 @@ namespace sym_lib {
   }
  }
 
+
+ MultiDimensionalSet::MultiDimensionalSet(
+     const std::vector<std::vector<FusedNode*>> &FusedSchedule,
+     int PerPartition){
+  int totalNode = 0, height = FusedSchedule.size(), width = 0, partNo = 0;
+  for (int i = 0; i < FusedSchedule.size(); ++i) {
+   width = std::max(width, (int) FusedSchedule[i].size());
+   partNo += FusedSchedule[i].size();
+   for (int j = 0; j < FusedSchedule[i].size(); ++j) {
+    for (int k = 0; k < FusedSchedule[i][j]->_list.size(); ++k) {
+     totalNode+=FusedSchedule[i][j]->_list[k].size();
+    }
+   }
+  }
+  auto numLoops = FusedSchedule[0][0]->_num_loops;
+  n1_ = height;
+  n2_ = partNo;
+  n3_ = totalNode;
+  d_ = numLoops;
+  ptr1_ = new int[n1_ + 1]();
+  ptr2_ = new int[n2_ + 1]();
+  id_ = new int[n3_];
+  type_= new int[n3_];
+  w_par_type_ = NULLPNTR;
+  is_redundancy_=NULLPNTR;
+  map_redundancy_=NULLPNTR;
+  ker_begin_ = new int[n2_*d_]();
+
+  int cnt = 0;
+  int cntW = 0;
+  ptr1_[0]=0;
+  ptr2_[0]=0;
+  for (int l = 0; l < n1_; ++l) { // over levels
+   for (int i = 0; i < FusedSchedule[l].size() ; ++i) {
+    //reading each w-partition
+    int cKerCnt = 0;
+    for (int j = 0; j < FusedSchedule[l][i]->_list.size(); ++j) {// for each loop
+     int bnd2 = (int)  FusedSchedule[l][i]->_list[j].size();
+     for (int k = 0; k < bnd2; ++k) {
+      id_[cnt] = FusedSchedule[l][i]->_list[j][k];
+      type_[cnt] = j;
+      cnt++;
+     }
+     ker_begin_[cntW*d_ + j] = cnt;
+     if(! FusedSchedule[l][i]->_list[j].empty() )
+      cKerCnt++;
+    }
+    cntW++;
+    ptr2_[cntW] = cnt;
+   }
+   ptr1_[l+1] = cntW;
+  }
+  //print();
+  // copy redundancy part
+//  if(map_redundancy_){
+//   for (int m = 0; m < space_; ++m) {
+//    compressed_level_set->map_redundancy_[m] = map_redundancy_[m];
+//   }
+//   for (int n = 0; n < depth_; ++n) {
+//    compressed_level_set->is_redundancy_[n] = redundant_kernels_[n];
+//   }
+//  }
+ }
+
+
  MultiDimensionalSet::~MultiDimensionalSet() {
   delete []ptr1_;
   delete []ptr2_;
@@ -138,6 +203,16 @@ namespace sym_lib {
    }
    std::cout << ";\n";
   }
+  std::cout << "\n";
+  if(ker_begin_){
+    for (int k = 0; k < n2_; ++k) {
+      for (int i = 0; i < d_; ++i) {
+      std::cout<<ker_begin_[k*d_+i]<<",";
+      }
+      std::cout<<"\n";
+    }
+  }
+  std::cout << "\n";
  }
 
  void MultiDimensionalSet::print_3d() {

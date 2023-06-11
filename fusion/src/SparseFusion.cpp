@@ -150,7 +150,6 @@ namespace sym_lib{
  }
 
 
-
  void SparseFusion::print_final_list(){
   std::cout<<"Fused Set: \n";
   for (int i = 0; i < _final_node_list.size(); ++i) {
@@ -165,8 +164,12 @@ namespace sym_lib{
   }
  }
 
- MultiDimensionalSet *SparseFusion::getFusedCompressed() {
-  auto *ret = new MultiDimensionalSet(_final_node_list);
+ MultiDimensionalSet *SparseFusion::getFusedCompressed(int PT) {
+  MultiDimensionalSet *ret;
+  if(PT == Separated)
+    ret = new MultiDimensionalSet(_final_node_list, PT);
+  else
+    ret = new MultiDimensionalSet(_final_node_list);
   return ret;
  }
 

@@ -178,7 +178,7 @@ namespace sym_lib{
                                     finalPartPtr,finalNodePtr,
                                     Sp->_num_w_partition,Sp->_lbc_agg,
                                     Sp->_lbc_initial_cut, cost.data());
-  } else{
+  } else {
    for (int i = 0; i < G->m; ++i) finalNodePtrVec[i] = i;
    partitionByWeight(G->m, finalNodePtrVec.data(), cost.data(), Sp->_num_w_partition, nullptr, finalPartPtrVec);
    finalLevelNo = 1;
