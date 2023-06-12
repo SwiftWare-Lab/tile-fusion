@@ -19,6 +19,9 @@ int main(const int argc, const char *argv[]){
   parse_args(argc, argv, &sp, &tp);
   CSC *aLtCsc=NULLPNTR;
   CSC *aCSC = get_matrix_from_parameter(&tp);
+  if(aCSC->m != aCSC->n){
+    return -1;
+  }
   tp._dim1 = aCSC->m; tp._dim2 = aCSC->n; tp._nnz = aCSC->nnz;
   tp._density = (double)tp._nnz / (double)(tp._dim1 * tp._dim2);
   CSC *bCSC = sym_lib::copy_sparse(aCSC);
@@ -37,6 +40,7 @@ int main(const int argc, const char *argv[]){
                                           numThread, numTrial, expName);
 
   stats = new swiftware::benchmark::Stats("SpMM_SpMM_Demo", "SpMM", 7, tp._matrix_name, numThread);
+  stats->OtherStats["PackingType"] = {Interleaved};
   auto *unfused = new SpMMSpMMUnFused(inSpMM, stats);
   unfused->run();
   //unfused->OutTensor->printDx();
@@ -49,6 +53,7 @@ int main(const int argc, const char *argv[]){
 
 
   stats = new swiftware::benchmark::Stats("SpMM_SpMM_Demo_UnFusedParallel", "SpMM", 7, tp._matrix_name, numThread);
+  stats->OtherStats["PackingType"] = {Interleaved};
   auto *unfusedParallel = new SpMMSpMMUnFusedParallel(inSpMM, stats);
   unfusedParallel->run();
   //unfusedParallel->OutTensor->printDx();
@@ -57,13 +62,52 @@ int main(const int argc, const char *argv[]){
   delete stats;
 
 
-  stats = new swiftware::benchmark::Stats("SpMM_SpMM_FusedParallel", "SpMM", 7, tp._matrix_name, numThread);
-  auto *fusedParallel = new SpMMSpMMFusedInterLayer(inSpMM, stats);
+  stats = new swiftware::benchmark::Stats("SpMM_SpMM_Demo_InnerProduct_UnFusedParallel", "SpMM", 7, tp._matrix_name, numThread);
+  stats->OtherStats["PackingType"] = {Interleaved};
+  auto *unfusedOutParallel = new SpMMSpMMUnFusedInnerParallel(inSpMM, stats);
+  unfusedOutParallel->run();
+  //unfusedParallel->OutTensor->printDx();
+  auto unfusedOutParallelStat = unfusedOutParallel->printStats();
+  delete unfusedOutParallel;
+  delete stats;
+
+  stats = new swiftware::benchmark::Stats("SpMM_SpMM_Demo_CTiled_UnFusedParallel", "SpMM", 7, tp._matrix_name, numThread);
+  stats->OtherStats["PackingType"] = {Interleaved};
+  auto *unfusedCTiledParallel = new SpMMSpMMUnFusedCTiledParallel(inSpMM, stats);
+  unfusedCTiledParallel->run();
+  auto unfusedCTiledParallelStat = unfusedCTiledParallel->printStats();
+  delete unfusedCTiledParallel;
+  delete stats;
+
+  stats = new swiftware::benchmark::Stats("SpMM_SpMM_FusedParallel","SpMM", 7,tp._matrix_name,numThread);
+  stats->OtherStats["PackingType"] = {Interleaved};
+  auto *fusedParallel = new SpMMSpMMFusedInterLayer(inSpMM, stats, sp);
   fusedParallel->run();
   //fusedParallel->OutTensor->printDx();
   auto fusedParallelStat = fusedParallel->printStats();
   delete fusedParallel;
   delete stats;
+
+
+  stats = new swiftware::benchmark::Stats("SpMM_SpMM_OuterProduct_FusedParallel","SpMM", 7,tp._matrix_name,numThread);
+  stats->OtherStats["PackingType"] = {Interleaved};
+  auto *fusedOuterParallel = new SpMMSpMMFusedInnerProdInterLayer(inSpMM, stats, sp);
+  fusedOuterParallel->run();
+  //fusedParallel->OutTensor->printDx();
+  auto fusedParallelOutStat = fusedOuterParallel->printStats();
+  delete fusedOuterParallel;
+  delete stats;
+
+
+  stats = new swiftware::benchmark::Stats("SpMM_SpMM_Separated_FusedParallel","SpMM", 7,tp._matrix_name,numThread);
+  stats->OtherStats["PackingType"] = {Separated};
+  auto *fusedSepParallel = new SpMMSpMMFusedSepInterLayer(inSpMM, stats, sp);
+  fusedSepParallel->run();
+  //fusedParallel->OutTensor->printDx();
+  auto fusedParallelSepStat = fusedSepParallel->printStats();
+  delete fusedSepParallel;
+  delete stats;
+
 
   auto csvInfo = sp.print_csv(true);
   std::string spHeader = std::get<0>(csvInfo);
@@ -77,7 +121,11 @@ int main(const int argc, const char *argv[]){
     std::cout<<headerStat+spHeader+tpHeader<<std::endl;
   std::cout<<baselineStat<<spStat+tpStat<<std::endl;
   std::cout<<unfusedParallelStat<<spStat+tpStat<<std::endl;
-  std::cout<<fusedParallelStat<<spStat+tpStat;
+  std::cout<<unfusedOutParallelStat<<spStat+tpStat<<std::endl;
+  std::cout<<unfusedCTiledParallelStat<<spStat+tpStat<<std::endl;
+  std::cout<<fusedParallelStat<<spStat+tpStat<<std::endl;
+  std::cout<<fusedParallelOutStat<<spStat+tpStat<<std::endl;
+  std::cout<<fusedParallelSepStat<<spStat+tpStat;
 
 //  sp._num_w_partition = 2;
 //  //print_csc(1,"",A_csc);

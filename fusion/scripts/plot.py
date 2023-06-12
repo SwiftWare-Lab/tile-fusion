@@ -34,9 +34,29 @@ def take_median(df, **kwargs):
     return np.median(time_array)
 
 
+def get_fused_info(mat_list, df_fusion, imp_name, params=None):
+    if params is None: # TODO: these params are hardcoded for now
+        #params = [40, 400, 4000, 8000, 10000]
+        #params = [4, 8, 40, 100, 1000]
+        params = [10, 50, 100, 1000, 5000]
+    fused, fused_40, fused_400, fused_4000, fused_8000, fused_10000 = [], [], [], [], [], []
+    for mat in mat_list:
+        cur_mat = df_fusion[df_fusion['MatrixName'] == mat]
+        fused = cur_mat[cur_mat['Implementation Name'] == imp_name]
+        fused_40.append(take_median(fused[fused['LBC WPART'] == params[0]]))
+        fused_400.append(take_median(fused[fused['LBC WPART'] == params[1]]))
+        fused_4000.append(take_median(fused[fused['LBC WPART'] == params[2]]))
+        fused_8000.append(take_median(fused[fused['LBC WPART'] == params[3]]))
+        fused_10000.append(take_median(fused[fused['LBC WPART'] == params[4]]))
+    return fused_40, fused_400, fused_4000, fused_8000, fused_10000
+
+
 def plot_spmm_spmm(logs_folder, file_name, baseline_implementation):
     df_fusion = pd.read_csv(os.path.join(logs_folder,file_name))
+    # sort df_fusion based on 'NNZ'
+    df_fusion = df_fusion.sort_values(by=['NNZ'])
     mat_list = df_fusion['MatrixName'].unique()
+    nnz_list = df_fusion['NNZ'].unique()
     seq_exe_time, separated_exe_time = [], []
     fused_40, fused_400, fused_4000, fused_8000, fused_10000 = [], [], [], [], []
     for mat in mat_list:
@@ -45,12 +65,17 @@ def plot_spmm_spmm(logs_folder, file_name, baseline_implementation):
         seq_exe_time.append(take_median(seq))
         separated = cur_mat[cur_mat['Implementation Name'] == baseline_implementation]
         separated_exe_time.append(take_median(separated))
-        fused = cur_mat[cur_mat['Implementation Name'] == 'SpMM_SpMM_FusedParallel']
-        fused_40.append(take_median(fused[fused['LBC WPART'] == 40]))
-        fused_400.append(take_median(fused[fused['LBC WPART'] == 400]))
-        fused_4000.append(take_median(fused[fused['LBC WPART'] == 4000]))
-        fused_8000.append(take_median(fused[fused['LBC WPART'] == 8000]))
-        fused_10000.append(take_median(fused[fused['LBC WPART'] == 10000]))
+        # fused = cur_mat[cur_mat['Implementation Name'] == 'SpMM_SpMM_FusedParallel']
+        # fused_40.append(take_median(fused[fused['LBC WPART'] == 40]))
+        # fused_400.append(take_median(fused[fused['LBC WPART'] == 400]))
+        # fused_4000.append(take_median(fused[fused['LBC WPART'] == 4000]))
+        # fused_8000.append(take_median(fused[fused['LBC WPART'] == 8000]))
+        # fused_10000.append(take_median(fused[fused['LBC WPART'] == 10000]))
+    # get fused info
+    fused_40, fused_400, fused_4000, fused_8000, fused_10000 = get_fused_info(mat_list, df_fusion, 'SpMM_SpMM_FusedParallel')
+    fused_sep_40, fused_sep_400, fused_sep_4000, fused_sep_8000, fused_sep_10000 = get_fused_info(mat_list, df_fusion, 'SpMM_SpMM_Separated_FusedParallel')
+    fused_out_40, fused_out_400, fused_out_4000, fused_out_8000, fused_out_10000 = get_fused_info(mat_list, df_fusion, 'SpMM_SpMM_OuterProduct_FusedParallel')
+
     # geomean speedup of fused vs separated
     gg = gmean(np.array(separated_exe_time) / np.array(fused_40))
     geomean_speedup_40 = np.exp(np.mean(np.log(np.array(separated_exe_time) / np.array(fused_40))))
@@ -61,10 +86,23 @@ def plot_spmm_spmm(logs_folder, file_name, baseline_implementation):
     # take minimum of fused arrays
     min_fused = np.minimum(np.minimum(np.minimum(np.array(fused_40), np.array(fused_400)), np.array(fused_4000)),
                            np.minimum(np.array(fused_8000), np.array(fused_10000)))
+    # take the minimum of fused_sep arrays
+    min_fused_sep = np.minimum(np.minimum(np.minimum(np.array(fused_sep_40), np.array(fused_sep_400)), np.array(fused_sep_4000)),
+                            np.minimum(np.array(fused_sep_8000), np.array(fused_sep_10000)))
+    # take the minimum of fused_out arrays
+    min_fused_out = np.minimum(np.minimum(np.minimum(np.array(fused_out_40), np.array(fused_out_400)), np.array(fused_out_4000)),
+                            np.minimum(np.array(fused_out_8000), np.array(fused_out_10000)))
+    # take the min of fused and fused_sep and fused_out
+    min_fused = np.minimum(min_fused, min_fused_sep)
+    min_fused = np.minimum(min_fused, min_fused_out)
+
+    # geomean speedup of fused vs separated
     geomean_speedup_min = np.exp(np.mean(np.log(np.array(separated_exe_time) / np.array(min_fused))))
+    geomean_speedup_min_sep = np.exp(np.mean(np.log(np.array(separated_exe_time) / np.array(min_fused_sep))))
+    geomean_speedup_min_out = np.exp(np.mean(np.log(np.array(separated_exe_time) / np.array(min_fused_out))))
 
     print('geomean speedup of fused vs separated: ', geomean_speedup_40, geomean_speedup_400, geomean_speedup_4000,
-          geomean_speedup_8000, geomean_speedup_10000)
+          geomean_speedup_8000, geomean_speedup_10000, geomean_speedup_min, geomean_speedup_min_sep, geomean_speedup_min_out)
     # geomean speedup of fused vs seq
     x_vals = np.arange(len(mat_list))
     # plot flop_sf vs flop_ulbc vs flop_umkl
@@ -73,6 +111,8 @@ def plot_spmm_spmm(logs_folder, file_name, baseline_implementation):
                marker='s')
     # set a straight line at 1 as baseline
     ax.plot(x_vals, np.ones(len(mat_list)), 'r--')
+    # label x-axis values with corresponding nnz
+    #ax.set_xticks(nnz_list)
 
     ax.grid(False)
     # set x and y axis label
@@ -110,7 +150,9 @@ def plot_spmm_spmm_for_logs(logs_folder, baseline_implementation):
     with os.scandir(logs_folder) as entries:
         for entry in entries:
             print(entry.name)
-            plot_spmm_spmm(logs_folder, entry.name, baseline_implementation)
+            # if entry is csv file
+            if entry.name.endswith(".csv") and entry.is_file():
+                plot_spmm_spmm(logs_folder, entry.name, baseline_implementation)
 
 
 if __name__ == '__main__':
