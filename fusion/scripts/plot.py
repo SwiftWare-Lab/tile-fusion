@@ -34,16 +34,20 @@ def take_median(df, **kwargs):
     return np.median(time_array)
 
 
-def get_fused_info(mat_list, df_fusion, imp_name):
+def get_fused_info(mat_list, df_fusion, imp_name, params=None):
+    if params is None: # TODO: these params are hardcoded for now
+        #params = [40, 400, 4000, 8000, 10000]
+        #params = [4, 8, 40, 100, 1000]
+        params = [10, 50, 100, 1000, 5000]
     fused, fused_40, fused_400, fused_4000, fused_8000, fused_10000 = [], [], [], [], [], []
     for mat in mat_list:
         cur_mat = df_fusion[df_fusion['MatrixName'] == mat]
         fused = cur_mat[cur_mat['Implementation Name'] == imp_name]
-        fused_40.append(take_median(fused[fused['LBC WPART'] == 40]))
-        fused_400.append(take_median(fused[fused['LBC WPART'] == 400]))
-        fused_4000.append(take_median(fused[fused['LBC WPART'] == 4000]))
-        fused_8000.append(take_median(fused[fused['LBC WPART'] == 8000]))
-        fused_10000.append(take_median(fused[fused['LBC WPART'] == 10000]))
+        fused_40.append(take_median(fused[fused['LBC WPART'] == params[0]]))
+        fused_400.append(take_median(fused[fused['LBC WPART'] == params[1]]))
+        fused_4000.append(take_median(fused[fused['LBC WPART'] == params[2]]))
+        fused_8000.append(take_median(fused[fused['LBC WPART'] == params[3]]))
+        fused_10000.append(take_median(fused[fused['LBC WPART'] == params[4]]))
     return fused_40, fused_400, fused_4000, fused_8000, fused_10000
 
 
@@ -89,8 +93,8 @@ def plot_spmm_spmm(logs_folder, file_name, baseline_implementation):
     min_fused_out = np.minimum(np.minimum(np.minimum(np.array(fused_out_40), np.array(fused_out_400)), np.array(fused_out_4000)),
                             np.minimum(np.array(fused_out_8000), np.array(fused_out_10000)))
     # take the min of fused and fused_sep and fused_out
-    #min_fused = np.minimum(min_fused, min_fused_sep)
-    #min_fused = np.minimum(min_fused, min_fused_out)
+    min_fused = np.minimum(min_fused, min_fused_sep)
+    min_fused = np.minimum(min_fused, min_fused_out)
 
     # geomean speedup of fused vs separated
     geomean_speedup_min = np.exp(np.mean(np.log(np.array(separated_exe_time) / np.array(min_fused))))
