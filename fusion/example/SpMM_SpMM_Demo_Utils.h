@@ -344,6 +344,41 @@ public:
   ~SpMMSpMMFusedInnerProdInterLayer(){}
 };
 
+class SpMMSpMMFusedInnerProdTiled : public SpMMSpMMFusedInterLayer{
+  Timer execute() override {
+    //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
+    OutTensor->reset();
+    Timer t;
+    t.start();
+    swiftware::sparse::spmmCsrSpmmCsrTiledFused(InTensor->M, InTensor->N,
+                                                       InTensor->K, InTensor->L,
+                                                       InTensor->ACsr->p,
+                                                       InTensor->ACsr->i,
+                                                       InTensor->ACsr->x,
+                                                       InTensor->BCsr->p,
+                                                       InTensor->BCsr->i,
+                                                       InTensor->BCsr->x,
+                                                       InTensor->Cx,
+                                                       OutTensor->Dx,
+                                                       OutTensor->ACx, FusedCompSet->n1_,
+                                                       FusedCompSet->ptr1_,
+                                                       FusedCompSet->ptr2_, FusedCompSet->id_,
+                                                       FusedCompSet->type_,
+                                                       InTensor->NumThreads,
+                                                       Sp.TileK);
+
+    t.stop();
+    return t;
+  }
+public:
+  SpMMSpMMFusedInnerProdTiled(TensorInputs<double> *In1, Stats *Stat1,
+                                   sym_lib::ScheduleParameters SpIn)
+      : SpMMSpMMFusedInterLayer(In1, Stat1, SpIn){
+  }
+};
+
+
 class SpMMSpMMFusedSepInterLayer : public SpMMSpMMFusedInterLayer{
   Timer execute() override {
     //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);

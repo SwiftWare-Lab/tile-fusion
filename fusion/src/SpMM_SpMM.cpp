@@ -8,6 +8,7 @@
 #define pw_start_instruments_loop(th)
 #define pw_stop_instruments_loop(th)
 #endif
+#include <algorithm>
 #include <cassert>
 namespace swiftware {
 namespace sparse {
@@ -177,14 +178,14 @@ void spmmCsrSpmmCsrFused(int M, int N, int K, int L,
 
 // TODO: this is WIP, we want to tile kk to improve reuse
 void spmmCsrSpmmCsrTiledFused(int M, int N, int K, int L,
-                         const int *Ap, const int *Ai, const double *Ax,
-                         const int *Bp, const int *Bi,const double *Bx,
-                         const double *Cx,
-                         double *Dx,
-                         double *ACx,
-                         int LevelNo, const int *LevelPtr, const int *ParPtr,
-                         const int *Partition, const int *ParType,
-                         int NThreads) {
+                              const int *Ap, const int *Ai, const double *Ax,
+                              const int *Bp, const int *Bi,const double *Bx,
+                              const double *Cx,
+                              double *Dx,
+                              double *ACx,
+                              int LevelNo, const int *LevelPtr, const int *ParPtr,
+                              const int *Partition, const int *ParType,
+                              int NThreads, int KTile) {
   pw_init_instruments;
   for (int i1 = 0; i1 < LevelNo; ++i1) {
 #pragma omp parallel num_threads(NThreads)
@@ -195,21 +196,28 @@ void spmmCsrSpmmCsrTiledFused(int M, int N, int K, int L,
         for (int k1 = ParPtr[j1]; k1 < ParPtr[j1 + 1]; ++k1) {
           int i = Partition[k1];
           int t = ParType[k1];
-          if (t == 0) {
-            for (int j = Ap[i]; j < Ap[i + 1]; j++) {
-              int aij = Ai[j] * N;
-              for (int kk = 0; kk < N; ++kk) {
-                ACx[i * N + kk] += Ax[j] * Cx[aij + kk];
+          for (int k = 0; k < N; k+=KTile) {
+            int kBegin = k, kEnd = k + KTile; // assumes N is multiple of KTile
+            if (t == 0) {
+              for (int kk = kBegin; kk < kEnd; ++kk) {
+                auto acxik = ACx[i * N + kk];
+                for (int j = Ap[i]; j < Ap[i + 1]; j++) {
+                  int aij = Ai[j] * N;
+                  acxik += Ax[j] * Cx[aij + kk];
+                }
+                ACx[i * N + kk] = acxik;
+              }
+            } else {
+              for (int kk = kBegin; kk < kEnd; ++kk) {
+                auto dxik = Dx[i * N + kk];
+                for (int j = Bp[i]; j < Bp[i + 1]; j++) {
+                  int bij = Bi[j] * N;
+                  dxik += Bx[j] * ACx[bij + kk];
+                }
+                Dx[i * N + kk] = dxik;
               }
             }
-          } else {
-            for (int k = Bp[i]; k < Bp[i + 1]; k++) {
-              int bij = Bi[k] * N;
-              for (int kk = 0; kk < N; ++kk) {
-                Dx[i * N + kk] += Bx[k] * ACx[bij + kk];
-              }
-            }
-          }
+          } // end of k
         }
       }
       pw_stop_instruments_loop(omp_get_thread_num());

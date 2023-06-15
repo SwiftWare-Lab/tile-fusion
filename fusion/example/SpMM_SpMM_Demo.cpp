@@ -34,6 +34,7 @@ int main(const int argc, const char *argv[]){
     alCSC = orderedVec[0];
   }
   //print_csc(1,"",aCSC);
+  sp.TileK=32;
   int numThread = sp._num_threads, numTrial = 7; std::string expName = "SpMM_SpMM_Demo";
   auto *inSpMM = new TensorInputs<double>(aCSC->m,  tp._b_cols, aCSC->n,
                                          bCSC->m, aCSC, bCSC,
@@ -99,6 +100,16 @@ int main(const int argc, const char *argv[]){
   delete stats;
 
 
+  stats = new swiftware::benchmark::Stats("SpMM_SpMM_Tiled_FusedParallel","SpMM", 7,tp._matrix_name,numThread);
+  stats->OtherStats["PackingType"] = {Interleaved};
+  auto *fusedTiledParallel = new SpMMSpMMFusedInnerProdTiled(inSpMM, stats, sp);
+  fusedTiledParallel->run();
+  //fusedParallel->OutTensor->printDx();
+  auto fusedParallelTiledStat = fusedTiledParallel->printStats();
+  delete fusedTiledParallel;
+  delete stats;
+
+
   stats = new swiftware::benchmark::Stats("SpMM_SpMM_Separated_FusedParallel","SpMM", 7,tp._matrix_name,numThread);
   stats->OtherStats["PackingType"] = {Separated};
   auto *fusedSepParallel = new SpMMSpMMFusedSepInterLayer(inSpMM, stats, sp);
@@ -107,6 +118,9 @@ int main(const int argc, const char *argv[]){
   auto fusedParallelSepStat = fusedSepParallel->printStats();
   delete fusedSepParallel;
   delete stats;
+
+
+
 
 
   auto csvInfo = sp.print_csv(true);
@@ -125,6 +139,7 @@ int main(const int argc, const char *argv[]){
   std::cout<<unfusedCTiledParallelStat<<spStat+tpStat<<std::endl;
   std::cout<<fusedParallelStat<<spStat+tpStat<<std::endl;
   std::cout<<fusedParallelOutStat<<spStat+tpStat<<std::endl;
+  std::cout<<fusedParallelTiledStat<<spStat+tpStat<<std::endl;
   std::cout<<fusedParallelSepStat<<spStat+tpStat;
 
 //  sp._num_w_partition = 2;

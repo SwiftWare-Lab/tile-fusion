@@ -75,6 +75,7 @@ def plot_spmm_spmm(logs_folder, file_name, baseline_implementation):
     fused_40, fused_400, fused_4000, fused_8000, fused_10000 = get_fused_info(mat_list, df_fusion, 'SpMM_SpMM_FusedParallel')
     fused_sep_40, fused_sep_400, fused_sep_4000, fused_sep_8000, fused_sep_10000 = get_fused_info(mat_list, df_fusion, 'SpMM_SpMM_Separated_FusedParallel')
     fused_out_40, fused_out_400, fused_out_4000, fused_out_8000, fused_out_10000 = get_fused_info(mat_list, df_fusion, 'SpMM_SpMM_OuterProduct_FusedParallel')
+    fused_tile_40, fused_tile_400, fused_tile_4000, fused_tile_8000, fused_tile_10000 = get_fused_info(mat_list, df_fusion, 'SpMM_SpMM_Tiled_FusedParallel')
 
     # geomean speedup of fused vs separated
     gg = gmean(np.array(separated_exe_time) / np.array(fused_40))
@@ -92,17 +93,24 @@ def plot_spmm_spmm(logs_folder, file_name, baseline_implementation):
     # take the minimum of fused_out arrays
     min_fused_out = np.minimum(np.minimum(np.minimum(np.array(fused_out_40), np.array(fused_out_400)), np.array(fused_out_4000)),
                             np.minimum(np.array(fused_out_8000), np.array(fused_out_10000)))
+    # take the minimum of fused_tile arrays
+    min_fused_tile = np.minimum(np.minimum(np.minimum(np.array(fused_tile_40), np.array(fused_tile_400)), np.array(fused_tile_4000)),
+                            np.minimum(np.array(fused_tile_8000), np.array(fused_tile_10000)))
+
     # take the min of fused and fused_sep and fused_out
     min_fused = np.minimum(min_fused, min_fused_sep)
     min_fused = np.minimum(min_fused, min_fused_out)
+    min_fused = np.minimum(min_fused, min_fused_tile)
 
     # geomean speedup of fused vs separated
     geomean_speedup_min = np.exp(np.mean(np.log(np.array(separated_exe_time) / np.array(min_fused))))
     geomean_speedup_min_sep = np.exp(np.mean(np.log(np.array(separated_exe_time) / np.array(min_fused_sep))))
     geomean_speedup_min_out = np.exp(np.mean(np.log(np.array(separated_exe_time) / np.array(min_fused_out))))
+    geomean_speedup_min_tile = np.exp(np.mean(np.log(np.array(separated_exe_time) / np.array(min_fused_tile))))
 
     print('geomean speedup of fused vs separated: ', geomean_speedup_40, geomean_speedup_400, geomean_speedup_4000,
-          geomean_speedup_8000, geomean_speedup_10000, geomean_speedup_min, geomean_speedup_min_sep, geomean_speedup_min_out)
+          geomean_speedup_8000, geomean_speedup_10000, geomean_speedup_min, geomean_speedup_min_sep,
+          geomean_speedup_min_out, geomean_speedup_min_tile)
     # geomean speedup of fused vs seq
     x_vals = np.arange(len(mat_list))
     # plot flop_sf vs flop_ulbc vs flop_umkl
