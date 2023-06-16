@@ -1,4 +1,5 @@
 
+
 include_directories(
         ${SYM_AGG}/include
         ${SYM_FUS}/include
@@ -40,6 +41,15 @@ add_executable(spmm_spmm_fusion
         SpMM_SpMM_Demo.cpp
         )
 target_link_libraries(spmm_spmm_fusion
+        fusion
+        swbench::swbench
+        OpenMP::OpenMP_CXX
+        )
+
+add_executable(spmm_spmm_avx
+        Avx_Demo.cpp
+        )
+target_link_libraries(spmm_spmm_avx
         fusion
         swbench::swbench
         OpenMP::OpenMP_CXX

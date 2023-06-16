@@ -36,6 +36,7 @@ if [ $BASELINE = "SpMM_SpMM_MKL" ]; then
   BINFILE="fused_vs_mkl"
 fi
 
+BINFILE="spmm_spmm_avx"
 
 
 export MKL_DIR=$MKLROOT
@@ -65,7 +66,7 @@ MATLIST=$UFDB/mat_list.txt
 
 mkdir $LOGS
 
-MODE=2
+MODE=1
 # performing the experiments
 
 if [ $TEST -eq 1 ]; then
@@ -77,16 +78,24 @@ if [ $TEST -eq 1 ]; then
   export OMP_DYNAMIC=FALSE;
   #export MKL_VERBOSE=1
 
-  python3 $SCRIPTPATH/dl_matrix.py $UFDB $MATLIST
+#  python3 $SCRIPTPATH/dl_matrix.py $UFDB $MATLIST
   bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE $THRD $MATLIST $BCOL > $LOGS/spmv_spmv_$BCOL.csv
+
   # plotting
-  python3 $SCRIPTPATH/plot.py $LOGS $BASELINE
+ python3 $SCRIPTPATH/plot.py $LOGS $BASELINE SpMM_SpMM_Avx_Sparse_Row_Vectorized
+ python3 $SCRIPTPATH/plot.py $LOGS $BASELINE SpMM_SpMM_Avx_Dense_Row_Vectorized
+ python3 $SCRIPTPATH/plot.py $LOGS $BASELINE SpMM_SpMM_Avx_Combinational
 else
   bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE $THRD $MATLIST 4 > $LOGS/spmv_spmv_4.csv
+  bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE $THRD $MATLIST 4 > $LOGS/spmv_spmv_7.csv
   bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE $THRD $MATLIST 32 > $LOGS/spmv_spmv_32.csv
+  bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE $THRD $MATLIST 32 > $LOGS/spmv_spmv_35.csv
   bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE $THRD $MATLIST 64 > $LOGS/spmv_spmv_64.csv
+  bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE $THRD $MATLIST 64 > $LOGS/spmv_spmv_67.csv
   bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE $THRD $MATLIST 128 > $LOGS/spmv_spmv_128.csv
+  bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE $THRD $MATLIST 128 > $LOGS/spmv_spmv_131.csv
   bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE $THRD $MATLIST 256 > $LOGS/spmv_spmv_256.csv
+  bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE $THRD $MATLIST 256 > $LOGS/spmv_spmv_259.csv
 fi
 
 
