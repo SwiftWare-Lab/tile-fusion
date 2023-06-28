@@ -98,6 +98,14 @@ int main(const int argc, const char *argv[]){
   delete fusedOuterParallel;
   delete stats;
 
+  stats = new swiftware::benchmark::Stats("SpMM_SpMM_Mixed_FusedParallel","SpMM", 7,tp._matrix_name,numThread);
+  stats->OtherStats["PackingType"] = {Interleaved};
+  auto *fusedMixedParallel = new SpMMSpMMFusedInnerProdInterLayer(inSpMM, stats, sp);
+  fusedMixedParallel->run();
+  //fusedParallel->OutTensor->printDx();
+  auto fusedParallelMixedStat = fusedMixedParallel->printStats();
+  delete fusedMixedParallel;
+  delete stats;
 
   stats = new swiftware::benchmark::Stats("SpMM_SpMM_Separated_FusedParallel","SpMM", 7,tp._matrix_name,numThread);
   stats->OtherStats["PackingType"] = {Separated};
@@ -125,6 +133,7 @@ int main(const int argc, const char *argv[]){
   std::cout<<unfusedCTiledParallelStat<<spStat+tpStat<<std::endl;
   std::cout<<fusedParallelStat<<spStat+tpStat<<std::endl;
   std::cout<<fusedParallelOutStat<<spStat+tpStat<<std::endl;
+  std::cout<<fusedParallelMixedStat<<spStat+tpStat<<std::endl;
   std::cout<<fusedParallelSepStat<<spStat+tpStat;
 
 //  sp._num_w_partition = 2;

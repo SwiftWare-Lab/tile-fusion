@@ -264,6 +264,57 @@ void spmmCsrSpmmCsrInnerProductFused(int M, int N, int K, int L,
 }
 
 
+    void spmmCsrSpmmCsrMixedScheduleFused(int M, int N, int K, int L,
+                                         const int *Ap, const int *Ai, const double *Ax,
+                                         const int *Bp, const int *Bi,const double *Bx,
+                                         const double *Cx,
+                                         double *Dx,
+                                         double *ACx,
+                                         int LevelNo, const int *LevelPtr, const int *ParPtr,
+                                         const int *Partition, const int *ParType,
+                                         int NThreads) {
+        pw_init_instruments;
+        for (int i1 = 0; i1 < LevelNo; ++i1) {
+#pragma omp parallel num_threads(NThreads)
+            {
+                pw_start_instruments_loop(omp_get_thread_num());
+#pragma omp  for
+                for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; ++j1) {
+                    for (int k1 = ParPtr[j1]; k1 < ParPtr[j1 + 1]; ++k1) {
+                        int i = Partition[k1];
+                        int t = ParType[k1];
+                        if (t == 0) {
+                            for (int kk = 0; kk < N; ++kk) {
+                                auto acxik = ACx[i * N + kk];
+                                for (int j = Ap[i]; j < Ap[i + 1]; j++) {
+                                    int aij = Ai[j] * N;
+                                    acxik += Ax[j] * Cx[aij + kk];
+                                }
+                                ACx[i * N + kk] = acxik; // final AC value after this iteration
+                            }
+                        } else {
+                            for (int k = Bp[i]; k < Bp[i + 1]; k++) {
+                                int bij = Bi[k] * N;
+                                for (int kk = 0; kk < N; ++kk) {
+                                    Dx[i * N + kk] += Bx[k] * ACx[bij + kk];
+                                }
+                            }
+//                            for (int kk = 0; kk < N; ++kk) {
+//                                auto dxik = Dx[i * N + kk];
+//                                for (int k = Bp[i]; k < Bp[i + 1]; k++) {
+//                                    int bij = Bi[k] * N;
+//                                    dxik += Bx[k] * ACx[bij + kk];
+//                                }
+//                                Dx[i * N + kk] = dxik;
+//                            }
+                        }
+                    }
+                }
+                pw_stop_instruments_loop(omp_get_thread_num());
+            }
+        }
+    }
+
 void spmmCsrSpmmCsrSeparatedFused(int M, int N, int K, int L,
                                      const int *Ap, const int *Ai, const double *Ax,
                                      const int *Bp, const int *Bi,const double *Bx,
