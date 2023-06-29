@@ -71,13 +71,64 @@ namespace sym_lib{
   return -1;
  }
 
+ sym_lib::CSR* readSparseMatrix(const std::string &Path) {
+  std::ifstream file;
+  file.open(Path, std::ios_base::in);
+  if (!file.is_open()) {
+   std::cout << "File could not be found..." << std::endl;
+   exit(1);
+  }
+
+//  if (!std::is_same_v<type, CSR>) {
+//   throw std::runtime_error("Error: Matrix storage format not supported");
+//  }
+
+  std::string line;
+
+  std::getline(file, line);
+  std::replace(line.begin(), line.end(), ',', ' ');
+  std::istringstream firstLine(line);
+
+  int rows, cols, nnz;
+  firstLine >> rows;
+  firstLine >> cols;
+  firstLine >> nnz;
+
+  CSR *csr = new CSR(rows, cols, nnz);
+
+  for (int i = 0; i < csr->m + 1; i++) {
+   file >> csr->p[i];
+  }
+
+  // Go to next line
+  char next;
+  while (file.get(next)) { if (next == '\n') break; }
+
+  // Read in col_indices
+  for (int i = 0; i < csr->nnz; i++) { file >> csr->i[i]; }
+  for (int i = 0; i < csr->nnz; i++) { csr->x[i] = 1.0f; }
+
+  return csr;
+ }
+
  CSC* get_matrix_from_parameter(const TestParameters *TP){
   CSC *aCSC=NULLPNTR;
   if (TP->_mode == "Random") {
    aCSC = random_square_sparse(TP->_dim1, TP->_density);
   } else {
-   std::ifstream fin(TP->_matrix_path);
-   sym_lib::read_mtx_csc_real(fin, aCSC);
+   std::string fileExt = TP->_matrix_path.substr(
+       TP->_matrix_path.find_last_of(".") + 1);
+   if (fileExt == "smtx") {
+      auto *tmpCsr = readSparseMatrix(TP->_matrix_path);
+      aCSC = csr_to_csc(tmpCsr);
+      delete tmpCsr;
+   } else if (fileExt == "mtx") {
+     std::ifstream fin(TP->_matrix_path);
+     sym_lib::read_mtx_csc_real(fin, aCSC);
+   } else{
+    std::cout << "File extension is not supported" << std::endl;
+    exit(1);
+   }
   }
   return aCSC;
  }
