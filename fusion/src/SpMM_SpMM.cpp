@@ -131,6 +131,7 @@ void spmmCsrInnerProductTiledCParallel(int M, int N, int K,
       Cx[i * N + k] += cik;
     }
   }
+  delete[] cTile;
 }
 
 /// D = B*A*C
