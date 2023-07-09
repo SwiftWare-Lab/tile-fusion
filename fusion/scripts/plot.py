@@ -38,7 +38,8 @@ def get_fused_info(mat_list, df_fusion, imp_name, params=None):
     if params is None: # TODO: these params are hardcoded for now
         #params = [40, 400, 4000, 8000, 10000]
         #params = [4, 8, 40, 100, 1000]
-        params = [10, 50, 100, 1000, 5000]
+        #params = [10, 50, 100, 1000, 5000]
+        params = [10, 20, 50, 100, 200]
     fused, fused_40, fused_400, fused_4000, fused_8000, fused_10000 = [], [], [], [], [], []
     for mat in mat_list:
         cur_mat = df_fusion[df_fusion['MatrixName'] == mat]

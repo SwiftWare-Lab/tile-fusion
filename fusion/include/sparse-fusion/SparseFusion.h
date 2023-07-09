@@ -19,6 +19,10 @@ namespace sym_lib{
     Tiled
   };
 
+  struct SparsityProfileInfo {
+    int TotalReuseC;
+  };
+
  class SparseFusion {
 
   // List of fused node
@@ -70,6 +74,8 @@ namespace sym_lib{
   void build_set();
 
   void print_final_list();
+
+  SparsityProfileInfo measureReuse(CSC *Gi);
 
   ~SparseFusion();
 

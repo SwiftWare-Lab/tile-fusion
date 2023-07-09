@@ -45,6 +45,14 @@ target_link_libraries(spmm_spmm_fusion
         OpenMP::OpenMP_CXX
         )
 
+add_executable(fusion_profiler
+        Fusion_Profiler.cpp
+        )
+target_link_libraries(fusion_profiler
+        fusion
+        swbench::swbench
+        )
+
 #target_compile_options(dag_decomp PRIVATE
 #        -march=native
 #        )

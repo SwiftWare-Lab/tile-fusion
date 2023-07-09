@@ -9,6 +9,7 @@
 #define pw_stop_instruments_loop(th)
 #endif
 #include <cassert>
+#include <omp.h>
 namespace swiftware {
 namespace sparse {
 
@@ -48,6 +49,63 @@ void spmmCsrParallel(int M, int N, int K,
     pw_stop_instruments_loop(omp_get_thread_num());
   }
 }
+
+void spmmCsrParallelTiled(int M, int N, int K,
+                          const int *Ap, const int *Ai, const double *Ax,
+                          const double *Bx, double *Cx, int NThreads,
+                          int MTile, int NTile) {
+  int mBound = M - M % MTile;
+  auto *cxBufAll = new double[MTile * NTile * NThreads]();
+  omp_set_nested(1);
+
+  pw_init_instruments;
+#pragma omp parallel num_threads(NThreads)
+  {
+    pw_start_instruments_loop(omp_get_thread_num());
+#pragma omp for
+    for (int ii = 0; ii < mBound; ii+=MTile) {
+      for (int kk = 0; kk < N; kk+=NTile) {
+        auto *cxBuf = cxBufAll + omp_get_thread_num() * MTile * NTile;
+        for (int i = 0; i < MTile; ++i) {
+          for (int j = Ap[i]; j < Ap[i + 1]; ++j) {
+            int aij = Ai[j] * N;
+            for (int k = 0; k < NTile; ++k) {
+              cxBuf[i * NTile + k] += Ax[j] * Bx[aij + k];
+            }
+          }
+        }
+        // copy to C
+        for (int i = ii, ti = 0; i < ii + MTile; ++i, ++ti) {
+          for (int k = kk, tk = 0; k < kk + NTile; ++k, ++tk) {
+            Cx[i * N + k] += cxBuf[ti * NTile + tk];
+            cxBuf[ti * NTile + tk] = 0;
+          }
+        }
+        //        for (int i = ii; i < ii + MTile; ++i) {
+        //          for (int j = Ap[i]; j < Ap[i + 1]; ++j) {
+        //            int aij = Ai[j] * N;
+        //            for (int k = kk; k < kk + NTile; ++k) {
+        //              Cx[i * N + k] += Ax[j] * Bx[aij + k];
+        //            }
+        //          }
+        //        }
+      }
+    } // end ii
+    // Remaining rows
+    for (int i = mBound; i < M; ++i) {
+      for (int j = Ap[i]; j < Ap[i + 1]; ++j) {
+        int aij = Ai[j] * N;
+        for (int k = 0; k < N; ++k) {
+          Cx[i * N + k] += Ax[j] * Bx[aij + k];
+        }
+      }
+    }
+
+    pw_stop_instruments_loop(omp_get_thread_num());
+  }
+  delete [] cxBufAll;
+}
+
 
 void spmmCsrInnerProductParallel(int M, int N, int K,
                                  const int *Ap, const int *Ai, const double *Ax,
@@ -175,6 +233,75 @@ void spmmCsrSpmmCsrFused(int M, int N, int K, int L,
     }
   }
 }
+
+
+void spmmCsrSpmmCsrTiledFused(int M, int N, int K, int L,
+                         const int *Ap, const int *Ai, const double *Ax,
+                         const int *Bp, const int *Bi,const double *Bx,
+                         const double *Cx,
+                         double *Dx,
+                         double *ACx,
+                         int LevelNo, const int *LevelPtr, const int *ParPtr,
+                         const int *Partition, const int *ParType,
+                              int MTile, int NThreads) {
+  pw_init_instruments;
+  // First level benefirs from Fusion
+int i1 = 0;
+#pragma omp parallel num_threads(NThreads)
+  {
+#pragma omp  for
+    for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; ++j1) {
+      for (int k1 = ParPtr[j1]; k1 < ParPtr[j1 + 1]; ++k1) {
+        int i = Partition[k1];
+        int t = ParType[k1];
+        //if (t == 0) {
+          for (int j = Ap[i]; j < Ap[i + 1]; j++) {
+            int aij = Ai[j] * N;
+            for (int kk = 0; kk < N; ++kk) {
+              ACx[i * N + kk] += Ax[j] * Cx[aij + kk];
+            }
+          }
+        //} else {
+          for (int k = Bp[i]; k < Bp[i + 1]; k++) {
+            int bij = Bi[k] * N;
+            for (int kk = 0; kk < N; ++kk) {
+              Dx[i * N + kk] += Bx[k] * ACx[bij + kk];
+            }
+          }
+       // }
+      }
+    }
+  }
+
+  for (int i1 = 1; i1 < LevelNo; ++i1) {
+#pragma omp parallel num_threads(NThreads)
+    {
+#pragma omp  for
+      for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; ++j1) {
+        for (int k1 = ParPtr[j1]; k1 < ParPtr[j1 + 1]; ++k1) {
+          int i = Partition[k1];
+          int t = ParType[k1];
+          if (t == 0) {
+            for (int j = Ap[i]; j < Ap[i + 1]; j++) {
+              int aij = Ai[j] * N;
+              for (int kk = 0; kk < N; ++kk) {
+                ACx[i * N + kk] += Ax[j] * Cx[aij + kk];
+              }
+            }
+          } else {
+            for (int k = Bp[i]; k < Bp[i + 1]; k++) {
+              int bij = Bi[k] * N;
+              for (int kk = 0; kk < N; ++kk) {
+                Dx[i * N + kk] += Bx[k] * ACx[bij + kk];
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
 
 // TODO: this is WIP, we want to tile kk to improve reuse
 void spmmCsrSpmmCsrTiledFused(int M, int N, int K, int L,

@@ -164,6 +164,33 @@ namespace sym_lib{
   }
  }
 
+ SparsityProfileInfo SparseFusion::measureReuse(CSC *Gi) {
+  SparsityProfileInfo spi;
+  long long int totalReuseC = 0;
+  for (int i = 0; i < _final_node_list.size(); ++i) {
+   for (int j = 0; j < _final_node_list[i].size(); ++j) {
+    for (int k = 1; k < _final_node_list[i][j]->_list.size(); ++k) {
+     for (int l = 0; l < _final_node_list[i][j]->_list[k].size(); ++l) {
+      auto v = _final_node_list[i][j]->_list[k][l];
+      for (int m = Gi->p[v]; m < Gi->p[v+1]; ++m) {
+        auto u = Gi->i[m];
+        // see if u exist in previous C
+        auto foundEl = std::find(_final_node_list[i][j]->_list[k-1].begin(),
+                  _final_node_list[i][j]->_list[k-1].end(), u);
+        // if found, then increase reuse count
+        if(foundEl != _final_node_list[i][j]->_list[k-1].end()) {
+          totalReuseC++;
+        }
+      }
+     }
+    }
+   }
+  }
+  spi.TotalReuseC = totalReuseC;
+  return spi;
+ }
+
+
  MultiDimensionalSet *SparseFusion::getFusedCompressed(int PT) {
   MultiDimensionalSet *ret;
   if(PT == Separated)
