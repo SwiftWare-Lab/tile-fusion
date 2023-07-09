@@ -30,6 +30,10 @@ void spmmCsrInnerProductTiledCParallel(int M, int N, int K,
                                        const int *Ap, const int *Ai, const double *Ax,
                                        const double *Bx, double *Cx, int NThreads
                                        ,int MTile, int NTile);
+void spmmCsrParallelTiled(int M, int N, int K,
+                          const int *Ap, const int *Ai, const double *Ax,
+                          const double *Bx, double *Cx, int NThreads,
+                          int MTile, int NTile);
 
 
     /// D = B*A*C where A (MxK) and B (LxM) are sparse and C (KxN) and D (LxN) are dense
