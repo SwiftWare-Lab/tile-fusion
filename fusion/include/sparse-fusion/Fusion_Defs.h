@@ -21,6 +21,7 @@ namespace sym_lib{
  struct ScheduleParameters{
   int _lbc_agg, _lbc_initial_cut, _num_w_partition;// aggregation params
   int _num_threads;
+  int TileM{}, TileN{}, TileK{};
 
   ScheduleParameters():_lbc_agg(2),_lbc_initial_cut(2),_num_threads(20){
    _num_w_partition=_num_threads;

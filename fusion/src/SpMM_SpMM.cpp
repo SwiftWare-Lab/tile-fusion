@@ -9,6 +9,7 @@
 #define pw_stop_instruments_loop(th)
 #endif
 #include <cassert>
+#include <iostream>
 #include <omp.h>
 namespace swiftware {
 namespace sparse {
@@ -55,8 +56,11 @@ void spmmCsrParallelTiled(int M, int N, int K,
                           const double *Bx, double *Cx, int NThreads,
                           int MTile, int NTile) {
   int mBound = M - M % MTile;
-  auto *cxBufAll = new double[MTile * NTile * NThreads]();
-  omp_set_nested(1);
+  int nt=0;
+#pragma omp parallel num_threads(NThreads)
+  { nt = omp_get_num_threads(); }
+  auto *cxBufAll = new double[MTile * NTile * nt ]();
+  //omp_set_nested(1);
 
   pw_init_instruments;
 #pragma omp parallel num_threads(NThreads)
@@ -65,9 +69,12 @@ void spmmCsrParallelTiled(int M, int N, int K,
 #pragma omp for
     for (int ii = 0; ii < mBound; ii+=MTile) {
       for (int kk = 0; kk < N; kk+=NTile) {
+        // print the thread id
+        //std::cout << "------------- Thread " << omp_get_thread_num() << " is doing " << ii << " " << kk << std::endl;
+        //assert(omp_get_thread_num() < nt);
         auto *cxBuf = cxBufAll + omp_get_thread_num() * MTile * NTile;
         for (int i = 0; i < MTile; ++i) {
-          for (int j = Ap[i]; j < Ap[i + 1]; ++j) {
+          for (int j = Ap[ii + i]; j < Ap[ii + i + 1]; ++j) {
             int aij = Ai[j] * N;
             for (int k = 0; k < NTile; ++k) {
               cxBuf[i * NTile + k] += Ax[j] * Bx[aij + k];
@@ -81,6 +88,7 @@ void spmmCsrParallelTiled(int M, int N, int K,
             cxBuf[ti * NTile + tk] = 0;
           }
         }
+
         //        for (int i = ii; i < ii + MTile; ++i) {
         //          for (int j = Ap[i]; j < Ap[i + 1]; ++j) {
         //            int aij = Ai[j] * N;
@@ -91,17 +99,16 @@ void spmmCsrParallelTiled(int M, int N, int K,
         //        }
       }
     } // end ii
-    // Remaining rows
-    for (int i = mBound; i < M; ++i) {
-      for (int j = Ap[i]; j < Ap[i + 1]; ++j) {
-        int aij = Ai[j] * N;
-        for (int k = 0; k < N; ++k) {
-          Cx[i * N + k] += Ax[j] * Bx[aij + k];
-        }
+    pw_stop_instruments_loop(omp_get_thread_num());
+  }
+  // Remaining rows
+  for (int i = mBound; i < M; ++i) {
+    for (int j = Ap[i]; j < Ap[i + 1]; ++j) {
+      int aij = Ai[j] * N;
+      for (int k = 0; k < N; ++k) {
+        Cx[i * N + k] += Ax[j] * Bx[aij + k];
       }
     }
-
-    pw_stop_instruments_loop(omp_get_thread_num());
   }
   delete [] cxBufAll;
 }
@@ -243,69 +250,65 @@ void spmmCsrSpmmCsrTiledFused(int M, int N, int K, int L,
                               double *ACx,
                               int LevelNo, const int *LevelPtr, const int *ParPtr,
                               const int *Partition, const int *ParType,
-                              int MTile, int NTile, int NThreads) {
+                              int NThreads, int MTile, int NTile) {
   pw_init_instruments;
   int mBound = M - M % MTile;
   auto *cxBufAll = new double[MTile * NTile * NThreads]();
-  // First level benefirs from Fusion
+  // First level benefits from Fusion
   int iBoundBeg = LevelPtr[0], iBoundEnd = LevelPtr[1];
-#pragma omp parallel num_threads(NThreads)
+  #pragma omp parallel num_threads(NThreads)
   {
-#pragma omp  for
+    #pragma omp  for
     for (int j1 = iBoundBeg; j1 < iBoundEnd; ++j1) {
       auto *cxBuf = cxBufAll + omp_get_thread_num() * MTile * NTile;
 
       int kBegin = ParPtr[j1];
-      int iBegin = Partition[kBegin];// first iteration of tile
-      //for (int ii = iBegin; ii < iBegin + MTile; ++ii) { // assumes all consecutive
-        //int i = Partition[k1];
-        //int t = ParType[k1];
-        //if (t == 0) {
+      int ii = Partition[kBegin]; // first iteration of tile
 
-        //          for (int j = Ap[i]; j < Ap[i + 1]; j++) {
-        //            int aij = Ai[j] * N;
-        //            for (int kk = 0; kk < N; ++kk) {
-        //              ACx[i * N + kk] += Ax[j] * Cx[aij + kk];
-        //            }
-        //          }
-
-        for (int kk = 0; kk < N; kk += NTile) {
-          for (int i = 0; i < MTile; ++i) {
-            for (int j = Ap[i]; j < Ap[i + 1]; ++j) {
-              int aij = Ai[j] * N;
-              for (int k = 0; k < NTile; ++k) {
-                cxBuf[i * NTile + k] += Ax[j] * Bx[aij + k];
-              }
+      for (int kk = 0; kk < N; kk += NTile) {
+        // first loop, for every k-tile
+        for (int i = 0; i < MTile; ++i) {
+          int iipi = ii + i;
+          for (int j = Ap[iipi]; j < Ap[iipi + 1]; ++j) {
+            int aij = Ai[j] * N;
+            for (int k = 0; k < NTile; ++k) {
+              cxBuf[i * NTile + k] += Ax[j] * Cx[aij + k];
             }
           }
         }
       //}
-      //} else {
+
       // second loop
-      for(int k1 = kBegin+MTile; k1 < ParPtr[j1+1]; k1++) {
-        int i = Partition[k1];
-        for (int kk = 0; kk < N; kk += NTile) {
-          for (int k = Bp[i]; k < Bp[i + 1]; k++) {
-            int bij = Bi[k] * N;
-            for (int kk = 0; kk < N; ++kk) {
-              Dx[i * N + kk] += Bx[k] * cxBuf[bij + kk];
+      //for (int kk = 0; kk < N; kk += NTile) {
+        for(int k1 = ParPtr[j1]+MTile; k1 < ParPtr[j1+1]; k1++) {// i-loop
+          int i = Partition[k1];
+
+          for (int j = Bp[i]; j < Bp[i + 1]; j++) {
+            int bij = Bi[j]-ii;
+            assert(bij < MTile && bij >= 0); // stays within the tile i
+            bij *= NTile;
+            int inkk = i * N + kk;
+            for (int k = 0; k < NTile; ++k) {
+              Dx[inkk + k] += Bx[j] * cxBuf[bij + k];
             }
           }
         }
-      }
+     // }
 
       // copy to ACx for the next wavefront
-//      for (int i = ii, ti = 0; i < ii + MTile; ++i, ++ti) {
-//        for (int k = kk, tk = 0; k < kk + NTile; ++k, ++tk) {
-//          ACx[i * N + k] += cxBuf[ti * NTile + tk];
-//          cxBuf[ti * NTile + tk] = 0;
-//        }
-//      }
-
-      // }
+      //for (int kk = 0; kk < N; kk += NTile) {
+        for (int i = ii, ti = 0; i < ii + MTile; ++i, ++ti) {
+          for (int k = kk, tk = 0; k < kk + NTile; ++k, ++tk) {
+            ACx[i * N + k] += cxBuf[ti * NTile + tk];
+            cxBuf[ti * NTile + tk] = 0;
+          }
+        }
+      }
     }
+
   }
 
+  delete[] cxBufAll;
 
   for (int i1 = 1; i1 < LevelNo; ++i1) {
 #pragma omp parallel num_threads(NThreads)
