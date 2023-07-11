@@ -7,9 +7,10 @@
 #include <vector>
 
 #include "aggregation/def.h"
-#include "sparse-fusion/Fusion_Defs.h"
-#include "sparse-fusion/DAG.h"
 #include "MultiDimensionalSet.h"
+#include "sparse-fusion/DAG.h"
+#include "sparse-fusion/Fusion_Defs.h"
+#include <tuple>
 
 namespace sym_lib{
 
@@ -21,6 +22,15 @@ namespace sym_lib{
 
   struct SparsityProfileInfo {
     int TotalReuseC;
+
+    std::tuple<std::string,std::string>  printCSV(bool Header){
+      std::string headerText, row;
+      if(Header){
+        headerText = "TotalReuseC,";
+      }
+      row = std::to_string(TotalReuseC) + ",";
+      return std::make_tuple(headerText,row);
+    }
   };
 
  class SparseFusion {

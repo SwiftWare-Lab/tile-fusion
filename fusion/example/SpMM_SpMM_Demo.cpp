@@ -71,9 +71,12 @@ int main(const int argc, const char *argv[]){
   delete unfusedOutParallel;
   delete stats;
 
+  sp.TileM = (inSpMM->ACsr->m / std::max<int>(inSpMM->ACsr->m / sp._num_w_partition,
+                                                2*sp._num_threads))+1;
+
   stats = new swiftware::benchmark::Stats("SpMM_SpMM_Demo_CTiled_UnFusedParallel", "SpMM", 7, tp._matrix_name, numThread);
   stats->OtherStats["PackingType"] = {Interleaved};
-  auto *unfusedCTiledParallel = new SpMMSpMMUnFusedCTiledParallel(inSpMM, stats);
+  auto *unfusedCTiledParallel = new SpMMSpMMUnFusedCTiledParallel(inSpMM, stats, sp);
   unfusedCTiledParallel->run();
   auto unfusedCTiledParallelStat = unfusedCTiledParallel->printStats();
   delete unfusedCTiledParallel;
@@ -126,6 +129,18 @@ int main(const int argc, const char *argv[]){
   delete fusedSepParallel;
   delete stats;
 
+  stats = new swiftware::benchmark::Stats("SpMM_SpMM_Profiler","SpMM", 7,tp._matrix_name,numThread);
+  auto *fusionProfiler = new SpMMSpMMFusionProfiler(inSpMM, stats, sp);
+  fusionProfiler->run();
+  //unfused->OutTensor->printDx();
+  inSpMM->IsSolProvided = true;
+  auto profileInfo = fusionProfiler->getSpInfo().printCSV(true);
+  std::string profHeader = std::get<0>(profileInfo);
+  std::string profStat = std::get<1>(profileInfo);
+  //delete fusionProfiler;
+  delete stats;
+
+
 
   auto csvInfo = sp.print_csv(true);
   std::string spHeader = std::get<0>(csvInfo);
@@ -136,16 +151,16 @@ int main(const int argc, const char *argv[]){
   std::string tpStat = std::get<1>(tpCsv);
 
   if(tp.print_header)
-    std::cout<<headerStat+spHeader+tpHeader<<std::endl;
-  std::cout<<baselineStat<<spStat+tpStat<<std::endl;
-  std::cout<<unfusedParallelStat<<spStat+tpStat<<std::endl;
-  std::cout<<unfusedOutParallelStat<<spStat+tpStat<<std::endl;
-  std::cout<<unfusedCTiledParallelStat<<spStat+tpStat<<std::endl;
-  std::cout<<fusedParallelStat<<spStat+tpStat<<std::endl;
-  std::cout<<fusedTiledParallelStat<<spStat+tpStat<<std::endl;
-  std::cout<<fusedParallelOutStat<<spStat+tpStat<<std::endl;
-  std::cout<<fusedParallelMixedStat<<spStat+tpStat<<std::endl;
-  std::cout<<fusedParallelSepStat<<spStat+tpStat;
+    std::cout<<headerStat+spHeader+tpHeader+profHeader<<std::endl;
+  std::cout<<baselineStat<<spStat+tpStat+profStat<<std::endl;
+  std::cout<<unfusedParallelStat<<spStat+tpStat+profStat<<std::endl;
+  std::cout<<unfusedOutParallelStat<<spStat+tpStat+profStat<<std::endl;
+  std::cout<<unfusedCTiledParallelStat<<spStat+tpStat+profStat<<std::endl;
+  std::cout<<fusedParallelStat<<spStat+tpStat+profStat<<std::endl;
+  std::cout<<fusedTiledParallelStat<<spStat+tpStat+profStat<<std::endl;
+  std::cout<<fusedParallelOutStat<<spStat+tpStat+profStat<<std::endl;
+  std::cout<<fusedParallelMixedStat<<spStat+tpStat+profStat<<std::endl;
+  std::cout<<fusedParallelSepStat<<spStat+tpStat+profStat;
 
 //  sp._num_w_partition = 2;
 //  //print_csc(1,"",A_csc);

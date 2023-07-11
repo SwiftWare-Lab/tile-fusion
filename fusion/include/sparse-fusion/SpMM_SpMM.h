@@ -101,7 +101,7 @@ void spmmCsrSpmmCsrTiledFused(int M, int N, int K, int L,
                               double *ACx,
                               int LevelNo, const int *LevelPtr, const int *ParPtr,
                               const int *Partition, const int *ParType,
-                              int NThreads, int MTile, int NTile);
+                              int NThreads, int MTile, int NTile, double *Ws);
 
 } // namespace sparse
 } // namespace swiftware

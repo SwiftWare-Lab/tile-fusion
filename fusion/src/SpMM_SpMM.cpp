@@ -250,10 +250,10 @@ void spmmCsrSpmmCsrTiledFused(int M, int N, int K, int L,
                               double *ACx,
                               int LevelNo, const int *LevelPtr, const int *ParPtr,
                               const int *Partition, const int *ParType,
-                              int NThreads, int MTile, int NTile) {
+                              int NThreads, int MTile, int NTile, double *Ws) {
   pw_init_instruments;
   int mBound = M - M % MTile;
-  auto *cxBufAll = new double[MTile * NTile * NThreads]();
+  auto *cxBufAll = Ws;//new double[MTile * NTile * NThreads]();
   // First level benefits from Fusion
   int iBoundBeg = LevelPtr[0], iBoundEnd = LevelPtr[1];
   #pragma omp parallel num_threads(NThreads)
@@ -262,7 +262,10 @@ void spmmCsrSpmmCsrTiledFused(int M, int N, int K, int L,
     for (int j1 = iBoundBeg; j1 < iBoundEnd; ++j1) {
       auto *cxBuf = cxBufAll + omp_get_thread_num() * MTile * NTile;
 
-      int kBegin = ParPtr[j1];
+      int kBegin = ParPtr[j1], kEnd = ParPtr[j1 + 1];
+      if(kEnd - kBegin == 0) continue;
+      if(kEnd - kBegin < MTile)
+        continue ;
       int ii = Partition[kBegin]; // first iteration of tile
 
       for (int kk = 0; kk < N; kk += NTile) {
@@ -272,7 +275,9 @@ void spmmCsrSpmmCsrTiledFused(int M, int N, int K, int L,
           for (int j = Ap[iipi]; j < Ap[iipi + 1]; ++j) {
             int aij = Ai[j] * N;
             for (int k = 0; k < NTile; ++k) {
+              //auto tmp = Ax[j] * Cx[aij + k];
               cxBuf[i * NTile + k] += Ax[j] * Cx[aij + k];
+              //ACx[iipi * N + k + kk] = tmp;
             }
           }
         }
@@ -280,7 +285,7 @@ void spmmCsrSpmmCsrTiledFused(int M, int N, int K, int L,
 
       // second loop
       //for (int kk = 0; kk < N; kk += NTile) {
-        for(int k1 = ParPtr[j1]+MTile; k1 < ParPtr[j1+1]; k1++) {// i-loop
+        for(int k1 = kBegin+MTile; k1 < kEnd; k1++) {// i-loop
           int i = Partition[k1];
 
           for (int j = Bp[i]; j < Bp[i + 1]; j++) {
@@ -299,44 +304,53 @@ void spmmCsrSpmmCsrTiledFused(int M, int N, int K, int L,
       //for (int kk = 0; kk < N; kk += NTile) {
         for (int i = ii, ti = 0; i < ii + MTile; ++i, ++ti) {
           for (int k = kk, tk = 0; k < kk + NTile; ++k, ++tk) {
-            ACx[i * N + k] += cxBuf[ti * NTile + tk];
+            ACx[i * N + k] = cxBuf[ti * NTile + tk];
             cxBuf[ti * NTile + tk] = 0;
           }
         }
       }
     }
-
   }
-
-  delete[] cxBufAll;
-
-  for (int i1 = 1; i1 < LevelNo; ++i1) {
+  //delete[] cxBufAll;
+  int loopBeg = ParPtr[LevelPtr[1]], loopEnd = ParPtr[LevelPtr[LevelNo]];
+  //for (int i1 = 1; i1 < LevelNo; ++i1) {
 #pragma omp parallel num_threads(NThreads)
     {
 #pragma omp  for
-      for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; ++j1) {
-        for (int k1 = ParPtr[j1]; k1 < ParPtr[j1 + 1]; ++k1) {
+      //for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; ++j1) {
+        //for (int k1 = ParPtr[j1]; k1 < ParPtr[j1 + 1]; ++k1) {
+      for(int k1 = loopBeg; k1 < loopEnd; ++k1) {
           int i = Partition[k1];
-          int t = ParType[k1];
-          if (t == 0) {
-            for (int j = Ap[i]; j < Ap[i + 1]; j++) {
-              int aij = Ai[j] * N;
-              for (int kk = 0; kk < N; ++kk) {
-                ACx[i * N + kk] += Ax[j] * Cx[aij + kk];
-              }
-            }
-          } else {
-            for (int k = Bp[i]; k < Bp[i + 1]; k++) {
-              int bij = Bi[k] * N;
-              for (int kk = 0; kk < N; ++kk) {
-                Dx[i * N + kk] += Bx[k] * ACx[bij + kk];
+//          int t = ParType[k1];
+//          if (t == 0) {
+//            for (int j = Ap[i]; j < Ap[i + 1]; j++) {
+//              int aij = Ai[j] * N;
+//              for (int kk = 0; kk < N; ++kk) {
+//                ACx[i * N + kk] += Ax[j] * Cx[aij + kk];
+//              }
+//            }
+//          } else {
+//#pragma omp parallel for
+          for (int kk = 0; kk < N; kk += NTile) {
+            for (int j = Bp[i]; j < Bp[i + 1]; j++) {
+              int bij = Bi[j] * N + kk, dik = i * N + kk;
+              for (int k = 0; k < NTile; ++k) {
+                Dx[dik + k] += Bx[j] * ACx[bij + k];
               }
             }
           }
+
+//          for (int k = Bp[i]; k < Bp[i + 1]; k++) {
+//            int bij = Bi[k] * N;
+//            for (int kk = 0; kk < N; ++kk) {
+//              Dx[i * N + kk] += Bx[k] * ACx[bij + kk];
+//            }
+//          }
+
         }
-      }
+      //}
     }
-  }
+  //}
 }
 
 

@@ -45,3 +45,25 @@ if [ "$TUNED" ==  2 ]; then
     done
   done < ${MATLIST}
 fi
+
+
+# shellcheck disable=SC2039
+if [ "$TUNED" ==  3 ]; then
+  while read line; do
+    mat=$line
+    # shellcheck disable=SC2039
+    for w in {10,50,100,1000,5000}; do
+      k=4
+      for ntile in {8,16,32,64,128}; do
+        if [ $ntile -gt $BCOL ]; then
+          continue
+        fi
+      $BINLIB  $PATHMAIN/$mat $THRDS $k $k $header $BCOL $w $ntile
+      echo ""
+      if [ $header -eq 1 ]; then
+         header=0
+      fi
+      done
+    done
+  done < ${MATLIST}
+fi
