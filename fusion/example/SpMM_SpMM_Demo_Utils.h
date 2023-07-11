@@ -252,10 +252,12 @@ public:
 
 class SpMMSpMMUnFusedCTiledParallel : public SpMMSpMMUnFused {
 protected:
+  sym_lib::ScheduleParameters Sp;
   Timer execute() override {
     //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
     //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
-    int tileM = 4, tileN = 64;
+    int tileM = Sp.TileM, tileN = Sp.TileN;
+
     OutTensor->reset();
     Timer t;
     t.start();
@@ -271,7 +273,8 @@ protected:
     return t;
   }
 public:
-  SpMMSpMMUnFusedCTiledParallel(TensorInputs<double> *In1, Stats *Stat1) : SpMMSpMMUnFused(In1, Stat1){
+  SpMMSpMMUnFusedCTiledParallel(TensorInputs<double> *In1, Stats *Stat1,
+                                sym_lib::ScheduleParameters SpIn) : SpMMSpMMUnFused(In1, Stat1), Sp(SpIn) {
   }
 };
 
@@ -285,8 +288,7 @@ protected:
     //sym_lib::ScheduleParameters sp;
     //sp._num_threads = InTensor->NumThreads;
     // create the fused set
-    Sp.TileM = InTensor->ACsr->m / std::max<int>(InTensor->ACsr->m / Sp._num_w_partition,
-                  2*Sp._num_threads);
+
     Sp._num_w_partition = std::max<int>(InTensor->ACsr->m / Sp._num_w_partition,
                                         2*Sp._num_threads);
     auto *sf01 = new sym_lib::SparseFusion(&Sp, 2);
@@ -384,7 +386,7 @@ class SpMMSpMMFusedTiled : public SpMMSpMMFusedInterLayer{
   Timer execute() override {
     //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
     //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
-    Sp.TileK = 64;
+    auto *ws = new double[InTensor->NumThreads * Sp.TileM * Sp.TileN];
     OutTensor->reset();
     Timer t;
     t.start();
@@ -403,9 +405,10 @@ class SpMMSpMMFusedTiled : public SpMMSpMMFusedInterLayer{
                                                        FusedCompSet->ptr2_, FusedCompSet->id_,
                                                        FusedCompSet->type_,
                                                        InTensor->NumThreads, Sp.TileM,
-                                                Sp.TileK);
+                                                Sp.TileN, ws);
 
     t.stop();
+    delete[] ws;
     return t;
   }
 public:
@@ -513,6 +516,7 @@ class SpMMSpMMFusionProfiler : public SpMMSpMMUnFused {
   protected:
     sym_lib::MultiDimensionalSet *FusedCompSet;
     sym_lib::ScheduleParameters Sp;
+    sym_lib::SparsityProfileInfo SpInfo;
     Timer analysis() override {
         Timer t;
         t.start();
@@ -529,10 +533,10 @@ class SpMMSpMMFusionProfiler : public SpMMSpMMUnFused {
         //sf01->print_final_list();
         sf01->fuse(1, mvDAG, tmpCSCCSR);
         //sf01->print_final_list();
-        auto spi = sf01->measureReuse(tmpCSCCSR);
-        std::cout<<" -> "<<spi.TotalReuseC<<std::endl;
+        SpInfo = sf01->measureReuse(tmpCSCCSR);
+        //std::cout<<" -> "<<spi.TotalReuseC<<std::endl;
         auto pt = St->OtherStats["PackingType"];
-        FusedCompSet = sf01->getFusedCompressed((int) pt[0]);
+        //FusedCompSet = sf01->getFusedCompressed((int) pt[0]);
         //FusedCompSet->print_3d();
         delete sf01;
         delete mvDAG;
@@ -574,6 +578,10 @@ class SpMMSpMMFusionProfiler : public SpMMSpMMUnFused {
 
     ~SpMMSpMMFusionProfiler(){
         delete FusedCompSet;
+    }
+
+    sym_lib::SparsityProfileInfo getSpInfo(){
+        return SpInfo;
     }
 };
 

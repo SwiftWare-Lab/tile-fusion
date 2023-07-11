@@ -65,7 +65,7 @@ MATLIST=$UFDB/mat_list.txt
 
 mkdir $LOGS
 
-MODE=2
+MODE=3
 # performing the experiments
 
 if [ $TEST -eq 1 ]; then
