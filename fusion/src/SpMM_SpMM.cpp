@@ -267,6 +267,7 @@ void spmmCsrSpmmCsrTiledFused(int M, int N, int K, int L,
       if(kEnd - kBegin < MTile)
         continue ;
       int ii = Partition[kBegin]; // first iteration of tile
+      if(ii >= mBound) continue;
 
       for (int kk = 0; kk < N; kk += NTile) {
         // first loop, for every k-tile
