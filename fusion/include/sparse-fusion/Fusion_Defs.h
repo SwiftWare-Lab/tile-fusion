@@ -13,6 +13,10 @@ namespace sym_lib{
   NONE,SYM_METIS,SYM_AMD,SYM_SCOTCH
  };
 
+ enum SeedPartType{
+   CONSECUTIVE,BFS
+ };
+
  std::string get_ordering_string(SYM_ORDERING symOrdering);
 
  /*
@@ -22,6 +26,7 @@ namespace sym_lib{
   int _lbc_agg, _lbc_initial_cut, _num_w_partition;// aggregation params
   int _num_threads;
   int TileM{}, TileN{}, TileK{};
+  SeedPartType SeedPartitioningParallelism{};
 
   ScheduleParameters():_lbc_agg(2),_lbc_initial_cut(2),_num_threads(20){
    _num_w_partition=_num_threads;

@@ -293,9 +293,12 @@ protected:
                                         2*Sp._num_threads);
     auto *sf01 = new sym_lib::SparseFusion(&Sp, 2);
     auto *mvDAG =  sym_lib::diagonal(InTensor->ACsr->m, 1.0);
-    sf01->fuse(0, mvDAG, NULLPNTR);
     auto *tmpCSCCSR = new sym_lib::CSC(InTensor->BCsr->m, InTensor->BCsr->n, InTensor->BCsr->nnz,
                                        InTensor->BCsr->p, InTensor->BCsr->i, InTensor->BCsr->x);
+    auto *Di = InTensor->BCsr;
+    //sym_lib::print_csc(1, "Di", 6, Di->p, Di->i, Di->x);
+    sf01->fuse(0, mvDAG, tmpCSCCSR);
+
     //sf01->print_final_list();
     sf01->fuse(1, mvDAG, tmpCSCCSR);
     //sf01->print_final_list();

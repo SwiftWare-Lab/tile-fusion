@@ -303,12 +303,12 @@ void spmmCsrSpmmCsrTiledFused(int M, int N, int K, int L,
 
       // copy to ACx for the next wavefront
       //for (int kk = 0; kk < N; kk += NTile) {
-        for (int i = ii, ti = 0; i < ii + MTile; ++i, ++ti) {
-          for (int k = kk, tk = 0; k < kk + NTile; ++k, ++tk) {
-            ACx[i * N + k] = cxBuf[ti * NTile + tk];
-            cxBuf[ti * NTile + tk] = 0;
-          }
-        }
+//        for (int i = ii, ti = 0; i < ii + MTile; ++i, ++ti) {
+//          for (int k = kk, tk = 0; k < kk + NTile; ++k, ++tk) {
+//            ACx[i * N + k] = cxBuf[ti * NTile + tk];
+//            cxBuf[ti * NTile + tk] = 0;
+//          }
+//        }
       }
     }
   }

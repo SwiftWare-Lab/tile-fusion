@@ -33,11 +33,11 @@ namespace sym_lib{
    _lb_g_prev = 0;
    // applies LBC to the first DAG
    _partitioned_DAG = new DAG();
-   LBC((CSC*)Gi, _sp, 0, _loop_count, _final_node_list,
+   LBC((CSC*)Gi, Di, _sp, 0, _loop_count, _final_node_list,
        _partitioned_DAG, _vertex_to_part, _part_to_coordinate );
    //_partitioned_DAG = new DAG(_final_node_list.size(), _final_node_list);
    //_partitioned_DAG->print();
-  } else{// it is a new coming loop
+  } else {// it is a new coming loop
    pairing(LoopId, Gi, Di);
   }
  }

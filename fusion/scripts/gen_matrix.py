@@ -13,7 +13,7 @@ def generate_banded_matrix(n):
         for j in range(n):
             if i == j:
                 triplet_list.append((i, j, 1))
-            elif i == j + 1 or i == j - 1:
+            elif i == j + 1 or i == j + 2 or i == j + 3 or i == j - 1 or i == j - 2 or i == j - 3:
                 triplet_list.append((i, j, 1))
     return sp.coo_matrix((np.ones(len(triplet_list)), (np.array(triplet_list)[:, 0], np.array(triplet_list)[:, 1])),
                             shape=(n, n))
