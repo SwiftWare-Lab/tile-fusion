@@ -212,7 +212,97 @@ namespace sym_lib{
    delete []evenWeight;
  }
 
- int LBC(const CSC *G, ScheduleParameters* Sp, int LoopId, int HintTotLoops,
+
+ void partitionByBfs(int N, const CSC *Df, const double *Weight,
+                     double *TargetWeight,
+                     int PartNo,
+                     std::vector<int>  &FinalPartPtr, std::vector<int> &FinalNodePtr
+                       ){
+  double *evenWeight;
+  //FinalLevelNo = 1;
+  //FinaLevelPtr = new int[FinalLevelNo+1]();
+  //FinaLevelPtr[FinalLevelNo] = PartNo;
+  //FinalPartPtr = new int[PartNo+1]();
+  //FinalNodePtr = new int[N]();
+  if(TargetWeight)
+   evenWeight = TargetWeight;
+  else{
+   evenWeight = new double[PartNo];
+   double evenW = std::ceil(sumVector(N, Weight) / PartNo);
+   std::fill_n(evenWeight, PartNo, evenW);
+  }
+  auto *isVisited = new bool[N](); int visitedNodes=0;
+  int nxtStart = 0; std::vector<std::vector<int>> setTemp;
+  setTemp.resize(PartNo);
+  std::vector<int> stack;
+  for (int i = 0; i < PartNo && visitedNodes<N; ++i) {
+   assert(stack.size() < N);
+   double cWgt = 0;
+   while (cWgt < evenWeight[i] && visitedNodes < N){
+    if(stack.empty()){
+     nxtStart=-1;
+     for (int k = 0; k < N; ++k) {
+      if(!isVisited[k]){
+        nxtStart = k;
+        break;
+      }
+     }
+     if(nxtStart < 0) break;
+     stack.push_back(nxtStart);
+     isVisited[nxtStart] = true;
+    }
+    // do bfs per node nxt_start
+    while(!stack.empty()){
+     int cn = stack[0]; stack.erase(stack.begin());
+     cWgt += Weight[cn]; setTemp[i].push_back(cn);visitedNodes++;
+     for (int k = Df->p[cn]; k < Df->p[cn + 1]; ++k) {
+      auto cnn = Df->i[k];
+      if(!isVisited[cnn]){
+        stack.push_back(cnn);
+        isVisited[cnn] = true;
+        for (int j = Df->p[cnn]; j < Df->p[cnn + 1]; ++j) {
+          auto newCnn = Df->i[j];
+          if(!isVisited[newCnn]){
+           stack.push_back(newCnn);
+           isVisited[newCnn] = true;
+          }
+        }
+      }
+     }
+     if(cWgt >= evenWeight[i])
+      break;
+    }
+   }
+  }
+  // if anything is remained add it to last part
+  for (int m = 0; m < stack.size(); ++m) {
+   setTemp[PartNo-1].push_back(stack[m]);
+  }
+  for (int k = 0; k < N; ++k) {
+   if(!isVisited[k]){
+    setTemp[PartNo-1].push_back(k);
+   }
+  }
+  // puting into the set
+  FinalPartPtr.resize(PartNo+1);
+  for (int l = 0; l < setTemp.size(); ++l) {
+   int ss = setTemp[l].size();
+   int ip = FinalPartPtr[l];
+   FinalPartPtr[l+1] = ip + ss;
+   for (int i = 0; i < ss; ++i) {
+    assert(ip < N);
+    FinalNodePtr[ip] = setTemp[l][i];
+    ip++;
+   }
+   //assert(ip <= n);
+  }
+  if(!TargetWeight)
+   delete []evenWeight;
+  delete []isVisited;
+ }
+
+
+ int LBC(const CSC *G, const CSC *Di, ScheduleParameters* Sp, int LoopId, int HintTotLoops,
          std::vector<std::vector<FusedNode*>>& CurNodeList,
          DAG *OutDag,
          std::vector<int>& VToPart, std::vector<std::vector<std::pair<int,int>>>& PartToCoord
@@ -232,8 +322,22 @@ namespace sym_lib{
                                     Sp->_num_w_partition,Sp->_lbc_agg,
                                     Sp->_lbc_initial_cut, cost.data());
   } else {
-   for (int i = 0; i < G->m; ++i) finalNodePtrVec[i] = i;
-   partitionByWeight(G->m, finalNodePtrVec.data(), cost.data(), Sp->_num_w_partition, nullptr, finalPartPtrVec);
+   if(Sp->SeedPartitioningParallelism == BFS){
+    //print_csc(1, "Di", 6, Di->p, Di->i, Di->x);
+    partitionByBfs(Di->m, Di, cost.data(), nullptr, Sp->_num_w_partition, finalPartPtrVec, finalNodePtrVec);
+//    for (int i = 0; i < finalPartPtrVec.size(); ++i) {
+//      for (int j = finalPartPtrVec[i]; j < finalPartPtrVec[i+1]; ++j) {
+//        //VToPart[finalNodePtrVec[j]] = i;
+//        std::cout<<finalNodePtrVec[j]<<" ";
+//      }
+//      std::cout<<"\n";
+//    }
+   } else { // Consecutive
+    for (int i = 0; i < G->m; ++i)
+     finalNodePtrVec[i] = i;
+    partitionByWeight(G->m, finalNodePtrVec.data(), cost.data(),
+                      Sp->_num_w_partition, nullptr, finalPartPtrVec);
+   }
    finalLevelNo = 1;
    finaLevelPtr = new int[2];
    finaLevelPtr[0] = 0; finaLevelPtr[1] = finalPartPtrVec.size();

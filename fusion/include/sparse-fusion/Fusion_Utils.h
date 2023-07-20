@@ -35,12 +35,13 @@ namespace sym_lib{
 
   /// Computes LBC of G, from loop with loop_id and storeds it into cur_node_list (reserved with the hint)
   /// \param G
+  /// \param Di
   /// \param sp
   /// \param loop_id
   /// \param hint_tot_loops
   /// \param cur_node_list
   /// \return
-  int LBC(const CSC *G, ScheduleParameters* sp, int loop_id, int hint_tot_loops,
+  int LBC(const CSC *G, const CSC *Di, ScheduleParameters* sp, int loop_id, int hint_tot_loops,
           std::vector<std::vector<FusedNode*>>& cur_node_list, DAG *out_dag,
           std::vector<int>& v_to_part, std::vector<std::vector<std::pair<int,int>>>& part_to_coord);
 
