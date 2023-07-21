@@ -45,7 +45,7 @@ namespace sym_lib{
   if(Argc >= 7)
    Tp->_b_cols = atoi(Argv[6]);
   if(Argc >= 8)
-   Sp->_num_w_partition = atoi(Argv[7]);
+   Sp->IterPerPartition = atoi(Argv[7]);
   if(Argc >= 9)
    Sp->TileN = atoi(Argv[8]);
  }
