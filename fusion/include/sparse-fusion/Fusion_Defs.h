@@ -23,7 +23,7 @@ namespace sym_lib{
   * Scheduling-related parameters
   */
  struct ScheduleParameters{
-  int _lbc_agg, _lbc_initial_cut, _num_w_partition;// aggregation params
+  int _lbc_agg, _lbc_initial_cut, _num_w_partition, IterPerPartition;// aggregation params
   int _num_threads;
   int TileM{}, TileN{}, TileK{};
   SeedPartType SeedPartitioningParallelism{};

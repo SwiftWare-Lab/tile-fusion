@@ -256,9 +256,9 @@ void spmmCsrSpmmCsrTiledFused(int M, int N, int K, int L,
   auto *cxBufAll = Ws;//new double[MTile * NTile * NThreads]();
   // First level benefits from Fusion
   int iBoundBeg = LevelPtr[0], iBoundEnd = LevelPtr[1];
-  #pragma omp parallel num_threads(NThreads)
+  //#pragma omp parallel num_threads(NThreads)
   {
-    #pragma omp  for
+    //#pragma omp  for
     for (int j1 = iBoundBeg; j1 < iBoundEnd; ++j1) {
       auto *cxBuf = cxBufAll + omp_get_thread_num() * MTile * NTile;
 
@@ -352,6 +352,89 @@ void spmmCsrSpmmCsrTiledFused(int M, int N, int K, int L,
       //}
     }
   //}
+}
+
+
+void spmmCsrSpmmCsrTiledFusedRedundant(int M, int N, int K, int L,
+                                       const int *Ap, const int *Ai, const double *Ax,
+                                       const int *Bp, const int *Bi,const double *Bx,
+                                       const double *Cx,
+                                       double *Dx,
+                                       double *ACx,
+                                       int LevelNo, const int *LevelPtr, const int *ParPtr,
+                                       const int *Partition, const int *ParType, const int*MixPtr,
+                                       int NThreads, int MTile, int NTile, double *Ws) {
+    pw_init_instruments;
+    int numKer=2;
+    int mBound = M - M % MTile;
+    auto *cxBufAll = Ws;//new double[MTile * NTile * NThreads]();
+    // First level benefits from Fusion
+    int iBoundBeg = LevelPtr[0], iBoundEnd = LevelPtr[1];
+#pragma omp parallel num_threads(NThreads)
+    {
+#pragma omp  for
+        for (int j1 = iBoundBeg; j1 < iBoundEnd; ++j1) {
+          auto *cxBuf = cxBufAll + omp_get_thread_num() * 2 * MTile * NTile;
+
+
+          int kBegin = ParPtr[j1], kEnd = MixPtr[j1 * numKer];
+          int ii = Partition[kBegin]; // first iteration of tile
+          int mTileLoc = kEnd - kBegin;
+          //if(ii >= mBound) continue;
+
+          for (int kk = 0; kk < N; kk += NTile) {
+            // first loop, for every k-tile
+            for (int i = 0; i < mTileLoc; ++i) {
+              int iipi = ii + i;
+//            for (int k1 = ParPtr[j1]; k1 < MixPtr[j1 * numKer]; ++k1) {
+//              int i = Partition[k1];
+              for (int j = Ap[iipi]; j < Ap[iipi + 1]; ++j) {
+                int aij = Ai[j] * N;
+                //std::fill_n(cxBuf + i * NTile, NTile, 0.0);
+                for (int k = 0; k < NTile; ++k) {
+              //auto tmp = Ax[j] * Cx[aij + k];
+              cxBuf[i * NTile + k] = 0;
+              cxBuf[i * NTile + k] += Ax[j] * Cx[aij + k];
+              //ACx[iipi * N + k + kk] = tmp;
+                }
+              }
+            }
+            // print cxBuf
+//            for(int i = 0; i < mTileLoc; ++i) {
+//              for(int k = 0; k < NTile; ++k) {
+//                std::cout << cxBuf[i * NTile + k] << " ";
+//              }
+//              std::cout << std::endl;
+//            }
+
+            // second loop
+            int kEndL2 = MixPtr[j1 * numKer + 1];
+            for(int k1 = kEnd; k1 < kEndL2; k1++) { // i-loop
+              int i = Partition[k1];
+              for (int j = Bp[i]; j < Bp[i + 1]; j++) {
+                int bij = Bi[j]-ii;
+                assert(bij < mTileLoc + 1 && bij >= 0); // stays within the tile i
+                bij *= NTile;
+                int inkk = i * N + kk;
+                for (int k = 0; k < NTile; ++k) {
+              Dx[inkk + k] += Bx[j] * cxBuf[bij + k];
+              //cxBuf[bij + k] = 0;
+                }
+              }
+            }
+            //std::fill_n(cxBuf, mTileLoc * NTile, 0.0);
+
+//            std::cout<<"\n=============\n";
+//            for(int i = 0; i < mTileLoc; ++i) {
+//              for(int k = 0; k < NTile; ++k) {
+//                std::cout << Dx[i * NTile + k] << " ";
+//              }
+//              std::cout << std::endl;
+//            }
+
+          }
+        }
+    }
 }
 
 

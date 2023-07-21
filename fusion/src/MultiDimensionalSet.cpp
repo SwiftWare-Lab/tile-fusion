@@ -129,7 +129,7 @@ namespace sym_lib {
    width = std::max(width, (int) FusedSchedule[i].size());
    partNo += FusedSchedule[i].size();
    for (int j = 0; j < FusedSchedule[i].size(); ++j) {
-    for (int k = 0; k < FusedSchedule[i][j]->_list.size(); ++k) {
+    for (int k = 0; k < FusedSchedule[i][j]->_list.size(); ++k) { // loop id
      totalNode+=FusedSchedule[i][j]->_list[k].size();
     }
    }

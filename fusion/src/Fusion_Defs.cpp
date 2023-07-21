@@ -37,10 +37,11 @@ namespace sym_lib{
  std::tuple<std::string,std::string> ScheduleParameters::print_csv(bool header) const{
   std::string header_text, row;
   if(header){
-   header_text = "nThreads,LBC Agg,LBC InitialCut,LBC WPART,MTile,NTile,";
+   header_text = "nThreads,LBC Agg,LBC InitialCut,Iter Per Partition,LBC WPART,MTile,NTile,";
   }
   row = std::to_string(_num_threads) + "," + std::to_string(_lbc_agg) +"," +
-    std::to_string(_lbc_initial_cut) + "," + std::to_string(_num_w_partition) +","
+    std::to_string(_lbc_initial_cut) + "," + std::to_string(IterPerPartition) +
+        "," + std::to_string(_num_w_partition) +","
         + std::to_string(TileM) + "," + std::to_string(TileN) + ",";
   return std::make_tuple(header_text, row);
  }
