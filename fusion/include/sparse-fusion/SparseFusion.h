@@ -34,7 +34,7 @@ namespace sym_lib{
   };
 
  class SparseFusion {
-
+  protected:
   // List of fused node
   std::vector<std::vector<FusedNode*>> _cur_node_list;
   //
@@ -73,11 +73,11 @@ namespace sym_lib{
 
   explicit SparseFusion(ScheduleParameters *Sp, int LoopCnt);
 
-  void fuse(int LoopId, CSC *Gi, CSC *Di);
+  virtual void fuse(int LoopId, CSC *Gi, CSC *Di);
 
   MultiDimensionalSet *getFusedCompressed(int PT);
 
-  void pairing(int LoopId, CSC *Gi, CSC *Di);
+  virtual void pairing(int LoopId, CSC *Gi, CSC *Di);
 
   void merge_pairs();
 
