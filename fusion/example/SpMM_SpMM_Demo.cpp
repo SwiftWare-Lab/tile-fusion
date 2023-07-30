@@ -125,6 +125,15 @@ int main(const int argc, const char *argv[]){
   delete fusedTiledParallel;
   delete stats;
 
+    stats = new swiftware::benchmark::Stats("SpMM_SpMM_FusedTiledParallel_Redundant_General","SpMM", 7,tp._matrix_name,numThread);
+  stats->OtherStats["PackingType"] = {Separated};
+  auto *fusedTiledParallelGen = new SpMMSpMMFusedInterLayerRedundant(inSpMM, stats, sp);
+  fusedTiledParallelGen->run();
+  //fusedTiledParallel->OutTensor->printDx();
+  auto fusedTiledParallelGenStat = fusedTiledParallelGen->printStats();
+  delete fusedTiledParallelGen;
+  delete stats;
+
 
   stats = new swiftware::benchmark::Stats("SpMM_SpMM_OuterProduct_FusedParallel","SpMM", 7,tp._matrix_name,numThread);
   stats->OtherStats["PackingType"] = {Interleaved};
@@ -183,6 +192,7 @@ int main(const int argc, const char *argv[]){
   std::cout<<fusedParallelStat<<spStat+tpStat+profStat<<std::endl;
   std::cout<<fusedParallelStatBfs<<spStat+tpStat+profStat<<std::endl;
   std::cout<<fusedTiledParallelStat<<spStat+tpStat+profStat<<std::endl;
+  std::cout<<fusedTiledParallelGenStat<<spStat+tpStat+profStat<<std::endl;
   std::cout<<fusedParallelOutStat<<spStat+tpStat+profStat<<std::endl;
   std::cout<<fusedParallelMixedStat<<spStat+tpStat+profStat<<std::endl;
   std::cout<<fusedParallelSepStat<<spStat+tpStat+profStat;
