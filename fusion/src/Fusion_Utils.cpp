@@ -347,7 +347,8 @@ namespace sym_lib{
 
   //HDAGG::build_coarsened_level_parallel
   //auto ret_hwf = new FusedNode(G->m, final_level_no, fina_level_ptr, final_part_ptr, final_node_ptr);
-  CurNodeList.resize(HintTotLoops*Sp->_num_w_partition);// allocate for other loops coming
+  //CurNodeList.resize(HintTotLoops*Sp->_num_w_partition);// allocate for other loops coming
+  CurNodeList.resize(finalLevelNo);
   PartToCoord.resize(finalLevelNo);
   std::vector<FusedNode*> wPart; int partCnt=0;
   for (int i = 0; i < finalLevelNo; ++i) {
