@@ -388,26 +388,20 @@ protected:
   Timer execute() override {
     //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
     //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
+    auto *ws = new double[InTensor->NumThreads * 2 * Sp.TileM * Sp.TileN]();
     OutTensor->reset();
     Timer t;
     t.start();
-    swiftware::sparse::spmmCsrSpmmCsrFused(InTensor->M, InTensor->N,
-                                           InTensor->K, InTensor->L,
-                                           InTensor->ACsr->p,
-                                           InTensor->ACsr->i,
-                                           InTensor->ACsr->x,
-                                           InTensor->BCsr->p,
-                                           InTensor->BCsr->i,
-                                           InTensor->BCsr->x,
-                                           InTensor->Cx,
-                                           OutTensor->Dx,
-                                           OutTensor->ACx, FusedCompSet->n1_,
-                                           FusedCompSet->ptr1_,
-                                           FusedCompSet->ptr2_, FusedCompSet->id_,
-                                           FusedCompSet->type_,
-                                           InTensor->NumThreads);
+    swiftware::sparse::spmmCsrSpmmCsrTiledFusedRedundantBanded(
+        InTensor->M, InTensor->N, InTensor->K, InTensor->L, InTensor->ACsr->p,
+        InTensor->ACsr->i, InTensor->ACsr->x, InTensor->BCsr->p,
+        InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Cx, OutTensor->Dx,
+        OutTensor->ACx, FusedCompSet->n1_, FusedCompSet->ptr1_,
+        FusedCompSet->ptr2_, FusedCompSet->id_, FusedCompSet->type_,
+        FusedCompSet->ker_begin_, InTensor->NumThreads, Sp.TileM, Sp.TileN, ws);
 
     t.stop();
+    delete[] ws;
     return t;
   }
 public:
@@ -565,22 +559,13 @@ class SpMMSpMMFusedTiledTri : public SpMMSpMMFusedInterLayer{
     OutTensor->reset();
     Timer t;
     t.start();
-    swiftware::sparse::spmmCsrSpmmCsrTiledFusedRedundant(InTensor->M, InTensor->N,
-                                                InTensor->K, InTensor->L,
-                                                InTensor->ACsr->p,
-                                                InTensor->ACsr->i,
-                                                InTensor->ACsr->x,
-                                                InTensor->BCsr->p,
-                                                InTensor->BCsr->i,
-                                                InTensor->BCsr->x,
-                                                InTensor->Cx,
-                                                OutTensor->Dx,
-                                                OutTensor->ACx, FusedCompSet->n1_,
-                                                FusedCompSet->ptr1_,
-                                                FusedCompSet->ptr2_, FusedCompSet->id_,
-                                                FusedCompSet->type_, FusedCompSet->ker_begin_,
-                                                InTensor->NumThreads, Sp.TileM,
-                                                Sp.TileN, ws);
+    swiftware::sparse::spmmCsrSpmmCsrTiledFusedRedundantBanded(
+        InTensor->M, InTensor->N, InTensor->K, InTensor->L, InTensor->ACsr->p,
+        InTensor->ACsr->i, InTensor->ACsr->x, InTensor->BCsr->p,
+        InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Cx, OutTensor->Dx,
+        OutTensor->ACx, FusedCompSet->n1_, FusedCompSet->ptr1_,
+        FusedCompSet->ptr2_, FusedCompSet->id_, FusedCompSet->type_,
+        FusedCompSet->ker_begin_, InTensor->NumThreads, Sp.TileM, Sp.TileN, ws);
 
     t.stop();
     delete[] ws;

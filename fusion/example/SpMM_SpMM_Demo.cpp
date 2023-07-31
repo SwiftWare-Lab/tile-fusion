@@ -116,20 +116,20 @@ int main(const int argc, const char *argv[]){
 //  delete fusedTiledParallel;
 //  delete stats;
 
-  stats = new swiftware::benchmark::Stats("SpMM_SpMM_FusedTiledParallel_Redundant","SpMM", 7,tp._matrix_name,numThread);
-  stats->OtherStats["PackingType"] = {Separated};
-  auto *fusedTiledParallel = new SpMMSpMMFusedTiledTri(inSpMM, stats, sp);
-  fusedTiledParallel->run();
-  //fusedTiledParallel->OutTensor->printDx();
-  auto fusedTiledParallelStat = fusedTiledParallel->printStats();
-  delete fusedTiledParallel;
-  delete stats;
+//  stats = new swiftware::benchmark::Stats("SpMM_SpMM_FusedTiledParallel_Redundant","SpMM", 7,tp._matrix_name,numThread);
+//  stats->OtherStats["PackingType"] = {Separated};
+//  auto *fusedTiledParallel = new SpMMSpMMFusedTiledTri(inSpMM, stats, sp);
+//  fusedTiledParallel->run();
+//  //fusedTiledParallel->OutTensor->printDx();
+//  auto fusedTiledParallelStat = fusedTiledParallel->printStats();
+//  delete fusedTiledParallel;
+//  delete stats;
 
     stats = new swiftware::benchmark::Stats("SpMM_SpMM_FusedTiledParallel_Redundant_General","SpMM", 7,tp._matrix_name,numThread);
   stats->OtherStats["PackingType"] = {Separated};
   auto *fusedTiledParallelGen = new SpMMSpMMFusedInterLayerRedundant(inSpMM, stats, sp);
   fusedTiledParallelGen->run();
-  //fusedTiledParallel->OutTensor->printDx();
+  //fusedTiledParallelGen->OutTensor->printDx();
   auto fusedTiledParallelGenStat = fusedTiledParallelGen->printStats();
   delete fusedTiledParallelGen;
   delete stats;
@@ -191,7 +191,7 @@ int main(const int argc, const char *argv[]){
   std::cout<<unfusedCTiledParallelStat<<spStat+tpStat+profStat<<std::endl;
   std::cout<<fusedParallelStat<<spStat+tpStat+profStat<<std::endl;
   std::cout<<fusedParallelStatBfs<<spStat+tpStat+profStat<<std::endl;
-  std::cout<<fusedTiledParallelStat<<spStat+tpStat+profStat<<std::endl;
+  //std::cout<<fusedTiledParallelStat<<spStat+tpStat+profStat<<std::endl;
   std::cout<<fusedTiledParallelGenStat<<spStat+tpStat+profStat<<std::endl;
   std::cout<<fusedParallelOutStat<<spStat+tpStat+profStat<<std::endl;
   std::cout<<fusedParallelMixedStat<<spStat+tpStat+profStat<<std::endl;
