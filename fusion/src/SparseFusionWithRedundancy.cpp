@@ -57,7 +57,7 @@ namespace sym_lib{
   int lastLevel = 0;
   std::fill(_visited_g_cur_sofar.begin(), _visited_g_cur_sofar.end(), 0);
   std::fill(_visited_g_prev_sofar.begin(), _visited_g_prev_sofar.end(), 0);
-  // replicate from the the create schedule of the second loop
+  // replicate from the create schedule of the second loop
   // it is like fusing LoopId with its next loop
   replicateKernelFromKernel(0,LoopId+1,LoopId, Di, _final_node_list);
 
