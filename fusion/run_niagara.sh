@@ -13,8 +13,8 @@
 #SBATCH --constraint=cascade
 
 BASE_LINE="SpMM_SpMM_Demo_UnFusedParallel"
-#UFDB=$SCRATCH/UFDB/graphs/
-UFDB=$HOME/UFDB/banded/
+UFDB=$SCRATCH/UFDB/graphs/
+#UFDB=$HOME/UFDB/banded/
 while getopts ":b:lm:" arg; do
   case "${arg}" in
     b)
