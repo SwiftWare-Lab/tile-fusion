@@ -25,6 +25,8 @@ int main(const int argc, const char *argv[]){
   CSC *aCSCFull = nullptr;
   if(aCSC->stype == -1 || aCSC->stype == 1){
     aCSCFull = sym_lib::make_full(aCSC);
+  } else{
+    aCSCFull = sym_lib::copy_sparse(aCSC);
   }
   tp._dim1 = aCSCFull->m; tp._dim2 = aCSCFull->n; tp._nnz = aCSCFull->nnz;
   tp._density = (double)tp._nnz / (double)(tp._dim1 * tp._dim2);
@@ -228,6 +230,7 @@ int main(const int argc, const char *argv[]){
 //  std::cout<<std::get<1>(tpCsv)<<std::get<1>(spCsv);
 
   delete aCSC;
+  delete aCSCFull;
   delete bCSC;
   delete alCSC;
   delete inSpMM;
