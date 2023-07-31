@@ -354,6 +354,7 @@ class SpMMSpMMFusedInterLayerRedundant : public SpMMSpMMUnFused {
 protected:
   sym_lib::MultiDimensionalSet *FusedCompSet;
   sym_lib::ScheduleParameters Sp;
+  sym_lib::SparsityProfileInfo SpInfo;
   Timer analysis() override {
     Timer t;
     t.start();
@@ -376,6 +377,7 @@ protected:
     //sf01->print_final_list();
     auto pt = St->OtherStats["PackingType"];
     FusedCompSet = sf01->getFusedCompressed((int) pt[0]);
+    sf01->measureRedundancy(tmpCSCCSR, SpInfo);
     //FusedCompSet->print_3d();
     delete sf01;
     delete mvDAG;
@@ -388,11 +390,11 @@ protected:
   Timer execute() override {
     //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
     //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
-    auto *ws = new double[InTensor->NumThreads * 2 * Sp.TileM * Sp.TileN]();
+    auto *ws = new double[InTensor->NumThreads * 2 * InTensor->M * Sp.TileN]();
     OutTensor->reset();
     Timer t;
     t.start();
-    swiftware::sparse::spmmCsrSpmmCsrTiledFusedRedundantBanded(
+    swiftware::sparse::spmmCsrSpmmCsrTiledFusedRedundantGeneral(
         InTensor->M, InTensor->N, InTensor->K, InTensor->L, InTensor->ACsr->p,
         InTensor->ACsr->i, InTensor->ACsr->x, InTensor->BCsr->p,
         InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Cx, OutTensor->Dx,
@@ -412,6 +414,10 @@ public:
 
   ~SpMMSpMMFusedInterLayerRedundant(){
     delete FusedCompSet;
+  }
+
+  sym_lib::SparsityProfileInfo getSpInfo(){
+    return SpInfo;
   }
 };
 

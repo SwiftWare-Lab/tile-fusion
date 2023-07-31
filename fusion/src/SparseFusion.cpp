@@ -191,6 +191,41 @@ namespace sym_lib{
  }
 
 
+ void SparseFusion::measureRedundancy(sym_lib::CSC *Gi, SparsityProfileInfo &Spi) {
+
+  int totalNode = 0, height = _final_node_list.size(), width = 0, loopNo = 0;
+  // calculate the number of loops in the schedule
+  for (int i = 0; i < _final_node_list.size(); ++i) {
+   for (int j = 0; j < _final_node_list[i].size(); ++j) {
+    loopNo = std::max(loopNo, (int)_final_node_list[i][j]->_list.size());
+   }
+  }
+  std::vector<std::vector<int>> iterCount(loopNo);
+
+  for (int i = 0; i < _final_node_list.size(); ++i) {
+   for (int j = 0; j < _final_node_list[i].size(); ++j) {
+    for (int k = 0; k < _final_node_list[i][j]->_list.size(); ++k) { // loop id
+     totalNode+=_final_node_list[i][j]->_list[k].size();
+     // copy iterations of loop k to iterCount
+        iterCount[k].insert(iterCount[k].end(), _final_node_list[i][j]->_list[k].begin(),
+                            _final_node_list[i][j]->_list[k].end());
+    }
+   }
+  }
+    // calculate the number of redundant iterations
+  int allIterations = 0, uniqueIterations = 0;
+  for (int i = 0; i < loopNo; ++i) {
+    allIterations += iterCount[i].size();
+    std::sort(iterCount[i].begin(), iterCount[i].end());
+    auto it = std::unique(iterCount[i].begin(), iterCount[i].end());
+    iterCount[i].resize(std::distance(iterCount[i].begin(), it));
+    uniqueIterations += iterCount[i].size();
+  }
+  Spi.RedundantIterations = allIterations - uniqueIterations;
+  Spi.UniqueIterations = uniqueIterations;
+ }
+
+
  MultiDimensionalSet *SparseFusion::getFusedCompressed(int PT) {
   MultiDimensionalSet *ret;
   if(PT == Separated)

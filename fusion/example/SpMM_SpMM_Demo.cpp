@@ -131,6 +131,9 @@ int main(const int argc, const char *argv[]){
   fusedTiledParallelGen->run();
   //fusedTiledParallelGen->OutTensor->printDx();
   auto fusedTiledParallelGenStat = fusedTiledParallelGen->printStats();
+  auto profileInfoRed = fusedTiledParallelGen->getSpInfo().printCSV(true);
+  std::string profHeaderRed = std::get<0>(profileInfoRed);
+  std::string profStatRed = std::get<1>(profileInfoRed);
   delete fusedTiledParallelGen;
   delete stats;
 
@@ -192,7 +195,7 @@ int main(const int argc, const char *argv[]){
   std::cout<<fusedParallelStat<<spStat+tpStat+profStat<<std::endl;
   std::cout<<fusedParallelStatBfs<<spStat+tpStat+profStat<<std::endl;
   //std::cout<<fusedTiledParallelStat<<spStat+tpStat+profStat<<std::endl;
-  std::cout<<fusedTiledParallelGenStat<<spStat+tpStat+profStat<<std::endl;
+  std::cout<<fusedTiledParallelGenStat<<spStat+tpStat+profStatRed<<std::endl;
   std::cout<<fusedParallelOutStat<<spStat+tpStat+profStat<<std::endl;
   std::cout<<fusedParallelMixedStat<<spStat+tpStat+profStat<<std::endl;
   std::cout<<fusedParallelSepStat<<spStat+tpStat+profStat;

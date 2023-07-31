@@ -21,14 +21,17 @@ namespace sym_lib{
   };
 
   struct SparsityProfileInfo {
-    int TotalReuseC;
+    int TotalReuseC{}, RedundantIterations{}, RedundantOperations{},
+        UniqueIterations{};
 
     std::tuple<std::string,std::string>  printCSV(bool Header){
       std::string headerText, row;
       if(Header){
-        headerText = "TotalReuseC,";
+        headerText = "TotalReuseC,RedundantIterations,RedundantOperations,";
       }
-      row = std::to_string(TotalReuseC) + ",";
+      row = std::to_string(TotalReuseC) + "," +
+            std::to_string(RedundantIterations) + "," +
+            std::to_string(RedundantOperations) + ",";
       return std::make_tuple(headerText,row);
     }
   };
@@ -86,6 +89,7 @@ namespace sym_lib{
   void print_final_list();
 
   SparsityProfileInfo measureReuse(CSC *Gi);
+  void measureRedundancy(CSC *Gi, SparsityProfileInfo &spInfo);
 
   ~SparseFusion();
 

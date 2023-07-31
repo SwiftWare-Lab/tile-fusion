@@ -111,6 +111,15 @@ void spmmCsrSpmmCsrTiledFusedRedundantBanded(int M, int N, int K, int L,
                                        int LevelNo, const int *LevelPtr, const int *ParPtr,
                                        const int *Partition, const int *ParType, const int*MixPtr,
                                        int NThreads, int MTile, int NTile, double *Ws);
+void spmmCsrSpmmCsrTiledFusedRedundantGeneral(int M, int N, int K, int L,
+                                              const int *Ap, const int *Ai, const double *Ax,
+                                              const int *Bp, const int *Bi,const double *Bx,
+                                              const double *Cx,
+                                              double *Dx,
+                                              double *ACx,
+                                              int LevelNo, const int *LevelPtr, const int *ParPtr,
+                                              const int *Partition, const int *ParType, const int*MixPtr,
+                                              int NThreads, int MTile, int NTile, double *Ws);
 
 } // namespace sparse
 } // namespace swiftware
