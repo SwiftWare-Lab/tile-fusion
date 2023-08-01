@@ -101,6 +101,7 @@ def plot_spmm_spmm(logs_folder, file_name, baseline_implementation):
     # mat_list = df_fusion['MatrixName'].unique()
     mat_list = get_matrix_list(df_fusion)
     bCol = df_fusion['bCols'].unique()[0]
+    num_threads = df_fusion['nThreads'].unique()[0]
     nnz_list = df_fusion['NNZ'].unique()
     ntile_list = df_fusion['NTile'].unique()
     mtile_list = df_fusion['MTile'].unique()
@@ -129,20 +130,34 @@ def plot_spmm_spmm(logs_folder, file_name, baseline_implementation):
     unfused_parallel_idx = np.where(implementations == 'SpMM_SpMM_Demo_UnFusedParallel')[0][0]
     unfused_parallel_timing = timing_per_impl[:, unfused_parallel_idx]
     # get the timing of fused with redundant
-    fused_redundant_idx = np.where(implementations == 'SpMM_SpMM_FusedTiledParallel_Redundant')[0][0]
+    fused_redundant_idx = np.where(implementations == 'SpMM_SpMM_FusedTiledParallel_Mixed_General')[0][0]
     fused_redundant_timing = timing_per_impl[:, fused_redundant_idx]
     # get the timing of fused without redundant
     fused_without_redundant_idx = np.where(implementations == 'SpMM_SpMM_FusedParallel')[0][0]
     fused_without_redundant_timing = timing_per_impl[:, fused_without_redundant_idx]
 
+    fused_bfs_idx = np.where(implementations == 'SpMM_SpMM_FusedParallel_BFS')[0][0]
+    fused_bfs_timing = timing_per_impl[:, fused_bfs_idx]
+
+    fused_sep_idx = np.where(implementations == 'SpMM_SpMM_Separated_FusedParallel')[0][0]
+    fused_sep_timing = timing_per_impl[:, fused_sep_idx]
+    # get timing for SpMM_SpMM_FusedTiledParallel_Redundant_General
+    fused_redundant_general_idx = np.where(implementations == 'SpMM_SpMM_FusedTiledParallel_Redundant_General')[0][0]
+    fused_redundant_general_timing = timing_per_impl[:, fused_redundant_general_idx]
+    # get the best of fused timing
+    fused_best_timing = np.minimum( np.minimum( np.minimum(fused_redundant_timing, fused_without_redundant_timing),
+                                    np.minimum(fused_bfs_timing, fused_sep_timing)),
+                                    fused_redundant_general_timing)
+
+
     # plot a bar chart with matrices in x and time of the three implementation on y
     x_vals = np.arange(len(mat_list))
     width = 0.3
-    fig, ax = plt.subplots(figsize=(15, 15))
+    fig, ax = plt.subplots(figsize=(55, 35))
     # set font size to be 20
-    plt.rcParams.update({'font.size': 20})
+    plt.rcParams.update({'font.size': 100})
     ax.bar(x_vals - width, unfused_parallel_timing, width, label='Unfused Parallel')
-    ax.bar(x_vals, fused_redundant_timing, width, label='Fused with Redundant')
+    ax.bar(x_vals, fused_best_timing, width, label='Fused Best')
     ax.bar(x_vals + width, fused_without_redundant_timing, width, label='Fused without Redundant')
     # label x-axis values with corresponding nnz
     ax.set_xticks(x_vals)
@@ -151,7 +166,9 @@ def plot_spmm_spmm(logs_folder, file_name, baseline_implementation):
     # set x and y axis label
     ax.set_xlabel('Matrix Name')
     ax.set_ylabel('Execution Time (sec)')
-    ax.set_title('for bCols = ' + str(bCol))
+    # set y-axis to be log scale
+    #ax.set_yscale('log')
+    ax.set_title('for bCols = ' + str(bCol) + ' and threads = ' + str(num_threads))
     ax.legend()
     plt.show()
 
