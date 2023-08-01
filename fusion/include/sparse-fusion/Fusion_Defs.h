@@ -93,9 +93,11 @@ namespace sym_lib{
   std::vector<int> _kernel_ID; // not used yet
   int _num_loops{};
   int _vertex_id{}; // id in the partitioned DAG
+  bool _is_redundant{};
 
   FusedNode()=default;
   FusedNode(int loop_no, int ID, int lst_size, const int *lst, int v_no);
+  FusedNode(const FusedNode &other);
  };
 
 }

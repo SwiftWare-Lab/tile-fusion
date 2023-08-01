@@ -417,6 +417,81 @@ namespace sym_lib{
  }
 
 
+ int MakePartitionIndependent(int LNo, int PartNo,
+                               int SrcLoopID, int DstLoopID,
+                               const CSC *Dm,
+                               const std::vector<std::vector<FusedNode*>> &FinalNodeList,
+                              std::vector<int> &ReachedItersList){
+  int height = FinalNodeList.size();
+  if(height <= LNo )
+   return 0;
+  //for (int j = 0; j < FinalNodeList[LNo].size(); ++j) {
+   //std::vector<int> reachedItersList;
+   int j = PartNo;
+   for (int k = 0; k < FinalNodeList[LNo][j]->_list[SrcLoopID].size(); ++k) {
+    auto srcIter = FinalNodeList[LNo][j]->_list[SrcLoopID][k];
+    for (int cc = 0, jj = Dm->p[srcIter]; jj < Dm->p[srcIter + 1]; ++cc, ++jj){
+     auto reachedIter = Dm->i[jj];
+     ReachedItersList.push_back(reachedIter);
+    }
+   }
+   std::sort(ReachedItersList.begin(), ReachedItersList.end());
+   auto last = std::unique(ReachedItersList.begin(), ReachedItersList.end());
+   ReachedItersList.erase(last, ReachedItersList.end());
+   //FinalNodeList[LNo][j]->_list[DstLoopID] = reachedItersList;
+  //}
+  return 1;
+ }
+
+
+ void BalanceWithRedundantComputation(const std::vector<std::vector<FusedNode*>> &FinalNodeList,
+                                      std::vector<std::vector<FusedNode*>> &UpdatedNodeList,
+                                      const CSC *Dm,
+                                      double BalancedRatio=0.5
+                                      ){
+  // specify how many partitions should become self-sufficient
+  int numShiftedPartitions = 0;
+  for (int i = 0; i < FinalNodeList.size(); ++i) {
+   numShiftedPartitions += FinalNodeList[i].size();
+  }
+  numShiftedPartitions /= FinalNodeList.size();
+
+  // go over second wavefront and compute the amount redundant computations needed
+  std::vector<std::pair<int,double>> redundantComputation;
+  int lNo = 1, dstLoop = 0;
+  for (int i = 0; i < FinalNodeList[lNo].size(); ++i) {
+    std::vector<int> reachedItersList;
+   MakePartitionIndependent(lNo, i, 1, dstLoop, Dm, FinalNodeList, reachedItersList);
+    int numRedundantComputation = reachedItersList.size();
+    redundantComputation.emplace_back(i, numRedundantComputation);
+  }
+
+  // pick numShiftedPartitions partitions with the least redundant computations
+  std::sort(redundantComputation.begin(), redundantComputation.end(),
+            [](const std::pair<int,double> &A, const std::pair<int,double> &B) -> bool
+            { return A.second < B.second; });
+  // copy the first wavefront from FinalNodeList to UpdatedNodeList
+  for (int i = 0; i < FinalNodeList[0].size(); ++i) {
+    auto *curNode = new FusedNode(*FinalNodeList[0][i]);
+    UpdatedNodeList[0].push_back(curNode);
+  }
+  for (int i = 0; i < numShiftedPartitions; ++i) {
+   auto minPart = redundantComputation[i].first;
+   std::vector<int> reachedItersList;
+    MakePartitionIndependent(lNo, minPart, 1, 0, Dm, FinalNodeList, reachedItersList);
+    auto *curNode = new FusedNode(*FinalNodeList[lNo][minPart]);
+    curNode->_list[dstLoop] = reachedItersList;
+    UpdatedNodeList[0].push_back(curNode);
+  }
+  // copy the rest of the wavefronts from FinalNodeList to UpdatedNodeList
+  for(int i = numShiftedPartitions; i < FinalNodeList[lNo].size(); ++i){
+    auto minPart = redundantComputation[i].first;
+    auto *curNode = new FusedNode(*FinalNodeList[lNo][minPart]);
+    UpdatedNodeList[lNo].push_back(curNode);
+  }
+
+ }
+
 
 
 

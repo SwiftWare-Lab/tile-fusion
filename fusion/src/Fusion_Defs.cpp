@@ -57,6 +57,22 @@ namespace sym_lib{
   _vertex_id = v_no;
  }
 
+ FusedNode::FusedNode(const sym_lib::FusedNode &Other) {
+  _num_loops = Other._num_loops;
+  // copy _list
+  _list.resize(_num_loops);
+  for(int i=0; i<_num_loops; ++i){
+   _list[i].reserve(Other._list[i].size());
+   std::copy(Other._list[i].begin(), Other._list[i].end(),
+             std::back_inserter(_list[i]));
+  }
+  // copy _kernel_ID
+  _kernel_ID.reserve(Other._kernel_ID.size());
+  std::copy(Other._kernel_ID.begin(), Other._kernel_ID.end(),
+            std::back_inserter(_kernel_ID));
+  _vertex_id = Other._vertex_id;
+ }
+
 /* HWaveFront::HWaveFront(const int m, const int final_level_no,
                         const int* fina_level_ptr,
                         const int* final_part_ptr, const int*final_node_ptr) {

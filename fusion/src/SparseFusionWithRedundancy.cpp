@@ -8,7 +8,8 @@
 namespace sym_lib{
 
 
- int replicateKernelFromKernel(int LNo, int SrcLoopID, int DstLoopID,
+ int replicateKernelFromKernel(int LNo,
+                              int SrcLoopID, int DstLoopID,
                                                 CSC *Dm,
                                                 std::vector<std::vector<FusedNode*>> &FinalNodeList){
   int height = FinalNodeList.size();
