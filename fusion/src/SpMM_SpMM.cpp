@@ -466,17 +466,20 @@ void spmmCsrSpmmCsrTiledFusedRedundantGeneral(int M, int N, int K, int L,
         // first loop, for every k-tile
         for(int k1 = kBegin; k1 < kEnd; k1++) { // i-loop
           int i = Partition[k1];
-          // reset cxBuf
-          std::fill_n(cxBuf + i * NTile,  NTile, 0.0);
-          for (int j = Ap[i]; j < Ap[i + 1]; ++j) {
-            int aij = Ai[j] * N;
-            //std::fill_n(cxBuf + i * NTile, NTile, 0.0);
-            for (int k = 0; k < NTile; ++k) {
+          // reset cxBuf, I used dot product to avoid the following
+          //std::fill_n(cxBuf + i * NTile,  NTile, 0.0);
+          for (int k = 0; k < NTile; ++k) {
+            double acc = 0;
+            for (int j = Ap[i]; j < Ap[i + 1]; ++j) {
+              int aij = Ai[j] * N;
+              //std::fill_n(cxBuf + i * NTile, NTile, 0.0);
+
               //auto tmp = Ax[j] * Cx[aij + k];
               //cxBuf[i * NTile + k] = 0;
-              cxBuf[i * NTile + k] += Ax[j] * Cx[aij + k];
+              acc += Ax[j] * Cx[aij + k];
               //ACx[iipi * N + k + kk] = tmp;
             }
+            cxBuf[i * NTile + k] = acc;
           }
         }
         // print cxBuf
@@ -497,6 +500,7 @@ void spmmCsrSpmmCsrTiledFusedRedundantGeneral(int M, int N, int K, int L,
             int inkk = i * N + kk;
             for (int k = 0; k < NTile; ++k) {
               Dx[inkk + k] += Bx[j] * cxBuf[bij + k];
+              //cxBuf[bij + k] = 0;
             }
           }
         }
