@@ -456,7 +456,11 @@ namespace sym_lib{
    numShiftedPartitions += FinalNodeList[i].size();
   }
   numShiftedPartitions /= FinalNodeList.size();
-  numShiftedPartitions *= BalancedRatio;
+  if(FinalNodeList[0].size() < numShiftedPartitions)
+   numShiftedPartitions = numShiftedPartitions - FinalNodeList[0].size();
+  else
+    numShiftedPartitions = 0;
+  //numShiftedPartitions *= BalancedRatio; //numShiftedPartitions=0;
 
   // go over second wavefront and compute the amount redundant computations needed
   std::vector<std::pair<int,double>> redundantComputation;

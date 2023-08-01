@@ -147,8 +147,8 @@ int main(const int argc, const char *argv[]){
   //fusedTiledParallelGen->OutTensor->printDx();
   auto fusedTiledParallelMixedStat = fusedTiledParallelGenMixed->printStats();
   auto profileInfoMixed = fusedTiledParallelGenMixed->getSpInfo().printCSV(true);
-  std::string profHeaderMixed = std::get<0>(profileInfoRed);
-  std::string profStatMixed = std::get<1>(profileInfoRed);
+  std::string profHeaderMixed = std::get<0>(profileInfoMixed);
+  std::string profStatMixed = std::get<1>(profileInfoMixed);
   delete fusedTiledParallelGenMixed;
   delete stats;
 
