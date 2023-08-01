@@ -453,7 +453,7 @@ protected:
     sf01->fuse(1, mvDAG, tmpCSCCSR);
     std::vector<std::vector<sym_lib::FusedNode*>> updatedFinalList(2);
     sym_lib::BalanceWithRedundantComputation(sf01->getFinalNodeList(),
-                                             updatedFinalList, tmpCSCCSR, 0.5);
+                                             updatedFinalList, tmpCSCCSR, 0.1);
     //sf01->print_final_list();
     auto pt = St->OtherStats["PackingType"];
     //FusedCompSet = sf01->getFusedCompressed((int) pt[0]);
