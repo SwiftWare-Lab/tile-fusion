@@ -88,6 +88,11 @@ namespace sym_lib{
 
   void print_final_list();
 
+  // get final node list
+  std::vector<std::vector<FusedNode*>> getFinalNodeList(){
+    return _final_node_list;
+  }
+
   SparsityProfileInfo measureReuse(CSC *Gi);
   void measureRedundancy(CSC *Gi, SparsityProfileInfo &spInfo);
 

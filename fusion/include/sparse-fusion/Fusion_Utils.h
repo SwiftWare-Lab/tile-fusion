@@ -53,6 +53,17 @@ namespace sym_lib{
                                       const std::vector<std::vector<FusedNode*>>& cur_node_list,
                                       std::vector<std::pair<int,int>>& iteration_to_part);
 
+  /// balancing using redundant computation
+  /// \param FinalNodeList
+  /// \param UpdatedNodeList
+  /// \param Dm
+  /// \param BalancedRatio
+  void BalanceWithRedundantComputation(const std::vector<std::vector<FusedNode*>> &FinalNodeList,
+                                       std::vector<std::vector<FusedNode*>> &UpdatedNodeList,
+                                       const CSC *Dm,
+                                       double BalancedRatio
+  );
+
 
 } // End of namespace sym_lib
 
