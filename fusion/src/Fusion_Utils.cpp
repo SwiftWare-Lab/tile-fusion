@@ -13,6 +13,7 @@
 
 #ifdef METIS
 #include "aggregation/metis_interface.h"
+#include "sparse-fusion/SparseFusion.h"
 #endif
 
 namespace sym_lib{
@@ -455,6 +456,7 @@ namespace sym_lib{
    numShiftedPartitions += FinalNodeList[i].size();
   }
   numShiftedPartitions /= FinalNodeList.size();
+  numShiftedPartitions *= BalancedRatio;
 
   // go over second wavefront and compute the amount redundant computations needed
   std::vector<std::pair<int,double>> redundantComputation;
@@ -490,6 +492,42 @@ namespace sym_lib{
     UpdatedNodeList[lNo].push_back(curNode);
   }
 
+ }
+
+
+ void measureRedundancy(sym_lib::CSC *Gi, sym_lib::SparsityProfileInfo &Spi,
+                        const std::vector<std::vector<FusedNode*>> &FinalNodeList) {
+
+  int totalNode = 0, height = FinalNodeList.size(), width = 0, loopNo = 0;
+  // calculate the number of loops in the schedule
+  for (int i = 0; i < FinalNodeList.size(); ++i) {
+    for (int j = 0; j < FinalNodeList[i].size(); ++j) {
+     loopNo = std::max(loopNo, (int)FinalNodeList[i][j]->_list.size());
+    }
+  }
+  std::vector<std::vector<int>> iterCount(loopNo);
+
+  for (int i = 0; i < FinalNodeList.size(); ++i) {
+    for (int j = 0; j < FinalNodeList[i].size(); ++j) {
+     for (int k = 0; k < FinalNodeList[i][j]->_list.size(); ++k) { // loop id
+     totalNode+=FinalNodeList[i][j]->_list[k].size();
+     // copy iterations of loop k to iterCount
+     iterCount[k].insert(iterCount[k].end(), FinalNodeList[i][j]->_list[k].begin(),
+                         FinalNodeList[i][j]->_list[k].end());
+     }
+    }
+  }
+  // calculate the number of redundant iterations
+  int allIterations = 0, uniqueIterations = 0;
+  for (int i = 0; i < loopNo; ++i) {
+    allIterations += iterCount[i].size();
+    std::sort(iterCount[i].begin(), iterCount[i].end());
+    auto it = std::unique(iterCount[i].begin(), iterCount[i].end());
+    iterCount[i].resize(std::distance(iterCount[i].begin(), it));
+    uniqueIterations += iterCount[i].size();
+  }
+  Spi.RedundantIterations = allIterations - uniqueIterations;
+  Spi.UniqueIterations = uniqueIterations;
  }
 
 

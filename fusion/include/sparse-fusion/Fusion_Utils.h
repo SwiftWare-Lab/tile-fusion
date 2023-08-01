@@ -8,6 +8,7 @@
 #include "sparse-fusion/Fusion_Defs.h"
 #include "sparse-fusion/DAG.h"
 
+#include "SparseFusion.h"
 #include "aggregation/def.h"
 
 namespace sym_lib{
@@ -63,6 +64,13 @@ namespace sym_lib{
                                        const CSC *Dm,
                                        double BalancedRatio
   );
+
+  /// measure the redundancy of the schedule
+  /// \param Gi
+  /// \param Spi
+  /// \param FinalNodeList
+  void measureRedundancy(sym_lib::CSC *Gi, sym_lib::SparsityProfileInfo &Spi,
+                         const std::vector<std::vector<FusedNode*>> &FinalNodeList);
 
 
 } // End of namespace sym_lib

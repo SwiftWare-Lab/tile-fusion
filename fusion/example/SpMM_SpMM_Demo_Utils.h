@@ -2,6 +2,11 @@
 // Created by kazem on 08/05/23.
 //
 
+
+
+#ifndef SPARSE_FUSION_SPMM_SPMM_DEMO_UTILS_H
+#define SPARSE_FUSION_SPMM_SPMM_DEMO_UTILS_H
+
 #include "SWTensorBench.h"
 #include "aggregation/sparse_io.h"
 #include "aggregation/sparse_utilities.h"
@@ -12,8 +17,6 @@
 #include "sparse-fusion/SparseFusionWithRedundancy.h"
 #include <omp.h>
 
-#ifndef SPARSE_FUSION_SPMM_SPMM_DEMO_UTILS_H
-#define SPARSE_FUSION_SPMM_SPMM_DEMO_UTILS_H
 using namespace swiftware::benchmark;
 
 // print a dense matrix with dimension MxN
@@ -448,14 +451,14 @@ protected:
 
     //sf01->print_final_list();
     sf01->fuse(1, mvDAG, tmpCSCCSR);
-    std::vector<std::vector<sym_lib::FusedNode*>> updatedFinalList;
+    std::vector<std::vector<sym_lib::FusedNode*>> updatedFinalList(2);
     sym_lib::BalanceWithRedundantComputation(sf01->getFinalNodeList(),
-                                             updatedFinalList, tmpCSCCSR, 0);
+                                             updatedFinalList, tmpCSCCSR, 0.5);
     //sf01->print_final_list();
     auto pt = St->OtherStats["PackingType"];
     //FusedCompSet = sf01->getFusedCompressed((int) pt[0]);
     FusedCompSet = new sym_lib::MultiDimensionalSet(updatedFinalList, pt[0]);
-    sf01->measureRedundancy(tmpCSCCSR, SpInfo);
+    sym_lib::measureRedundancy(tmpCSCCSR, SpInfo, updatedFinalList);
     //FusedCompSet->print_3d();
     delete sf01;
     delete mvDAG;
