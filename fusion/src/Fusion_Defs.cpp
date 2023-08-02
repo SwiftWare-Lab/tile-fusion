@@ -37,10 +37,12 @@ namespace sym_lib{
  std::tuple<std::string,std::string> ScheduleParameters::print_csv(bool header) const{
   std::string header_text, row;
   if(header){
-   header_text = "nThreads,LBC Agg,LBC InitialCut,LBC WPART,";
+   header_text = "nThreads,LBC Agg,LBC InitialCut,Iter Per Partition,LBC WPART,MTile,NTile,";
   }
   row = std::to_string(_num_threads) + "," + std::to_string(_lbc_agg) +"," +
-    std::to_string(_lbc_initial_cut) + "," + std::to_string(_num_w_partition) +",";
+    std::to_string(_lbc_initial_cut) + "," + std::to_string(IterPerPartition) +
+        "," + std::to_string(_num_w_partition) +","
+        + std::to_string(TileM) + "," + std::to_string(TileN) + ",";
   return std::make_tuple(header_text, row);
  }
 
@@ -53,6 +55,22 @@ namespace sym_lib{
   _list[ID].reserve(lst_size);
   std::copy(lst, lst+lst_size, std::back_inserter(_list[ID]));
   _vertex_id = v_no;
+ }
+
+ FusedNode::FusedNode(const sym_lib::FusedNode &Other) {
+  _num_loops = Other._num_loops;
+  // copy _list
+  _list.resize(_num_loops);
+  for(int i=0; i<_num_loops; ++i){
+   _list[i].reserve(Other._list[i].size());
+   std::copy(Other._list[i].begin(), Other._list[i].end(),
+             std::back_inserter(_list[i]));
+  }
+  // copy _kernel_ID
+  _kernel_ID.reserve(Other._kernel_ID.size());
+  std::copy(Other._kernel_ID.begin(), Other._kernel_ID.end(),
+            std::back_inserter(_kernel_ID));
+  _vertex_id = Other._vertex_id;
  }
 
 /* HWaveFront::HWaveFront(const int m, const int final_level_no,

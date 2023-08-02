@@ -8,6 +8,7 @@
 #include "sparse-fusion/Fusion_Defs.h"
 #include "sparse-fusion/DAG.h"
 
+#include "SparseFusion.h"
 #include "aggregation/def.h"
 
 namespace sym_lib{
@@ -35,12 +36,13 @@ namespace sym_lib{
 
   /// Computes LBC of G, from loop with loop_id and storeds it into cur_node_list (reserved with the hint)
   /// \param G
+  /// \param Di
   /// \param sp
   /// \param loop_id
   /// \param hint_tot_loops
   /// \param cur_node_list
   /// \return
-  int LBC(const CSC *G, ScheduleParameters* sp, int loop_id, int hint_tot_loops,
+  int LBC(const CSC *G, const CSC *Di, ScheduleParameters* sp, int loop_id, int hint_tot_loops,
           std::vector<std::vector<FusedNode*>>& cur_node_list, DAG *out_dag,
           std::vector<int>& v_to_part, std::vector<std::vector<std::pair<int,int>>>& part_to_coord);
 
@@ -51,6 +53,24 @@ namespace sym_lib{
   void get_iteration_schedule_mapping(int nIterations,
                                       const std::vector<std::vector<FusedNode*>>& cur_node_list,
                                       std::vector<std::pair<int,int>>& iteration_to_part);
+
+  /// balancing using redundant computation
+  /// \param FinalNodeList
+  /// \param UpdatedNodeList
+  /// \param Dm
+  /// \param BalancedRatio
+  void BalanceWithRedundantComputation(const std::vector<std::vector<FusedNode*>> &FinalNodeList,
+                                       std::vector<std::vector<FusedNode*>> &UpdatedNodeList,
+                                       const CSC *Dm,
+                                       double BalancedRatio
+  );
+
+  /// measure the redundancy of the schedule
+  /// \param Gi
+  /// \param Spi
+  /// \param FinalNodeList
+  void measureRedundancy(sym_lib::CSC *Gi, sym_lib::SparsityProfileInfo &Spi,
+                         const std::vector<std::vector<FusedNode*>> &FinalNodeList);
 
 
 } // End of namespace sym_lib

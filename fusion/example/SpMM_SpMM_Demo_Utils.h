@@ -2,16 +2,21 @@
 // Created by kazem on 08/05/23.
 //
 
-#include "SWTensorBench.h"
-#include "aggregation/sparse_io.h"
-#include "aggregation/sparse_utilities.h"
-#include "sparse-fusion/MultiDimensionalSet.h"
-#include "sparse-fusion/SpMM_SpMM.h"
-#include "sparse-fusion/SparseFusion.h"
-#include <omp.h>
+
 
 #ifndef SPARSE_FUSION_SPMM_SPMM_DEMO_UTILS_H
 #define SPARSE_FUSION_SPMM_SPMM_DEMO_UTILS_H
+
+#include "SWTensorBench.h"
+#include "aggregation/sparse_io.h"
+#include "aggregation/sparse_utilities.h"
+#include "sparse-fusion/Fusion_Utils.h"
+#include "sparse-fusion/MultiDimensionalSet.h"
+#include "sparse-fusion/SpMM_SpMM.h"
+#include "sparse-fusion/SparseFusion.h"
+#include "sparse-fusion/SparseFusionWithRedundancy.h"
+#include <omp.h>
+
 using namespace swiftware::benchmark;
 
 // print a dense matrix with dimension MxN
@@ -162,6 +167,38 @@ public:
 
 };
 
+class SpMMSpMMUnFusedParallelTiled : public SpMMSpMMUnFused {
+protected:
+  Timer execute() override {
+    //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
+    OutTensor->reset();
+    Timer t;
+    t.start();
+    swiftware::sparse::spmmCsrParallel(InTensor->M, InTensor->N,
+                                       InTensor->K,
+                                       InTensor->ACsr->p,
+                                       InTensor->ACsr->i,
+                                       InTensor->ACsr->x,
+                                       InTensor->Cx,
+                                       OutTensor->ACx,
+                                       InTensor->NumThreads);
+    swiftware::sparse::spmmCsrParallel(InTensor->L, InTensor->N,
+                                       InTensor->M,
+                                       InTensor->BCsr->p,
+                                       InTensor->BCsr->i,
+                                       InTensor->BCsr->x,
+                                       OutTensor->ACx,
+                                       OutTensor->Dx,
+                                       InTensor->NumThreads);
+    t.stop();
+    return t;
+  }
+public:
+  SpMMSpMMUnFusedParallelTiled(TensorInputs<double> *In1, Stats *Stat1) : SpMMSpMMUnFused(In1, Stat1){
+  }
+};
+
 class SpMMSpMMUnFusedParallel : public SpMMSpMMUnFused {
 protected:
   Timer execute() override {
@@ -220,18 +257,20 @@ public:
 
 class SpMMSpMMUnFusedCTiledParallel : public SpMMSpMMUnFused {
 protected:
+  sym_lib::ScheduleParameters Sp;
   Timer execute() override {
     //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
     //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
-    int tileM = 128, tileN = 4;
+    int tileM = Sp.TileM, tileN = Sp.TileN;
+
     OutTensor->reset();
     Timer t;
     t.start();
-    swiftware::sparse::spmmCsrInnerProductTiledCParallel(
+    swiftware::sparse::spmmCsrParallelTiled(
         InTensor->M, InTensor->N, InTensor->K, InTensor->ACsr->p,
         InTensor->ACsr->i, InTensor->ACsr->x, InTensor->Cx, OutTensor->ACx,
         InTensor->NumThreads, tileM, tileN);
-    swiftware::sparse::spmmCsrInnerProductTiledCParallel(
+    swiftware::sparse::spmmCsrParallelTiled(
         InTensor->L, InTensor->N, InTensor->M, InTensor->BCsr->p,
         InTensor->BCsr->i, InTensor->BCsr->x, OutTensor->ACx, OutTensor->Dx,
         InTensor->NumThreads, tileM, tileN);
@@ -239,7 +278,8 @@ protected:
     return t;
   }
 public:
-  SpMMSpMMUnFusedCTiledParallel(TensorInputs<double> *In1, Stats *Stat1) : SpMMSpMMUnFused(In1, Stat1){
+  SpMMSpMMUnFusedCTiledParallel(TensorInputs<double> *In1, Stats *Stat1,
+                                sym_lib::ScheduleParameters SpIn) : SpMMSpMMUnFused(In1, Stat1), Sp(SpIn) {
   }
 };
 
@@ -253,13 +293,17 @@ protected:
     //sym_lib::ScheduleParameters sp;
     //sp._num_threads = InTensor->NumThreads;
     // create the fused set
-    Sp._num_w_partition = std::max<int>(InTensor->ACsr->m / Sp._num_w_partition,
+
+    Sp._num_w_partition = std::max<int>(InTensor->ACsr->m / Sp.IterPerPartition,
                                         2*Sp._num_threads);
     auto *sf01 = new sym_lib::SparseFusion(&Sp, 2);
     auto *mvDAG =  sym_lib::diagonal(InTensor->ACsr->m, 1.0);
-    sf01->fuse(0, mvDAG, NULLPNTR);
     auto *tmpCSCCSR = new sym_lib::CSC(InTensor->BCsr->m, InTensor->BCsr->n, InTensor->BCsr->nnz,
                                        InTensor->BCsr->p, InTensor->BCsr->i, InTensor->BCsr->x);
+    auto *Di = InTensor->BCsr;
+    //sym_lib::print_csc(1, "Di", 6, Di->p, Di->i, Di->x);
+    sf01->fuse(0, mvDAG, tmpCSCCSR);
+
     //sf01->print_final_list();
     sf01->fuse(1, mvDAG, tmpCSCCSR);
     //sf01->print_final_list();
@@ -268,6 +312,7 @@ protected:
     //FusedCompSet->print_3d();
     delete sf01;
     delete mvDAG;
+    delete tmpCSCCSR;
 
     t.stop();
     return t;
@@ -309,6 +354,159 @@ public:
   }
 };
 
+class SpMMSpMMFusedInterLayerRedundant : public SpMMSpMMUnFused {
+protected:
+  sym_lib::MultiDimensionalSet *FusedCompSet;
+  sym_lib::ScheduleParameters Sp;
+  sym_lib::SparsityProfileInfo SpInfo;
+  Timer analysis() override {
+    Timer t;
+    t.start();
+    //sym_lib::ScheduleParameters sp;
+    //sp._num_threads = InTensor->NumThreads;
+    // create the fused set
+
+    Sp._num_w_partition = std::max<int>(InTensor->ACsr->m / Sp.IterPerPartition,
+                                        2*Sp._num_threads);
+    auto *sf01 = new sym_lib::SparseFusionWithRedundancy(&Sp, 2);
+    auto *mvDAG =  sym_lib::diagonal(InTensor->ACsr->m, 1.0);
+    auto *tmpCSCCSR = new sym_lib::CSC(InTensor->BCsr->m, InTensor->BCsr->n, InTensor->BCsr->nnz,
+                                       InTensor->BCsr->p, InTensor->BCsr->i, InTensor->BCsr->x);
+    auto *Di = InTensor->BCsr;
+    //sym_lib::print_csc(1, "Di", 6, Di->p, Di->i, Di->x);
+    sf01->fuse(1, mvDAG, tmpCSCCSR);
+
+    //sf01->print_final_list();
+    sf01->fuse(0, mvDAG, tmpCSCCSR);
+    //sf01->print_final_list();
+    auto pt = St->OtherStats["PackingType"];
+    FusedCompSet = sf01->getFusedCompressed((int) pt[0]);
+    sf01->measureRedundancy(tmpCSCCSR, SpInfo);
+    //FusedCompSet->print_3d();
+    delete sf01;
+    delete mvDAG;
+    delete tmpCSCCSR;
+
+    t.stop();
+    return t;
+  }
+
+  Timer execute() override {
+    //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
+    auto *ws = new double[InTensor->NumThreads * 2 * InTensor->M * Sp.TileN]();
+    OutTensor->reset();
+    Timer t;
+    t.start();
+    swiftware::sparse::spmmCsrSpmmCsrTiledFusedRedundantGeneral(
+        InTensor->M, InTensor->N, InTensor->K, InTensor->L, InTensor->ACsr->p,
+        InTensor->ACsr->i, InTensor->ACsr->x, InTensor->BCsr->p,
+        InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Cx, OutTensor->Dx,
+        OutTensor->ACx, FusedCompSet->n1_, FusedCompSet->ptr1_,
+        FusedCompSet->ptr2_, FusedCompSet->id_, FusedCompSet->type_,
+        FusedCompSet->ker_begin_, InTensor->NumThreads, Sp.TileM, Sp.TileN, ws);
+
+    t.stop();
+    delete[] ws;
+    return t;
+  }
+public:
+  SpMMSpMMFusedInterLayerRedundant(TensorInputs<double> *In1, Stats *Stat1,
+                          sym_lib::ScheduleParameters SpIn)
+      : SpMMSpMMUnFused(In1, Stat1), Sp(SpIn){
+  }
+
+  ~SpMMSpMMFusedInterLayerRedundant(){
+    delete FusedCompSet;
+  }
+
+  sym_lib::SparsityProfileInfo getSpInfo(){
+    return SpInfo;
+  }
+};
+
+
+// mixed redundant and non redundant
+class SpMMSpMMFusedInterLayerMixed : public SpMMSpMMUnFused {
+protected:
+  sym_lib::MultiDimensionalSet *FusedCompSet;
+  sym_lib::ScheduleParameters Sp;
+  sym_lib::SparsityProfileInfo SpInfo;
+  Timer analysis() override {
+    Timer t;
+    t.start();
+    //sym_lib::ScheduleParameters sp;
+    //sp._num_threads = InTensor->NumThreads;
+    // create the fused set
+
+    Sp._num_w_partition = std::max<int>(InTensor->ACsr->m / Sp.IterPerPartition,
+                                        2*Sp._num_threads);
+    auto *sf01 = new sym_lib::SparseFusion(&Sp, 2);
+    auto *mvDAG =  sym_lib::diagonal(InTensor->ACsr->m, 1.0);
+    auto *tmpCSCCSR = new sym_lib::CSC(InTensor->BCsr->m, InTensor->BCsr->n, InTensor->BCsr->nnz,
+                                       InTensor->BCsr->p, InTensor->BCsr->i, InTensor->BCsr->x);
+    auto *Di = InTensor->BCsr;
+    //sym_lib::print_csc(1, "Di", 6, Di->p, Di->i, Di->x);
+    sf01->fuse(0, mvDAG, tmpCSCCSR);
+
+    //sf01->print_final_list();
+    sf01->fuse(1, mvDAG, tmpCSCCSR);
+    std::vector<std::vector<sym_lib::FusedNode*>> updatedFinalList(2);
+    sym_lib::BalanceWithRedundantComputation(sf01->getFinalNodeList(),
+                                             updatedFinalList, tmpCSCCSR, 0.1*Sp._lbc_agg);
+    //sf01->print_final_list();
+    auto pt = St->OtherStats["PackingType"];
+    //FusedCompSet = sf01->getFusedCompressed((int) pt[0]);
+    FusedCompSet = new sym_lib::MultiDimensionalSet(updatedFinalList, pt[0]);
+    sym_lib::measureRedundancy(tmpCSCCSR, SpInfo, updatedFinalList);
+    //FusedCompSet->print_3d();
+    delete sf01;
+    delete mvDAG;
+    delete tmpCSCCSR;
+
+    t.stop();
+    return t;
+  }
+
+  Timer execute() override {
+    //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
+    OutTensor->reset();
+    Timer t;
+    t.start();
+    swiftware::sparse::spmmCsrSpmmCsrFused(InTensor->M, InTensor->N,
+                                           InTensor->K, InTensor->L,
+                                           InTensor->ACsr->p,
+                                           InTensor->ACsr->i,
+                                           InTensor->ACsr->x,
+                                           InTensor->BCsr->p,
+                                           InTensor->BCsr->i,
+                                           InTensor->BCsr->x,
+                                           InTensor->Cx,
+                                           OutTensor->Dx,
+                                           OutTensor->ACx, FusedCompSet->n1_,
+                                           FusedCompSet->ptr1_,
+                                           FusedCompSet->ptr2_, FusedCompSet->id_,
+                                           FusedCompSet->type_,
+                                           InTensor->NumThreads);
+
+    t.stop();
+    return t;
+  }
+public:
+  SpMMSpMMFusedInterLayerMixed(TensorInputs<double> *In1, Stats *Stat1,
+                          sym_lib::ScheduleParameters SpIn)
+      : SpMMSpMMUnFused(In1, Stat1), Sp(SpIn){
+  }
+
+  ~SpMMSpMMFusedInterLayerMixed(){
+    delete FusedCompSet;
+  }
+  sym_lib::SparsityProfileInfo getSpInfo(){
+    return SpInfo;
+  }
+};
+
 
 class SpMMSpMMFusedInnerProdInterLayer : public SpMMSpMMFusedInterLayer{
   Timer execute() override {
@@ -344,6 +542,136 @@ public:
   ~SpMMSpMMFusedInnerProdInterLayer(){}
 };
 
+
+class SpMMSpMMFusedTiled : public SpMMSpMMFusedInterLayer{
+  Timer execute() override {
+    //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
+    auto *ws = new double[InTensor->NumThreads * Sp.TileM * Sp.TileN];
+    OutTensor->reset();
+    Timer t;
+    t.start();
+    swiftware::sparse::spmmCsrSpmmCsrTiledFused(InTensor->M, InTensor->N,
+                                                       InTensor->K, InTensor->L,
+                                                       InTensor->ACsr->p,
+                                                       InTensor->ACsr->i,
+                                                       InTensor->ACsr->x,
+                                                       InTensor->BCsr->p,
+                                                       InTensor->BCsr->i,
+                                                       InTensor->BCsr->x,
+                                                       InTensor->Cx,
+                                                       OutTensor->Dx,
+                                                       OutTensor->ACx, FusedCompSet->n1_,
+                                                       FusedCompSet->ptr1_,
+                                                       FusedCompSet->ptr2_, FusedCompSet->id_,
+                                                       FusedCompSet->type_,
+                                                       InTensor->NumThreads, Sp.TileM,
+                                                Sp.TileN, ws);
+
+    t.stop();
+    delete[] ws;
+    return t;
+  }
+public:
+  SpMMSpMMFusedTiled(TensorInputs<double> *In1, Stats *Stat1,
+                                   sym_lib::ScheduleParameters SpIn)
+      : SpMMSpMMFusedInterLayer(In1, Stat1, SpIn){
+  }
+  ~SpMMSpMMFusedTiled(){}
+};
+
+
+class SpMMSpMMFusedTiledTri : public SpMMSpMMFusedInterLayer{
+
+  void buildBandedFusedSchedule(std::vector<std::vector<sym_lib::FusedNode*>> &FusedSchedule, int BandWidth){
+    // one h-level
+    FusedSchedule.resize(1);
+    int hintTotLoops = 2, loopId = 0;
+    int n = InTensor->ACsr->m;
+    // create a list of consecutive integers to n
+    std::vector<int>  seqNode(n);
+    for (int i = 0; i < n; ++i) {
+      seqNode[i] = i;
+    }
+    int nParts = Sp._num_w_partition;
+    //FusedSchedule[0].resize(nParts);
+    int i = 0, j =0;
+    int halfBand = (BandWidth-1)/2;
+    for (i = 0, j = 0; i < n; i+=Sp.IterPerPartition, j++) {
+      // iterations of first spmm
+      int begin = std::max(0, i-BandWidth+1), end = std::min(i+Sp.IterPerPartition+halfBand, n),  nIters = end - begin ;
+      auto *curFn = new sym_lib::FusedNode(hintTotLoops, loopId, nIters,
+                                           seqNode.data() + begin, j);
+     // iterations of second spmm
+      if(i + Sp.IterPerPartition > n)
+        break ;
+      curFn->_list[1].resize(Sp.IterPerPartition);
+      for (int k = i, kk=0; k < i + Sp.IterPerPartition; ++k, ++kk) {
+        curFn->_list[1][kk] = k;
+      }
+      FusedSchedule[0].emplace_back(curFn);
+    }
+    if(i < n){
+      int begin = std::max(0, i-BandWidth+1), end = n,  nIters = end - begin ;
+      auto *curFn = new sym_lib::FusedNode(hintTotLoops, loopId, nIters,
+                                           seqNode.data() + begin, j);
+
+      curFn->_list[1].resize(n-i);
+      for (int k = i, kk=0; k < n; ++k, ++kk) {
+        curFn->_list[1][kk] = k;
+      }
+      FusedSchedule[0].emplace_back(curFn);
+    }
+  }
+
+  Timer analysis() override {
+    Timer t;
+    t.start();
+    //sym_lib::ScheduleParameters sp;
+    //sp._num_threads = InTensor->NumThreads;
+    // create the fused set
+
+    int numParts = std::max<int>(InTensor->ACsr->m / Sp.IterPerPartition,
+                                        2*Sp._num_threads);
+    Sp._num_w_partition = numParts;
+    std::vector<std::vector<sym_lib::FusedNode*>> fusedSchedule;
+    int band = 2*(InTensor->ACsr->p[1] - InTensor->ACsr->p[0] - 1) + 1;
+    buildBandedFusedSchedule(fusedSchedule, band);
+    auto pt = St->OtherStats["PackingType"];
+    FusedCompSet = new sym_lib::MultiDimensionalSet(fusedSchedule, (int) pt[0]);
+    //FusedCompSet->print_3d();
+
+    t.stop();
+    return t;
+  }
+  Timer execute() override {
+    //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
+    auto *ws = new double[InTensor->NumThreads * 2 * Sp.TileM * Sp.TileN]();
+    OutTensor->reset();
+    Timer t;
+    t.start();
+    swiftware::sparse::spmmCsrSpmmCsrTiledFusedRedundantBanded(
+        InTensor->M, InTensor->N, InTensor->K, InTensor->L, InTensor->ACsr->p,
+        InTensor->ACsr->i, InTensor->ACsr->x, InTensor->BCsr->p,
+        InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Cx, OutTensor->Dx,
+        OutTensor->ACx, FusedCompSet->n1_, FusedCompSet->ptr1_,
+        FusedCompSet->ptr2_, FusedCompSet->id_, FusedCompSet->type_,
+        FusedCompSet->ker_begin_, InTensor->NumThreads, Sp.TileM, Sp.TileN, ws);
+
+    t.stop();
+    delete[] ws;
+    return t;
+  }
+public:
+  SpMMSpMMFusedTiledTri(TensorInputs<double> *In1, Stats *Stat1,
+                     sym_lib::ScheduleParameters SpIn)
+      : SpMMSpMMFusedInterLayer(In1, Stat1, SpIn){
+  }
+  ~SpMMSpMMFusedTiledTri(){}
+};
+
+
 class SpMMSpMMFusedSepInterLayer : public SpMMSpMMFusedInterLayer{
   Timer execute() override {
     //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
@@ -377,4 +705,137 @@ public:
       : SpMMSpMMFusedInterLayer(In1, Stat1, SpIn){
   }
 };
+
+
+class SpMMSpMMFusedMixedInterLayer : public SpMMSpMMFusedInterLayer{
+    Timer execute() override {
+        //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+        //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
+        OutTensor->reset();
+        Timer t;
+        t.start();
+        swiftware::sparse::spmmCsrSpmmCsrMixedScheduleFused(InTensor->M, InTensor->N,
+                                                            InTensor->K, InTensor->L,
+                                                            InTensor->ACsr->p,
+                                                            InTensor->ACsr->i,
+                                                            InTensor->ACsr->x,
+                                                            InTensor->BCsr->p,
+                                                            InTensor->BCsr->i,
+                                                            InTensor->BCsr->x,
+                                                            InTensor->Cx,
+                                                            OutTensor->Dx,
+                                                            OutTensor->ACx, FusedCompSet->n1_,
+                                                            FusedCompSet->ptr1_,
+                                                            FusedCompSet->ptr2_, FusedCompSet->id_,
+                                                            FusedCompSet->type_,
+                                                            InTensor->NumThreads);
+
+        t.stop();
+        return t;
+    }
+public:
+    SpMMSpMMFusedMixedInterLayer(TensorInputs<double> *In1, Stats *Stat1,
+                               sym_lib::ScheduleParameters SpIn)
+            : SpMMSpMMFusedInterLayer(In1, Stat1, SpIn){
+    }
+};
+
+//class SpMMSpMMUnFusedCTiledParallel : public SpMMSpMMUnFused {
+//  protected:
+//    Timer execute() override {
+//        //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+//        //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
+//        int tileM = 128, tileN = 32;
+//        OutTensor->reset();
+//        Timer t;
+//        t.start();
+//        swiftware::sparse::spmmCsrParallelTiled(
+//            InTensor->M, InTensor->N, InTensor->K, InTensor->ACsr->p,
+//            InTensor->ACsr->i, InTensor->ACsr->x, InTensor->Cx, OutTensor->ACx,
+//            InTensor->NumThreads, tileM, tileN);
+//        swiftware::sparse::spmmCsrParallelTiled(
+//            InTensor->L, InTensor->N, InTensor->M, InTensor->BCsr->p,
+//            InTensor->BCsr->i, InTensor->BCsr->x, OutTensor->ACx, OutTensor->Dx,
+//            InTensor->NumThreads, tileM, tileN);
+//        t.stop();
+//        return t;
+//    }
+//  public:
+//    SpMMSpMMUnFusedCTiledParallel(TensorInputs<double> *In1, Stats *Stat1) : SpMMSpMMUnFused(In1, Stat1){
+//    }
+//};
+
+class SpMMSpMMFusionProfiler : public SpMMSpMMUnFused {
+  protected:
+    sym_lib::MultiDimensionalSet *FusedCompSet;
+    sym_lib::ScheduleParameters Sp;
+    sym_lib::SparsityProfileInfo SpInfo;
+    Timer analysis() override {
+        Timer t;
+        t.start();
+        //sym_lib::ScheduleParameters sp;
+        //sp._num_threads = InTensor->NumThreads;
+        // create the fused set
+        Sp._num_w_partition = std::max<int>(InTensor->ACsr->m / Sp._num_w_partition,
+                                            2*Sp._num_threads);
+        auto *sf01 = new sym_lib::SparseFusion(&Sp, 2);
+        auto *mvDAG =  sym_lib::diagonal(InTensor->ACsr->m, 1.0);
+        sf01->fuse(0, mvDAG, NULLPNTR);
+        auto *tmpCSCCSR = new sym_lib::CSC(InTensor->BCsr->m, InTensor->BCsr->n, InTensor->BCsr->nnz,
+                                           InTensor->BCsr->p, InTensor->BCsr->i, InTensor->BCsr->x);
+        //sf01->print_final_list();
+        sf01->fuse(1, mvDAG, tmpCSCCSR);
+        //sf01->print_final_list();
+        SpInfo = sf01->measureReuse(tmpCSCCSR);
+        //std::cout<<" -> "<<spi.TotalReuseC<<std::endl;
+        auto pt = St->OtherStats["PackingType"];
+        //FusedCompSet = sf01->getFusedCompressed((int) pt[0]);
+        //FusedCompSet->print_3d();
+        delete sf01;
+        delete mvDAG;
+
+        t.stop();
+        return t;
+    }
+
+    Timer execute() override {
+        //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+        //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
+        OutTensor->reset();
+        Timer t;
+        t.start();
+//        swiftware::sparse::spmmCsrSpmmCsrFused(InTensor->M, InTensor->N,
+//                                               InTensor->K, InTensor->L,
+//                                               InTensor->ACsr->p,
+//                                               InTensor->ACsr->i,
+//                                               InTensor->ACsr->x,
+//                                               InTensor->BCsr->p,
+//                                               InTensor->BCsr->i,
+//                                               InTensor->BCsr->x,
+//                                               InTensor->Cx,
+//                                               OutTensor->Dx,
+//                                               OutTensor->ACx, FusedCompSet->n1_,
+//                                               FusedCompSet->ptr1_,
+//                                               FusedCompSet->ptr2_, FusedCompSet->id_,
+//                                               FusedCompSet->type_,
+//                                               InTensor->NumThreads);
+
+        t.stop();
+        return t;
+    }
+  public:
+    SpMMSpMMFusionProfiler(TensorInputs<double> *In1, Stats *Stat1,
+                            sym_lib::ScheduleParameters SpIn)
+        : SpMMSpMMUnFused(In1, Stat1), Sp(SpIn){
+    }
+
+    ~SpMMSpMMFusionProfiler(){
+        delete FusedCompSet;
+    }
+
+    sym_lib::SparsityProfileInfo getSpInfo(){
+        return SpInfo;
+    }
+};
+
 #endif // SPARSE_FUSION_SPMM_SPMM_DEMO_UTILS_H

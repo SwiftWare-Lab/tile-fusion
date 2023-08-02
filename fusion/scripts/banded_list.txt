@@ -1,0 +1,5 @@
+banded/tridiag.mtx
+banded/fivediag.mtx
+banded/sevendiag.mtx
+banded/ninediag.mtx
+banded/elevendiag.mtx

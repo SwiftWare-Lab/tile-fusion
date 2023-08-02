@@ -4,7 +4,7 @@ BASELINE="SpMM_SpMM_Demo_UnFusedParallel"
 UFDB=./data
 BCOL=4
 TEST=0
-THRD=20
+THRD=40
 while getopts ":b:lt:d:m:" arg; do
   case "${arg}" in
     b)
@@ -26,7 +26,7 @@ while getopts ":b:lt:d:m:" arg; do
     -b BASELINE=SpMM_SpMM_Demo_UnFusedParallel        Choose a baseline to compare with Fused SpMM SpMM(Current base lines: SpMM_SpMM_Demo_UnFusedParallel,SpMM_SpMM_MKL)
     -l TEST=FALSE                                     Set if you want to run the script for one b_col
     -d BCOL=4                                         num of the columns of the dense matrix
-    -t THRD=20                                        num of threads
+    -t THRD=40                                        num of threads
     -m UFDB=./data                                    path of matrices data"
       exit 0
   esac
@@ -38,7 +38,7 @@ fi
 
 
 
-export MKL_DIR=$MKLROOT
+#export MKL_DIR=$MKLROOT
 
 which cmake
 which gcc
@@ -52,7 +52,7 @@ mkdir build
 cd build
 #make clean
 #rm -rf *.txt
-cmake -DCMAKE_PREFIX_PATH="$MKLROOT/lib/intel64;$MKLROOT/include;$MKLROOT/../compiler/lib/intel64;_deps/openblas-build/lib/;/home/m/mmehride/kazem/programs/metis-5.1.0/libmetis;/home/m/mmehride/kazem/programs/metis-5.1.0/include/;"  -DCMAKE_BUILD_TYPE=Release ..
+cmake -DCMAKE_PREFIX_PATH="$MKL_DIR/lib/intel64;$MKL_DIR/include;$MKL_DIR/../compiler/lib/intel64;_deps/openblas-build/lib/;/home/m/mmehride/kazem/programs/metis-5.1.0/libmetis;/home/m/mmehride/kazem/programs/metis-5.1.0/include/;"  -DCMAKE_BUILD_TYPE=Release ..
 make -j 40
 
 
@@ -65,7 +65,7 @@ MATLIST=$UFDB/mat_list.txt
 
 mkdir $LOGS
 
-MODE=2
+MODE=3
 # performing the experiments
 
 if [ $TEST -eq 1 ]; then

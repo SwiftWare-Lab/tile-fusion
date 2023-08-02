@@ -7,9 +7,10 @@
 #include <vector>
 
 #include "aggregation/def.h"
-#include "sparse-fusion/Fusion_Defs.h"
-#include "sparse-fusion/DAG.h"
 #include "MultiDimensionalSet.h"
+#include "sparse-fusion/DAG.h"
+#include "sparse-fusion/Fusion_Defs.h"
+#include <tuple>
 
 namespace sym_lib{
 
@@ -19,8 +20,24 @@ namespace sym_lib{
     Tiled
   };
 
- class SparseFusion {
+  struct SparsityProfileInfo {
+    int TotalReuseC{}, RedundantIterations{}, RedundantOperations{},
+        UniqueIterations{};
 
+    std::tuple<std::string,std::string>  printCSV(bool Header){
+      std::string headerText, row;
+      if(Header){
+        headerText = "TotalReuseC,RedundantIterations,RedundantOperations,";
+      }
+      row = std::to_string(TotalReuseC) + "," +
+            std::to_string(RedundantIterations) + "," +
+            std::to_string(RedundantOperations) + ",";
+      return std::make_tuple(headerText,row);
+    }
+  };
+
+ class SparseFusion {
+  protected:
   // List of fused node
   std::vector<std::vector<FusedNode*>> _cur_node_list;
   //
@@ -59,17 +76,25 @@ namespace sym_lib{
 
   explicit SparseFusion(ScheduleParameters *Sp, int LoopCnt);
 
-  void fuse(int LoopId, CSC *Gi, CSC *Di);
+  virtual void fuse(int LoopId, CSC *Gi, CSC *Di);
 
   MultiDimensionalSet *getFusedCompressed(int PT);
 
-  void pairing(int LoopId, CSC *Gi, CSC *Di);
+  virtual void pairing(int LoopId, CSC *Gi, CSC *Di);
 
   void merge_pairs();
 
   void build_set();
 
   void print_final_list();
+
+  // get final node list
+  std::vector<std::vector<FusedNode*>> getFinalNodeList(){
+    return _final_node_list;
+  }
+
+  SparsityProfileInfo measureReuse(CSC *Gi);
+  void measureRedundancy(CSC *Gi, SparsityProfileInfo &spInfo);
 
   ~SparseFusion();
 

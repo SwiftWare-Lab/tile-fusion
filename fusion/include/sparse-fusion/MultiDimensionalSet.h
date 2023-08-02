@@ -14,14 +14,14 @@ namespace sym_lib{
  struct MultiDimensionalSet {
   int n1_{}, n2_{}, n3_{};
   int d_{};
-  int *ptr1_, *ptr2_;
-  int *id_, *type_;
-  int *w_par_type_; // the type of each w-partition
-  int *ker_begin_; // ker_begin[i][j], starting index of kernel j in w-partition i
+  int *ptr1_{}, *ptr2_{};
+  int *id_{}, *type_{};
+  int *w_par_type_{}; // the type of each w-partition
+  int *ker_begin_{}; // ker_begin[i][j], starting index of kernel j in w-partition i
 
   // redundancy mode
-  bool *is_redundancy_;
-  int *map_redundancy_;
+  bool *is_redundancy_{};
+  int *map_redundancy_{};
 
   MultiDimensionalSet() : ptr1_(NULLPNTR), ptr2_(NULLPNTR), id_(NULLPNTR),
                           type_(NULLPNTR), w_par_type_(NULLPNTR), ker_begin_(NULLPNTR),

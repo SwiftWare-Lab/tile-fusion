@@ -13,14 +13,20 @@ namespace sym_lib{
   NONE,SYM_METIS,SYM_AMD,SYM_SCOTCH
  };
 
+ enum SeedPartType{
+   CONSECUTIVE,BFS
+ };
+
  std::string get_ordering_string(SYM_ORDERING symOrdering);
 
  /*
   * Scheduling-related parameters
   */
  struct ScheduleParameters{
-  int _lbc_agg, _lbc_initial_cut, _num_w_partition;// aggregation params
+  int _lbc_agg, _lbc_initial_cut, _num_w_partition, IterPerPartition;// aggregation params
   int _num_threads;
+  int TileM{}, TileN{}, TileK{};
+  SeedPartType SeedPartitioningParallelism{};
 
   ScheduleParameters():_lbc_agg(2),_lbc_initial_cut(2),_num_threads(20){
    _num_w_partition=_num_threads;
@@ -87,9 +93,11 @@ namespace sym_lib{
   std::vector<int> _kernel_ID; // not used yet
   int _num_loops{};
   int _vertex_id{}; // id in the partitioned DAG
+  bool _is_redundant{};
 
   FusedNode()=default;
   FusedNode(int loop_no, int ID, int lst_size, const int *lst, int v_no);
+  FusedNode(const FusedNode &other);
  };
 
 }

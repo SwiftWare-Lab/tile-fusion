@@ -33,11 +33,11 @@ namespace sym_lib{
    _lb_g_prev = 0;
    // applies LBC to the first DAG
    _partitioned_DAG = new DAG();
-   LBC((CSC*)Gi, _sp, 0, _loop_count, _final_node_list,
+   LBC((CSC*)Gi, Di, _sp, 0, _loop_count, _final_node_list,
        _partitioned_DAG, _vertex_to_part, _part_to_coordinate );
    //_partitioned_DAG = new DAG(_final_node_list.size(), _final_node_list);
    //_partitioned_DAG->print();
-  } else{// it is a new coming loop
+  } else {// it is a new coming loop
    pairing(LoopId, Gi, Di);
   }
  }
@@ -163,6 +163,68 @@ namespace sym_lib{
    }
   }
  }
+
+ SparsityProfileInfo SparseFusion::measureReuse(CSC *Gi) {
+  SparsityProfileInfo spi;
+  long long int totalReuseC = 0;
+  for (int i = 0; i < _final_node_list.size(); ++i) {
+   for (int j = 0; j < _final_node_list[i].size(); ++j) {
+    for (int k = 1; k < _final_node_list[i][j]->_list.size(); ++k) {
+     for (int l = 0; l < _final_node_list[i][j]->_list[k].size(); ++l) {
+      auto v = _final_node_list[i][j]->_list[k][l];
+      for (int m = Gi->p[v]; m < Gi->p[v+1]; ++m) {
+        auto u = Gi->i[m];
+        // see if u exist in previous C
+        auto foundEl = std::find(_final_node_list[i][j]->_list[k-1].begin(),
+                  _final_node_list[i][j]->_list[k-1].end(), u);
+        // if found, then increase reuse count
+        if(foundEl != _final_node_list[i][j]->_list[k-1].end()) {
+          totalReuseC++;
+        }
+      }
+     }
+    }
+   }
+  }
+  spi.TotalReuseC = totalReuseC;
+  return spi;
+ }
+
+
+ void SparseFusion::measureRedundancy(sym_lib::CSC *Gi, SparsityProfileInfo &Spi) {
+
+  int totalNode = 0, height = _final_node_list.size(), width = 0, loopNo = 0;
+  // calculate the number of loops in the schedule
+  for (int i = 0; i < _final_node_list.size(); ++i) {
+   for (int j = 0; j < _final_node_list[i].size(); ++j) {
+    loopNo = std::max(loopNo, (int)_final_node_list[i][j]->_list.size());
+   }
+  }
+  std::vector<std::vector<int>> iterCount(loopNo);
+
+  for (int i = 0; i < _final_node_list.size(); ++i) {
+   for (int j = 0; j < _final_node_list[i].size(); ++j) {
+    for (int k = 0; k < _final_node_list[i][j]->_list.size(); ++k) { // loop id
+     totalNode+=_final_node_list[i][j]->_list[k].size();
+     // copy iterations of loop k to iterCount
+        iterCount[k].insert(iterCount[k].end(), _final_node_list[i][j]->_list[k].begin(),
+                            _final_node_list[i][j]->_list[k].end());
+    }
+   }
+  }
+    // calculate the number of redundant iterations
+  int allIterations = 0, uniqueIterations = 0;
+  for (int i = 0; i < loopNo; ++i) {
+    allIterations += iterCount[i].size();
+    std::sort(iterCount[i].begin(), iterCount[i].end());
+    auto it = std::unique(iterCount[i].begin(), iterCount[i].end());
+    iterCount[i].resize(std::distance(iterCount[i].begin(), it));
+    uniqueIterations += iterCount[i].size();
+  }
+  Spi.RedundantIterations = allIterations - uniqueIterations;
+  Spi.UniqueIterations = uniqueIterations;
+ }
+
 
  MultiDimensionalSet *SparseFusion::getFusedCompressed(int PT) {
   MultiDimensionalSet *ret;
