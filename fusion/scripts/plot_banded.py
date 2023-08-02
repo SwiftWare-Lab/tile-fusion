@@ -161,15 +161,17 @@ def plot_spmm_spmm(logs_folder, file_name, baseline_implementation):
     #ax.bar(x_vals + width, fused_without_redundant_timing, width, label='Fused without Redundant')
     # scatter plot the best of fused timing
     ax.scatter(x_vals, unfused_parallel_timing/fused_best_timing, s=200, c='black', marker='o', label='Fused Best vs Unfused')
-    # put a line at y = 1
-    ax.axhline(y=1, color='r', linestyle='--')
+    # put a thick line at y = 1
+    ax.axhline(y=1, color='r', linestyle='--', linewidth=5)
     # label x-axis values with corresponding nnz
     ax.set_xticks(x_vals)
-    ax.set_xticklabels(mat_list, rotation=90)
+    ax.set_xticklabels(mat_list, rotation=90, size=50)
+    # change the font size of y-ticks
+    ax.tick_params(axis='y', labelsize=50)
     ax.grid(False)
     # set x and y axis label
     ax.set_xlabel('Matrix Name')
-    ax.set_ylabel('Execution Time (sec)', size=50)
+    ax.set_ylabel('Speedup over parallel unfused', size=50)
     # set y-axis to be log scale
     #ax.set_yscale('log')
     ax.set_title('for bCols = ' + str(bCol) + ' and threads = ' + str(num_threads))
