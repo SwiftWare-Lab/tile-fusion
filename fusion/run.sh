@@ -38,7 +38,7 @@ fi
 
 
 
-#export MKL_DIR=$MKLROOT
+export MKL_DIR=$MKLROOT
 
 which cmake
 which gcc
@@ -57,7 +57,6 @@ make -j 40
 
 
 cd ..
-
 BINPATH=./build/example/
 LOGS=./build/logs/
 SCRIPTPATH=./scripts/
