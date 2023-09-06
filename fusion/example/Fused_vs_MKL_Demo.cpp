@@ -8,6 +8,7 @@
 #include "aggregation/sparse_io.h"
 #include "aggregation/sparse_utilities.h"
 #include "sparse-fusion/Fusion_Utils.h"
+#include "sparse-fusion/SparseFusion.h"
 #include <fstream>
 
 using namespace sym_lib;
