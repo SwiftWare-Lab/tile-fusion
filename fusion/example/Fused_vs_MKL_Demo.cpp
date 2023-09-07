@@ -19,8 +19,6 @@ int main(const int argc, const char *argv[]){
   ScheduleParameters sp;
   Stats *stats;
   parse_args(argc, argv, &sp, &tp);
-  std::cout << sp.TileM << std::endl;
-  std::cout << sp.TileN << std::endl;
   CSC *aCSC = get_matrix_from_parameter(&tp);
   tp._dim1 = aCSC->m; tp._dim2 = aCSC->n; tp._nnz = aCSC->nnz;
   tp._density = (double)tp._nnz / (double)(tp._dim1 * tp._dim2);
