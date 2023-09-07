@@ -64,6 +64,71 @@ int main(const int argc, const char *argv[]){
   delete fusedParallel;
   delete stats;
 
+
+  stats = new swiftware::benchmark::Stats("SpMM_SpMM_FusedParallel_BFS","SpMM", 7,tp._matrix_name,numThread);
+  stats->OtherStats["PackingType"] = {Interleaved};
+  auto spBfs = sp; spBfs.SeedPartitioningParallelism = BFS;
+  auto *fusedParallelBfs = new SpMMSpMMFusedInterLayer(inSpMM, stats, spBfs);
+  fusedParallelBfs->run();
+  //fusedParallel->OutTensor->printDx();
+  auto fusedParallelStatBfs = fusedParallelBfs->printStats();
+  delete fusedParallelBfs;
+  delete stats;
+
+  stats = new swiftware::benchmark::Stats("SpMM_SpMM_FusedTiledParallel_Redundant_General","SpMM", 7,tp._matrix_name,numThread);
+  stats->OtherStats["PackingType"] = {Separated};
+  auto *fusedTiledParallelGen = new SpMMSpMMFusedInterLayerRedundant(inSpMM, stats, sp);
+  fusedTiledParallelGen->run();
+  //fusedTiledParallelGen->OutTensor->printDx();
+  auto fusedTiledParallelGenStat = fusedTiledParallelGen->printStats();
+  auto profileInfoRed = fusedTiledParallelGen->getSpInfo().printCSV(true);
+  std::string profHeaderRed = std::get<0>(profileInfoRed);
+  std::string profStatRed = std::get<1>(profileInfoRed);
+  delete fusedTiledParallelGen;
+  delete stats;
+
+
+
+  stats = new swiftware::benchmark::Stats("SpMM_SpMM_OuterProduct_FusedParallel","SpMM", 7,tp._matrix_name,numThread);
+  stats->OtherStats["PackingType"] = {Interleaved};
+  auto *fusedOuterParallel = new SpMMSpMMFusedInnerProdInterLayer(inSpMM, stats, sp);
+  fusedOuterParallel->run();
+  //fusedParallel->OutTensor->printDx();
+  auto fusedParallelOutStat = fusedOuterParallel->printStats();
+  delete fusedOuterParallel;
+  delete stats;
+
+  stats = new swiftware::benchmark::Stats("SpMM_SpMM_Mixed_FusedParallel","SpMM", 7,tp._matrix_name,numThread);
+  stats->OtherStats["PackingType"] = {Interleaved};
+  auto *fusedMixedParallel = new SpMMSpMMFusedInnerProdInterLayer(inSpMM, stats, sp);
+  fusedMixedParallel->run();
+  //fusedParallel->OutTensor->printDx();
+  auto fusedParallelMixedStat = fusedMixedParallel->printStats();
+  delete fusedMixedParallel;
+  delete stats;
+
+  stats = new swiftware::benchmark::Stats("SpMM_SpMM_Separated_FusedParallel","SpMM", 7,tp._matrix_name,numThread);
+  stats->OtherStats["PackingType"] = {Separated};
+  auto *fusedSepParallel = new SpMMSpMMFusedSepInterLayer(inSpMM, stats, sp);
+  fusedSepParallel->run();
+  //fusedParallel->OutTensor->printDx();
+  auto fusedParallelSepStat = fusedSepParallel->printStats();
+  delete fusedSepParallel;
+  delete stats;
+
+  stats = new swiftware::benchmark::Stats("SpMM_SpMM_Profiler","SpMM", 7,tp._matrix_name,numThread);
+  auto *fusionProfiler = new SpMMSpMMFusionProfiler(inSpMM, stats, sp);
+  fusionProfiler->run();
+  //unfused->OutTensor->printDx();
+  inSpMM->IsSolProvided = true;
+  auto profileInfo = fusionProfiler->getSpInfo().printCSV(true);
+  std::string profHeader = std::get<0>(profileInfo);
+  std::string profStat = std::get<1>(profileInfo);
+  //delete fusionProfiler;
+  delete stats;
+
+
+
   auto csvInfo = sp.print_csv(true);
   std::string spHeader = std::get<0>(csvInfo);
   std::string spStat = std::get<1>(csvInfo);
@@ -73,10 +138,14 @@ int main(const int argc, const char *argv[]){
   std::string tpStat = std::get<1>(tpCsv);
 
   if(tp.print_header)
-    std::cout<<headerStat+spHeader+tpHeader<<std::endl;
-  std::cout<<baselineStat<<spStat+tpStat<<std::endl;
-  std::cout<<mklImplStat<<spStat+tpStat<<std::endl;
-  std::cout<<fusedParallelStat<<spStat+tpStat;
+    std::cout<<headerStat+spHeader+tpHeader+profHeader<<std::endl;
+  std::cout<<baselineStat<<spStat+tpStat+profStat<<std::endl;
+  std::cout<<fusedParallelStat<<spStat+tpStat+profStat<<std::endl;
+  std::cout<<fusedParallelStatBfs<<spStat+tpStat+profStat<<std::endl;
+  std::cout<<fusedTiledParallelGenStat<<spStat+tpStat+profStatRed<<std::endl;
+  std::cout<<fusedParallelOutStat<<spStat+tpStat+profStat<<std::endl;
+  std::cout<<fusedParallelMixedStat<<spStat+tpStat+profStat<<std::endl;
+  std::cout<<fusedParallelSepStat<<spStat+tpStat+profStat;
 
 
   delete aCSC;
