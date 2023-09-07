@@ -57,6 +57,7 @@ int main(const int argc, const char *argv[]){
 
 
   stats = new swiftware::benchmark::Stats("SpMM_SpMM_FusedParallel", "SpMM", 7, tp._matrix_name, numThread);
+  stats->OtherStats["PackingType"] = {Interleaved};
   auto *fusedParallel = new SpMMSpMMFusedInterLayer(inSpMM, stats, sp);
   fusedParallel->run();
   auto fusedParallelStat = fusedParallel->printStats();
