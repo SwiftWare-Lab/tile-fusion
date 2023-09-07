@@ -450,7 +450,7 @@ void spmmCsrSpmmCsrTiledFusedRedundantGeneral(int M, int N, int K, int L,
                                               int NThreads, int MTile, int NTile, double *Ws) {
   pw_init_instruments;
   int numKer=2;
-  int mBound = M - M % MTile;
+//  int mBound = M - M % MTile;
   auto *cxBufAll = Ws;//new double[MTile * NTile * NThreads]();
   // First level benefits from Fusion
   int iBoundBeg = LevelPtr[0], iBoundEnd = LevelPtr[1];
