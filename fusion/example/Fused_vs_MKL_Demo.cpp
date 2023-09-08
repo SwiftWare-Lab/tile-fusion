@@ -38,6 +38,7 @@ int main(const int argc, const char *argv[]){
                                           numThread, numTrial, expName);
 
   stats = new swiftware::benchmark::Stats("SpMM_SpMM_Demo", "SpMM", 7, tp._matrix_name, numThread);
+  stats->OtherStats["PackingType"] = {Interleaved};
   auto *unfused = new SpMMSpMMUnFused(inSpMM, stats);
   unfused->run();
   inSpMM->CorrectSol = std::copy(unfused->OutTensor->Dx, unfused->OutTensor->Dx + unfused->OutTensor->M * unfused->OutTensor->N, inSpMM->CorrectMul);
