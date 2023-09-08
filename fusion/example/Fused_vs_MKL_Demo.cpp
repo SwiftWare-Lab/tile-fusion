@@ -140,6 +140,7 @@ int main(const int argc, const char *argv[]){
 
   if(tp.print_header)
     std::cout<<headerStat+spHeader+tpHeader+profHeader<<std::endl;
+  std::cout<<mklImplStat<<spStat+tpStat+profStat<<std::endl;
   std::cout<<baselineStat<<spStat+tpStat+profStat<<std::endl;
   std::cout<<fusedParallelStat<<spStat+tpStat+profStat<<std::endl;
   std::cout<<fusedParallelStatBfs<<spStat+tpStat+profStat<<std::endl;
