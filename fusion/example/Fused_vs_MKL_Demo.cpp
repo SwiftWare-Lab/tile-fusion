@@ -59,6 +59,7 @@ int main(const int argc, const char *argv[]){
 
 
   stats = new swiftware::benchmark::Stats("SpMM_SpMM_MKL", "SpMM", 7, tp._matrix_name, numThread);
+  stats->OtherStats["PackingType"] = {Interleaved};
   auto *mklImpl = new SpMMSpMMMKL(inSpMM, stats);
   mklImpl->run();
   auto mklImplStat = mklImpl->printStats();
@@ -149,9 +150,9 @@ int main(const int argc, const char *argv[]){
 
   if(tp.print_header)
     std::cout<<headerStat+spHeader+tpHeader+profHeader<<std::endl;
+  std::cout<<baselineStat<<spStat+tpStat+profStat<<std::endl;
   std::cout<<unfusedParallelStat<<spStat+tpStat+profStat<<std::endl;
   std::cout<<mklImplStat<<spStat+tpStat+profStat<<std::endl;
-  std::cout<<baselineStat<<spStat+tpStat+profStat<<std::endl;
   std::cout<<fusedParallelStat<<spStat+tpStat+profStat<<std::endl;
   std::cout<<fusedParallelStatBfs<<spStat+tpStat+profStat<<std::endl;
   std::cout<<fusedTiledParallelGenStat<<spStat+tpStat+profStatRed<<std::endl;
