@@ -4,7 +4,7 @@ BASELINE="SpMM_SpMM_Demo_UnFusedParallel"
 UFDB=./data
 BCOL=4
 TEST=0
-THRD=20
+THRD=40
 while getopts ":b:lt:d:m:" arg; do
   case "${arg}" in
     b)

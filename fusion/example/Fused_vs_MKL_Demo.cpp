@@ -48,6 +48,15 @@ int main(const int argc, const char *argv[]){
   delete unfused;
   delete stats;
 
+  stats = new swiftware::benchmark::Stats("SpMM_SpMM_Demo_UnFusedParallel", "SpMM", 7, tp._matrix_name, numThread);
+  stats->OtherStats["PackingType"] = {Interleaved};
+  auto *unfusedParallel = new SpMMSpMMUnFusedParallel(inSpMM, stats);
+  unfusedParallel->run();
+  //unfusedParallel->OutTensor->printDx();
+  auto unfusedParallelStat = unfusedParallel->printStats();
+  delete unfusedParallel;
+  delete stats;
+
 
   stats = new swiftware::benchmark::Stats("SpMM_SpMM_MKL", "SpMM", 7, tp._matrix_name, numThread);
   auto *mklImpl = new SpMMSpMMMKL(inSpMM, stats);
@@ -140,6 +149,7 @@ int main(const int argc, const char *argv[]){
 
   if(tp.print_header)
     std::cout<<headerStat+spHeader+tpHeader+profHeader<<std::endl;
+  std::cout<<unfusedParallelStat<<spStat+tpStat+profStat<<std::endl;
   std::cout<<mklImplStat<<spStat+tpStat+profStat<<std::endl;
   std::cout<<baselineStat<<spStat+tpStat+profStat<<std::endl;
   std::cout<<fusedParallelStat<<spStat+tpStat+profStat<<std::endl;
