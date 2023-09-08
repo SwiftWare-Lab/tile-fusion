@@ -38,17 +38,17 @@ def get_fused_info(mat_list, df_fusion, imp_name, params=None):
     if params is None: # TODO: these params are hardcoded for now
         #params = [40, 400, 4000, 8000, 10000]
         #params = [4, 8, 40, 100, 1000]
-        params = [10, 50, 100, 1000, 5000]
+        params = [100, 1000, 5000, 10000, 500000]
         #params = [10, 20, 50, 100, 200]
     fused, fused_40, fused_400, fused_4000, fused_8000, fused_10000 = [], [], [], [], [], []
     for mat in mat_list:
         cur_mat = df_fusion[df_fusion['MatrixName'] == mat]
         fused = cur_mat[cur_mat['Implementation Name'] == imp_name]
-        fused_40.append(take_median(fused[fused['LBC WPART'] == params[0]]))
-        fused_400.append(take_median(fused[fused['LBC WPART'] == params[1]]))
-        fused_4000.append(take_median(fused[fused['LBC WPART'] == params[2]]))
-        fused_8000.append(take_median(fused[fused['LBC WPART'] == params[3]]))
-        fused_10000.append(take_median(fused[fused['LBC WPART'] == params[4]]))
+        fused_40.append(take_median(fused[fused['Iter Per Partition'] == params[0]]))
+        fused_400.append(take_median(fused[fused['Iter Per Partition'] == params[1]]))
+        fused_4000.append(take_median(fused[fused['Iter Per Partition'] == params[2]]))
+        fused_8000.append(take_median(fused[fused['Iter Per Partition'] == params[3]]))
+        fused_10000.append(take_median(fused[fused['Iter Per Partition'] == params[4]]))
     return fused_40, fused_400, fused_4000, fused_8000, fused_10000
 
 
@@ -56,17 +56,18 @@ def get_fused_info(mat_list, df_fusion, imp_name, params=None):
     if params is None: # TODO: these params are hardcoded for now
         #params = [40, 400, 4000, 8000, 10000]
         #params = [4, 8, 40, 100, 1000]
-        params = [10, 50, 100, 1000, 5000]
+        params = [100, 1000, 5000, 10000, 500000]
         #params = [10, 20, 50, 100, 200]
     fused, fused_40, fused_400, fused_4000, fused_8000, fused_10000 = [], [], [], [], [], []
     for mat in mat_list:
+        print(mat)
         cur_mat = df_fusion[df_fusion['MatrixName'] == mat]
         fused = cur_mat[cur_mat['Implementation Name'] == imp_name]
-        fused_40.append(take_median(fused[fused['LBC WPART'] == params[0]]))
-        fused_400.append(take_median(fused[fused['LBC WPART'] == params[1]]))
-        fused_4000.append(take_median(fused[fused['LBC WPART'] == params[2]]))
-        fused_8000.append(take_median(fused[fused['LBC WPART'] == params[3]]))
-        fused_10000.append(take_median(fused[fused['LBC WPART'] == params[4]]))
+        fused_40.append(take_median(fused[fused['Iter Per Partition'] == params[0]]))
+        fused_400.append(take_median(fused[fused['Iter Per Partition'] == params[1]]))
+        fused_4000.append(take_median(fused[fused['Iter Per Partition'] == params[2]]))
+        fused_8000.append(take_median(fused[fused['Iter Per Partition'] == params[3]]))
+        fused_10000.append(take_median(fused[fused['Iter Per Partition'] == params[4]]))
     return fused_40, fused_400, fused_4000, fused_8000, fused_10000
 
 
@@ -75,7 +76,7 @@ def get_matrix_list(df_fusion, imp_names=None, params=None):
     if imp_names is None:
         imp_names = df_fusion['Implementation Name'].unique()
     if params is None:
-        params = df_fusion['LBC WPART'].unique()
+        params = df_fusion['Iter Per Partition'].unique()
     mat_list, new_mat_list = df_fusion['MatrixName'].unique(), []
     num_imps, num_params = len(imp_names), len(params)
     for mat in mat_list:
@@ -84,7 +85,7 @@ def get_matrix_list(df_fusion, imp_names=None, params=None):
         sw = True
         for imp_name in imp_names:
             for param in params:
-                if len(cur_mat[cur_mat['Implementation Name'] == imp_name][cur_mat['LBC WPART'] == param]) == 0:
+                if len(cur_mat[cur_mat['Implementation Name'] == imp_name][cur_mat['Iter Per Partition'] == param]) == 0:
                     sw = False
                     break
 
@@ -123,6 +124,7 @@ def plot_spmm_spmm(logs_folder, file_name, baseline_implementation):
 
     # geomean speedup of fused vs separated
     gg = gmean(np.array(separated_exe_time) / np.array(fused_40))
+    print("TEST")
     geomean_speedup_40 = np.exp(np.mean(np.log(np.array(separated_exe_time) / np.array(fused_40))))
     geomean_speedup_400 = np.exp(np.mean(np.log(np.array(separated_exe_time) / np.array(fused_400))))
     geomean_speedup_4000 = np.exp(np.mean(np.log(np.array(separated_exe_time) / np.array(fused_4000))))
