@@ -157,7 +157,7 @@ def plot_spmm_spmm(logs_folder, file_name, baseline_implementation):
     geomean_speedup_min_tiled = np.exp(np.mean(np.log(np.array(separated_exe_time) / np.array(min_fused_tiled))))
 
     # geomean speedup mkl
-    geomean_speedup_mkl = np.exp(np.mean(np.log(np.array(mkl_time) / np.array(min_fused))))
+    geomean_speedup_mkl = np.min_fusedexp(np.mean(np.log(np.array(mkl_time) / np.array(min_fused))))
 
     print('geomean speedup of fused vs separated: ', geomean_speedup_40, geomean_speedup_400, geomean_speedup_4000,
           geomean_speedup_8000, geomean_speedup_10000, geomean_speedup_min, geomean_speedup_min_sep, geomean_speedup_min_out,

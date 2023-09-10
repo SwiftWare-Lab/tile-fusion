@@ -64,7 +64,7 @@ MATLIST=$UFDB/mat_list.txt
 
 mkdir $LOGS
 
-MODE=3
+MODE=2
 # performing the experiments
 
 if [ $TEST -eq 1 ]; then
@@ -76,10 +76,10 @@ if [ $TEST -eq 1 ]; then
   export OMP_DYNAMIC=FALSE;
   #export MKL_VERBOSE=1
 
-  python3 $SCRIPTPATH/dl_matrix.py $UFDB $MATLIST
+#  python3 $SCRIPTPATH/dl_matrix.py $UFDB $MATLIST
   bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE $THRD $MATLIST $BCOL > $LOGS/spmv_spmv_$BCOL.csv
   # plotting
-  python3 $SCRIPTPATH/plot.py $LOGS $BASELINE
+#  python3 $SCRIPTPATH/plot.py $LOGS $BASELINE
 else
   bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE $THRD $MATLIST 4 > $LOGS/spmv_spmv_4.csv
   bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE $THRD $MATLIST 32 > $LOGS/spmv_spmv_32.csv

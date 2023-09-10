@@ -11,6 +11,7 @@
 #include <cassert>
 #include <iostream>
 #include <omp.h>
+#include <immintrin.h>
 namespace swiftware {
 namespace sparse {
 
@@ -222,15 +223,25 @@ void spmmCsrSpmmCsrFused(int M, int N, int K, int L,
           if (t == 0) {
             for (int j = Ap[i]; j < Ap[i + 1]; j++) {
               int aij = Ai[j] * N;
-              for (int kk = 0; kk < N; ++kk) {
-                ACx[i * N + kk] += Ax[j] * Cx[aij + kk];
+              __m256d aV = _mm256_set1_pd(Ax[j]);
+              for (int kk = 0; kk < N; kk+=4) {
+                __m256d cV = _mm256_loadu_pd(Cx + aij + kk);
+                __m256d acV = _mm256_loadu_pd(ACx + i*N + kk);
+                acV = _mm256_fmadd_pd(aV, cV, acV);
+//                ACx[i * N + kk] += Ax[j] * Cx[aij + kk];
+                _mm256_storeu_pd(ACx + i*N + kk, acV);
               }
             }
           } else {
             for (int k = Bp[i]; k < Bp[i + 1]; k++) {
               int bij = Bi[k] * N;
-              for (int kk = 0; kk < N; ++kk) {
-                Dx[i * N + kk] += Bx[k] * ACx[bij + kk];
+              __m256d bV = _mm256_set1_pd(Bx[k]);
+              for (int kk = 0; kk < N; kk+=4) {
+                __m256d acV = _mm256_loadu_pd(ACx + bij + kk);
+                __m256d dV = _mm256_loadu_pd(Dx + i*N + kk);
+                dV = _mm256_fmadd_pd(bV, acV, dV);
+//                Dx[i * N + kk] += Bx[k] * ACx[bij + kk];
+                _mm256_storeu_pd(Dx + i*N + kk, dV);
               }
             }
           }
