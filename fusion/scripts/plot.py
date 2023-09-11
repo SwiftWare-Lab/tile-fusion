@@ -8,7 +8,7 @@ from scipy.stats import gmean
 import matplotlib.pyplot as plt
 import os
 
-
+plot_folder = "plots"
 def filter(df, **kwargs):
     bool_index = None
     for key, value in kwargs.items():
@@ -60,7 +60,6 @@ def get_fused_info(mat_list, df_fusion, imp_name, params=None):
         #params = [10, 20, 50, 100, 200]
     fused, fused_40, fused_400, fused_4000, fused_8000, fused_10000 = [], [], [], [], [], []
     for mat in mat_list:
-        print(mat)
         cur_mat = df_fusion[df_fusion['MatrixName'] == mat]
         fused = cur_mat[cur_mat['Implementation Name'] == imp_name]
         fused_40.append(take_median(fused[fused['Iter Per Partition'] == params[0]]))
@@ -85,7 +84,8 @@ def get_matrix_list(df_fusion, imp_names=None, params=None):
         sw = True
         for imp_name in imp_names:
             for param in params:
-                if len(cur_mat[cur_mat['Implementation Name'] == imp_name][cur_mat['Iter Per Partition'] == param]) == 0:
+                imp_data = cur_mat[cur_mat['Implementation Name'] == imp_name]
+                if len(imp_data[imp_data['Iter Per Partition'] == param]) == 0:
                     sw = False
                     break
 
@@ -93,6 +93,81 @@ def get_matrix_list(df_fusion, imp_names=None, params=None):
             new_mat_list.append(mat)
     return new_mat_list
 
+def plot_implementations_performance(implementation_times: dict[str,list[float]], files):
+    num_of_impls = len(implementation_times)
+    plt.rcParams.update(plt.rcParamsDefault)
+    fig, ax = plt.subplots(figsize=(15, 8))
+    first_impl = list(implementation_times.keys())[0]
+    first_result = implementation_times[first_impl]
+    colors = ['purple', 'yellow', 'orange', 'black', 'r', 'g', 'b']
+    barWidth = 0.2
+    br1 = np.arange(len(first_result) * 2, step=2)
+    bars = {
+        first_impl: br1
+    }
+    k = 1
+    for impl, speed_up in implementation_times.items():
+        if impl != first_impl:
+            bars[impl] = [x + k * barWidth for x in br1]
+            k += 1
+    for impl, bar in bars.items():
+        color = colors.pop()
+
+        ax.bar(bar, implementation_times[impl], width=barWidth, color=color, edgecolor='grey', label=impl)
+
+    # Adding Xticks
+    ax.set_xlabel('B Cols', fontweight='bold', fontsize=15)
+    ax.set_ylabel('Speedup vs baseline', fontweight='bold', fontsize=15)
+    ax.set_xticks([r + 3.5 * barWidth for r in range(0, len(first_result) * 2, 2)],
+                  files)
+
+    ax.legend()
+    fig.savefig(os.path.join(plot_folder, 'implementations_plot.pdf'))
+
+def plot_mkl_and_fused_vs_basline(b_col, baseline_implementation, file_name, mat_list, min_fused, mkl_time,
+                                  baseline_exe_time):
+    x_vals = np.arange(len(mat_list))
+    # plot flop_sf vs flop_ulbc vs flop_umkl
+    fig, ax = plt.subplots()
+    ax.scatter(x_vals, np.array(baseline_exe_time) / np.array(min_fused), facecolors='none', edgecolors='b',
+               marker='s')
+    ax.scatter(x_vals, np.array(baseline_exe_time) / np.array(mkl_time), facecolors='none', edgecolors='r',
+               marker='o')
+    # set a straight line at 1 as baseline
+    ax.plot(x_vals, np.ones(len(mat_list)), 'r--')
+    # label x-axis values with corresponding nnz
+    # ax.set_xticks(nnz_list)
+    ax.grid(False)
+    # set x and y axis label
+    ax.set_xlabel('Matrix ID', fontsize=20, fontweight='bold')
+    ax.set_ylabel('Speedup Fused vs ' + baseline_implementation, fontsize=20, fontweight='bold')
+    # set tile
+    ax.set_title('Speedup Fused for bCol =  ' + str(b_col), fontsize=20, fontweight='bold')
+    # set x and y axis tick size
+    ax.tick_params(axis='x', labelsize=20)
+    ax.tick_params(axis='y', labelsize=20)
+    # set right and top axis off
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    # set left and bottom axis bold
+    ax.spines['left'].set_linewidth(2)
+    ax.spines['bottom'].set_linewidth(2)
+    fig.set_size_inches(18, 8)
+    # set x tick black
+    ax.tick_params(axis='x', colors='black')
+    # set y tick black
+    ax.tick_params(axis='y', colors='black')
+    # ax.set_xscale('log')
+    # ax.set_yscale('log')
+    # show legend
+    # fig.legend(handles, labels, fontsize=14, ncol=3, loc='upper center', frameon=True, borderaxespad=1)
+    ax.legend(loc='upper left', fontsize=20, ncol=3, frameon=True, borderaxespad=1)
+    ax.spines['left'].set_color('k')
+    ax.spines['bottom'].set_color('k')
+    # fig.show()
+    os.makedirs(plot_folder, exist_ok=True)
+    fig.savefig(os.path.join(plot_folder, file_name[:-4] + '.pdf'), bbox_inches='tight')
+    # fig.show()
 
 def plot_spmm_spmm(logs_folder, file_name, baseline_implementation):
     df_fusion = pd.read_csv(os.path.join(logs_folder,file_name))
@@ -100,6 +175,7 @@ def plot_spmm_spmm(logs_folder, file_name, baseline_implementation):
     df_fusion = df_fusion.sort_values(by=['NNZ'])
     # mat_list = df_fusion['MatrixName'].unique()
     mat_list = get_matrix_list(df_fusion)
+    impl_list = df_fusion['Implementation Name'].unique()
     bCol = df_fusion['bCols'].unique()[0]
     nnz_list = df_fusion['NNZ'].unique()
     seq_exe_time, separated_exe_time, mkl_time = [], [], []
@@ -123,11 +199,11 @@ def plot_spmm_spmm(logs_folder, file_name, baseline_implementation):
     fused_sep_40, fused_sep_400, fused_sep_4000, fused_sep_8000, fused_sep_10000 = get_fused_info(mat_list, df_fusion, 'SpMM_SpMM_Separated_FusedParallel')
     fused_out_40, fused_out_400, fused_out_4000, fused_out_8000, fused_out_10000 = get_fused_info(mat_list, df_fusion, 'SpMM_SpMM_OuterProduct_FusedParallel')
     fused_tiled_40, fused_tiled_400, fused_tiled_4000, fused_tiled_8000, fused_tiled_10000 = get_fused_info(mat_list, df_fusion, 'SpMM_SpMM_FusedParallel_BFS')
+    results = {'SpMM_SpMM_FusedParallel': None, 'SpMM_SpMM_Separated_FusedParallel': None, 'SpMM_SpMM_OuterProduct_FusedParallel': None, 'SpMM_SpMM_FusedParallel_BFS': None, 'SpMM_SpMM_MKL': None, baseline_implementation: None}
 
 
     # geomean speedup of fused vs separated
     gg = gmean(np.array(separated_exe_time) / np.array(fused_40))
-    print("TEST")
     geomean_speedup_40 = np.exp(np.mean(np.log(np.array(separated_exe_time) / np.array(fused_40))))
     geomean_speedup_400 = np.exp(np.mean(np.log(np.array(separated_exe_time) / np.array(fused_400))))
     geomean_speedup_4000 = np.exp(np.mean(np.log(np.array(separated_exe_time) / np.array(fused_4000))))
@@ -136,6 +212,8 @@ def plot_spmm_spmm(logs_folder, file_name, baseline_implementation):
     # take minimum of fused arrays
     min_fused = np.minimum(np.minimum(np.minimum(np.array(fused_40), np.array(fused_400)), np.array(fused_4000)),
                            np.minimum(np.array(fused_8000), np.array(fused_10000)))
+    geomean_speedup_min_fused = np.exp(np.mean(np.log(np.array(separated_exe_time)/ np.array(min_fused))))
+    results['SpMM_SpMM_FusedParallel'] = geomean_speedup_min_fused
     # take the minimum of fused_sep arrays
     min_fused_sep = np.minimum(np.minimum(np.minimum(np.array(fused_sep_40), np.array(fused_sep_400)), np.array(fused_sep_4000)),
                             np.minimum(np.array(fused_sep_8000), np.array(fused_sep_10000)))
@@ -153,70 +231,42 @@ def plot_spmm_spmm(logs_folder, file_name, baseline_implementation):
     # geomean speedup of fused vs separated
     geomean_speedup_min = np.exp(np.mean(np.log(np.array(separated_exe_time) / np.array(min_fused))))
     geomean_speedup_min_sep = np.exp(np.mean(np.log(np.array(separated_exe_time) / np.array(min_fused_sep))))
+    results['SpMM_SpMM_Separated_FusedParallel'] = geomean_speedup_min_sep
     geomean_speedup_min_out = np.exp(np.mean(np.log(np.array(separated_exe_time) / np.array(min_fused_out))))
+    results['SpMM_SpMM_OuterProduct_FusedParallel'] = geomean_speedup_min_out
     geomean_speedup_min_tiled = np.exp(np.mean(np.log(np.array(separated_exe_time) / np.array(min_fused_tiled))))
+    results['SpMM_SpMM_FusedParallel_BFS'] = geomean_speedup_min_tiled
 
     # geomean speedup mkl
     geomean_speedup_mkl = np.exp(np.mean(np.log(np.array(mkl_time) / np.array(min_fused))))
+    results['SpMM_SpMM_MKL'] = geomean_speedup_mkl
 
     print('geomean speedup of fused vs separated: ', geomean_speedup_40, geomean_speedup_400, geomean_speedup_4000,
           geomean_speedup_8000, geomean_speedup_10000, geomean_speedup_min, geomean_speedup_min_sep, geomean_speedup_min_out,
           geomean_speedup_min_tiled, geomean_speedup_mkl)
     # geomean speedup of fused vs seq
-    x_vals = np.arange(len(mat_list))
-    # plot flop_sf vs flop_ulbc vs flop_umkl
-    fig, ax = plt.subplots()
-    ax.scatter(x_vals, np.array(separated_exe_time) / np.array(min_fused), facecolors='none', edgecolors='b',
-               marker='s')
-    ax.scatter(x_vals, np.array(separated_exe_time) / np.array(mkl_time), facecolors='none', edgecolors='r',
-                marker='o')
-    # set a straight line at 1 as baseline
-    ax.plot(x_vals, np.ones(len(mat_list)), 'r--')
-    # label x-axis values with corresponding nnz
-    #ax.set_xticks(nnz_list)
+    plot_mkl_and_fused_vs_basline(bCol, baseline_implementation, file_name, mat_list, min_fused, mkl_time,
+                                  separated_exe_time)
+    return results
 
-    ax.grid(False)
-    # set x and y axis label
-    ax.set_xlabel('Matrix ID', fontsize=20, fontweight='bold')
-    ax.set_ylabel('Speedup Fused vs ' + baseline_implementation, fontsize=20, fontweight='bold')
-    # set tile
-    ax.set_title('Speedup Fused for bCol =  ' + str(bCol), fontsize=20, fontweight='bold')
-    # set x and y axis tick size
-    ax.tick_params(axis='x', labelsize=20)
-    ax.tick_params(axis='y', labelsize=20)
-    # set right and top axis off
-    ax.spines['right'].set_visible(False)
-    ax.spines['top'].set_visible(False)
-    # set left and bottom axis bold
-    ax.spines['left'].set_linewidth(2)
-    ax.spines['bottom'].set_linewidth(2)
-    fig.set_size_inches(18, 8)
-    # set x tick black
-    ax.tick_params(axis='x', colors='black')
-    # set y tick black
-    ax.tick_params(axis='y', colors='black')
-    # ax.set_xscale('log')
-    # ax.set_yscale('log')
-    # show legend
-    # fig.legend(handles, labels, fontsize=14, ncol=3, loc='upper center', frameon=True, borderaxespad=1)
-    ax.legend(loc='upper left', fontsize=20, ncol=3, frameon=True, borderaxespad=1)
-    ax.spines['left'].set_color('k')
-    ax.spines['bottom'].set_color('k')
-    # fig.show()
-    plot_folder = "plots"
-    os.makedirs(plot_folder, exist_ok=True)
-    #fig.savefig(os.path.join(plot_folder, file_name[:-4] + '.pdf'), bbox_inches='tight')
-    fig.show()
 
 
 def plot_spmm_spmm_for_logs(logs_folder, baseline_implementation):
     with os.scandir(logs_folder) as entries:
+        all_results = {}
+        files = []
         for entry in entries:
             print(entry.name)
             # if entry is csv file
             if entry.name.endswith(".csv") and entry.is_file():
-                plot_spmm_spmm(logs_folder, entry.name, baseline_implementation)
-
+                results = plot_spmm_spmm(logs_folder, entry.name, baseline_implementation)
+                for key, value in results.items():
+                    if key in all_results:
+                        all_results[key].append(value)
+                    else:
+                        all_results[key] = [value]
+                files.append(entry.name)
+        plot_implementations_performance(all_results, files)
 
 if __name__ == '__main__':
     plot_spmm_spmm_for_logs(sys.argv[1], sys.argv[2])
