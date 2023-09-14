@@ -19,7 +19,7 @@ class GCNConv(nn.Module):
         #preprocessing part
 
         for i in range(N):
-            self.deg[i] = self.adj[i].sum().item()
+            self.deg[i] = self.adj[i].coalesce().indices().squeeze(0).size(dim=0)
 
     def forward(self, x):
         N = x.shape[0]
@@ -32,7 +32,6 @@ class GCNConv(nn.Module):
         for i in range(N):
         # Get the indices of the neighbors of node i
             neighbors = self.adj[i].coalesce().indices().squeeze(0)
-
             # Loop over the neighbors
             for j in neighbors:
                 
