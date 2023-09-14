@@ -52,5 +52,7 @@ def export_features():
             mtx_file.write('{} {}\n'.format(rows, cols))
             mtx_file.writelines(values)
 
-export_features()
-export_adjacency_matrices()
+
+if __name__ == '__main__':
+    export_features()
+    export_adjacency_matrices()

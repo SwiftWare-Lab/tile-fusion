@@ -13,7 +13,14 @@ class GCNConv(nn.Module):
         self.weight = nn.Parameter(
                 torch.FloatTensor(self.feat_dim, embed_dim))
         init.xavier_uniform(self.weight)
-        
+        N = self.adj.shape[0]
+        self.deg = torch.zeros(N)
+    
+        #preprocessing part
+
+        for i in range(N):
+            self.deg[i] = self.adj[i].sum().item()
+
     def forward(self, x):
         N = x.shape[0]
         F = x.shape[1]
@@ -25,15 +32,12 @@ class GCNConv(nn.Module):
         for i in range(N):
         # Get the indices of the neighbors of node i
             neighbors = self.adj[i].coalesce().indices().squeeze(0)
-            # Get the degree of node i
-            deg_i = torch.sparse.sum(self.adj[i])
 
             # Loop over the neighbors
             for j in neighbors:
-            # Get the degree of neighbor j
-                deg_j = torch.sparse.sum(self.adj[j])
+                
                 # Compute the normalized message from neighbor j
-                message = x[j].matmul(self.weight).div(math.sqrt(deg_i * deg_j))
+                message = x[j].matmul(self.weight).div(math.sqrt(self.deg[i] * self.deg[j]))
 
                 # Add the message to the output of node i
                 out[i] += message
