@@ -4,4 +4,4 @@ __pycache__/
 build/
 cmake-build-debug/
 lib/
-venv/
+fusion-venv/
