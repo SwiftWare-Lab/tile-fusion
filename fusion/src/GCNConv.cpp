@@ -13,20 +13,19 @@ void GCNConv::forward(float *Features) {
   int *Ap = AdjMatrix->p;
   int *Ai = AdjMatrix->i;
   double *Ax = AdjMatrix->x;
+  double degrees[AdjMatrix->m];
+  for (int i = 0; i < AdjMatrix->m; i++) {
+    degrees[i] = 0;
+    for (int j = Ap[i]; j < Ap[i + 1]; j++) {
+      degrees[i] += 1;
+    }
+  }
   for (int i = 0; i < AdjMatrix->m; i++) {
     float *messages = Output + OutputNum*i;
-    double degI = 0;
-    for (int j = Ap[i]; j < Ap[i + 1]; j++) {
-      degI += Ax[j];
-    }
     for (int j = Ap[i]; j < Ap[j + 1]; j++) {
       int n = Ai[j];
-      double degJ = 0;
-      for (int k = Ap[n]; k < Ap[n + 1]; k++) {
-        degJ += Ax[k];
-      }
       float* neighborMessage = vecMatMul(this->InputNum, this->OutputNum, Features + (n*this->InputNum), this->Weight);
-      normalizeMessage(this->OutputNum, degI, degJ, neighborMessage);
+      normalizeMessage(this->OutputNum, degrees[i], degrees[Ai[j]], neighborMessage);
       aggregateMessage(this->OutputNum, messages, neighborMessage);
       delete[] neighborMessage;
     }
