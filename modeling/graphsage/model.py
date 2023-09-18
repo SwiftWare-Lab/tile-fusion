@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torch.nn import init
 from torch.autograd import Variable
-from torchviz import make_dot
+# from torchviz import make_dot
 
 import numpy as np
 import time
@@ -10,8 +10,8 @@ import random
 from sklearn.metrics import f1_score
 from collections import defaultdict
 
-from graphsage.encoders import Encoder
-from graphsage.aggregators import MeanAggregator
+from encoders import Encoder
+from aggregators import MeanAggregator
 
 """
 Simple supervised GraphSAGE model as well as examples running the model
@@ -104,7 +104,7 @@ def run_cora():
         print(batch, loss.data.item())
 
     val_output = graphsage.forward(val) 
-    make_dot(val_output, dict(graphsage.named_parameters())).render("SAGEGraph-reference", format="png")
+    # make_dot(val_output, dict(graphsage.named_parameters())).render("SAGEGraph-reference", format="png")
     print ("Validation F1:", f1_score(labels[val], val_output.data.numpy().argmax(axis=1), average="micro"))
     test_output = graphsage.forward(test) 
     print ("Test F1:", f1_score(labels[test], test_output.data.numpy().argmax(axis=1), average="micro"))
