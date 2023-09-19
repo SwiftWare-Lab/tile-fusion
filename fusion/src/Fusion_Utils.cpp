@@ -40,15 +40,17 @@ namespace sym_lib{
   if(Argc >= 5)
    Sp->_lbc_agg = atoi(Argv[4]);
   Tp->_mode = "MTX";
-  Tp->_matrix_name = Tp->_matrix_path.substr(Tp->_matrix_path.find_last_of("/\\") + 1);;
+  Tp->_matrix_name = Tp->_matrix_path.substr(Tp->_matrix_path.find_last_of("/\\") + 1);
   if(Argc >= 6)
-   Tp->print_header = atoi(Argv[5]);
+   Tp->read_feature_mtx=atoi(Argv[5]);
   if(Argc >= 7)
-   Tp->_b_cols = atoi(Argv[6]);
+   Tp->print_header = atoi(Argv[6]);
   if(Argc >= 8)
-   Sp->IterPerPartition = atoi(Argv[7]);
+   Tp->_b_cols = atoi(Argv[7]);
   if(Argc >= 9)
-   Sp->TileN = atoi(Argv[8]);
+   Sp->IterPerPartition = atoi(Argv[8]);
+  if(Argc >= 10)
+   Sp->TileN = atoi(Argv[9]);
  }
 
 
@@ -134,6 +136,19 @@ namespace sym_lib{
    }
   }
   return aCSC;
+ }
+
+ Dense* get_feature_matrix_from_parameter(const TestParameters *Tp){
+  Dense* featureMatrix = NULLPNTR;
+  std::string fileExt = Tp->_feature_matrix_path.substr(
+      Tp->_matrix_path.find_last_of(".") + 1);
+  if (fileExt == "mtx") {
+   std::ifstream fin(Tp->_feature_matrix_path);
+   sym_lib::read_mtx_array_real(fin, featureMatrix);
+  } else{
+   std::cout << "File extension is not supported" << std::endl;
+   exit(1);
+  }
  }
 
  // starts from in_set in G1 and reaches to all unvisited vertices in G2

@@ -3,6 +3,7 @@
 //
 #include "GCN_Layer_Demo_Utils.h"
 #include "sparse-fusion/Fusion_Utils.h"
+
 using namespace sym_lib;
 int main(const int argc, const char *argv[]) {
   TestParameters tp;tp._order_method=SYM_ORDERING::NONE;

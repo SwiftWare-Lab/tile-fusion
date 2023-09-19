@@ -49,11 +49,11 @@ namespace sym_lib{
   */
  struct TestParameters{
   SYM_ORDERING _order_method; // type of reordering
-  std::string _matrix_name{}, _matrix_path{};
+  std::string _matrix_name{}, _matrix_path{}, _feature_matrix_path{};
   std::string _mode{}; //"Random" or "MTX"
   std::string _algorithm_choice{};
   double _density{}, _dim1{}, _dim2{}, _nnz{}; // for random mode
-  bool print_header{};
+  bool print_header{}, read_feature_mtx;
   int _b_cols{};
   TestParameters(){
    _mode = "Random";
