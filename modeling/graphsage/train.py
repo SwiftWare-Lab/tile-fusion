@@ -1,7 +1,6 @@
 import torch
 from torch_geometric.datasets import Planetoid
-from SAGEGraph import SAGEGraph
-from graphsage_prototype import GraphSage
+from graphsage_custom import GraphSage
 from torchviz import make_dot
 import sys
 from sklearn.metrics import f1_score
