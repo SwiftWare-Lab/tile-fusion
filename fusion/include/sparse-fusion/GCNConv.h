@@ -14,17 +14,17 @@ private:
   sym_lib::CSR* AdjMatrix;
   size_t InputNum;
   size_t OutputNum;
-  float * Weight;
-  float *Output;
-  float *vecMatMul(int M, int N, float *Vec, float *Mat);
-  void aggregateMessage(int Dim, float *Messages, float *NeighborMessage);
-  void normalizeMessage(int Dim, float DegI, float DegJ,
-                            float *NeighborMessage);
+  double *Weight;
+  double *Output;
+  double *vecMatMul(int M, int N, double *Vec, double *Mat);
+  void aggregateMessage(int Dim, double *Messages, double *NeighborMessage);
+  void normalizeMessage(int Dim, double DegI, double DegJ,
+                            double *NeighborMessage);
 
 public:
-  GCNConv(CSR* AdjMatrix, float *Output, float *Weight, size_t InputNum,
+  GCNConv(CSR* AdjMatrix, double *Output, double *Weight, size_t InputNum,
           size_t OutputNum);
-  void forward(float *Features);
+  void forward(double *Features);
 };
 } // namespace gnn
 } // namespace sym_lib

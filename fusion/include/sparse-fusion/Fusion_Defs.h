@@ -53,7 +53,7 @@ namespace sym_lib{
   std::string _mode{}; //"Random" or "MTX"
   std::string _algorithm_choice{};
   double _density{}, _dim1{}, _dim2{}, _nnz{}; // for random mode
-  bool print_header{}, read_feature_mtx;
+  bool print_header{};
   int _b_cols{};
   TestParameters(){
    _mode = "Random";

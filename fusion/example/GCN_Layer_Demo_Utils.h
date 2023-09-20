@@ -12,37 +12,37 @@
 #endif // SPARSE_FUSION_GCN_LAYER_DEMO_H
 using namespace swiftware::benchmark;
 
-float *generate_weight_matrix(int featDim, int embedDim) {
+double *generate_weight_matrix(int featDim, int embedDim) {
   std::random_device rand_dev;
   std::mt19937 generator(rand_dev());
-  std::uniform_real_distribution<float> distr(-1., 1.);
-  float *weight = new float[featDim * embedDim];
+  std::uniform_real_distribution<double> distr(-1., 1.);
+  double *weight = new double[featDim * embedDim];
   for (int i = 0; i < featDim * embedDim; i++) {
     weight[i] = distr(generator);
   }
   return weight;
 }
 
-struct GnnTensorInputs : public Inputs<float> {
-  float *weight1, *weight2, *feature;
+struct GnnTensorInputs : public Inputs<double> {
+  double *weight1, *weight2, *feature;
   sym_lib::CSR *adjacencyMatrix;
   size_t featDim, embedDim, numOfClasses;
   size_t numOfNodes;
 
-  GnnTensorInputs(float *weight1, float *weight2, float *feature,
+  GnnTensorInputs(double *weight1, double *weight2, double *feature,
                   sym_lib::CSR *adjacencyMatrix, size_t numOfNodes,
                   size_t featDim, size_t embedDim, size_t numOfClasses,
                   int NumThreads1, int NumTrial1, std::string ExpN)
-      : Inputs<float>(NumTrial1, NumThreads1, ExpN), weight1(weight1),
+      : Inputs<double>(NumTrial1, NumThreads1, ExpN), weight1(weight1),
         weight2(weight2), feature(feature), adjacencyMatrix(adjacencyMatrix),
         numOfNodes(numOfNodes), featDim(featDim), numOfClasses(numOfClasses),
         embedDim(embedDim) {}
 
-  GnnTensorInputs(float *feature, sym_lib::CSR *adjacencyMatrix,
+  GnnTensorInputs(double *feature, sym_lib::CSR *adjacencyMatrix,
                   size_t NumOfNodes, size_t featDim, size_t embedDim,
                   size_t numOfClasses, int NumThreads1, int NumTrial1,
                   std::string ExpN)
-      : Inputs<float>(NumTrial1, NumThreads1, ExpN), feature(feature),
+      : Inputs<double>(NumTrial1, NumThreads1, ExpN), feature(feature),
         adjacencyMatrix(adjacencyMatrix), numOfNodes(NumOfNodes),
         featDim(featDim), embedDim(embedDim), numOfClasses(numOfClasses) {
     this->weight1 = generate_weight_matrix(featDim, embedDim);
@@ -56,13 +56,13 @@ struct GnnTensorInputs : public Inputs<float> {
   }
 };
 
-struct GnnTensorOutputs : public Outputs<float> {
-  float *firstLayerOutput, *secondLayerOutput;
+struct GnnTensorOutputs : public Outputs<double> {
+  double *firstLayerOutput, *secondLayerOutput;
   size_t embedDim, numOfClasses, numOfNodes;
 
   GnnTensorOutputs(size_t embedDim, size_t numOfClasses, size_t numOfNodes) {
-    this->firstLayerOutput = new float[numOfNodes * embedDim];
-    this->secondLayerOutput = new float[numOfNodes * numOfClasses];
+    this->firstLayerOutput = new double[numOfNodes * embedDim];
+    this->secondLayerOutput = new double[numOfNodes * numOfClasses];
   }
   ~GnnTensorOutputs() {
     delete[] firstLayerOutput;
@@ -70,7 +70,7 @@ struct GnnTensorOutputs : public Outputs<float> {
   }
 };
 
-class GCNGnn : public SWTensorBench<float> {
+class GCNGnn : public SWTensorBench<double> {
 protected:
   GnnTensorInputs *InTensor;
   GnnTensorOutputs *OutTensor;
@@ -91,7 +91,7 @@ protected:
 
 public:
   GCNGnn(GnnTensorInputs *In1, Stats *Stat1)
-      : SWTensorBench<float>(In1, Stat1) {
+      : SWTensorBench<double>(In1, Stat1) {
     OutTensor =
         new GnnTensorOutputs(In1->embedDim, In1->numOfClasses, In1->numOfNodes);
     InTensor = In1;

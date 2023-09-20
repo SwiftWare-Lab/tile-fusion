@@ -42,7 +42,7 @@ namespace sym_lib{
   Tp->_mode = "MTX";
   Tp->_matrix_name = Tp->_matrix_path.substr(Tp->_matrix_path.find_last_of("/\\") + 1);
   if(Argc >= 6)
-   Tp->read_feature_mtx=atoi(Argv[5]);
+   Tp->_feature_matrix_path = Argv[5];
   if(Argc >= 7)
    Tp->print_header = atoi(Argv[6]);
   if(Argc >= 8)
@@ -142,13 +142,13 @@ namespace sym_lib{
   Dense* featureMatrix = NULLPNTR;
   std::string fileExt = Tp->_feature_matrix_path.substr(
       Tp->_matrix_path.find_last_of(".") + 1);
-  if (fileExt == "mtx") {
+//  if (fileExt == "mtx") {
    std::ifstream fin(Tp->_feature_matrix_path);
    sym_lib::read_mtx_array_real(fin, featureMatrix);
-  } else{
-   std::cout << "File extension is not supported" << std::endl;
-   exit(1);
-  }
+//  } else{
+//   std::cout << "File extension is not supported" << std::endl;
+//   exit(1);
+//  }
  }
 
  // starts from in_set in G1 and reaches to all unvisited vertices in G2
