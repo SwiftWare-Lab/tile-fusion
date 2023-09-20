@@ -17,7 +17,7 @@ datasets = {
     }
 }
 def get_coordinate_str(index, edge_index) -> str:
-    return '{} {}\n'.format(edge_index[0][index].item(),edge_index[1][index].item())
+    return '{} {}\n'.format(edge_index[0][index].item()+1,edge_index[1][index].item()+1)
 
 def export_adjacency_matrices():
     for _, v in datasets.items():
