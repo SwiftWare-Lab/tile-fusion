@@ -149,6 +149,7 @@ namespace sym_lib{
 //   std::cout << "File extension is not supported" << std::endl;
 //   exit(1);
 //  }
+   return featureMatrix;
  }
 
  // starts from in_set in G1 and reaches to all unvisited vertices in G2
