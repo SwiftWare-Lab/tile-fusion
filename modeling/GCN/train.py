@@ -11,6 +11,7 @@ import numpy as np
 import argparse
 from pathlib import Path
 
+# here we can configure in every epoch how many vertices will be in respective batch and how many epochs will be run
 datasets = {
     'cora': {
         'root': 'data/cora', 'name': 'Cora', 'batch_count': 256, 'epoch_num': 100
@@ -57,6 +58,7 @@ x = data.x
 adj_matrix = torch.sparse_coo_tensor(data.edge_index, [1. for i in range(data.edge_index.size(dim=1))])
 
 num_nodes = adj_matrix.size(dim=1)
+# here we can configure number of nodes to be used for training, test and validation
 num_test = 2000
 num_val = 500
 num_train = num_nodes - num_test - num_val
@@ -80,6 +82,8 @@ optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, model.parameters()
 best_val_acc = test_acc = 0
 times = []
 loss_function = torch.nn.CrossEntropyLoss()
+
+# every batch vertices are chosen randomly between training nodes
 for epoch in range(epochs):
     train_perm = torch.randperm(num_train)
     batch = train_mask[train_perm[:batch_count]]
