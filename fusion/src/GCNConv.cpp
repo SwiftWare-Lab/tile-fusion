@@ -22,7 +22,7 @@ void GCNConv::forward(double *Features) {
   }
   for (int i = 0; i < AdjMatrix->m; i++) {
     double *messages = Output + OutputNum*i;
-    for (int j = Ap[i]; j < Ap[j + 1]; j++) {
+    for (int j = Ap[i]; j < Ap[i + 1]; j++) {
       int n = Ai[j];
       double* neighborMessage = vecMatMul(this->InputNum, this->OutputNum, Features + (n*this->InputNum), this->Weight);
       normalizeMessage(this->OutputNum, degrees[i], degrees[Ai[j]], neighborMessage);
@@ -34,10 +34,10 @@ void GCNConv::forward(double *Features) {
 
 double *GCNConv::vecMatMul(int M, int N, double *Vec, double *Mat) {
   double* out = new double[N];
-  for (int i = 0; i < M; i++) {
-    out[i] = 0;
-    for (int j = 0; j < N; j++) {
-      out[i] += Vec[i] * Mat[i*M + j];
+  for (int j = 0; j < N; j++) {
+    out[j] = 0;
+    for (int i = 0; i < M; i++) {
+      out[j] += Vec[i] * Mat[i*N + j];
     }
   }
   return out;

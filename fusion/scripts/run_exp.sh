@@ -20,10 +20,13 @@ if [ "$TUNED" ==  1 ]; then
   while read line; do
     mat=$line
     k=4
-    $BINLIB  $PATHMAIN/$mat $THRDS $k $k $header $BCOL
-    echo ""
     if [ $header -eq 1 ]; then
-       header=0
+      $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -ah -bc $BCOL -ip 1000
+      echo "TEST1"
+      header=0
+    else
+      $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -bc $BCOL -ip 1000
+      echo "TEST2"
     fi
   done < ${MATLIST}
 fi
@@ -37,10 +40,13 @@ if [ "$TUNED" ==  2 ]; then
     # shellcheck disable=SC2039
     for w in {10,50,100,1000,5000}; do
       k=4
-      $BINLIB  $PATHMAIN/$mat $THRDS $k $k $header $BCOL $w
-      echo ""
       if [ $header -eq 1 ]; then
-         header=0
+        $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -ah -bc $BCOL -ip $w
+        echo ""
+        header=0
+      else
+        $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -bc $BCOL -ip $w
+        echo ""
       fi
     done
   done < ${MATLIST}
@@ -58,10 +64,12 @@ if [ "$TUNED" ==  3 ]; then
         if [ $ntile -gt $BCOL ]; then
           continue
         fi
-      $BINLIB  $PATHMAIN/$mat $THRDS $k $k $header $BCOL $w $ntile
-      echo ""
       if [ $header -eq 1 ]; then
-         header=0
+        $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -ah -bc $BCOL -ip $w -tn $ntile
+        echo ""
+        header=0
+      else
+        $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -bc $BCOL -ip $w -tn $ntile
       fi
       done
     done

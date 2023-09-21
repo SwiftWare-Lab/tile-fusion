@@ -12,61 +12,62 @@
 #endif // SPARSE_FUSION_GCN_LAYER_DEMO_H
 using namespace swiftware::benchmark;
 
-double *generate_weight_matrix(int featDim, int embedDim) {
-  std::random_device rand_dev;
-  std::mt19937 generator(rand_dev());
+double *generateWeightMatrix(int FeatDim, int EmbedDim) {
+  std::random_device randDev;
+  std::mt19937 generator(randDev());
   std::uniform_real_distribution<double> distr(-1., 1.);
-  double *weight = new double[featDim * embedDim];
-  for (int i = 0; i < featDim * embedDim; i++) {
+  double *weight = new double[FeatDim * EmbedDim];
+  for (int i = 0; i < FeatDim * EmbedDim; i++) {
     weight[i] = distr(generator);
   }
   return weight;
 }
 
 struct GnnTensorInputs : public Inputs<double> {
-  double *weight1, *weight2, *feature;
-  sym_lib::CSR *adjacencyMatrix;
-  size_t featDim, embedDim, numOfClasses;
-  size_t numOfNodes;
+  double *Weight1, *Weight2, *Feature;
+  sym_lib::CSR *AdjacencyMatrix;
+  size_t FeatDim, EmbedDim, NumOfClasses;
+  size_t NumOfNodes;
 
-  GnnTensorInputs(double *weight1, double *weight2, double *feature,
-                  sym_lib::CSR *adjacencyMatrix, size_t numOfNodes,
-                  size_t featDim, size_t embedDim, size_t numOfClasses,
+  GnnTensorInputs(double *Weight1, double *Weight2, double *Feature,
+                  sym_lib::CSR *AdjacencyMatrix, size_t NumOfNodes,
+                  size_t FeatDim, size_t EmbedDim, size_t NumOfClasses,
                   int NumThreads1, int NumTrial1, std::string ExpN)
-      : Inputs<double>(NumTrial1, NumThreads1, ExpN), weight1(weight1),
-        weight2(weight2), feature(feature), adjacencyMatrix(adjacencyMatrix),
-        numOfNodes(numOfNodes), featDim(featDim), numOfClasses(numOfClasses),
-        embedDim(embedDim) {}
+      : Inputs<double>(NumTrial1, NumThreads1, ExpN), Weight1(Weight1),
+        Weight2(Weight2), Feature(Feature), AdjacencyMatrix(AdjacencyMatrix),
+        NumOfNodes(NumOfNodes), FeatDim(FeatDim), NumOfClasses(NumOfClasses),
+        EmbedDim(EmbedDim) {}
 
-  GnnTensorInputs(double *feature, sym_lib::CSR *adjacencyMatrix,
-                  size_t NumOfNodes, size_t featDim, size_t embedDim,
-                  size_t numOfClasses, int NumThreads1, int NumTrial1,
+  GnnTensorInputs(double *Feature, sym_lib::CSR *AdjacencyMatrix,
+                  size_t NumOfNodes, size_t FeatDim, size_t EmbedDim,
+                  size_t NumOfClasses, int NumThreads1, int NumTrial1,
                   std::string ExpN)
-      : Inputs<double>(NumTrial1, NumThreads1, ExpN), feature(feature),
-        adjacencyMatrix(adjacencyMatrix), numOfNodes(NumOfNodes),
-        featDim(featDim), embedDim(embedDim), numOfClasses(numOfClasses) {
-    this->weight1 = generate_weight_matrix(featDim, embedDim);
-    this->weight2 = generate_weight_matrix(embedDim, embedDim);
+      : Inputs<double>(NumTrial1, NumThreads1, ExpN), Feature(Feature),
+        AdjacencyMatrix(AdjacencyMatrix), NumOfNodes(NumOfNodes),
+        FeatDim(FeatDim), EmbedDim(EmbedDim), NumOfClasses(NumOfClasses) {
+    this->CorrectSol = nullptr;
+    this->Weight1 = generateWeightMatrix(FeatDim, EmbedDim);
+    this->Weight2 = generateWeightMatrix(EmbedDim, NumOfClasses);
   }
   ~GnnTensorInputs() {
-    delete[] weight1;
-    delete[] weight2;
-    delete[] feature;
-    delete adjacencyMatrix;
+    delete[] Weight1;
+    delete[] Weight2;
+    delete[] Feature;
+    delete AdjacencyMatrix;
   }
 };
 
 struct GnnTensorOutputs : public Outputs<double> {
-  double *firstLayerOutput, *secondLayerOutput;
-  size_t embedDim, numOfClasses, numOfNodes;
+  double *FirstLayerOutput, *SecondLayerOutput;
+  size_t EmbedDim, NumOfClasses, NumOfNodes;
 
-  GnnTensorOutputs(size_t embedDim, size_t numOfClasses, size_t numOfNodes) {
-    this->firstLayerOutput = new double[numOfNodes * embedDim];
-    this->secondLayerOutput = new double[numOfNodes * numOfClasses];
+  GnnTensorOutputs(size_t EmbedDim, size_t NumOfClasses, size_t NumOfNodes) {
+    this->FirstLayerOutput = new double[NumOfNodes * EmbedDim];
+    this->SecondLayerOutput = new double[NumOfNodes * NumOfClasses];
   }
   ~GnnTensorOutputs() {
-    delete[] firstLayerOutput;
-    delete[] secondLayerOutput;
+    delete[] FirstLayerOutput;
+    delete[] SecondLayerOutput;
   }
 };
 
@@ -83,8 +84,8 @@ protected:
   Timer execute() override {
     Timer t;
     t.start();
-    FirstConvLayer->forward(InTensor->feature);
-    FirstConvLayer->forward(OutTensor->firstLayerOutput);
+    FirstConvLayer->forward(InTensor->Feature);
+    SecondConvLayer->forward(OutTensor->FirstLayerOutput);
     t.stop();
     return t;
   }
@@ -93,13 +94,13 @@ public:
   GCNGnn(GnnTensorInputs *In1, Stats *Stat1)
       : SWTensorBench<double>(In1, Stat1) {
     OutTensor =
-        new GnnTensorOutputs(In1->embedDim, In1->numOfClasses, In1->numOfNodes);
+        new GnnTensorOutputs(In1->EmbedDim, In1->NumOfClasses, In1->NumOfNodes);
     InTensor = In1;
     FirstConvLayer = new sym_lib::gnn::GCNConv(
-        In1->adjacencyMatrix, OutTensor->firstLayerOutput, In1->weight1,
-        In1->featDim, In1->embedDim);
+        In1->AdjacencyMatrix, OutTensor->FirstLayerOutput, In1->Weight1,
+        In1->FeatDim, In1->EmbedDim);
     SecondConvLayer = new sym_lib::gnn::GCNConv(
-        In1->adjacencyMatrix, OutTensor->secondLayerOutput, In1->weight2,
-        In1->embedDim, In1->numOfClasses);
+        In1->AdjacencyMatrix, OutTensor->SecondLayerOutput, In1->Weight2,
+        In1->EmbedDim, In1->NumOfClasses);
   }
 };

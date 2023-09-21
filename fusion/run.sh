@@ -3,17 +3,14 @@
 BASELINE="SpMM_SpMM_Demo_UnFusedParallel"
 UFDB=./data
 BCOL=4
-TEST=0
 THRD=40
-while getopts ":b:lt:d:m:" arg; do
+DOWNLOAD=0
+while getopts ":b:t:dc:m:" arg; do
   case "${arg}" in
     b)
       BASELINE=$OPTARG
       ;;
-    l)
-      TEST=1
-      ;;
-    d)
+    c)
       BCOL=$OPTARG
       ;;
     t)
@@ -22,12 +19,15 @@ while getopts ":b:lt:d:m:" arg; do
     m)
       UFDB=$OPTARG
       ;;
+    d)
+      DOWNLOAD=1
+      ;;
     *) echo "Usage:
     -b BASELINE=SpMM_SpMM_Demo_UnFusedParallel        Choose a baseline to compare with Fused SpMM SpMM(Current base lines: SpMM_SpMM_Demo_UnFusedParallel,SpMM_SpMM_MKL)
-    -l TEST=FALSE                                     Set if you want to run the script for one b_col
-    -d BCOL=4                                         num of the columns of the dense matrix
+    -c BCOL=4                                         num of the columns of the dense matrix
     -t THRD=40                                        num of threads
-    -m UFDB=./data                                    path of matrices data"
+    -m UFDB=./data                                    path of matrices data
+    -d DOWNLOAD=TRUE                                  Set if you want to download matrices under fusion folder"
       exit 0
   esac
 done
@@ -67,26 +67,26 @@ mkdir $LOGS
 
 MODE=3
 # performing the experiments
-
-if [ $TEST -eq 1 ]; then
-  NUM_THREAD=$THRD
-  export OMP_NUM_THREADS=$NUM_THREAD
-  MKL_NUM_THREADS=$NUM_THREAD; export MKL_NUM_THREADS
-  OMP_NUM_THREADS=$NUM_THREAD; export OMP_NUM_THREADS
-  export MKL_DYNAMIC=FALSE;
-  export OMP_DYNAMIC=FALSE;
-  #export MKL_VERBOSE=1
-
-  python3 $SCRIPTPATH/dl_matrix.py $UFDB $MATLIST
-  bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE $THRD $MATLIST $BCOL > $LOGS/spmv_spmv_$BCOL.csv
-  # plotting
-  python3 $SCRIPTPATH/plot.py $LOGS $BASELINE
-else
-  bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE $THRD $MATLIST 4 > $LOGS/spmv_spmv_4.csv
-  bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE $THRD $MATLIST 32 > $LOGS/spmv_spmv_32.csv
-  bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE $THRD $MATLIST 64 > $LOGS/spmv_spmv_64.csv
-  bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE $THRD $MATLIST 128 > $LOGS/spmv_spmv_128.csv
-  bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE $THRD $MATLIST 256 > $LOGS/spmv_spmv_256.csv
+if [ $DOWNLOAD -eq 1 ]; then
+    python3 $SCRIPTPATH/dl_matrix.py $UFDB $MATLIST
 fi
+NUM_THREAD=$THRD
+export OMP_NUM_THREADS=$NUM_THREAD
+MKL_NUM_THREADS=$NUM_THREAD; export MKL_NUM_THREADS
+OMP_NUM_THREADS=$NUM_THREAD; export OMP_NUM_THREADS
+export MKL_DYNAMIC=FALSE;
+export OMP_DYNAMIC=FALSE;
+#export MKL_VERBOSE=1
+
+bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE $THRD $MATLIST $BCOL > $LOGS/spmv_spmv_$BCOL.csv
+  # plotting
+#  python3 $SCRIPTPATH/plot.py $LOGS $BASELINE
+#else
+#  bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE $THRD $MATLIST 4 > $LOGS/spmv_spmv_4.csv
+#  bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE $THRD $MATLIST 32 > $LOGS/spmv_spmv_32.csv
+#  bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE $THRD $MATLIST 64 > $LOGS/spmv_spmv_64.csv
+#  bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE $THRD $MATLIST 128 > $LOGS/spmv_spmv_128.csv
+#  bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE $THRD $MATLIST 256 > $LOGS/spmv_spmv_256.csv
+#fi
 
 
