@@ -16,7 +16,7 @@ private:
   size_t OutputNum;
   double *Weight;
   double *Output;
-  double *vecMatMul(int M, int N, double *Vec, double *Mat);
+  void vecMatMul(int M, int N, double *Vec, double *Mat, double* result);
   void aggregateMessage(int Dim, double *Messages, double *NeighborMessage);
   void normalizeMessage(int Dim, double DegI, double DegJ,
                             double *NeighborMessage);

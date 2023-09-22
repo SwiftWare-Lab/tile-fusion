@@ -6,8 +6,10 @@
 #include <math.h>
 namespace sym_lib {
 namespace gnn {
-GCNConv::GCNConv(CSR* AdjMatrix, double* Output, double* Weight, size_t InputNum, size_t OutputNum)
-    : AdjMatrix(AdjMatrix), Output(Output), Weight(Weight), InputNum(InputNum), OutputNum(OutputNum) {}
+GCNConv::GCNConv(CSR *AdjMatrix, double *Output, double *Weight,
+                 size_t InputNum, size_t OutputNum)
+    : AdjMatrix(AdjMatrix), Output(Output), Weight(Weight), InputNum(InputNum),
+      OutputNum(OutputNum) {}
 
 void GCNConv::forward(double *Features) {
   int *Ap = AdjMatrix->p;
@@ -20,37 +22,40 @@ void GCNConv::forward(double *Features) {
       degrees[i] += 1;
     }
   }
+  double *neighborMessage = new double[OutputNum];
   for (int i = 0; i < AdjMatrix->m; i++) {
-    double *messages = Output + OutputNum*i;
+    double *messages = Output + OutputNum * i;
     for (int j = Ap[i]; j < Ap[i + 1]; j++) {
       int n = Ai[j];
-      double* neighborMessage = vecMatMul(this->InputNum, this->OutputNum, Features + (n*this->InputNum), this->Weight);
-      normalizeMessage(this->OutputNum, degrees[i], degrees[Ai[j]], neighborMessage);
+      vecMatMul(this->InputNum, this->OutputNum,
+                Features + (n * this->InputNum), this->Weight, neighborMessage);
+      normalizeMessage(this->OutputNum, degrees[i], degrees[Ai[j]],
+                       neighborMessage);
       aggregateMessage(this->OutputNum, messages, neighborMessage);
-      delete[] neighborMessage;
     }
   }
+  delete[] neighborMessage;
 }
 
-double *GCNConv::vecMatMul(int M, int N, double *Vec, double *Mat) {
-  double* out = new double[N];
+void GCNConv::vecMatMul(int M, int N, double *Vec, double *Mat,
+                        double *result) {
   for (int j = 0; j < N; j++) {
-    out[j] = 0;
+    result[j] = 0;
     for (int i = 0; i < M; i++) {
-      out[j] += Vec[i] * Mat[i*N + j];
+      result[j] += Vec[i] * Mat[i * N + j];
     }
   }
-  return out;
 }
 
-void GCNConv::aggregateMessage(int Dim, double *Messages, double *NeighborMessage) {
+void GCNConv::aggregateMessage(int Dim, double *Messages,
+                               double *NeighborMessage) {
   for (int i = 0; i < Dim; i++) {
     Messages[i] += NeighborMessage[i];
   }
 }
 
 void GCNConv::normalizeMessage(int Dim, double DegI, double DegJ,
-                          double *NeighborMessage) {
+                               double *NeighborMessage) {
   for (int i = 0; i < Dim; i++) {
     NeighborMessage[i] = NeighborMessage[i] / sqrt(DegI * DegJ);
   }
