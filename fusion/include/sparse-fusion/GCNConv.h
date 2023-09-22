@@ -7,6 +7,7 @@
 #define SPARSE_FUSION_GCNCONV_H
 
 #include "aggregation/def.h"
+#include <set>
 namespace sym_lib {
 namespace gnn {
 class GCNConv {
@@ -24,7 +25,7 @@ private:
 public:
   GCNConv(CSR* AdjMatrix, double *Output, double *Weight, size_t InputNum,
           size_t OutputNum);
-  void forward(double *Features);
+  void forward(double *Features, std::set<int> mask);
 };
 } // namespace gnn
 } // namespace sym_lib

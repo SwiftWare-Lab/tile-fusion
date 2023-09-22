@@ -11,7 +11,7 @@ GCNConv::GCNConv(CSR *AdjMatrix, double *Output, double *Weight,
     : AdjMatrix(AdjMatrix), Output(Output), Weight(Weight), InputNum(InputNum),
       OutputNum(OutputNum) {}
 
-void GCNConv::forward(double *Features) {
+void GCNConv::forward(double *Features, std::set<int> mask) {
   int *Ap = AdjMatrix->p;
   int *Ai = AdjMatrix->i;
   double *Ax = AdjMatrix->x;
@@ -23,7 +23,7 @@ void GCNConv::forward(double *Features) {
     }
   }
   double *neighborMessage = new double[OutputNum];
-  for (int i = 0; i < AdjMatrix->m; i++) {
+  for (auto i: mask) {
     double *messages = Output + OutputNum * i;
     for (int j = Ap[i]; j < Ap[i + 1]; j++) {
       int n = Ai[j];
