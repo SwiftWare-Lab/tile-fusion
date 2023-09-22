@@ -15,7 +15,8 @@
 BASE_LINE="SpMM_SpMM_Demo_UnFusedParallel"
 UFDB=$SCRATCH/UFDB/graphs/
 #UFDB=$HOME/UFDB/banded/
-while getopts ":b:lm:" arg; do
+BCOL=32
+while getopts ":b:lm:c:" arg; do
   case "${arg}" in
     b)
       BASE_LINE=$OPTARG
@@ -25,6 +26,9 @@ while getopts ":b:lm:" arg; do
       ;;
     m)
       UFDB=$OPTARG
+      ;;
+    c)
+      BCOL=$OPTARG
       ;;
     *) echo "Usage:
     -b BASELINE=SpMM_SpMM_Demo_UnFusedParallel        Choose a baseline to compare with Fused SpMM SpMM(Current base lines: SpMM_SpMM_Demo_UnFusedParallel,SpMM_SpMM_MKL)
@@ -42,7 +46,7 @@ module load cmake
 module load gcc
 
 if [ $TEST -eq 1 ]; then
-  bash run.sh -b $BASE_LINE -l -m $UFDB
+  bash run.sh -b $BASE_LINE -m $UFDB -c 8
 else
-  bash run.sh -b $BASE_LINE -t 40 -m $UFDB
+  bash run.sh -b $BASE_LINE -t 40 -m $UFDB -c BCOL
 fi
