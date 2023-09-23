@@ -15,6 +15,7 @@
 BASE_LINE="SpMM_SpMM_Demo_UnFusedParallel"
 UFDB=$SCRATCH/UFDB/graphs/
 #UFDB=$HOME/UFDB/banded/
+
 BCOL=32
 while getopts ":b:lm:c:" arg; do
   case "${arg}" in

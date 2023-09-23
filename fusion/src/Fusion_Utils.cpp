@@ -60,6 +60,7 @@ argparse::ArgumentParser addArguments(){
   return program;
 }
 
+
  void parse_args(const int Argc, const char **Argv, ScheduleParameters *Sp,
                  TestParameters *Tp){
    argparse::ArgumentParser program = addArguments();
@@ -92,6 +93,21 @@ argparse::ArgumentParser addArguments(){
      Sp->_lbc_agg = 4;
   if(auto featMtxPath = program.present("-fm"))
    Tp->_feature_matrix_path = featMtxPath.value();
+//  if(Argc >= 4)
+//   useLevelCoarsening = atoi(Argv[3]);
+//  if(Argc >= 5)
+//   Sp->_lbc_agg = atoi(Argv[4]);
+//  Tp->_mode = "MTX";
+//  Tp->_matrix_name = Tp->_matrix_path.substr(Tp->_matrix_path.find_last_of("/\\") + 1);;
+//  if(Argc >= 6)
+//   Tp->print_header = atoi(Argv[5]);
+//  if(Argc >= 7)
+//   Tp->_b_cols = atoi(Argv[6]);
+//  if(Argc >= 8)
+//   Sp->IterPerPartition = atoi(Argv[7]);
+//  if(Argc >= 9)
+//   Sp->TileN = atoi(Argv[8]);
+// }
 
   Tp->print_header = 0;
   if(program.is_used("-ah"))

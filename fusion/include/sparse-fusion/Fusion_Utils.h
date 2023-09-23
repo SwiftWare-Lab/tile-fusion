@@ -14,6 +14,7 @@
 namespace sym_lib{
  /*
  * Processes the argument and fill out the schedule parameters
+  * TODO: Mehdi: add arg details here and delete the comments in the .cpp file
  */
  void parse_args(const int argc, const char **argv,  ScheduleParameters *sp,
                 TestParameters *tp);

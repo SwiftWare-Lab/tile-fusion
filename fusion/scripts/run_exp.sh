@@ -64,12 +64,14 @@ if [ "$TUNED" ==  3 ]; then
         if [ $ntile -gt $BCOL ]; then
           continue
         fi
+
       if [ $header -eq 1 ]; then
         $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -ah -bc $BCOL -ip $w -tn $ntile
         echo ""
         header=0
       else
         $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -bc $BCOL -ip $w -tn $ntile
+
       fi
       done
     done

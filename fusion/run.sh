@@ -3,9 +3,11 @@
 BASELINE="SpMM_SpMM_Demo_UnFusedParallel"
 UFDB=./data
 BCOL=4
-THRD=8
+
+THRD=40
 DOWNLOAD=0
 while getopts ":b:t:dc:m:" arg; do
+
   case "${arg}" in
     b)
       BASELINE=$OPTARG
@@ -24,10 +26,12 @@ while getopts ":b:t:dc:m:" arg; do
       ;;
     *) echo "Usage:
     -b BASELINE=SpMM_SpMM_Demo_UnFusedParallel        Choose a baseline to compare with Fused SpMM SpMM(Current base lines: SpMM_SpMM_Demo_UnFusedParallel,SpMM_SpMM_MKL)
+
     -c BCOL=4                                         num of the columns of the dense matrix
     -t THRD=40                                        num of threads
     -m UFDB=./data                                    path of matrices data
     -d DOWNLOAD=TRUE                                  Set if you want to download matrices under fusion folder"
+
       exit 0
   esac
 done

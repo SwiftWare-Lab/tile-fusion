@@ -100,7 +100,7 @@ namespace sym_lib{
   FusedNode(const FusedNode &other);
  };
 
-}
+} // namespace sym_lib
 
 
 #endif //SPARSE_FUSION_FUSION_DEFS_H
