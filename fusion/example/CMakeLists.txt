@@ -53,6 +53,17 @@ target_link_libraries(fusion_profiler
         swbench::swbench
         )
 
+
+add_executable(gcn_demo
+        GNN_GCN_Demo.cpp
+)
+
+target_link_libraries(gcn_demo
+        fusion
+        swbench::swbench
+)
+
+
 #target_compile_options(dag_decomp PRIVATE
 #        -march=native
 #        )

@@ -12,22 +12,24 @@ def gcn_layer(x, adj, W, b):
     F_ = W.shape[1]
     # Initialize the output matrix
     out = torch.zeros(N, F_)
+    deg = torch.zeros(N)
+    
+    #preprocessing part
+
+    for i in range(N):
+        deg[i] = adj[i].sum().item()
 
     # Loop over the nodes
     for i in range(N):
     # Get the indices of the neighbors of node i
         neighbors = adj[i].nonzero(as_tuple=False).squeeze()
 
-        # Get the degree of node i
-        deg_i = len(neighbors)
-
         # Loop over the neighbors
         for j in neighbors:
         # Get the degree of neighbor j
-            deg_j = adj[j].sum().item()
 
             # Compute the normalized message from neighbor j
-            message = x[j] @ W / math.sqrt(deg_i * deg_j)
+            message = x[j] @ W / math.sqrt(deg[i] * deg[j])
 
             # Add the message to the output of node i
             out[i] += message

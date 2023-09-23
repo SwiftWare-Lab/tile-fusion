@@ -7,6 +7,7 @@
 #include "aggregation/sparse_io.h"
 #include "aggregation/sparse_utilities.h"
 #include "aggregation/test_utils.h"
+#include <argparse/argparse.hpp>
 #include <cstdlib>
 #include <fstream>
 #include <sstream>
@@ -18,39 +19,106 @@
 
 namespace sym_lib{
 
+argparse::ArgumentParser addArguments(){
+  argparse::ArgumentParser program("fusion");
+  program.add_argument("-sm","--sparse-matrix-path")
+      .help("specify sparse matrix path");
+
+  program.add_argument("-nt", "--num-threads")
+      .default_value(3)
+      .help("specify number of threads to be used by kernels.")
+      .scan<'d', int>();
+  //  program.add_argument("-lc, --use-level-coarsening")
+  //      .default_value(1)
+  //      .help("use level coarsening")
+  //      .scan<'i', int>();
+  //  program.add_argument("-la", "--lbc-agg")
+  //      .default_value(1)
+  //      .help("lbc agg")
+  //      .scan<'i', int>();
+  program.add_argument("-fm", "--feature-matrix-path")
+      .help("Specify feature matrix when applicable.");
+
+  program.add_argument("-ah","--add-header")
+      .default_value(false)
+      .implicit_value(true)
+      .help("Specify whether to add the CSV header or not.");
+
+  program.add_argument("-bc", "--b-coloums")
+      .default_value(4)
+      .help("Specify number of dense matrix columns where applicable.")
+      .scan<'i', int>();
+
+  program.add_argument("-ip", "--iter-per-partition")
+      .help("Iter per partition")
+      .scan<'i', int>();
+
+  program.add_argument("-tn", "--tile-n")
+      .help("Specify number of tiles for N.")
+      .scan<'i', int>();
+
+  return program;
+}
+
 
  void parse_args(const int Argc, const char **Argv, ScheduleParameters *Sp,
                  TestParameters *Tp){
-  if(Argc <2){
-   Tp->_mode = "Random";
-   Tp->_dim1 = Tp->_dim2 = 16;
-   Tp->_matrix_name = "Random_"+ std::to_string(Tp->_dim1);
-   Tp->_order_method=SYM_ORDERING::NONE; Tp->print_header=true;
-   Sp->_num_threads=3;
-   Sp->_num_w_partition = Sp->_num_threads; Sp->_lbc_agg=Sp->_lbc_initial_cut=4;
-   return;
-  }
-  Sp->_num_threads = 6;
-  Tp->_matrix_path = Argv[1];
-  if(Argc >= 3)
-   Sp->_num_threads = atoi(Argv[2]);
+   argparse::ArgumentParser program = addArguments();
+   try {
+     program.parse_args(Argc, Argv);                  // Example: ./main -abc 1.95 2.47
+   }
+   catch (const std::runtime_error& err) {
+     std::cerr << err.what() << std::endl;
+     std::cerr << program;
+     std::exit(1);
+   }
+   if (!program.is_used("-sm")){
+     Tp->_mode = "Random";
+     Tp->_dim1 = Tp->_dim2 = 16;
+     Tp->_matrix_name = "Random_"+ std::to_string(Tp->_dim1);
+     Tp->_order_method=SYM_ORDERING::NONE; Tp->print_header=true;
+     Sp->_num_w_partition = Sp->_num_threads; Sp->_lbc_agg=Sp->_lbc_initial_cut=4;
+   }
+   else{
+     Tp->_matrix_path = program.get("-sm");
+     Tp->_mode = "MTX";
+     Tp->_matrix_name = Tp->_matrix_path.substr(Tp->_matrix_path.find_last_of("/\\") + 1);
+   }
+//  Sp->_num_threads = 6;
+   Sp->_num_threads = program.get<int>("-nt");
   int useLevelCoarsening = 1;
-  if(Argc >= 4)
-   useLevelCoarsening = atoi(Argv[3]);
-  if(Argc >= 5)
-   Sp->_lbc_agg = atoi(Argv[4]);
-  Tp->_mode = "MTX";
-  Tp->_matrix_name = Tp->_matrix_path.substr(Tp->_matrix_path.find_last_of("/\\") + 1);;
-  if(Argc >= 6)
-   Tp->print_header = atoi(Argv[5]);
-  if(Argc >= 7)
-   Tp->_b_cols = atoi(Argv[6]);
-  if(Argc >= 8)
-   Sp->IterPerPartition = atoi(Argv[7]);
-  if(Argc >= 9)
-   Sp->TileN = atoi(Argv[8]);
- }
+//   useLevelCoarsening = atoi(Argv[3]);
+//   Sp->_lbc_agg = atoi(Argv[4]);
+     useLevelCoarsening = 4;
+     Sp->_lbc_agg = 4;
+  if(auto featMtxPath = program.present("-fm"))
+   Tp->_feature_matrix_path = featMtxPath.value();
+//  if(Argc >= 4)
+//   useLevelCoarsening = atoi(Argv[3]);
+//  if(Argc >= 5)
+//   Sp->_lbc_agg = atoi(Argv[4]);
+//  Tp->_mode = "MTX";
+//  Tp->_matrix_name = Tp->_matrix_path.substr(Tp->_matrix_path.find_last_of("/\\") + 1);;
+//  if(Argc >= 6)
+//   Tp->print_header = atoi(Argv[5]);
+//  if(Argc >= 7)
+//   Tp->_b_cols = atoi(Argv[6]);
+//  if(Argc >= 8)
+//   Sp->IterPerPartition = atoi(Argv[7]);
+//  if(Argc >= 9)
+//   Sp->TileN = atoi(Argv[8]);
+// }
 
+  Tp->print_header = 0;
+  if(program.is_used("-ah"))
+   Tp->print_header = 1;
+
+  Tp->_b_cols = program.get<int>("-bc");
+  if (auto iterPerPart = program.present<int>("-ip"))
+   Sp->IterPerPartition = iterPerPart.value();
+  if (auto tileN = program.present<int>("-tn"))
+   Sp->TileN = tileN.value();
+ }
 
  int get_reorderd_matrix(const CSC *L1_csc, std::vector<CSC*>& mat_vec){
   /// Re-ordering L matrix
@@ -134,6 +202,20 @@ namespace sym_lib{
    }
   }
   return aCSC;
+ }
+
+ Dense* get_feature_matrix_from_parameter(const TestParameters *Tp){
+  Dense* featureMatrix = NULLPNTR;
+  std::string fileExt = Tp->_feature_matrix_path.substr(
+      Tp->_matrix_path.find_last_of(".") + 1);
+//  if (fileExt == "mtx") {
+   std::ifstream fin(Tp->_feature_matrix_path);
+   sym_lib::read_mtx_array_real(fin, featureMatrix);
+//  } else{
+//   std::cout << "File extension is not supported" << std::endl;
+//   exit(1);
+//  }
+   return featureMatrix;
  }
 
  // starts from in_set in G1 and reaches to all unvisited vertices in G2

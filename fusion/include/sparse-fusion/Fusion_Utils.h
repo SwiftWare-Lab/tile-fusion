@@ -14,6 +14,7 @@
 namespace sym_lib{
  /*
  * Processes the argument and fill out the schedule parameters
+  * TODO: Mehdi: add arg details here and delete the comments in the .cpp file
  */
  void parse_args(const int argc, const char **argv,  ScheduleParameters *sp,
                 TestParameters *tp);
@@ -29,6 +30,7 @@ namespace sym_lib{
   /// \return
   CSC* get_matrix_from_parameter(const TestParameters *tp);
 
+  Dense* get_feature_matrix_from_parameter(const TestParameters *tp);
  // starts from in_set in G1 and reaches to all unvisited vertices in G2
 // G1 -> G2 , D is transpose of dependence
  void forward_pairing(CSC *G2, CSC *D, const std::vector<int>& in_set, std::vector<int>& out_set,

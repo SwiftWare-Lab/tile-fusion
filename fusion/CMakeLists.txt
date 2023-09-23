@@ -32,20 +32,29 @@ if(METIS_FOUND)
 endif()
 add_definitions(-DMETIS)
 
+include(FetchContent)
+FetchContent_Declare(
+        argparse
+        GIT_REPOSITORY https://github.com/p-ranav/argparse.git
+)
+FetchContent_MakeAvailable(argparse)
+
 file(GLOB SYM_FUS_SRC
         "${SYM_FUS}/src/*.cpp"
         )
-add_library(fusion STATIC
+add_library(fusion
         ${SYM_FUS_SRC}
         )
 target_include_directories(fusion PRIVATE
         ${SYM_AGG}/include/
         ${SYM_BENCH}/include/
         ${SYM_FUS}/include/
+
         )
 target_link_libraries(fusion PRIVATE
         aggregation
         OpenMP::OpenMP_CXX
+        argparse
         )
 
 
