@@ -10,8 +10,14 @@
 #include <set>
 namespace sym_lib {
 namespace gnn {
-class GCNConv {
-private:
+
+class GCNConv{
+public:
+virtual void forward(double *Features, std::vector<int> Mask){
+}
+};
+class GCNConvSequential: public GCNConv {
+protected:
   sym_lib::CSR* AdjMatrix;
   size_t InputNum;
   size_t OutputNum;
@@ -23,10 +29,29 @@ private:
                             double *NeighborMessage);
 
 public:
-  GCNConv(CSR* AdjMatrix, double *Output, double *Weight, size_t InputNum,
+  GCNConvSequential(CSR* AdjMatrix, double *Output, double *Weight, size_t InputNum,
           size_t OutputNum);
-  void forward(double *Features, std::set<int> mask);
+  void forward(double *Features, std::vector<int> Mask) override;
 };
+
+class GCNConvParallel : public GCNConvSequential {
+protected:
+  int NThreads;
+public:
+  GCNConvParallel(CSR* AdjMatrix, double *Output, double *Weight, size_t InputNum,
+          size_t OutputNum, int NThreads);
+  void forward(double *Features, std::vector<int> Mask) override;
+};
+class GCNConvFused : public GCNConvParallel {
+protected:
+  int NThreads;
+public:
+  GCNConvFused(CSR* AdjMatrix, double *Output, double *Weight, size_t InputNum,
+               size_t OutputNum, int NThreads);
+  void forward(double *Features, std::vector<int> Mask) override;
+};
+
 } // namespace gnn
 } // namespace sym_lib
+
 #endif // SPARSE_FUSION_GCNCONV_H

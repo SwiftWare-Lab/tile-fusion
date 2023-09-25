@@ -5,6 +5,7 @@ mkdir build
 cd build
 cmake ..
 make
+mkdir logs
 cd ..
 BINPATH=./build/example
 
@@ -13,4 +14,4 @@ if ! [ -d ./pyg/data ]; then
  echo "TEST"
 
 fi
-$BINPATH/gcn_demo -sm ./pyg/data/cora/Cora.mtx -nt 8 -fm ./pyg/data/cora/features.mtx -ah
+$BINPATH/gcn_demo -sm ./pyg/data/cora/Cora.mtx -nt 8 -fm ./pyg/data/cora/features.mtx -ah > ./build/logs/gcn_demo.csv

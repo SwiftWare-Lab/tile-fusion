@@ -13,7 +13,6 @@ int main(const int argc, const char *argv[]) {
   Stats *stats;
   parse_args(argc, argv, &sp, &tp);
   CSC *aCSC = get_matrix_from_parameter(&tp);
-  CSR *adjMat = sym_lib::csc_to_csr(aCSC);
   Dense *features = get_feature_matrix_from_parameter(&tp);
   if (aCSC->m != aCSC->n) {
     return -1;
@@ -25,16 +24,22 @@ int main(const int argc, const char *argv[]) {
   int hiddenDim = 128;
   int numThread = sp._num_threads;
   GnnTensorInputs *inputs =
-      new GnnTensorInputs(features, adjMat, adjMat->m,
-                          hiddenDim, 3, 512, numThread, 1, "GCN_Demo");
-  stats = new swiftware::benchmark::Stats("SpMM_SpMM_Demo", "SpMM", 7, tp._matrix_name, numThread);
-  GCNGnn *gcnGnn = new GCNGnn(inputs, stats);
+      new GnnTensorInputs(features, aCSC, aCSC->m,
+                          hiddenDim, 3, aCSC->m, numThread, 1, "GCN_Demo");
+  stats = new swiftware::benchmark::Stats("GCN_Sequential_Demo", "GCN", 7, tp._matrix_name, numThread);
+  GCNSequential *gcnGnn = new GCNSequential(inputs, stats);
   gcnGnn->run();
   auto headerStat = gcnGnn->printStatsHeader();
   auto gcnStat = gcnGnn->printStats();
   delete gcnGnn;
   delete stats;
-  delete aCSC;
+
+  stats = new swiftware::benchmark::Stats("GCN_Parallel_Demo", "GCN", 7, tp._matrix_name, numThread);
+  GCNParallel *gcnParallel = new GCNParallel(inputs, stats);
+  gcnParallel->run();
+  auto gcnParallelStat = gcnParallel->printStats();
+  delete gcnParallel;
+  delete stats;
 
   auto csvInfo = sp.print_csv(true);
   std::string spHeader = std::get<0>(csvInfo);
@@ -47,5 +52,7 @@ int main(const int argc, const char *argv[]) {
   if(tp.print_header)
     std::cout<<headerStat+spHeader+tpHeader<<std::endl;
   std::cout<< gcnStat <<spStat+tpStat<<std::endl;
+  std::cout<< gcnParallelStat <<spStat+tpStat<<std::endl;
   delete features;
+  delete aCSC;
 }
