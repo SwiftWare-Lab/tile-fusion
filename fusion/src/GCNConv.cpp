@@ -154,11 +154,13 @@ void GCNConvFused::forward(double *Features, int LevelNo, const int *LevelPtr,
     }
   }
 }
-GCNConvFused::GCNConvFused(CSR *AdjMatrix, double *Output, double *Layer1Weight,
-                           double *Layer2Weight, size_t InputNum,
-                           size_t OutputNum, int NThreads)
-    : AdjMatrix(AdjMatrix), Output(Output), Layer1Weight(Layer1Weight),
-      Layer2Weight(Layer2Weight), InputNum(InputNum), OutputNum(OutputNum),
+GCNConvFused::GCNConvFused(CSR *AdjMatrix, double *Output, double *HiddenOutput,
+                           double *Layer1Weight, double *Layer2Weight,
+                           size_t InputNum, size_t OutputNum, size_t HiddenDim,
+                           int NThreads)
+    : AdjMatrix(AdjMatrix), Output(Output), HiddenOutput(HiddenOutput),
+      Layer1Weight(Layer1Weight), Layer2Weight(Layer2Weight),
+      InputNum(InputNum), OutputNum(OutputNum), HiddenDim(HiddenDim),
       NThreads(NThreads) {}
 void GCNConvFused::aggregateMessage(int Dim, double *Messages,
                                     double *NeighborMessage) {
