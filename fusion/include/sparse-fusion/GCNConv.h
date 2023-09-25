@@ -42,13 +42,26 @@ public:
           size_t OutputNum, int NThreads);
   void forward(double *Features, std::vector<int> Mask) override;
 };
-class GCNConvFused : public GCNConvParallel {
+class GCNConvFused {
 protected:
   int NThreads;
+  sym_lib::CSR* AdjMatrix;
+  size_t InputNum;
+  size_t HiddenDim;
+  size_t OutputNum;
+  double *Layer1Weight;
+  double *Layer2Weight;
+  double *HiddenOutput;
+  double *Output;
+  void vecMatMul(int M, int N, double *Vec, double *Mat, double* result);
+  void aggregateMessage(int Dim, double *Messages, double *NeighborMessage);
+  void normalizeMessage(int Dim, double DegI, double DegJ,
+                        double *NeighborMessage);
 public:
-  GCNConvFused(CSR* AdjMatrix, double *Output, double *Weight, size_t InputNum,
+  GCNConvFused(CSR* AdjMatrix, double *Output, double *Layer1Weight, double *Layer2Weight, size_t InputNum,
                size_t OutputNum, int NThreads);
-  void forward(double *Features, std::vector<int> Mask) override;
+  void forward(double *Features, int LevelNo, const int *LevelPtr, const int *ParPtr,
+               const int *Partition, const int *ParType, std::vector<int> Mask);
 };
 
 } // namespace gnn
