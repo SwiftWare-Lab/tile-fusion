@@ -123,7 +123,6 @@ void GCNConvFused::forward(double *Features, int LevelNo, const int *LevelPtr,
           int i = Partition[k1];
           int t = ParType[k1];
           if (t == 0) {
-
             double *messages = HiddenOutput + HiddenDim * i;
             for (int j = Ap[i]; j < Ap[i + 1]; j++) {
               int n = Ai[j];
