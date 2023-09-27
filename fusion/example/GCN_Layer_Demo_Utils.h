@@ -94,8 +94,8 @@ protected:
     Timer t;
     auto layerMasks = generateLayerMasks();
     t.start();
-    FirstConvLayer->forward(InTensor->FeatureMatrix->a, layerMasks[0]);
-    SecondConvLayer->forward(OutTensor->FirstLayerOutput, layerMasks[1]);
+    FirstConvLayer->forward(InTensor->FeatureMatrix->a);
+    SecondConvLayer->forward(OutTensor->FirstLayerOutput);
     t.stop();
     return t;
   }
@@ -147,6 +147,10 @@ public:
         In1->AdjacencyMatrix, OutTensor->SecondLayerOutput, In1->Weight2,
         In1->EmbedDim, In1->NumOfClasses);
   }
+
+  ~GCNSequential(){
+    delete OutTensor;
+  }
 };
 
 class GCNParallel : public SWTensorBench<double> {
@@ -163,8 +167,8 @@ protected:
     Timer t;
     auto layerMasks = generateLayerMasks();
     t.start();
-    FirstConvLayer->forward(InTensor->FeatureMatrix->a, layerMasks[0]);
-    SecondConvLayer->forward(OutTensor->FirstLayerOutput, layerMasks[1]);
+    FirstConvLayer->forward(InTensor->FeatureMatrix->a);
+    SecondConvLayer->forward(OutTensor->FirstLayerOutput);
     t.stop();
     return t;
   }
@@ -234,29 +238,29 @@ protected:
   Timer analysis() override {
     Timer t;
     t.start();
-    // sym_lib::ScheduleParameters sp;
-    // sp._num_threads = InTensor->NumThreads;
-    //  create the fused set
-    Sp._num_w_partition =
-        std::max<int>(InTensor->AdjacencyMatrix->m / Sp._num_w_partition,
-                      2 * Sp._num_threads);
+    //sym_lib::ScheduleParameters sp;
+    //sp._num_threads = InTensor->NumThreads;
+    // create the fused set
+
+    Sp._num_w_partition = std::max<int>(InTensor->AdjacencyMatrix->m / Sp.IterPerPartition,
+                                        2*Sp._num_threads);
     auto *sf01 = new sym_lib::SparseFusion(&Sp, 2);
-    auto *mvDAG = sym_lib::diagonal(InTensor->AdjacencyMatrix->m, 1.0);
-    sf01->fuse(0, mvDAG, NULLPNTR);
-    auto *tmpCSCCSR = new sym_lib::CSC(
-        InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->n,
-        InTensor->AdjacencyMatrix->nnz, InTensor->AdjacencyMatrix->p,
-        InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x);
-    // sf01->print_final_list();
+    auto *mvDAG =  sym_lib::diagonal(InTensor->AdjacencyMatrix->m, 1.0);
+    auto *tmpCSCCSR = new sym_lib::CSC(InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->n, InTensor->AdjacencyMatrix->nnz,
+                                       InTensor->AdjacencyMatrix->p, InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x);
+    auto *Di = InTensor->AdjacencyMatrix;
+    //sym_lib::print_csc(1, "Di", 6, Di->p, Di->i, Di->x);
+    sf01->fuse(0, mvDAG, tmpCSCCSR);
+
+    //sf01->print_final_list();
     sf01->fuse(1, mvDAG, tmpCSCCSR);
-    // sf01->print_final_list();
-    SpInfo = sf01->measureReuse(tmpCSCCSR);
-    // std::cout<<" -> "<<spi.TotalReuseC<<std::endl;
+    //sf01->print_final_list();
     auto pt = St->OtherStats["PackingType"];
-    // FusedCompSet = sf01->getFusedCompressed((int) pt[0]);
-    // FusedCompSet->print_3d();
+    FusedCompSet = sf01->getFusedCompressed((int) pt[0]);
+    //FusedCompSet->print_3d();
     delete sf01;
     delete mvDAG;
+    delete tmpCSCCSR;
 
     t.stop();
     return t;
@@ -268,7 +272,7 @@ protected:
     t.start();
     GCNNetwork->forward(InTensor->FeatureMatrix->a, FusedCompSet->n1_, FusedCompSet->ptr1_,
                         FusedCompSet->ptr2_, FusedCompSet->id_,
-                        FusedCompSet->type_, layerMasks[0]);
+                        FusedCompSet->type_);
     t.stop();
     return t;
   }
@@ -319,5 +323,8 @@ public:
         OutTensor->FirstLayerOutput, In1->Weight1, In1->Weight2,
         In1->FeatureMatrix->col, In1->NumOfClasses, In1->EmbedDim,
         this->InTensor->NumThreads);
+  }
+  ~GCNFused(){
+    delete OutTensor;
   }
 };

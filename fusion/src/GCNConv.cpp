@@ -12,7 +12,7 @@ GCNConvSequential::GCNConvSequential(CSR *AdjMatrix, double *Output,
     : AdjMatrix(AdjMatrix), Output(Output), Weight(Weight), InputNum(InputNum),
       OutputNum(OutputNum) {}
 
-void GCNConvSequential::forward(double *Features, std::vector<int> mask) {
+void GCNConvSequential::forward(double *Features) {
   int *Ap = AdjMatrix->p;
   int *Ai = AdjMatrix->i;
   double *Ax = AdjMatrix->x;
@@ -24,7 +24,7 @@ void GCNConvSequential::forward(double *Features, std::vector<int> mask) {
     }
   }
   double *neighborMessage = new double[OutputNum];
-  for (auto i : mask) {
+  for (int i = 0; i < this->AdjMatrix->m; i++) {
     double *messages = Output + OutputNum * i;
     for (int j = Ap[i]; j < Ap[i + 1]; j++) {
       int n = Ai[j];
@@ -68,7 +68,7 @@ GCNConvParallel::GCNConvParallel(CSR *AdjMatrix, double *Output, double *Weight,
     : GCNConvSequential(AdjMatrix, Output, Weight, InputNum, OutputNum),
       NThreads(NThreads1) {}
 
-void GCNConvParallel::forward(double *Features, std::vector<int> Mask) {
+void GCNConvParallel::forward(double *Features) {
   int *Ap = AdjMatrix->p;
   int *Ai = AdjMatrix->i;
   double *Ax = AdjMatrix->x;
@@ -82,9 +82,8 @@ void GCNConvParallel::forward(double *Features, std::vector<int> Mask) {
 #pragma omp parallel num_threads(this->NThreads)
   {
 #pragma omp for
-    for (auto ii = Mask.begin(); ii != Mask.end(); ii++) {
+    for (int i = 0; i < this->AdjMatrix->m; i++) {
       double *neighborMessage = new double[OutputNum];
-      auto i = *ii;
       double *messages = Output + OutputNum * i;
       for (int j = Ap[i]; j < Ap[i + 1]; j++) {
         int n = Ai[j];
@@ -102,7 +101,7 @@ void GCNConvParallel::forward(double *Features, std::vector<int> Mask) {
 
 void GCNConvFused::forward(double *Features, int LevelNo, const int *LevelPtr,
                            const int *ParPtr, const int *Partition,
-                           const int *ParType, std::vector<int> Mask) {
+                           const int *ParType) {
   int *Ap = AdjMatrix->p;
   int *Ai = AdjMatrix->i;
   double *Ax = AdjMatrix->x;

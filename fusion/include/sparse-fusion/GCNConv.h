@@ -12,7 +12,7 @@ namespace gnn {
 
 class GCNConv {
 public:
-  virtual void forward(double *Features, std::vector<int> Mask) {}
+  virtual void forward(double *Features) {}
 };
 class GCNConvSequential : public GCNConv {
 protected:
@@ -29,7 +29,7 @@ protected:
 public:
   GCNConvSequential(CSR *AdjMatrix, double *Output, double *Weight,
                     size_t InputNum, size_t OutputNum);
-  void forward(double *Features, std::vector<int> Mask) override;
+  void forward(double *Features) override;
 };
 
 class GCNConvParallel : public GCNConvSequential {
@@ -39,7 +39,7 @@ protected:
 public:
   GCNConvParallel(CSR *AdjMatrix, double *Output, double *Weight,
                   size_t InputNum, size_t OutputNum, int NThreads);
-  void forward(double *Features, std::vector<int> Mask) override;
+  void forward(double *Features) override;
 };
 class GCNConvFused {
 protected:
@@ -62,8 +62,7 @@ public:
                double *Layer1Weight, double *Layer2Weight, size_t InputNum,
                size_t OutputNum, size_t HiddenDim, int NThreads);
   void forward(double *Features, int LevelNo, const int *LevelPtr,
-               const int *ParPtr, const int *Partition, const int *ParType,
-               std::vector<int> Mask);
+               const int *ParPtr, const int *Partition, const int *ParType);
 };
 
 } // namespace gnn

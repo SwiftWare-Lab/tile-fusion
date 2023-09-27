@@ -206,8 +206,8 @@ argparse::ArgumentParser addArguments(){
 
  Dense* get_feature_matrix_from_parameter(const TestParameters *Tp){
   Dense* featureMatrix = NULLPNTR;
-  std::string fileExt = Tp->_feature_matrix_path.substr(
-      Tp->_matrix_path.find_last_of(".") + 1);
+//  std::string fileExt = Tp->_feature_matrix_path.substr(
+//      Tp->_matrix_path.find_last_of(".") + 1);
 //  if (fileExt == "mtx") {
    std::ifstream fin(Tp->_feature_matrix_path);
    sym_lib::read_mtx_array_real(fin, featureMatrix);

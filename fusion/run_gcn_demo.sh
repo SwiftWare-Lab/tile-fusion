@@ -14,4 +14,9 @@ if ! [ -d ./pyg/data ]; then
  echo "TEST"
 
 fi
-$BINPATH/gcn_demo -sm ./pyg/data/cora/Cora.mtx -nt 8 -fm ./pyg/data/cora/features.mtx -ah > ./build/logs/gcn_demo.csv
+$BINPATH/gcn_demo -sm ./pyg/data/pubmed/PubMed.mtx -nt 8 -fm ./pyg/data/pubmed/features.mtx -ah -ip 1000 > ./build/logs/gcn_demo.csv
+{
+$BINPATH/gcn_demo -sm ./pyg/data/pubmed_ordered/PubMed_Ordered.mtx -nt 8 -fm ./pyg/data/pubmed/features.mtx -ip 1000
+$BINPATH/gcn_demo -sm ./pyg/data/cora/Cora.mtx -nt 8 -fm ./pyg/data/cora/features.mtx -ip 1000
+$BINPATH/gcn_demo -sm ./pyg/data/cora_ordered/Cora_Ordered.mtx -nt 8 -fm ./pyg/data/cora/features.mtx -ip 1000
+} >> ./build/logs/gcn_demo.csv
