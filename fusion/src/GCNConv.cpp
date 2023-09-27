@@ -16,13 +16,13 @@ void GCNConvSequential::forward(double *Features) {
   int *Ap = AdjMatrix->p;
   int *Ai = AdjMatrix->i;
   double *Ax = AdjMatrix->x;
-  double degrees[AdjMatrix->m];
-  for (int i = 0; i < AdjMatrix->m; i++) {
-    degrees[i] = 0;
-    for (int j = Ap[i]; j < Ap[i + 1]; j++) {
-      degrees[i] += 1;
-    }
-  }
+//  double degrees[AdjMatrix->m];
+//  for (int i = 0; i < AdjMatrix->m; i++) {
+//    degrees[i] = 0;
+//    for (int j = Ap[i]; j < Ap[i + 1]; j++) {
+//      degrees[i] += 1;
+//    }
+//  }
   double *neighborMessage = new double[OutputNum];
   for (int i = 0; i < this->AdjMatrix->m; i++) {
     double *messages = Output + OutputNum * i;
@@ -30,8 +30,8 @@ void GCNConvSequential::forward(double *Features) {
       int n = Ai[j];
       vecMatMul(this->InputNum, this->OutputNum,
                 Features + (n * this->InputNum), this->Weight, neighborMessage);
-      normalizeMessage(this->OutputNum, degrees[i], degrees[Ai[j]],
-                       neighborMessage);
+//      normalizeMessage(this->OutputNum, degrees[i], degrees[Ai[j]],
+//                       neighborMessage);
       aggregateMessage(this->OutputNum, messages, neighborMessage);
     }
   }
@@ -72,13 +72,13 @@ void GCNConvParallel::forward(double *Features) {
   int *Ap = AdjMatrix->p;
   int *Ai = AdjMatrix->i;
   double *Ax = AdjMatrix->x;
-  double degrees[AdjMatrix->m];
-  for (int i = 0; i < AdjMatrix->m; i++) {
-    degrees[i] = 0;
-    for (int j = Ap[i]; j < Ap[i + 1]; j++) {
-      degrees[i] += 1;
-    }
-  }
+//  double degrees[AdjMatrix->m];
+//  for (int i = 0; i < AdjMatrix->m; i++) {
+//    degrees[i] = 0;
+//    for (int j = Ap[i]; j < Ap[i + 1]; j++) {
+//      degrees[i] += 1;
+//    }
+//  }
 #pragma omp parallel num_threads(this->NThreads)
   {
 #pragma omp for
@@ -90,8 +90,8 @@ void GCNConvParallel::forward(double *Features) {
         vecMatMul(this->InputNum, this->OutputNum,
                   Features + (n * this->InputNum), this->Weight,
                   neighborMessage);
-        normalizeMessage(this->OutputNum, degrees[i], degrees[Ai[j]],
-                         neighborMessage);
+//        normalizeMessage(this->OutputNum, degrees[i], degrees[Ai[j]],
+//                         neighborMessage);
         aggregateMessage(this->OutputNum, messages, neighborMessage);
       }
       delete[] neighborMessage;
@@ -105,13 +105,13 @@ void GCNConvFused::forward(double *Features, int LevelNo, const int *LevelPtr,
   int *Ap = AdjMatrix->p;
   int *Ai = AdjMatrix->i;
   double *Ax = AdjMatrix->x;
-  double degrees[AdjMatrix->m];
-  for (int i = 0; i < AdjMatrix->m; i++) {
-    degrees[i] = 0;
-    for (int j = Ap[i]; j < Ap[i + 1]; j++) {
-      degrees[i] += 1;
-    }
-  }
+//  double degrees[AdjMatrix->m];
+//  for (int i = 0; i < AdjMatrix->m; i++) {
+//    degrees[i] = 0;
+//    for (int j = Ap[i]; j < Ap[i + 1]; j++) {
+//      degrees[i] += 1;
+//    }
+//  }
   for (int i1 = 0; i1 < LevelNo; i1++) {
 #pragma omp parallel num_threads(this->NThreads)
     {
@@ -129,8 +129,8 @@ void GCNConvFused::forward(double *Features, int LevelNo, const int *LevelPtr,
               vecMatMul(this->InputNum, this->HiddenDim,
                         Features + (n * this->InputNum), this->Layer1Weight,
                         neighborMessage2);
-              normalizeMessage(this->HiddenDim, degrees[i], degrees[Ai[j]],
-                               neighborMessage2);
+//              normalizeMessage(this->HiddenDim, degrees[i], degrees[Ai[j]],
+//                               neighborMessage2);
               aggregateMessage(this->HiddenDim, messages, neighborMessage2);
             }
           } else {
@@ -140,8 +140,8 @@ void GCNConvFused::forward(double *Features, int LevelNo, const int *LevelPtr,
               vecMatMul(this->HiddenDim, this->OutputNum,
                         HiddenOutput + (n * this->HiddenDim),
                         this->Layer2Weight, neighborMessage1);
-              normalizeMessage(this->OutputNum, degrees[i], degrees[Ai[j]],
-                               neighborMessage1);
+//              normalizeMessage(this->OutputNum, degrees[i], degrees[Ai[j]],
+//                               neighborMessage1);
               aggregateMessage(this->OutputNum, messages, neighborMessage1);
             }
           }
