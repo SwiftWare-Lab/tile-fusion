@@ -12,7 +12,7 @@ namespace gnn {
 
 class GCNConv {
 public:
-  virtual void forward(double *Features) {}
+  virtual double forward(double *Features) {}
 };
 class GCNConvSequential : public GCNConv {
 protected:
@@ -29,7 +29,7 @@ protected:
 public:
   GCNConvSequential(CSR *AdjMatrix, double *Output, double *Weight,
                     size_t InputNum, size_t OutputNum);
-  void forward(double *Features) override;
+  double forward(double *Features) override;
 };
 
 class GCNConvParallel : public GCNConvSequential {
@@ -39,7 +39,7 @@ protected:
 public:
   GCNConvParallel(CSR *AdjMatrix, double *Output, double *Weight,
                   size_t InputNum, size_t OutputNum, int NThreads);
-  void forward(double *Features) override;
+  double forward(double *Features) override;
 };
 class GCNConvFused {
 protected:

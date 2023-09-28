@@ -3,48 +3,72 @@
 //
 
 #include "sparse-fusion/GCNConv.h"
+#include "Timer.h"
 #include <math.h>
 #include <mkl.h>
 
 namespace sym_lib {
 namespace gnn {
+
+void forwardForOneLayer(int M, int *Ap, int *Ai, int InputChannelDim,
+                        int OutputChannelDim, double* Degrees, double *Features, double *Weight,
+                        double *Output) { //TODO: change the structure.
+  for (int i = 0; i < M; i++) {
+    double *messages = Output + OutputChannelDim * i;
+    for (int j = Ap[i]; j < Ap[i + 1]; j++) {
+      int n = Ai[j];
+      cblas_dgemv(CblasRowMajor, CblasTrans, InputChannelDim, OutputChannelDim,
+                  1/sqrt(Degrees[i] * Degrees[n]), // alpha
+                  Weight, OutputChannelDim, Features + (n * InputChannelDim), 1,
+                  1., // beta
+                  messages, 1);
+    }
+  }
+}
+
 GCNConvSequential::GCNConvSequential(CSR *AdjMatrix, double *Output,
                                      double *Weight, size_t InputNum,
                                      size_t OutputNum)
     : AdjMatrix(AdjMatrix), Output(Output), Weight(Weight), InputNum(InputNum),
       OutputNum(OutputNum) {}
 
-void GCNConvSequential::forward(double *Features) {
+double GCNConvSequential::forward(double *Features) {
   int *Ap = AdjMatrix->p;
   int *Ai = AdjMatrix->i;
   double *Ax = AdjMatrix->x;
-//  double degrees[AdjMatrix->m];
-//  for (int i = 0; i < AdjMatrix->m; i++) {
-//    degrees[i] = 0;
-//    for (int j = Ap[i]; j < Ap[i + 1]; j++) {
-//      degrees[i] += 1;
-//    }
-//  }
+  double time = 0;
+  //  double degrees[AdjMatrix->m];
+  //  for (int i = 0; i < AdjMatrix->m; i++) {
+  //    degrees[i] = 0;
+  //    for (int j = Ap[i]; j < Ap[i + 1]; j++) {
+  //      degrees[i] += 1;
+  //    }
+  //  }
   double *neighborMessage = new double[OutputNum];
   for (int i = 0; i < this->AdjMatrix->m; i++) {
     double *messages = Output + OutputNum * i;
     for (int j = Ap[i]; j < Ap[i + 1]; j++) {
       int n = Ai[j];
-//      vecMatMul(this->InputNum, this->OutputNum,
-//                Features + (n * this->InputNum), this->Weight, neighborMessage);
-      cblas_dgemv(CblasRowMajor, CblasTrans,
-                  this->InputNum,  this->OutputNum,
-                  1.,              // alpha
+      //      vecMatMul(this->InputNum, this->OutputNum,
+      //                Features + (n * this->InputNum), this->Weight,
+      //                neighborMessage);
+      swiftware::benchmark::Timer t1;
+      t1.start();
+      cblas_dgemv(CblasRowMajor, CblasTrans, this->InputNum, this->OutputNum,
+                  1., // alpha
                   this->Weight, this->OutputNum,
                   Features + (n * this->InputNum), 1,
-                  0.,              // beta
+                  0., // beta
                   neighborMessage, 1);
-//      normalizeMessage(this->OutputNum, degrees[i], degrees[Ai[j]],
-//                       neighborMessage);
+      t1.stop();
+      time += t1.ElapsedSeconds.count();
+      //      normalizeMessage(this->OutputNum, degrees[i], degrees[Ai[j]],
+      //                       neighborMessage);
       aggregateMessage(this->OutputNum, messages, neighborMessage);
     }
   }
   delete[] neighborMessage;
+  return time;
 }
 
 void GCNConvSequential::vecMatMul(int M, int N, double *Vec, double *Mat,
@@ -77,7 +101,7 @@ GCNConvParallel::GCNConvParallel(CSR *AdjMatrix, double *Output, double *Weight,
     : GCNConvSequential(AdjMatrix, Output, Weight, InputNum, OutputNum),
       NThreads(NThreads1) {}
 
-void GCNConvParallel::forward(double *Features) {
+double GCNConvParallel::forward(double *Features) {
   int *Ap = AdjMatrix->p;
   int *Ai = AdjMatrix->i;
   double *Ax = AdjMatrix->x;
@@ -99,8 +123,8 @@ void GCNConvParallel::forward(double *Features) {
         vecMatMul(this->InputNum, this->OutputNum,
                   Features + (n * this->InputNum), this->Weight,
                   neighborMessage);
-//        normalizeMessage(this->OutputNum, degrees[i], degrees[Ai[j]],
-//                         neighborMessage);
+        //        normalizeMessage(this->OutputNum, degrees[i], degrees[Ai[j]],
+        //                         neighborMessage);
         aggregateMessage(this->OutputNum, messages, neighborMessage);
       }
       delete[] neighborMessage;
@@ -114,13 +138,13 @@ void GCNConvFused::forward(double *Features, int LevelNo, const int *LevelPtr,
   int *Ap = AdjMatrix->p;
   int *Ai = AdjMatrix->i;
   double *Ax = AdjMatrix->x;
-//  double degrees[AdjMatrix->m];
-//  for (int i = 0; i < AdjMatrix->m; i++) {
-//    degrees[i] = 0;
-//    for (int j = Ap[i]; j < Ap[i + 1]; j++) {
-//      degrees[i] += 1;
-//    }
-//  }
+  //  double degrees[AdjMatrix->m];
+  //  for (int i = 0; i < AdjMatrix->m; i++) {
+  //    degrees[i] = 0;
+  //    for (int j = Ap[i]; j < Ap[i + 1]; j++) {
+  //      degrees[i] += 1;
+  //    }
+  //  }
   for (int i1 = 0; i1 < LevelNo; i1++) {
 #pragma omp parallel num_threads(this->NThreads)
     {
@@ -138,26 +162,28 @@ void GCNConvFused::forward(double *Features, int LevelNo, const int *LevelPtr,
               vecMatMul(this->InputNum, this->HiddenDim,
                         Features + (n * this->InputNum), this->Layer1Weight,
                         neighborMessage2);
-//              normalizeMessage(this->HiddenDim, degrees[i], degrees[Ai[j]],
-//                               neighborMessage2);
+              //              normalizeMessage(this->HiddenDim, degrees[i],
+              //              degrees[Ai[j]],
+              //                               neighborMessage2);
               aggregateMessage(this->HiddenDim, messages, neighborMessage2);
             }
           } else {
             double *messages = Output + OutputNum * i;
             for (int j = Ap[i]; j < Ap[i + 1]; j++) {
               int n = Ai[j];
-//              cblas_dgemv(CblasRowMajor, CblasNoTrans,
-//                          this->HiddenDim,  this->OutputNum,
-//                          1.,              // alpha
-//                          this->Layer2Weight, this->HiddenDim,
-//                          HiddenOutput + (n * this->HiddenDim), 1,
-//                          0.,              // beta
-//                          neighborMessage1, 1);
+              //              cblas_dgemv(CblasRowMajor, CblasNoTrans,
+              //                          this->HiddenDim,  this->OutputNum,
+              //                          1.,              // alpha
+              //                          this->Layer2Weight, this->HiddenDim,
+              //                          HiddenOutput + (n * this->HiddenDim),
+              //                          1, 0.,              // beta
+              //                          neighborMessage1, 1);
               vecMatMul(this->HiddenDim, this->OutputNum,
                         HiddenOutput + (n * this->HiddenDim),
                         this->Layer2Weight, neighborMessage1);
-//              normalizeMessage(this->OutputNum, degrees[i], degrees[Ai[j]],
-//                               neighborMessage1);
+              //              normalizeMessage(this->OutputNum, degrees[i],
+              //              degrees[Ai[j]],
+              //                               neighborMessage1);
               aggregateMessage(this->OutputNum, messages, neighborMessage1);
             }
           }

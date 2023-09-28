@@ -94,9 +94,11 @@ protected:
     Timer t;
     auto layerMasks = generateLayerMasks();
     t.start();
-    FirstConvLayer->forward(InTensor->FeatureMatrix->a);
-    SecondConvLayer->forward(OutTensor->FirstLayerOutput);
+    double layer1GeMVTime = FirstConvLayer->forward(InTensor->FeatureMatrix->a);
+    double layer2GeMVTime = SecondConvLayer->forward(OutTensor->FirstLayerOutput);
     t.stop();
+    St->OtherStats["layer1GeMVTime"].push_back(layer1GeMVTime);
+    St->OtherStats["layer2GeMVTime"].push_back(layer2GeMVTime);
     return t;
   }
   std::vector<std::vector<int>> generateLayerMasks() {
