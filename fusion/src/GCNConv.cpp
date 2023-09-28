@@ -4,6 +4,8 @@
 
 #include "sparse-fusion/GCNConv.h"
 #include <math.h>
+#include <mkl.h>
+
 namespace sym_lib {
 namespace gnn {
 GCNConvSequential::GCNConvSequential(CSR *AdjMatrix, double *Output,
@@ -137,9 +139,16 @@ void GCNConvFused::forward(double *Features, int LevelNo, const int *LevelPtr,
             double *messages = Output + OutputNum * i;
             for (int j = Ap[i]; j < Ap[i + 1]; j++) {
               int n = Ai[j];
-              vecMatMul(this->HiddenDim, this->OutputNum,
-                        HiddenOutput + (n * this->HiddenDim),
-                        this->Layer2Weight, neighborMessage1);
+              cblas_dgemv(CblasRowMajor, CblasNoTrans,
+                          this->HiddenDim,  this->OutputNum,
+                          1.,              // alpha
+                          this->Layer2Weight, this->HiddenDim,
+                          HiddenOutput + (n * this->HiddenDim), 1,
+                          0.,              // beta
+                          neighborMessage1, 1);
+//              vecMatMul(this->HiddenDim, this->OutputNum,
+//                        HiddenOutput + (n * this->HiddenDim),
+//                        this->Layer2Weight, neighborMessage1);
 //              normalizeMessage(this->OutputNum, degrees[i], degrees[Ai[j]],
 //                               neighborMessage1);
               aggregateMessage(this->OutputNum, messages, neighborMessage1);

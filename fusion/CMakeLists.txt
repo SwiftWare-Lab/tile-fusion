@@ -39,22 +39,32 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(argparse)
 
+if(NOT TARGET MKL::MKL)
+    set(MKL_INTERFACE "lp64")
+    find_package(MKL CONFIG OPTIONAL_COMPONENTS)
+endif()
+
+add_definitions(-DMKL)
+message(STATUS "${MKL_IMPORTED_TARGETS}")
+
 file(GLOB SYM_FUS_SRC
         "${SYM_FUS}/src/*.cpp"
         )
 add_library(fusion
         ${SYM_FUS_SRC}
+
         )
 target_include_directories(fusion PRIVATE
         ${SYM_AGG}/include/
         ${SYM_BENCH}/include/
         ${SYM_FUS}/include/
-
+        $<TARGET_PROPERTY:MKL::MKL,INTERFACE_INCLUDE_DIRECTORIES>
         )
 target_link_libraries(fusion PRIVATE
         aggregation
         OpenMP::OpenMP_CXX
         argparse
+        $<LINK_ONLY:MKL::MKL>
         )
 
 
