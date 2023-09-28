@@ -41,21 +41,21 @@ int main(const int argc, const char *argv[]) {
   delete gcnGnn;
   delete stats;
 
-  stats = new swiftware::benchmark::Stats("GCN_Parallel_Demo", "GCN", 7, tp._matrix_name, numThread);
-  stats->OtherStats["PackingType"] = {Separated};
-  GCNParallel *gcnParallel = new GCNParallel(inputs, stats);
-  gcnParallel->run();
-  auto gcnParallelStat = gcnParallel->printStats();
-  delete gcnParallel;
-  delete stats;
-
-  stats = new swiftware::benchmark::Stats("GCN_Fused_Demo", "GCN", 7, tp._matrix_name, numThread);
-  stats->OtherStats["PackingType"] = {Interleaved};
-  GCNFused *gcnFused = new GCNFused(inputs, stats, sp);
-  gcnFused->run();
-  auto gcnFusedStat = gcnFused->printStats();
-  delete gcnFused;
-  delete stats;
+//  stats = new swiftware::benchmark::Stats("GCN_Parallel_Demo", "GCN", 7, tp._matrix_name, numThread);
+//  stats->OtherStats["PackingType"] = {Separated};
+//  GCNParallel *gcnParallel = new GCNParallel(inputs, stats);
+//  gcnParallel->run();
+//  auto gcnParallelStat = gcnParallel->printStats();
+//  delete gcnParallel;
+//  delete stats;
+//
+//  stats = new swiftware::benchmark::Stats("GCN_Fused_Demo", "GCN", 7, tp._matrix_name, numThread);
+//  stats->OtherStats["PackingType"] = {Interleaved};
+//  GCNFused *gcnFused = new GCNFused(inputs, stats, sp);
+//  gcnFused->run();
+//  auto gcnFusedStat = gcnFused->printStats();
+//  delete gcnFused;
+//  delete stats;
 
   auto csvInfo = sp.print_csv(true);
   std::string spHeader = std::get<0>(csvInfo);
@@ -68,8 +68,8 @@ int main(const int argc, const char *argv[]) {
   if(tp.print_header)
     std::cout<<headerStat+spHeader+tpHeader<<std::endl;
   std::cout<< gcnStat <<spStat+tpStat<<std::endl;
-  std::cout<< gcnParallelStat <<spStat+tpStat<<std::endl;
-  std::cout<< gcnFusedStat <<spStat+tpStat<<std::endl;
+//  std::cout<< gcnParallelStat <<spStat+tpStat<<std::endl;
+//  std::cout<< gcnFusedStat <<spStat+tpStat<<std::endl;
   delete features;
   delete aCSC;
   delete aCSCFull;
