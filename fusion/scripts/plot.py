@@ -136,7 +136,8 @@ def plot_mkl_and_fused_vs_basline(b_col, baseline_implementation, file_name, mat
     # set a straight line at 1 as baseline
     ax.plot(x_vals, np.ones(len(mat_list)), 'r--')
     # label x-axis values with corresponding nnz
-    # ax.set_xticks(nnz_list)
+    ax.set_xticks(x_vals)
+    ax.set_xticklabels(mat_list, rotation=90, size=50)
     ax.grid(False)
     # set x and y axis label
     ax.set_xlabel('Matrix ID', fontsize=20, fontweight='bold')
