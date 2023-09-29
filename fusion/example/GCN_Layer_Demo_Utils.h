@@ -1,16 +1,15 @@
 //
 // Created by mehdi on 6/28/23.
 //
+#include "GCN_Layer_MKL_Demo.h"
 #include "SWTensorBench.h"
 #include "aggregation/def.h"
 #include "aggregation/sparse_utilities.h"
-#include "sparse-fusion/GCNConv.h"
 #include "sparse-fusion/MultiDimensionalSet.h"
 #include "sparse-fusion/SparseFusion.h"
 #include <numeric>
 #include <random>
 #include <set>
-
 #ifndef SPARSE_FUSION_GCN_LAYER_DEMO_H
 #define SPARSE_FUSION_GCN_LAYER_DEMO_H
 
@@ -28,6 +27,46 @@ double *generateWeightMatrix(int FeatDim, int EmbedDim) {
   return weight;
 }
 
+void vecMatMul(int M, int N, double *Vec, double *Mat, double *result) {
+  for (int j = 0; j < N; j++) {
+    result[j] = 0;
+    for (int i = 0; i < M; i++) {
+      result[j] += Vec[i] * Mat[i * N + j];
+    }
+  }
+}
+
+void aggregateMessage(int Dim, double *Messages, double *NeighborMessage) {
+  for (int i = 0; i < Dim; i++) {
+    Messages[i] += NeighborMessage[i];
+  }
+}
+
+void normalizeMessage(int Dim, double DegI, double DegJ,
+                      double *NeighborMessage) {
+  for (int i = 0; i < Dim; i++) {
+    NeighborMessage[i] = NeighborMessage[i] / sqrt(DegI * DegJ);
+  }
+}
+
+void forward(int M, int *Ap, int *Ai, int InputChannelDim, int OutputChannelDim,
+             double *Degrees, double *Features, double *Weight,
+             double *Output) {
+  double *neighborMessage = new double[OutputChannelDim];
+  for (int i = 0; i < M; i++) {
+    double *messages = Output + OutputChannelDim * i;
+    for (int j = Ap[i]; j < Ap[i + 1]; j++) {
+      int n = Ai[j];
+      vecMatMul(InputChannelDim, OutputChannelDim,
+                Features + (n * InputChannelDim), Weight, neighborMessage);
+      normalizeMessage(OutputChannelDim, Degrees[i], Degrees[Ai[j]],
+                       neighborMessage);
+      aggregateMessage(OutputChannelDim, messages, neighborMessage);
+    }
+  }
+  delete[] neighborMessage;
+}
+
 struct GnnTensorInputs : public Inputs<double> {
   double *Weight1, *Weight2;
   sym_lib::Dense *FeatureMatrix;
@@ -37,14 +76,16 @@ struct GnnTensorInputs : public Inputs<double> {
   size_t BatchSize;
 
   GnnTensorInputs(double *Weight1, double *Weight2,
-                  sym_lib::Dense *FeatureMatrix, sym_lib::CSR *AdjacencyMatrix,
+                  sym_lib::Dense *FeatureMatrix, sym_lib::CSC *AdjMtxCSC,
                   size_t NumOfNodes, size_t EmbedDim, size_t NumOfClasses,
                   size_t BatchSize, int NumThreads1, int NumTrial1,
                   std::string ExpN)
       : Inputs<double>(NumTrial1, NumThreads1, ExpN), Weight1(Weight1),
-        Weight2(Weight2), FeatureMatrix(FeatureMatrix),
-        AdjacencyMatrix(AdjacencyMatrix), NumOfNodes(NumOfNodes),
-        NumOfClasses(NumOfClasses), EmbedDim(EmbedDim), BatchSize(BatchSize) {}
+        Weight2(Weight2), FeatureMatrix(FeatureMatrix), NumOfNodes(NumOfNodes),
+        NumOfClasses(NumOfClasses), EmbedDim(EmbedDim), BatchSize(BatchSize) {
+    this->CorrectSol = nullptr;
+    this->AdjacencyMatrix = sym_lib::csc_to_csr(AdjMtxCSC);
+  }
 
   GnnTensorInputs(sym_lib::Dense *FeatureMtx, sym_lib::CSC *AdjMtxCsc,
                   size_t NumOfNodes, size_t EmbedDim, size_t NumOfClasses,
@@ -70,35 +111,71 @@ struct GnnTensorOutputs : public Outputs<double> {
   double *FirstLayerOutput, *SecondLayerOutput;
   size_t EmbedDim, NumOfClasses, NumOfNodes;
 
-  GnnTensorOutputs(size_t EmbedDim, size_t NumOfClasses, size_t NumOfNodes) {
-    this->FirstLayerOutput = new double[NumOfNodes * EmbedDim];
-    this->SecondLayerOutput = new double[NumOfNodes * NumOfClasses];
+  GnnTensorOutputs(size_t EmbedDim, size_t NumOfClasses, size_t NumOfNodes)
+      : NumOfNodes(NumOfNodes), EmbedDim(EmbedDim), NumOfClasses(NumOfClasses) {
+    this->FirstLayerOutput = new double[NumOfNodes * EmbedDim]{};
+    this->SecondLayerOutput = new double[NumOfNodes * NumOfClasses]{};
   }
   ~GnnTensorOutputs() {
     delete[] FirstLayerOutput;
     delete[] SecondLayerOutput;
+  }
+
+  void reset() {
+    std::fill_n(FirstLayerOutput, EmbedDim * NumOfNodes, 0.0);
+    std::fill_n(SecondLayerOutput, NumOfNodes * NumOfClasses, 0.0);
   }
 };
 
 class GCNSequential : public SWTensorBench<double> {
 protected:
   GnnTensorInputs *InTensor;
-  GnnTensorOutputs *OutTensor;
-  sym_lib::gnn::GCNConvSequential *FirstConvLayer;
-  sym_lib::gnn::GCNConvSequential *SecondConvLayer;
+  double *Degrees;
 
   void setup() override {}
 
-  void preExecute() override {}
+  bool verify(double &Error) override {
+    bool retValue = true;
+    if (In->CorrectSol == nullptr)
+      return true;
+    double infNorm = 0;
+    for (int i = 0; i < InTensor->NumOfNodes * InTensor->NumOfClasses; ++i) {
+      if (std::abs(OutTensor->SecondLayerOutput[i] - In->CorrectSol[i]) >
+          infNorm) {
+        infNorm = std::abs(OutTensor->SecondLayerOutput[i] - In->CorrectSol[i]);
+      }
+    }
+    Error = (double)infNorm;
+    if (infNorm > In->Threshold) {
+      retValue = false;
+    }
+    return retValue;
+  }
+
+  void preExecute() override {
+    this->Degrees = new double[InTensor->NumOfNodes];
+    for (int i = 0; i < InTensor->NumOfNodes; i++) {
+      this->Degrees[i] = 0;
+      for (int j = InTensor->AdjacencyMatrix->p[i];
+           j < InTensor->AdjacencyMatrix->p[i + 1]; j++) {
+        this->Degrees[i] += 1;
+      }
+    }
+  }
   Timer execute() override {
-    Timer t;
     auto layerMasks = generateLayerMasks();
+    OutTensor->reset();
+    Timer t;
     t.start();
-    double layer1GeMVTime = FirstConvLayer->forward(InTensor->FeatureMatrix->a);
-    double layer2GeMVTime = SecondConvLayer->forward(OutTensor->FirstLayerOutput);
+    forward(InTensor->NumOfNodes, InTensor->AdjacencyMatrix->p,
+            InTensor->AdjacencyMatrix->i, InTensor->FeatureMatrix->col,
+            InTensor->EmbedDim, Degrees, InTensor->FeatureMatrix->a,
+            InTensor->Weight1, OutTensor->FirstLayerOutput);
+    forward(InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->p,
+            InTensor->AdjacencyMatrix->i, InTensor->EmbedDim,
+            InTensor->NumOfClasses, Degrees, OutTensor->FirstLayerOutput,
+            InTensor->Weight2, OutTensor->SecondLayerOutput);
     t.stop();
-    St->OtherStats["layer1GeMVTime"].push_back(layer1GeMVTime);
-    St->OtherStats["layer2GeMVTime"].push_back(layer2GeMVTime);
     return t;
   }
   std::vector<std::vector<int>> generateLayerMasks() {
@@ -137,129 +214,115 @@ protected:
   }
 
 public:
+  GnnTensorOutputs *OutTensor;
   GCNSequential(GnnTensorInputs *In1, Stats *Stat1)
       : SWTensorBench<double>(In1, Stat1) {
     OutTensor =
         new GnnTensorOutputs(In1->EmbedDim, In1->NumOfClasses, In1->NumOfNodes);
     InTensor = In1;
-    FirstConvLayer = new sym_lib::gnn::GCNConvSequential(
-        In1->AdjacencyMatrix, OutTensor->FirstLayerOutput, In1->Weight1,
-        In1->FeatureMatrix->col, In1->EmbedDim);
-    SecondConvLayer = new sym_lib::gnn::GCNConvSequential(
-        In1->AdjacencyMatrix, OutTensor->SecondLayerOutput, In1->Weight2,
-        In1->EmbedDim, In1->NumOfClasses);
   }
 
-  ~GCNSequential(){
+  ~GCNSequential() {
     delete OutTensor;
+    delete[] Degrees;
   }
 };
 
-class GCNParallel : public SWTensorBench<double> {
+class GCNParallel : public GCNSequential {
 protected:
-  GnnTensorInputs *InTensor;
-  GnnTensorOutputs *OutTensor;
-  sym_lib::gnn::GCNConvParallel *FirstConvLayer;
-  sym_lib::gnn::GCNConvParallel *SecondConvLayer;
-
   void setup() override {}
 
-  void preExecute() override {}
   Timer execute() override {
     Timer t;
     auto layerMasks = generateLayerMasks();
+    OutTensor->reset();
     t.start();
-    FirstConvLayer->forward(InTensor->FeatureMatrix->a);
-    SecondConvLayer->forward(OutTensor->FirstLayerOutput);
+    forwardForOneLayerParallel(
+        InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->p,
+        InTensor->AdjacencyMatrix->i, InTensor->FeatureMatrix->col,
+        InTensor->EmbedDim, Degrees, InTensor->FeatureMatrix->a,
+        InTensor->Weight1, OutTensor->FirstLayerOutput, InTensor->NumThreads);
+    forwardForOneLayerParallel(
+        InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->p,
+        InTensor->AdjacencyMatrix->i, InTensor->EmbedDim,
+        InTensor->NumOfClasses, Degrees, OutTensor->FirstLayerOutput,
+        InTensor->Weight2, OutTensor->SecondLayerOutput, InTensor->NumThreads);
     t.stop();
     return t;
   }
-  std::vector<std::vector<int>> generateLayerMasks() {
-    int numberOfNodes = this->InTensor->NumOfNodes;
-    int batchSize = this->InTensor->BatchSize;
-    std::vector<int> lastLayerMaskVector(numberOfNodes);
-    std::iota(lastLayerMaskVector.begin(), lastLayerMaskVector.end(), 1);
-    auto rng = std::default_random_engine{};
-    std::shuffle(lastLayerMaskVector.begin(), lastLayerMaskVector.end(), rng);
-    std::set<int> lastLayerMask(lastLayerMaskVector.begin(),
-                                lastLayerMaskVector.begin() + batchSize);
-    std::vector<std::vector<int>> layerMasks;
-    layerMasks.emplace_back(convertSetToVector(lastLayerMask));
-    layerMasks.emplace_back(
-        convertSetToVector(getPreviousLayerFeatureMask(lastLayerMask)));
-    return layerMasks;
-  }
+  //  std::vector<std::vector<int>> generateLayerMasks() {
+  //    int numberOfNodes = this->InTensor->NumOfNodes;
+  //    int batchSize = this->InTensor->BatchSize;
+  //    std::vector<int> lastLayerMaskVector(numberOfNodes);
+  //    std::iota(lastLayerMaskVector.begin(), lastLayerMaskVector.end(), 1);
+  //    auto rng = std::default_random_engine{};
+  //    std::shuffle(lastLayerMaskVector.begin(), lastLayerMaskVector.end(),
+  //    rng); std::set<int> lastLayerMask(lastLayerMaskVector.begin(),
+  //                                lastLayerMaskVector.begin() + batchSize);
+  //    std::vector<std::vector<int>> layerMasks;
+  //    layerMasks.emplace_back(convertSetToVector(lastLayerMask));
+  //    layerMasks.emplace_back(
+  //        convertSetToVector(getPreviousLayerFeatureMask(lastLayerMask)));
+  //    return layerMasks;
+  //  }
 
-  std::vector<int> convertSetToVector(std::set<int> S) {
-    std::vector<int> v;
-    v.reserve(S.size());
-    std::copy(S.begin(), S.end(), std::back_inserter(v));
-    return v;
-  }
-
-  std::set<int> getPreviousLayerFeatureMask(std::set<int> LayerMask) {
-    std::set<int> previousLayerMask;
-    int *adjMtxIndex = this->InTensor->AdjacencyMatrix->i;
-    int *adjMtxP = this->InTensor->AdjacencyMatrix->p;
-    for (auto node : LayerMask) {
-      for (int j = adjMtxP[node]; j < adjMtxP[node]; j++) {
-        previousLayerMask.emplace(adjMtxIndex[j]);
-      }
-    }
-    return previousLayerMask;
-  }
+  //  std::vector<int> convertSetToVector(std::set<int> S) {
+  //    std::vector<int> v;
+  //    v.reserve(S.size());
+  //    std::copy(S.begin(), S.end(), std::back_inserter(v));
+  //    return v;
+  //  }
+  //
+  //  std::set<int> getPreviousLayerFeatureMask(std::set<int> LayerMask) {
+  //    std::set<int> previousLayerMask;
+  //    int *adjMtxIndex = this->InTensor->AdjacencyMatrix->i;
+  //    int *adjMtxP = this->InTensor->AdjacencyMatrix->p;
+  //    for (auto node : LayerMask) {
+  //      for (int j = adjMtxP[node]; j < adjMtxP[node]; j++) {
+  //        previousLayerMask.emplace(adjMtxIndex[j]);
+  //      }
+  //    }
+  //    return previousLayerMask;
+  //  }
 
 public:
-  GCNParallel(GnnTensorInputs *In1, Stats *Stat1)
-      : SWTensorBench<double>(In1, Stat1) {
-    OutTensor =
-        new GnnTensorOutputs(In1->EmbedDim, In1->NumOfClasses, In1->NumOfNodes);
-    InTensor = In1;
-    FirstConvLayer = new sym_lib::gnn::GCNConvParallel(
-        In1->AdjacencyMatrix, OutTensor->FirstLayerOutput, In1->Weight1,
-        In1->FeatureMatrix->col, In1->EmbedDim, In1->NumThreads);
-    SecondConvLayer = new sym_lib::gnn::GCNConvParallel(
-        In1->AdjacencyMatrix, OutTensor->SecondLayerOutput, In1->Weight2,
-        In1->EmbedDim, In1->NumOfClasses, In1->NumThreads);
-  }
+  GCNParallel(GnnTensorInputs *In1, Stats *Stat1) : GCNSequential(In1, Stat1) {}
 };
 
-class GCNFused : public SWTensorBench<double> {
+class GCNFused : public GCNSequential {
 protected:
-  GnnTensorInputs *InTensor;
-  GnnTensorOutputs *OutTensor;
-  sym_lib::gnn::GCNConvFused *GCNNetwork;
   sym_lib::MultiDimensionalSet *FusedCompSet;
   sym_lib::ScheduleParameters Sp;
   sym_lib::SparsityProfileInfo SpInfo;
 
   void setup() override {}
 
-  void preExecute() override {}
-
   Timer analysis() override {
     Timer t;
     t.start();
-    //sym_lib::ScheduleParameters sp;
-    //sp._num_threads = InTensor->NumThreads;
-    // create the fused set
+    // sym_lib::ScheduleParameters sp;
+    // sp._num_threads = InTensor->NumThreads;
+    //  create the fused set
 
-    Sp._num_w_partition = std::max<int>(InTensor->AdjacencyMatrix->m / Sp.IterPerPartition,
-                                        2*Sp._num_threads);
+    Sp._num_w_partition =
+        std::max<int>(InTensor->AdjacencyMatrix->m / Sp.IterPerPartition,
+                      2 * Sp._num_threads);
     auto *sf01 = new sym_lib::SparseFusion(&Sp, 2);
-    auto *mvDAG =  sym_lib::diagonal(InTensor->AdjacencyMatrix->m, 1.0);
-    auto *tmpCSCCSR = new sym_lib::CSC(InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->n, InTensor->AdjacencyMatrix->nnz,
-                                       InTensor->AdjacencyMatrix->p, InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x);
+    auto *mvDAG = sym_lib::diagonal(InTensor->AdjacencyMatrix->m, 1.0);
+    auto *tmpCSCCSR = new sym_lib::CSC(
+        InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->n,
+        InTensor->AdjacencyMatrix->nnz, InTensor->AdjacencyMatrix->p,
+        InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x);
     auto *Di = InTensor->AdjacencyMatrix;
-    //sym_lib::print_csc(1, "Di", 6, Di->p, Di->i, Di->x);
+    // sym_lib::print_csc(1, "Di", 6, Di->p, Di->i, Di->x);
     sf01->fuse(0, mvDAG, tmpCSCCSR);
 
-    //sf01->print_final_list();
+    // sf01->print_final_list();
     sf01->fuse(1, mvDAG, tmpCSCCSR);
-    //sf01->print_final_list();
+    // sf01->print_final_list();
     auto pt = St->OtherStats["PackingType"];
-    FusedCompSet = sf01->getFusedCompressed((int) pt[0]);
-    //FusedCompSet->print_3d();
+    FusedCompSet = sf01->getFusedCompressed((int)pt[0]);
+    // FusedCompSet->print_3d();
     delete sf01;
     delete mvDAG;
     delete tmpCSCCSR;
@@ -272,61 +335,21 @@ protected:
     Timer t;
     auto layerMasks = generateLayerMasks();
     t.start();
-    GCNNetwork->forward(InTensor->FeatureMatrix->a, FusedCompSet->n1_, FusedCompSet->ptr1_,
-                        FusedCompSet->ptr2_, FusedCompSet->id_,
-                        FusedCompSet->type_);
+    forwardForFusedLayersParallel(
+        InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->p,
+        InTensor->AdjacencyMatrix->i, InTensor->FeatureMatrix->col, InTensor->EmbedDim,
+        InTensor->NumOfClasses, Degrees, InTensor->FeatureMatrix->a, InTensor->Weight1, InTensor->Weight2,
+        OutTensor->SecondLayerOutput, OutTensor->FirstLayerOutput, InTensor->NumThreads,
+        FusedCompSet->n1_, FusedCompSet->ptr1_, FusedCompSet->ptr2_,
+        FusedCompSet->id_, FusedCompSet->type_);
     t.stop();
     return t;
-  }
-  std::vector<std::vector<int>> generateLayerMasks() {
-    int numberOfNodes = this->InTensor->NumOfNodes;
-    int batchSize = this->InTensor->BatchSize;
-    std::vector<int> lastLayerMaskVector(numberOfNodes);
-    std::iota(lastLayerMaskVector.begin(), lastLayerMaskVector.end(), 1);
-    auto rng = std::default_random_engine{};
-    std::shuffle(lastLayerMaskVector.begin(), lastLayerMaskVector.end(), rng);
-    std::set<int> lastLayerMask(lastLayerMaskVector.begin(),
-                                lastLayerMaskVector.begin() + batchSize);
-    std::vector<std::vector<int>> layerMasks;
-    layerMasks.emplace_back(convertSetToVector(lastLayerMask));
-    layerMasks.emplace_back(
-        convertSetToVector(getPreviousLayerFeatureMask(lastLayerMask)));
-    return layerMasks;
-  }
-
-  std::vector<int> convertSetToVector(std::set<int> S) {
-    std::vector<int> v;
-    v.reserve(S.size());
-    std::copy(S.begin(), S.end(), std::back_inserter(v));
-    return v;
-  }
-
-  std::set<int> getPreviousLayerFeatureMask(std::set<int> LayerMask) {
-    std::set<int> previousLayerMask;
-    int *adjMtxIndex = this->InTensor->AdjacencyMatrix->i;
-    int *adjMtxP = this->InTensor->AdjacencyMatrix->p;
-    for (auto node : LayerMask) {
-      for (int j = adjMtxP[node]; j < adjMtxP[node]; j++) {
-        previousLayerMask.emplace(adjMtxIndex[j]);
-      }
-    }
-    return previousLayerMask;
   }
 
 public:
   GCNFused(GnnTensorInputs *In1, Stats *Stat1, sym_lib::ScheduleParameters SpIn)
-      : SWTensorBench<double>(In1, Stat1), Sp(SpIn) {
-    OutTensor =
-        new GnnTensorOutputs(In1->EmbedDim, In1->NumOfClasses, In1->NumOfNodes);
-    InTensor = In1;
+      : GCNSequential(In1, Stat1), Sp(SpIn) {
 
-    GCNNetwork = new sym_lib::gnn::GCNConvFused(
-        In1->AdjacencyMatrix, OutTensor->SecondLayerOutput,
-        OutTensor->FirstLayerOutput, In1->Weight1, In1->Weight2,
-        In1->FeatureMatrix->col, In1->NumOfClasses, In1->EmbedDim,
-        this->InTensor->NumThreads);
   }
-  ~GCNFused(){
-    delete OutTensor;
-  }
+  ~GCNFused() { delete OutTensor; }
 };

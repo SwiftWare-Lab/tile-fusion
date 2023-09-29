@@ -27,6 +27,20 @@ if(TARGET MKL::MKL)
             OpenMP::OpenMP_CXX
             )
 
+    add_executable(gcn_demo
+            GNN_GCN_Demo.cpp
+    )
+
+    target_include_directories(gcn_demo PRIVATE
+            $<TARGET_PROPERTY:MKL::MKL,INTERFACE_INCLUDE_DIRECTORIES>
+    )
+
+    target_link_libraries(gcn_demo
+            fusion
+            swbench::swbench
+            $<LINK_ONLY:MKL::MKL>
+    )
+
 endif()
 
 add_executable(dag_decomp
@@ -52,16 +66,6 @@ target_link_libraries(fusion_profiler
         fusion
         swbench::swbench
         )
-
-
-add_executable(gcn_demo
-        GNN_GCN_Demo.cpp
-)
-
-target_link_libraries(gcn_demo
-        fusion
-        swbench::swbench
-)
 
 
 #target_compile_options(dag_decomp PRIVATE

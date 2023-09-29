@@ -28,34 +28,39 @@ int main(const int argc, const char *argv[]) {
   tp._nnz = aCSCFull->nnz;
   tp._density = (double)tp._nnz / (double)(tp._dim1 * tp._dim2);
   int hiddenDim = 128;
+  int numClasses = 3;
   int numThread = sp._num_threads;
+  double *layer1Weight = generateWeightMatrix(features->col, hiddenDim);
+  double *layer2Weight = generateWeightMatrix(hiddenDim, numClasses);
   GnnTensorInputs *inputs =
-      new GnnTensorInputs(features, aCSCFull, aCSCFull->m,
-                          hiddenDim, 3, aCSCFull->m, numThread, 1, "GCN_Demo");
+      new GnnTensorInputs(layer1Weight, layer2Weight,features, aCSCFull, aCSCFull->m,
+                          hiddenDim, numClasses, aCSCFull->m, numThread, 1, "GCN_Demo");
   stats = new swiftware::benchmark::Stats("GCN_Sequential_Demo", "GCN", 7, tp._matrix_name, numThread);
   stats->OtherStats["PackingType"] = {Separated};
   GCNSequential *gcnGnn = new GCNSequential(inputs, stats);
   gcnGnn->run();
+  inputs->CorrectSol = new double[inputs->AdjacencyMatrix->m*inputs->NumOfClasses];
+  inputs->CorrectSol = std::copy(gcnGnn->OutTensor->SecondLayerOutput, gcnGnn->OutTensor->SecondLayerOutput+inputs->AdjacencyMatrix->m*inputs->NumOfClasses, inputs->CorrectSol);
   auto headerStat = gcnGnn->printStatsHeader();
   auto gcnStat = gcnGnn->printStats();
   delete gcnGnn;
   delete stats;
 
-//  stats = new swiftware::benchmark::Stats("GCN_Parallel_Demo", "GCN", 7, tp._matrix_name, numThread);
-//  stats->OtherStats["PackingType"] = {Separated};
-//  GCNParallel *gcnParallel = new GCNParallel(inputs, stats);
-//  gcnParallel->run();
-//  auto gcnParallelStat = gcnParallel->printStats();
-//  delete gcnParallel;
-//  delete stats;
-//
-//  stats = new swiftware::benchmark::Stats("GCN_Fused_Demo", "GCN", 7, tp._matrix_name, numThread);
-//  stats->OtherStats["PackingType"] = {Interleaved};
-//  GCNFused *gcnFused = new GCNFused(inputs, stats, sp);
-//  gcnFused->run();
-//  auto gcnFusedStat = gcnFused->printStats();
+  stats = new swiftware::benchmark::Stats("GCN_Parallel_Demo", "GCN", 7, tp._matrix_name, numThread);
+  stats->OtherStats["PackingType"] = {Separated};
+  GCNParallel *gcnParallel = new GCNParallel(inputs, stats);
+  gcnParallel->run();
+  auto gcnParallelStat = gcnParallel->printStats();
+  delete gcnParallel;
+  delete stats;
+
+  stats = new swiftware::benchmark::Stats("GCN_Fused_Demo", "GCN", 7, tp._matrix_name, numThread);
+  stats->OtherStats["PackingType"] = {Interleaved};
+  GCNFused *gcnFused = new GCNFused(inputs, stats, sp);
+  gcnFused->run();
+  auto gcnFusedStat = gcnFused->printStats();
 //  delete gcnFused;
-//  delete stats;
+  delete stats;
 
   auto csvInfo = sp.print_csv(true);
   std::string spHeader = std::get<0>(csvInfo);
@@ -68,9 +73,9 @@ int main(const int argc, const char *argv[]) {
   if(tp.print_header)
     std::cout<<headerStat+spHeader+tpHeader<<std::endl;
   std::cout<< gcnStat <<spStat+tpStat<<std::endl;
-//  std::cout<< gcnParallelStat <<spStat+tpStat<<std::endl;
-//  std::cout<< gcnFusedStat <<spStat+tpStat<<std::endl;
-  delete features;
+  std::cout<< gcnParallelStat <<spStat+tpStat<<std::endl;
+  std::cout<< gcnFusedStat <<spStat+tpStat<<std::endl;
+  delete inputs;
   delete aCSC;
   delete aCSCFull;
 }

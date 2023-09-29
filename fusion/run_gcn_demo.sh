@@ -19,7 +19,7 @@ module load gcc
 mkdir build
 # shellcheck disable=SC2164
 cd build
-cmake ..
+cmake -DCMAKE_PREFIX_PATH="$MKL_DIR/lib/intel64;$MKL_DIR/include;$MKL_DIR/../compiler/lib/intel64;_deps/openblas-build/lib/;/home/m/mmehride/kazem/programs/metis-5.1.0/libmetis;/home/m/mmehride/kazem/programs/metis-5.1.0/include/;"  -DCMAKE_BUILD_TYPE=Release ..
 make
 mkdir logs
 cd ..
@@ -38,14 +38,14 @@ if ! [ -d ./pyg/data ]; then
 fi
 header=1
 
-for w in {100,500,1000}; do
+#for w in {500, 1000}; do
 #      k=4
     if [ $header -eq 1 ]; then
-      $BINPATH/gcn_demo -sm ./pyg/data/pubmed/PubMed.mtx -nt $THREADS -fm ./pyg/data/pubmed/features.mtx -ah -ip $w > ./build/logs/gcn_demo.csv
+      $BINPATH/gcn_demo -sm ./pyg/data/pubmed/PubMed.mtx -nt $THREADS -fm ./pyg/data/pubmed/features.mtx -ah -ip 500 > ./build/logs/gcn_demo.csv
       {
-      $BINPATH/gcn_demo -sm ./pyg/data/pubmed_ordered/PubMed_Ordered.mtx -nt $THREADS -fm ./pyg/data/pubmed/features.mtx -ip $w
-      $BINPATH/gcn_demo -sm ./pyg/data/cora/Cora.mtx -nt $THREADS -fm ./pyg/data/cora/features.mtx -ip $w
-      $BINPATH/gcn_demo -sm ./pyg/data/cora_ordered/Cora_Ordered.mtx -nt $THREADS -fm ./pyg/data/cora/features.mtx -ip $w
+      $BINPATH/gcn_demo -sm ./pyg/data/pubmed_ordered/PubMed_Ordered.mtx -nt $THREADS -fm ./pyg/data/pubmed/features.mtx -ip 500
+      $BINPATH/gcn_demo -sm ./pyg/data/cora/Cora.mtx -nt $THREADS -fm ./pyg/data/cora/features.mtx -ip 500
+      $BINPATH/gcn_demo -sm ./pyg/data/cora_ordered/Cora_Ordered.mtx -nt $THREADS -fm ./pyg/data/cora/features.mtx -ip 500
       } >> ./build/logs/gcn_demo.csv
       echo ""
       header=0
@@ -58,5 +58,5 @@ for w in {100,500,1000}; do
       } >> ./build/logs/gcn_demo.csv
       echo ""
     fi
-done
+#done
 
