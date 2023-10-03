@@ -165,40 +165,69 @@ protected:
   Timer execute() override {
     auto layerMasks = generateLayerMasks();
     OutTensor->reset();
+    sym_lib::CSR *firstLayerMtx = layerMasks[0];
     Timer t;
     t.start();
-    forward(InTensor->NumOfNodes, InTensor->AdjacencyMatrix->p,
-            InTensor->AdjacencyMatrix->i, InTensor->FeatureMatrix->col,
-            InTensor->EmbedDim, Degrees, InTensor->FeatureMatrix->a,
-            InTensor->Weight1, OutTensor->FirstLayerOutput);
-    forward(InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->p,
-            InTensor->AdjacencyMatrix->i, InTensor->EmbedDim,
-            InTensor->NumOfClasses, Degrees, OutTensor->FirstLayerOutput,
-            InTensor->Weight2, OutTensor->SecondLayerOutput);
+    forward(layerMasks[1]->m, layerMasks[1]->p, layerMasks[1]->i,
+            InTensor->FeatureMatrix->col, InTensor->EmbedDim, Degrees,
+            InTensor->FeatureMatrix->a, InTensor->Weight1,
+            OutTensor->FirstLayerOutput);
+    forward(layerMasks[0]->m, layerMasks[0]->p, layerMasks[0]->i,
+            InTensor->EmbedDim, InTensor->NumOfClasses, Degrees,
+            OutTensor->FirstLayerOutput, InTensor->Weight2,
+            OutTensor->SecondLayerOutput);
     t.stop();
+    delete layerMasks[0];
+    delete layerMasks[1];
     return t;
   }
-  std::vector<std::vector<int>> generateLayerMasks() {
+
+  sym_lib::CSR *generateMaskedMatrix(std::set<int> NodeMask,
+                                     sym_lib::CSR *AdjMatrix) {
+    int *ap = AdjMatrix->p;
+    int *ai = AdjMatrix->i;
+    double *ax = AdjMatrix->x;
+    int bnnz = 0;
+    for (auto n : NodeMask) {
+      bnnz += (ap[n + 1] - ap[n]);
+    }
+    sym_lib::CSR *bCsr = new sym_lib::CSR(AdjMatrix->m, AdjMatrix->n, bnnz);
+    int *bp = bCsr->p;
+    int *bi = bCsr->i;
+    double *bx = bCsr->x;
+    bp[AdjMatrix->m] = bnnz;
+    int counter = 0;
+    for (int i = 0; i < AdjMatrix->m; i++) {
+      if (NodeMask.find(i) != NodeMask.end()) {
+        bp[i] = counter;
+        for (int j = ap[i]; j < ap[i + 1]; j++) {
+          bi[counter] = ai[j];
+          bx[counter] = ax[j];
+          counter++;
+        }
+      } else {
+        bp[i] = bp[i - 1];
+      }
+    }
+    bCsr->p = bp;
+    return bCsr;
+  }
+  std::vector<sym_lib::CSR *> generateLayerMasks() {
     int numberOfNodes = this->InTensor->NumOfNodes;
     int batchSize = this->InTensor->BatchSize;
     std::vector<int> lastLayerMaskVector(numberOfNodes);
-    std::iota(lastLayerMaskVector.begin(), lastLayerMaskVector.end(), 1);
+    std::iota(lastLayerMaskVector.begin(), lastLayerMaskVector.end(), 0);
     auto rng = std::default_random_engine{};
     std::shuffle(lastLayerMaskVector.begin(), lastLayerMaskVector.end(), rng);
     std::set<int> lastLayerMask(lastLayerMaskVector.begin(),
                                 lastLayerMaskVector.begin() + batchSize);
-    std::vector<std::vector<int>> layerMasks;
-    layerMasks.emplace_back(convertSetToVector(lastLayerMask));
+    std::vector<sym_lib::CSR *> layerMasks;
     layerMasks.emplace_back(
-        convertSetToVector(getPreviousLayerFeatureMask(lastLayerMask)));
+        generateMaskedMatrix(lastLayerMask, this->InTensor->AdjacencyMatrix));
+    layerMasks.emplace_back(
+        generateMaskedMatrix(getPreviousLayerFeatureMask(lastLayerMask),
+                             this->InTensor->AdjacencyMatrix));
     return layerMasks;
-  }
-
-  std::vector<int> convertSetToVector(std::set<int> S) {
-    std::vector<int> v;
-    v.reserve(S.size());
-    std::copy(S.begin(), S.end(), std::back_inserter(v));
-    return v;
   }
 
   std::set<int> getPreviousLayerFeatureMask(std::set<int> LayerMask) {
@@ -238,16 +267,18 @@ protected:
     OutTensor->reset();
     t.start();
     forwardForOneLayerParallel(
-        InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->p,
-        InTensor->AdjacencyMatrix->i, InTensor->FeatureMatrix->col,
-        InTensor->EmbedDim, Degrees, InTensor->FeatureMatrix->a,
-        InTensor->Weight1, OutTensor->FirstLayerOutput, InTensor->NumThreads);
+        layerMasks[1]->m, layerMasks[1]->p, layerMasks[1]->i,
+        InTensor->FeatureMatrix->col, InTensor->EmbedDim, Degrees,
+        InTensor->FeatureMatrix->a, InTensor->Weight1,
+        OutTensor->FirstLayerOutput, InTensor->NumThreads);
     forwardForOneLayerParallel(
-        InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->p,
-        InTensor->AdjacencyMatrix->i, InTensor->EmbedDim,
-        InTensor->NumOfClasses, Degrees, OutTensor->FirstLayerOutput,
-        InTensor->Weight2, OutTensor->SecondLayerOutput, InTensor->NumThreads);
+        layerMasks[0]->m, layerMasks[0]->p, layerMasks[0]->i,
+        InTensor->EmbedDim, InTensor->NumOfClasses, Degrees,
+        OutTensor->FirstLayerOutput, InTensor->Weight2,
+        OutTensor->SecondLayerOutput, InTensor->NumThreads);
     t.stop();
+    delete layerMasks[0];
+    delete layerMasks[1];
     return t;
   }
   //  std::vector<std::vector<int>> generateLayerMasks() {
@@ -294,6 +325,7 @@ protected:
   sym_lib::MultiDimensionalSet *FusedCompSet;
   sym_lib::ScheduleParameters Sp;
   sym_lib::SparsityProfileInfo SpInfo;
+  std::vector<sym_lib::CSR *> LayerMasks;
 
   void setup() override {}
 
@@ -303,7 +335,9 @@ protected:
     // sym_lib::ScheduleParameters sp;
     // sp._num_threads = InTensor->NumThreads;
     //  create the fused set
-
+    LayerMasks = generateLayerMasks();
+    sym_lib::CSC *Di1 = sym_lib::csr_to_csc(LayerMasks[1]);
+    sym_lib::CSC *Di2 = sym_lib::csr_to_csc(LayerMasks[0]);
     Sp._num_w_partition =
         std::max<int>(InTensor->AdjacencyMatrix->m / Sp.IterPerPartition,
                       2 * Sp._num_threads);
@@ -315,10 +349,10 @@ protected:
         InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x);
     auto *Di = InTensor->AdjacencyMatrix;
     // sym_lib::print_csc(1, "Di", 6, Di->p, Di->i, Di->x);
-    sf01->fuse(0, mvDAG, tmpCSCCSR);
+    sf01->fuse(0, mvDAG, Di1);
 
     // sf01->print_final_list();
-    sf01->fuse(1, mvDAG, tmpCSCCSR);
+    sf01->fuse(1, mvDAG, Di2);
     // sf01->print_final_list();
     auto pt = St->OtherStats["PackingType"];
     FusedCompSet = sf01->getFusedCompressed((int)pt[0]);
@@ -326,6 +360,8 @@ protected:
     delete sf01;
     delete mvDAG;
     delete tmpCSCCSR;
+    delete Di1;
+    delete Di2;
 
     t.stop();
     return t;
@@ -335,21 +371,25 @@ protected:
     Timer t;
     auto layerMasks = generateLayerMasks();
     t.start();
-    forwardForFusedLayersParallel(
-        InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->p,
-        InTensor->AdjacencyMatrix->i, InTensor->FeatureMatrix->col, InTensor->EmbedDim,
-        InTensor->NumOfClasses, Degrees, InTensor->FeatureMatrix->a, InTensor->Weight1, InTensor->Weight2,
-        OutTensor->SecondLayerOutput, OutTensor->FirstLayerOutput, InTensor->NumThreads,
-        FusedCompSet->n1_, FusedCompSet->ptr1_, FusedCompSet->ptr2_,
-        FusedCompSet->id_, FusedCompSet->type_);
+    forwardForFusedLayersParallelWithBatching(
+        LayerMasks[1]->m, LayerMasks[1]->p, LayerMasks[1]->i, LayerMasks[0]->p,
+        LayerMasks[0]->i, InTensor->FeatureMatrix->col, InTensor->EmbedDim,
+        InTensor->NumOfClasses, Degrees, InTensor->FeatureMatrix->a,
+        InTensor->Weight1, InTensor->Weight2, OutTensor->SecondLayerOutput,
+        OutTensor->FirstLayerOutput, InTensor->NumThreads, FusedCompSet->n1_,
+        FusedCompSet->ptr1_, FusedCompSet->ptr2_, FusedCompSet->id_,
+        FusedCompSet->type_);
     t.stop();
     return t;
   }
 
 public:
   GCNFused(GnnTensorInputs *In1, Stats *Stat1, sym_lib::ScheduleParameters SpIn)
-      : GCNSequential(In1, Stat1), Sp(SpIn) {
-
+      : GCNSequential(In1, Stat1), Sp(SpIn) {}
+  ~GCNFused() {
+    delete OutTensor;
+    delete LayerMasks[0];
+    delete LayerMasks[1];
+    ;
   }
-  ~GCNFused() { delete OutTensor; }
 };

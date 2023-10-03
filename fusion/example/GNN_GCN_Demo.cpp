@@ -34,7 +34,7 @@ int main(const int argc, const char *argv[]) {
   double *layer2Weight = generateWeightMatrix(hiddenDim, numClasses);
   GnnTensorInputs *inputs =
       new GnnTensorInputs(layer1Weight, layer2Weight,features, aCSCFull, aCSCFull->m,
-                          hiddenDim, numClasses, aCSCFull->m, numThread, 1, "GCN_Demo");
+                          hiddenDim, numClasses, 1024, numThread, 1, "GCN_Demo");
   stats = new swiftware::benchmark::Stats("GCN_Sequential_Demo", "GCN", 7, tp._matrix_name, numThread);
   stats->OtherStats["PackingType"] = {Separated};
   GCNSequential *gcnGnn = new GCNSequential(inputs, stats);
