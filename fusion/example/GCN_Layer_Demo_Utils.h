@@ -221,6 +221,11 @@ protected:
     std::shuffle(lastLayerMaskVector.begin(), lastLayerMaskVector.end(), rng);
     std::set<int> lastLayerMask(lastLayerMaskVector.begin(),
                                 lastLayerMaskVector.begin() + batchSize);
+//    for (auto n: lastLayerMaskVector){
+//      std::cout << n << ", ";
+//    }
+//    std::cout<< std::endl;
+
     std::vector<sym_lib::CSR *> layerMasks;
     layerMasks.emplace_back(
         generateMaskedMatrix(lastLayerMask, this->InTensor->AdjacencyMatrix));
@@ -235,6 +240,7 @@ protected:
     int *adjMtxIndex = this->InTensor->AdjacencyMatrix->i;
     int *adjMtxP = this->InTensor->AdjacencyMatrix->p;
     for (auto node : LayerMask) {
+      previousLayerMask.emplace(node);
       for (int j = adjMtxP[node]; j < adjMtxP[node]; j++) {
         previousLayerMask.emplace(adjMtxIndex[j]);
       }
@@ -356,7 +362,7 @@ protected:
     // sf01->print_final_list();
     auto pt = St->OtherStats["PackingType"];
     FusedCompSet = sf01->getFusedCompressed((int)pt[0]);
-    // FusedCompSet->print_3d();
+    FusedCompSet->print_3d();
     delete sf01;
     delete mvDAG;
     delete tmpCSCCSR;
