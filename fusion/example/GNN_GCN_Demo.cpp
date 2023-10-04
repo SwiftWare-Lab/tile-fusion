@@ -30,8 +30,8 @@ int main(const int argc, const char *argv[]) {
   int hiddenDim = 128;
   int numClasses = 3;
   int numThread = sp._num_threads;
-  double *layer1Weight = generateWeightMatrix(features->col, hiddenDim);
-  double *layer2Weight = generateWeightMatrix(hiddenDim, numClasses);
+  double *layer1Weight = generateRandomDenseMatrix(features->col, hiddenDim);
+  double *layer2Weight = generateRandomDenseMatrix(hiddenDim, numClasses);
   GnnTensorInputs *inputs =
       new GnnTensorInputs(layer1Weight, layer2Weight,features, aCSCFull, aCSCFull->m,
                           hiddenDim, numClasses, 1024, numThread, 1, "GCN_Demo");

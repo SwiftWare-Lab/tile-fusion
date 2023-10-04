@@ -16,12 +16,12 @@
 #endif // SPARSE_FUSION_GCN_LAYER_DEMO_H
 using namespace swiftware::benchmark;
 
-double *generateWeightMatrix(int FeatDim, int EmbedDim) {
+double *generateRandomDenseMatrix(int M, int N) {
   std::random_device randDev;
   std::mt19937 generator(randDev());
   std::uniform_real_distribution<double> distr(-1., 1.);
-  double *weight = new double[FeatDim * EmbedDim];
-  for (int i = 0; i < FeatDim * EmbedDim; i++) {
+  double *weight = new double[M * N];
+  for (int i = 0; i < M * N; i++) {
     weight[i] = distr(generator);
   }
   return weight;
@@ -95,8 +95,8 @@ struct GnnTensorInputs : public Inputs<double> {
         NumOfNodes(NumOfNodes), EmbedDim(EmbedDim), NumOfClasses(NumOfClasses),
         BatchSize(BatchSize) {
     this->CorrectSol = nullptr;
-    this->Weight1 = generateWeightMatrix(FeatureMtx->col, EmbedDim);
-    this->Weight2 = generateWeightMatrix(EmbedDim, NumOfClasses);
+    this->Weight1 = generateRandomDenseMatrix(FeatureMtx->col, EmbedDim);
+    this->Weight2 = generateRandomDenseMatrix(EmbedDim, NumOfClasses);
     this->AdjacencyMatrix = sym_lib::csc_to_csr(AdjMtxCsc);
   }
   ~GnnTensorInputs() {
