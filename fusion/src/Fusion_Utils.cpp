@@ -58,6 +58,11 @@ argparse::ArgumentParser addArguments() {
       .help("Specify number of tiles for N.")
       .scan<'i', int>();
 
+  program.add_argument("-sr", "--sampling-ratio")
+      .default_value(float(0.2))
+      .help("Specify ratio of sampling")
+      .scan<'g', float>();
+
   return program;
 }
 
@@ -98,6 +103,12 @@ void parse_args(const int Argc, const char **Argv, ScheduleParameters *Sp,
   } else {
     Tp->_mode = "Random";
   }
+//  if (auto samplingRatio = program.present<double>("-sr")){
+   Tp->_sampling_ratio = program.get<float>("-sr");
+//  }
+//  else{
+//    Tp->_sampling_ratio = 0.3;
+//  }
   //  if(Argc >= 4)
   //   useLevelCoarsening = atoi(Argv[3]);
   //  if(Argc >= 5)

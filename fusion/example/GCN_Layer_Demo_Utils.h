@@ -28,45 +28,45 @@ double *generateRandomDenseMatrix(int M, int N) {
   return weight;
 }
 
-void vecMatMul(int M, int N, double *Vec, double *Mat, double *result) {
-  for (int j = 0; j < N; j++) {
-    result[j] = 0;
-    for (int i = 0; i < M; i++) {
-      result[j] += Vec[i] * Mat[i * N + j];
-    }
-  }
-}
-
-void aggregateMessage(int Dim, double *Messages, double *NeighborMessage) {
-  for (int i = 0; i < Dim; i++) {
-    Messages[i] += NeighborMessage[i];
-  }
-}
-
-void normalizeMessage(int Dim, double DegI, double DegJ,
-                      double *NeighborMessage) {
-  for (int i = 0; i < Dim; i++) {
-    NeighborMessage[i] = NeighborMessage[i] / sqrt(DegI * DegJ);
-  }
-}
-
-void forward(int M, int *Ap, int *Ai, int InputChannelDim, int OutputChannelDim,
-             double *Degrees, double *Features, double *Weight,
-             double *Output) {
-  double *neighborMessage = new double[OutputChannelDim];
-  for (int i = 0; i < M; i++) {
-    double *messages = Output + OutputChannelDim * i;
-    for (int j = Ap[i]; j < Ap[i + 1]; j++) {
-      int n = Ai[j];
-      vecMatMul(InputChannelDim, OutputChannelDim,
-                Features + (n * InputChannelDim), Weight, neighborMessage);
-      normalizeMessage(OutputChannelDim, Degrees[i], Degrees[Ai[j]],
-                       neighborMessage);
-      aggregateMessage(OutputChannelDim, messages, neighborMessage);
-    }
-  }
-  delete[] neighborMessage;
-}
+//void vecMatMul(int M, int N, double *Vec, double *Mat, double *result) {
+//  for (int j = 0; j < N; j++) {
+//    result[j] = 0;
+//    for (int i = 0; i < M; i++) {
+//      result[j] += Vec[i] * Mat[i * N + j];
+//    }
+//  }
+//}
+//
+//void aggregateMessage(int Dim, double *Messages, double *NeighborMessage) {
+//  for (int i = 0; i < Dim; i++) {
+//    Messages[i] += NeighborMessage[i];
+//  }
+//}
+//
+//void normalizeMessage(int Dim, double DegI, double DegJ,
+//                      double *NeighborMessage) {
+//  for (int i = 0; i < Dim; i++) {
+//    NeighborMessage[i] = NeighborMessage[i] / sqrt(DegI * DegJ);
+//  }
+//}
+//
+//void forward(int M, int *Ap, int *Ai, int InputChannelDim, int OutputChannelDim,
+//             double *Degrees, double *Features, double *Weight,
+//             double *Output) {
+//  double *neighborMessage = new double[OutputChannelDim];
+//  for (int i = 0; i < M; i++) {
+//    double *messages = Output + OutputChannelDim * i;
+//    for (int j = Ap[i]; j < Ap[i + 1]; j++) {
+//      int n = Ai[j];
+//      vecMatMul(InputChannelDim, OutputChannelDim,
+//                Features + (n * InputChannelDim), Weight, neighborMessage);
+//      normalizeMessage(OutputChannelDim, Degrees[i], Degrees[Ai[j]],
+//                       neighborMessage);
+//      aggregateMessage(OutputChannelDim, messages, neighborMessage);
+//    }
+//  }
+//  delete[] neighborMessage;
+//}
 
 struct GnnTensorInputs : public Inputs<double> {
   double *Weight1, *Weight2;

@@ -32,9 +32,10 @@ int main(const int argc, const char *argv[]) {
   int numThread = sp._num_threads;
   double *layer1Weight = generateRandomDenseMatrix(features->col, hiddenDim);
   double *layer2Weight = generateRandomDenseMatrix(hiddenDim, numClasses);
+  int numOfSamples = std::ceil(tp._sampling_ratio*tp._dim1);
   GnnTensorInputs *inputs =
       new GnnTensorInputs(layer1Weight, layer2Weight,features, aCSCFull, aCSCFull->m,
-                          hiddenDim, numClasses, 1024, numThread, 1, "GCN_Demo");
+                          hiddenDim, numClasses, numOfSamples, numThread, 1, "GCN_Demo");
   stats = new swiftware::benchmark::Stats("GCN_Sequential_Demo", "GCN", 7, tp._matrix_name, numThread);
   stats->OtherStats["PackingType"] = {Separated};
   GCNSequential *gcnGnn = new GCNSequential(inputs, stats);
@@ -62,6 +63,14 @@ int main(const int argc, const char *argv[]) {
 //  delete gcnFused;
   delete stats;
 
+  stats = new swiftware::benchmark::Stats("GCN_FusedWithOmittingEmptyRows_Demo", "GCN", 7, tp._matrix_name, numThread);
+  stats->OtherStats["PackingType"] = {Interleaved};
+  GCNFusedWithOmittingEmptyRows *gcnFusedWithOmittingEmptyRows = new GCNFusedWithOmittingEmptyRows(inputs, stats, sp);
+  gcnFusedWithOmittingEmptyRows->run();
+  auto gcnFusedWOERStat = gcnFusedWithOmittingEmptyRows->printStats();
+  //  delete gcnFused;
+  delete stats;
+
   auto csvInfo = sp.print_csv(true);
   std::string spHeader = std::get<0>(csvInfo);
   std::string spStat = std::get<1>(csvInfo);
@@ -75,6 +84,8 @@ int main(const int argc, const char *argv[]) {
   std::cout<< gcnStat <<spStat+tpStat<<std::endl;
   std::cout<< gcnParallelStat <<spStat+tpStat<<std::endl;
   std::cout<< gcnFusedStat <<spStat+tpStat<<std::endl;
+  std::cout<< gcnFusedWOERStat <<spStat+tpStat<<std::endl;
+
   delete inputs;
   delete aCSC;
   delete aCSCFull;
