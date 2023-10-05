@@ -212,7 +212,6 @@ protected:
         bp[i + 1] = bp[i];
       }
     }
-    bCsr->p = bp;
     return bCsr;
   }
   std::vector<sym_lib::CSR *> generateLayerMasks() {
@@ -341,9 +340,9 @@ protected:
   Timer analysis() override {
     Timer t;
     t.start();
-    //    // sym_lib::ScheduleParameters sp;
-    //    // sp._num_threads = InTensor->NumThreads;
-    //    //  create the fused set
+        // sym_lib::ScheduleParameters sp;
+        // sp._num_threads = InTensor->NumThreads;
+        //  create the fused set
     LayerMasks = generateLayerMasks();
     //    sym_lib::CSC *Di1 = sym_lib::csr_to_csc(LayerMasks[1]);
     //    sym_lib::CSC *Di2 = sym_lib::csr_to_csc(LayerMasks[0]);
@@ -371,7 +370,7 @@ protected:
     //    delete tmpCSCCSR;
     //    delete Di1;
     //    delete Di2;
-    FusedCompSet = generateSimpleFusedSchedule(InTensor->NumThreads);
+//    FusedCompSet = generateSimpleFusedSchedule(InTensor->NumThreads);
 //    FusedCompSet->print_3d();
     t.stop();
     return t;
@@ -387,23 +386,30 @@ protected:
         new int[this->LastLayerMask.size() + this->FirstLayerMask.size()];
     fusedSchedule->type_ =
         new int[this->LastLayerMask.size() + this->FirstLayerMask.size()];
+    fusedSchedule->ptr1_[0] = 0;
+    fusedSchedule->ptr1_[1] = NumOfThreads;
+    fusedSchedule->ptr1_[2] = 2 * NumOfThreads;
+    fusedSchedule->ptr2_[0] = 0;
     LayerMasks = generateLayerMasks();
     sym_lib::CSR *l1 = LayerMasks[1];
     sym_lib::CSR *l2 = LayerMasks[0];
-    int iterPerPartition =
+    int iterPerPartitionL1 =
         std::ceil(float(this->FirstLayerMask.size()) / NumOfThreads);
     std::vector<std::set<int>> l1Partitions(NumOfThreads);
-    std::vector<std::set<int>> l2Partitions(NumOfThreads);
     int partitionCntr = 0;
     int p = 0;
+    int idCounter = 0;
     std::set<int> fusedNodes;
     for (int i = 0; i < l1->m; i++) {
       if (l1->p[i + 1] == l1->p[i]) {
         continue;
       }
       l1Partitions[p].insert(i);
+      fusedSchedule->id_[idCounter] = i;
+      fusedSchedule->type_[idCounter] = 0;
+      idCounter++;
       partitionCntr++;
-      if (partitionCntr == iterPerPartition) {
+      if (partitionCntr == iterPerPartitionL1) {
         partitionCntr = 0;
         for (int i1 = 0; i1 <= l2->m; i1++) {
           if (l2->p[i1 + 1] == l2->p[i1]) {
@@ -416,56 +422,40 @@ protected:
               break;
             }
           }
-          if (flag) {
-            l1Partitions[p].insert(InTensor->NumOfNodes + i1);
+          if (flag && fusedNodes.find(i1) == fusedNodes.end()) {
+            fusedSchedule->id_[idCounter] = i1;
+            fusedSchedule->type_[idCounter] = 1;
+            idCounter++;
             fusedNodes.insert(i1);
           }
         }
+        fusedSchedule->ptr2_[p + 1] = idCounter;
         p++;
       }
     }
+    fusedSchedule->ptr2_[NumOfThreads] = idCounter;
     int unfusedNum = this->LastLayerMask.size() - fusedNodes.size();
+    partitionCntr = 0;
     p = 0;
     int iterPerPartitionL2 = ceil(float(unfusedNum) / NumOfThreads);
-    for (auto i : this->LastLayerMask) {
+    for (int i = 0; i < l2->m; i++) {
+      if(l2->p[i+1] == l2->p[i]){
+        continue;
+      }
       if (fusedNodes.find(i) != fusedNodes.end()) {
         continue;
       }
-      l2Partitions[p].insert(i);
+      fusedSchedule->id_[idCounter] = i;
+      fusedSchedule->type_[idCounter] = 1;
+      idCounter++;
       partitionCntr++;
       if (partitionCntr == iterPerPartitionL2) {
         partitionCntr = 0;
+        fusedSchedule->ptr2_[p + 1 + NumOfThreads] = idCounter;
         p++;
       }
     }
-    fusedSchedule->ptr1_[0] = 0;
-    fusedSchedule->ptr1_[1] = NumOfThreads;
-    fusedSchedule->ptr1_[2] = 2 * NumOfThreads;
-    this->FirstLayerMask.size() + this->LastLayerMask.size();
-    fusedSchedule->ptr2_[0] = 0;
-    p = 0;
-    for (int i = 0; i < NumOfThreads; i++) {
-      for (auto n : l1Partitions[i]) {
-        if (n < InTensor->NumOfNodes) {
-          fusedSchedule->id_[p] = n;
-          fusedSchedule->type_[p] = 0;
-          p++;
-        } else {
-          fusedSchedule->id_[p] = n - InTensor->NumOfNodes;
-          fusedSchedule->type_[p] = 1;
-          p++;
-        }
-      }
-      fusedSchedule->ptr2_[i + 1] = p;
-    }
-    for (int i = 0; i < NumOfThreads; i++) {
-      for (auto n : l2Partitions[i]) {
-        fusedSchedule->id_[p] = n;
-        fusedSchedule->type_[p] = 1;
-        p++;
-      }
-      fusedSchedule->ptr2_[i + 1 + NumOfThreads] = p;
-    }
+    fusedSchedule->ptr2_[2 * NumOfThreads] = idCounter;
     return fusedSchedule;
   }
 
