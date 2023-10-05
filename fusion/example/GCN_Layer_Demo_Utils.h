@@ -341,51 +341,52 @@ protected:
   Timer analysis() override {
     Timer t;
     t.start();
-//    // sym_lib::ScheduleParameters sp;
-//    // sp._num_threads = InTensor->NumThreads;
-//    //  create the fused set
-//    LayerMasks = generateLayerMasks();
-//    sym_lib::CSC *Di1 = sym_lib::csr_to_csc(LayerMasks[1]);
-//    sym_lib::CSC *Di2 = sym_lib::csr_to_csc(LayerMasks[0]);
-//    Sp._num_w_partition =
-//        std::max<int>(InTensor->AdjacencyMatrix->m / Sp.IterPerPartition,
-//                      2 * Sp._num_threads);
-//    auto *sf01 = new sym_lib::SparseFusion(&Sp, 2);
-//    auto *mvDAG = sym_lib::diagonal(InTensor->AdjacencyMatrix->m, 1.0);
-//    auto *tmpCSCCSR = new sym_lib::CSC(
-//        InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->n,
-//        InTensor->AdjacencyMatrix->nnz, InTensor->AdjacencyMatrix->p,
-//        InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x);
-//    auto *Di = InTensor->AdjacencyMatrix;
-//    // sym_lib::print_csc(1, "Di", 6, Di->p, Di->i, Di->x);
-//    sf01->fuse(0, mvDAG, Di1);
-//
-//    // sf01->print_final_list();
-//    sf01->fuse(1, mvDAG, Di2);
-//    // sf01->print_final_list();
-//    auto pt = St->OtherStats["PackingType"];
-//    FusedCompSet = sf01->getFusedCompressed((int)pt[0]);
-//    FusedCompSet->print_3d();
-//    delete sf01;
-//    delete mvDAG;
-//    delete tmpCSCCSR;
-//    delete Di1;
-//    delete Di2;
+    //    // sym_lib::ScheduleParameters sp;
+    //    // sp._num_threads = InTensor->NumThreads;
+    //    //  create the fused set
+    LayerMasks = generateLayerMasks();
+    //    sym_lib::CSC *Di1 = sym_lib::csr_to_csc(LayerMasks[1]);
+    //    sym_lib::CSC *Di2 = sym_lib::csr_to_csc(LayerMasks[0]);
+    //    Sp._num_w_partition =
+    //        std::max<int>(InTensor->AdjacencyMatrix->m / Sp.IterPerPartition,
+    //                      2 * Sp._num_threads);
+    //    auto *sf01 = new sym_lib::SparseFusion(&Sp, 2);
+    //    auto *mvDAG = sym_lib::diagonal(InTensor->AdjacencyMatrix->m, 1.0);
+    //    auto *tmpCSCCSR = new sym_lib::CSC(
+    //        InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->n,
+    //        InTensor->AdjacencyMatrix->nnz, InTensor->AdjacencyMatrix->p,
+    //        InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x);
+    //    auto *Di = InTensor->AdjacencyMatrix;
+    //    // sym_lib::print_csc(1, "Di", 6, Di->p, Di->i, Di->x);
+    //    sf01->fuse(0, mvDAG, Di1);
+    //
+    //    // sf01->print_final_list();
+    //    sf01->fuse(1, mvDAG, Di2);
+    //    // sf01->print_final_list();
+    //    auto pt = St->OtherStats["PackingType"];
+    //    FusedCompSet = sf01->getFusedCompressed((int)pt[0]);
+    //    FusedCompSet->print_3d();
+    //    delete sf01;
+    //    delete mvDAG;
+    //    delete tmpCSCCSR;
+    //    delete Di1;
+    //    delete Di2;
     FusedCompSet = generateSimpleFusedSchedule(InTensor->NumThreads);
+//    FusedCompSet->print_3d();
     t.stop();
     return t;
   }
 
-  sym_lib::MultiDimensionalSet* generateSimpleFusedSchedule(int NumOfThreads) {
+  sym_lib::MultiDimensionalSet *generateSimpleFusedSchedule(int NumOfThreads) {
     sym_lib::MultiDimensionalSet *fusedSchedule =
         new sym_lib::MultiDimensionalSet();
     fusedSchedule->n1_ = 2;
     fusedSchedule->ptr1_ = new int[3];
     fusedSchedule->ptr2_ = new int[2 * NumOfThreads + 1];
     fusedSchedule->id_ =
-        new int[this->LastLayerMask.size() + this->FirstLayerMask.size() + 1];
+        new int[this->LastLayerMask.size() + this->FirstLayerMask.size()];
     fusedSchedule->type_ =
-        new int[this->LastLayerMask.size() + this->FirstLayerMask.size() + 1];
+        new int[this->LastLayerMask.size() + this->FirstLayerMask.size()];
     LayerMasks = generateLayerMasks();
     sym_lib::CSR *l1 = LayerMasks[1];
     sym_lib::CSR *l2 = LayerMasks[0];
@@ -409,7 +410,7 @@ protected:
             continue;
           }
           bool flag = true;
-          for (int j1 = l2->p[i]; j1 < l2->p[i + 1]; j1++) {
+          for (int j1 = l2->p[i1]; j1 < l2->p[i1+1]; j1++) {
             if (l1Partitions[p].find(l2->i[j1]) == l1Partitions[p].end()) {
               flag = false;
               break;
@@ -424,8 +425,9 @@ protected:
       }
     }
     int unfusedNum = this->LastLayerMask.size() - fusedNodes.size();
+    p = 0;
     int iterPerPartitionL2 = ceil(float(unfusedNum) / NumOfThreads);
-    for (int i = 0; i < l2->m; i++) {
+    for (auto i : this->LastLayerMask) {
       if (fusedNodes.find(i) != fusedNodes.end()) {
         continue;
       }
@@ -437,9 +439,9 @@ protected:
       }
     }
     fusedSchedule->ptr1_[0] = 0;
-    fusedSchedule->ptr1_[1] = this->FirstLayerMask.size() + fusedNodes.size();
-    fusedSchedule->ptr1_[2] =
-        this->FirstLayerMask.size() + this->LastLayerMask.size();
+    fusedSchedule->ptr1_[1] = NumOfThreads;
+    fusedSchedule->ptr1_[2] = 2 * NumOfThreads;
+    this->FirstLayerMask.size() + this->LastLayerMask.size();
     fusedSchedule->ptr2_[0] = 0;
     p = 0;
     for (int i = 0; i < NumOfThreads; i++) {
@@ -490,6 +492,6 @@ public:
     delete OutTensor;
     delete LayerMasks[0];
     delete LayerMasks[1];
-    ;
+    delete FusedCompSet;
   }
 };
