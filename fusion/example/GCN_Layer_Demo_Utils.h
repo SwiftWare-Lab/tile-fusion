@@ -340,9 +340,9 @@ protected:
   Timer analysis() override {
     Timer t;
     t.start();
-        // sym_lib::ScheduleParameters sp;
-        // sp._num_threads = InTensor->NumThreads;
-        //  create the fused set
+    //    // sym_lib::ScheduleParameters sp;
+    //    // sp._num_threads = InTensor->NumThreads;
+    //    //  create the fused set
     LayerMasks = generateLayerMasks();
     //    sym_lib::CSC *Di1 = sym_lib::csr_to_csc(LayerMasks[1]);
     //    sym_lib::CSC *Di2 = sym_lib::csr_to_csc(LayerMasks[0]);
@@ -370,7 +370,7 @@ protected:
     //    delete tmpCSCCSR;
     //    delete Di1;
     //    delete Di2;
-//    FusedCompSet = generateSimpleFusedSchedule(InTensor->NumThreads);
+    FusedCompSet = generateSimpleFusedSchedule(InTensor->NumThreads);
 //    FusedCompSet->print_3d();
     t.stop();
     return t;
@@ -462,6 +462,7 @@ protected:
   Timer execute() override {
     Timer t;
     auto layerMasks = generateLayerMasks();
+    OutTensor->reset();
     t.start();
     forwardForFusedLayersParallelWithBatching(
         LayerMasks[1]->m, LayerMasks[1]->p, LayerMasks[1]->i, LayerMasks[0]->p,
