@@ -171,14 +171,14 @@ protected:
     sym_lib::CSR *firstLayerMtx = layerMasks[0];
     Timer t;
     t.start();
-    forward(layerMasks[1]->m, layerMasks[1]->p, layerMasks[1]->i,
-            InTensor->FeatureMatrix->col, InTensor->EmbedDim, Degrees,
-            InTensor->FeatureMatrix->a, InTensor->Weight1,
-            OutTensor->FirstLayerOutput);
-    forward(layerMasks[0]->m, layerMasks[0]->p, layerMasks[0]->i,
-            InTensor->EmbedDim, InTensor->NumOfClasses, Degrees,
-            OutTensor->FirstLayerOutput, InTensor->Weight2,
-            OutTensor->SecondLayerOutput);
+    forwardForOneLayer(layerMasks[1]->m, layerMasks[1]->p, layerMasks[1]->i,
+                       InTensor->FeatureMatrix->col, InTensor->EmbedDim,
+                       Degrees, InTensor->FeatureMatrix->a, InTensor->Weight1,
+                       OutTensor->FirstLayerOutput);
+    forwardForOneLayer(layerMasks[0]->m, layerMasks[0]->p, layerMasks[0]->i,
+                       InTensor->EmbedDim, InTensor->NumOfClasses, Degrees,
+                       OutTensor->FirstLayerOutput, InTensor->Weight2,
+                       OutTensor->SecondLayerOutput);
     t.stop();
     delete layerMasks[0];
     delete layerMasks[1];
@@ -289,40 +289,6 @@ protected:
     delete layerMasks[1];
     return t;
   }
-  //  std::vector<std::vector<int>> generateLayerMasks() {
-  //    int numberOfNodes = this->InTensor->NumOfNodes;
-  //    int batchSize = this->InTensor->BatchSize;
-  //    std::vector<int> lastLayerMaskVector(numberOfNodes);
-  //    std::iota(lastLayerMaskVector.begin(), lastLayerMaskVector.end(), 1);
-  //    auto rng = std::default_random_engine{};
-  //    std::shuffle(lastLayerMaskVector.begin(), lastLayerMaskVector.end(),
-  //    rng); std::set<int> lastLayerMask(lastLayerMaskVector.begin(),
-  //                                lastLayerMaskVector.begin() + batchSize);
-  //    std::vector<std::vector<int>> layerMasks;
-  //    layerMasks.emplace_back(convertSetToVector(lastLayerMask));
-  //    layerMasks.emplace_back(
-  //        convertSetToVector(getPreviousLayerFeatureMask(lastLayerMask)));
-  //    return layerMasks;
-  //  }
-
-  //  std::vector<int> convertSetToVector(std::set<int> S) {
-  //    std::vector<int> v;
-  //    v.reserve(S.size());
-  //    std::copy(S.begin(), S.end(), std::back_inserter(v));
-  //    return v;
-  //  }
-  //
-  //  std::set<int> getPreviousLayerFeatureMask(std::set<int> LayerMask) {
-  //    std::set<int> previousLayerMask;
-  //    int *adjMtxIndex = this->InTensor->AdjacencyMatrix->i;
-  //    int *adjMtxP = this->InTensor->AdjacencyMatrix->p;
-  //    for (auto node : LayerMask) {
-  //      for (int j = adjMtxP[node]; j < adjMtxP[node]; j++) {
-  //        previousLayerMask.emplace(adjMtxIndex[j]);
-  //      }
-  //    }
-  //    return previousLayerMask;
-  //  }
 
 public:
   GCNParallel(GnnTensorInputs *In1, Stats *Stat1) : GCNSequential(In1, Stat1) {}
@@ -344,34 +310,79 @@ protected:
     //    // sp._num_threads = InTensor->NumThreads;
     //    //  create the fused set
     LayerMasks = generateLayerMasks();
-    //    sym_lib::CSC *Di1 = sym_lib::csr_to_csc(LayerMasks[1]);
-    //    sym_lib::CSC *Di2 = sym_lib::csr_to_csc(LayerMasks[0]);
-    //    Sp._num_w_partition =
-    //        std::max<int>(InTensor->AdjacencyMatrix->m / Sp.IterPerPartition,
-    //                      2 * Sp._num_threads);
-    //    auto *sf01 = new sym_lib::SparseFusion(&Sp, 2);
-    //    auto *mvDAG = sym_lib::diagonal(InTensor->AdjacencyMatrix->m, 1.0);
-    //    auto *tmpCSCCSR = new sym_lib::CSC(
-    //        InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->n,
-    //        InTensor->AdjacencyMatrix->nnz, InTensor->AdjacencyMatrix->p,
-    //        InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x);
-    //    auto *Di = InTensor->AdjacencyMatrix;
-    //    // sym_lib::print_csc(1, "Di", 6, Di->p, Di->i, Di->x);
-    //    sf01->fuse(0, mvDAG, Di1);
-    //
-    //    // sf01->print_final_list();
-    //    sf01->fuse(1, mvDAG, Di2);
-    //    // sf01->print_final_list();
-    //    auto pt = St->OtherStats["PackingType"];
-    //    FusedCompSet = sf01->getFusedCompressed((int)pt[0]);
-    //    FusedCompSet->print_3d();
-    //    delete sf01;
-    //    delete mvDAG;
-    //    delete tmpCSCCSR;
-    //    delete Di1;
-    //    delete Di2;
-    FusedCompSet = generateSimpleFusedSchedule(InTensor->NumThreads);
+    sym_lib::CSC *Di1 = sym_lib::csr_to_csc(LayerMasks[1]);
+    sym_lib::CSC *Di2 = sym_lib::csr_to_csc(LayerMasks[0]);
+    Sp._num_w_partition =
+        std::max<int>(InTensor->AdjacencyMatrix->m / Sp.IterPerPartition,
+                      2 * Sp._num_threads);
+    auto *sf01 = new sym_lib::SparseFusion(&Sp, 2);
+    auto *mvDAG = sym_lib::diagonal(InTensor->AdjacencyMatrix->m, 1.0);
+    auto *tmpCSCCSR = new sym_lib::CSC(
+        InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->n,
+        InTensor->AdjacencyMatrix->nnz, InTensor->AdjacencyMatrix->p,
+        InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x);
+    auto *Di = InTensor->AdjacencyMatrix;
+    // sym_lib::print_csc(1, "Di", 6, Di->p, Di->i, Di->x);
+    sf01->fuse(0, mvDAG, Di1);
+
+    // sf01->print_final_list();
+    sf01->fuse(1, mvDAG, Di2);
+    // sf01->print_final_list();
+    auto pt = St->OtherStats["PackingType"];
+    FusedCompSet = sf01->getFusedCompressed((int)pt[0]);
 //    FusedCompSet->print_3d();
+    delete sf01;
+    delete mvDAG;
+    delete tmpCSCCSR;
+    delete Di1;
+    delete Di2;
+    //    FusedCompSet->print_3d();
+    t.stop();
+    return t;
+  }
+
+  Timer execute() override {
+    Timer t;
+    auto layerMasks = generateLayerMasks();
+    OutTensor->reset();
+    t.start();
+    forwardForFusedLayersParallelWithBatching(
+        LayerMasks[1]->m, LayerMasks[1]->p, LayerMasks[1]->i, LayerMasks[0]->p,
+        LayerMasks[0]->i, InTensor->FeatureMatrix->col, InTensor->EmbedDim,
+        InTensor->NumOfClasses, Degrees, InTensor->FeatureMatrix->a,
+        InTensor->Weight1, InTensor->Weight2, OutTensor->SecondLayerOutput,
+        OutTensor->FirstLayerOutput, InTensor->NumThreads, FusedCompSet->n1_,
+        FusedCompSet->ptr1_, FusedCompSet->ptr2_, FusedCompSet->id_,
+        FusedCompSet->type_);
+    t.stop();
+    return t;
+  }
+
+public:
+  GCNFused(GnnTensorInputs *In1, Stats *Stat1, sym_lib::ScheduleParameters SpIn)
+      : GCNSequential(In1, Stat1), Sp(SpIn) {}
+  ~GCNFused() {
+    delete OutTensor;
+    delete LayerMasks[0];
+    delete LayerMasks[1];
+    delete FusedCompSet;
+  }
+};
+
+class GCNFusedWithOmittingEmptyRows : public GCNSequential {
+protected:
+  sym_lib::MultiDimensionalSet *FusedCompSet;
+  sym_lib::ScheduleParameters Sp;
+  sym_lib::SparsityProfileInfo SpInfo;
+  std::vector<sym_lib::CSR *> LayerMasks;
+
+  void setup() override {}
+
+  Timer analysis() override {
+    Timer t;
+    t.start();
+    LayerMasks = generateLayerMasks();
+    FusedCompSet = generateSimpleFusedSchedule(InTensor->NumThreads);
     t.stop();
     return t;
   }
@@ -416,7 +427,7 @@ protected:
             continue;
           }
           bool flag = true;
-          for (int j1 = l2->p[i1]; j1 < l2->p[i1+1]; j1++) {
+          for (int j1 = l2->p[i1]; j1 < l2->p[i1 + 1]; j1++) {
             if (l1Partitions[p].find(l2->i[j1]) == l1Partitions[p].end()) {
               flag = false;
               break;
@@ -439,7 +450,7 @@ protected:
     p = 0;
     int iterPerPartitionL2 = ceil(float(unfusedNum) / NumOfThreads);
     for (int i = 0; i < l2->m; i++) {
-      if(l2->p[i+1] == l2->p[i]){
+      if (l2->p[i + 1] == l2->p[i]) {
         continue;
       }
       if (fusedNodes.find(i) != fusedNodes.end()) {
@@ -477,9 +488,10 @@ protected:
   }
 
 public:
-  GCNFused(GnnTensorInputs *In1, Stats *Stat1, sym_lib::ScheduleParameters SpIn)
+  GCNFusedWithOmittingEmptyRows(GnnTensorInputs *In1, Stats *Stat1,
+                                sym_lib::ScheduleParameters SpIn)
       : GCNSequential(In1, Stat1), Sp(SpIn) {}
-  ~GCNFused() {
+  ~GCNFusedWithOmittingEmptyRows() {
     delete OutTensor;
     delete LayerMasks[0];
     delete LayerMasks[1];
