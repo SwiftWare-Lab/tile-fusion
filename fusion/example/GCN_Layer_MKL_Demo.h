@@ -18,7 +18,7 @@ void forwardForOneLayer(int M, int *Ap, int *Ai, int InputChannelDim,
     for (int j = Ap[i]; j < Ap[i + 1]; j++) {
       int n = Ai[j];
       cblas_dgemv(CblasRowMajor, CblasTrans, InputChannelDim, OutputChannelDim,
-                  1 / sqrt(Degrees[i] * Degrees[n]), // alpha
+                  1. / sqrt(Degrees[i] * Degrees[n]), // alpha
                   Weight, OutputChannelDim, Features + (n * InputChannelDim), 1,
                   1., // beta
                   messages, 1);
@@ -69,7 +69,7 @@ void forwardForFusedLayersParallel(int M, int *Ap, int *Ai, int InputChannelDim,
               int n = Ai[j];
               cblas_dgemv(CblasRowMajor, CblasTrans, InputChannelDim,
                           HiddenChannelDim,
-                          1 / sqrt(Degrees[i] * Degrees[n]), // alpha
+                          1. / sqrt(Degrees[i] * Degrees[n]), // alpha
                           Layer1Weight, HiddenChannelDim,
                           Features + (n * InputChannelDim), 1, 1., // beta
                           messages, 1);
@@ -80,7 +80,7 @@ void forwardForFusedLayersParallel(int M, int *Ap, int *Ai, int InputChannelDim,
               int n = Ai[j];
               cblas_dgemv(CblasRowMajor, CblasTrans, HiddenChannelDim,
                           OutputChannelDim,
-                          1 / sqrt(Degrees[i] * Degrees[n]), // alpha
+                          1. / sqrt(Degrees[i] * Degrees[n]), // alpha
                           Layer2Weight, OutputChannelDim,
                           HiddenOutput + (n * HiddenChannelDim), 1, 1., // beta
                           messages, 1);
@@ -113,7 +113,7 @@ void forwardForFusedLayersParallelWithBatching(int M, int *Ap, int *Ai, int *Bp,
               int n = Ai[j];
               cblas_dgemv(CblasRowMajor, CblasTrans, InputChannelDim,
                           HiddenChannelDim,
-                          1 / sqrt(Degrees[i] * Degrees[n]), // alpha
+                          1. / sqrt(Degrees[i] * Degrees[n]), // alpha
                           Layer1Weight, HiddenChannelDim,
                           Features + (n * InputChannelDim), 1, 1., // beta
                           messages, 1);
@@ -124,7 +124,7 @@ void forwardForFusedLayersParallelWithBatching(int M, int *Ap, int *Ai, int *Bp,
               int n = Bi[j];
               cblas_dgemv(CblasRowMajor, CblasTrans, HiddenChannelDim,
                           OutputChannelDim,
-                          1 / sqrt(Degrees[i] * Degrees[n]), // alpha
+                          1. / sqrt(Degrees[i] * Degrees[n]), // alpha
                           Layer2Weight, OutputChannelDim,
                           HiddenOutput + (n * HiddenChannelDim), 1, 1., // beta
                           messages, 1);

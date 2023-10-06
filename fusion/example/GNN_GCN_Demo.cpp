@@ -13,8 +13,6 @@ int main(const int argc, const char *argv[]) {
   Stats *stats;
   parse_args(argc, argv, &sp, &tp);
   CSC *aCSC = get_matrix_from_parameter(&tp);
-  if(aCSC->m > 100000)
-    return 0;
   Dense *features = get_feature_matrix_from_parameter(&tp, aCSC->m );
   CSC *aCSCFull = nullptr;
   if(aCSC->stype == -1 || aCSC->stype == 1){
@@ -62,16 +60,16 @@ int main(const int argc, const char *argv[]) {
   GCNFused *gcnFused = new GCNFused(inputs, stats, sp);
   gcnFused->run();
   auto gcnFusedStat = gcnFused->printStats();
-//  delete gcnFused;
+  delete gcnFused;
   delete stats;
 
-  stats = new swiftware::benchmark::Stats("GCN_FusedWithOmittingEmptyRows_Demo", "GCN", 7, tp._matrix_name, numThread);
-  stats->OtherStats["PackingType"] = {Interleaved};
-  GCNFusedWithOmittingEmptyRows *gcnFusedWithOmittingEmptyRows = new GCNFusedWithOmittingEmptyRows(inputs, stats, sp);
-  gcnFusedWithOmittingEmptyRows->run();
-  auto gcnFusedWOERStat = gcnFusedWithOmittingEmptyRows->printStats();
-  //  delete gcnFused;
-  delete stats;
+//  stats = new swiftware::benchmark::Stats("GCN_FusedWithOmittingEmptyRows_Demo", "GCN", 7, tp._matrix_name, numThread);
+//  stats->OtherStats["PackingType"] = {Interleaved};
+//  GCNFusedWithOmittingEmptyRows *gcnFusedWithOmittingEmptyRows = new GCNFusedWithOmittingEmptyRows(inputs, stats, sp);
+//  gcnFusedWithOmittingEmptyRows->run();
+//  auto gcnFusedWOERStat = gcnFusedWithOmittingEmptyRows->printStats();
+//  delete gcnFusedWithOmittingEmptyRows;
+//  delete stats;
 
   auto csvInfo = sp.print_csv(true);
   std::string spHeader = std::get<0>(csvInfo);
@@ -86,7 +84,7 @@ int main(const int argc, const char *argv[]) {
   std::cout<< gcnStat <<spStat+tpStat<<std::endl;
   std::cout<< gcnParallelStat <<spStat+tpStat<<std::endl;
   std::cout<< gcnFusedStat <<spStat+tpStat<<std::endl;
-  std::cout<< gcnFusedWOERStat <<spStat+tpStat<<std::endl;
+//  std::cout<< gcnFusedWOERStat <<spStat+tpStat<<std::endl;
 
   delete inputs;
   delete aCSC;
