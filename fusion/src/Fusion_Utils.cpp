@@ -101,7 +101,7 @@ void parse_args(const int Argc, const char **Argv, ScheduleParameters *Sp,
     Tp->_feature_mode = "MTX";
     Tp->_feature_matrix_path = featMtxPath.value();
   } else {
-    Tp->_mode = "Random";
+    Tp->_feature_mode = "Random";
   }
 //  if (auto samplingRatio = program.present<double>("-sr")){
    Tp->_sampling_ratio = program.get<float>("-sr");

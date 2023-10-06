@@ -38,6 +38,8 @@ done
 BINFILE="spmm_spmm_fusion"
 if [ $BASELINE = "SpMM_SpMM_MKL" ]; then
   BINFILE="fused_vs_mkl"
+else
+  BINFILE="gcn_demo"
 fi
 
 
@@ -70,7 +72,7 @@ MATLIST=$UFDB/mat_list.txt
 
 mkdir $LOGS
 
-MODE=2
+MODE=4
 # performing the experiments
 if [ $DOWNLOAD -eq 1 ]; then
     python3 $SCRIPTPATH/dl_matrix.py $UFDB $MATLIST

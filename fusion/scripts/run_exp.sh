@@ -77,3 +77,23 @@ if [ "$TUNED" ==  3 ]; then
     done
   done < ${MATLIST}
 fi
+
+# shellcheck disable=SC2039
+if [ "$TUNED" ==  4 ]; then
+  while read line; do
+    mat=$line
+    # shellcheck disable=SC2039
+    for w in {100,1000,5000,10000,500000}; do
+      k=4
+      for sample_ratio in {0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9}; do
+      if [ $header -eq 1 ]; then
+        $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -ah -bc $BCOL -ip $w -sr $sample_ratio
+        echo ""
+        header=0
+      else
+        $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -bc $BCOL -ip $w -sr $sample_ratio
+      fi
+      done
+    done
+  done < ${MATLIST}
+fi

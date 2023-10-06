@@ -38,14 +38,14 @@ if ! [ -d ./pyg/data ]; then
 fi
 header=1
 
-#for w in {500, 1000}; do
-#      k=4
+for w in {20,50,100,250,500,1000}; do
+      k=4
     if [ $header -eq 1 ]; then
-      $BINPATH/gcn_demo -sm ./pyg/data/pubmed/PubMed.mtx -nt $THREADS -fm ./pyg/data/pubmed/features.mtx -ah -ip 500 > ./build/logs/gcn_demo.csv
+      $BINPATH/gcn_demo -sm ./pyg/data/pubmed/PubMed.mtx -nt $THREADS -fm ./pyg/data/pubmed/features.mtx -ah -ip $w > ./build/logs/gcn_demo.csv
       {
-      $BINPATH/gcn_demo -sm ./pyg/data/pubmed_ordered/PubMed_Ordered.mtx -nt $THREADS -fm ./pyg/data/pubmed/features.mtx -ip 500
-      $BINPATH/gcn_demo -sm ./pyg/data/cora/Cora.mtx -nt $THREADS -fm ./pyg/data/cora/features.mtx -ip 500
-      $BINPATH/gcn_demo -sm ./pyg/data/cora_ordered/Cora_Ordered.mtx -nt $THREADS -fm ./pyg/data/cora/features.mtx -ip 500
+      $BINPATH/gcn_demo -sm ./pyg/data/pubmed_ordered/PubMed_Ordered.mtx -nt $THREADS -fm ./pyg/data/pubmed/features.mtx -ip $w
+      $BINPATH/gcn_demo -sm ./pyg/data/cora/Cora.mtx -nt $THREADS -fm ./pyg/data/cora/features.mtx -ip $w
+      $BINPATH/gcn_demo -sm ./pyg/data/cora_ordered/Cora_Ordered.mtx -nt $THREADS -fm ./pyg/data/cora/features.mtx -ip $w
       } >> ./build/logs/gcn_demo.csv
       echo ""
       header=0
@@ -58,5 +58,5 @@ header=1
       } >> ./build/logs/gcn_demo.csv
       echo ""
     fi
-#done
+done
 

@@ -13,6 +13,8 @@ int main(const int argc, const char *argv[]) {
   Stats *stats;
   parse_args(argc, argv, &sp, &tp);
   CSC *aCSC = get_matrix_from_parameter(&tp);
+  if(aCSC->m > 100000)
+    return 0;
   Dense *features = get_feature_matrix_from_parameter(&tp, aCSC->m );
   CSC *aCSCFull = nullptr;
   if(aCSC->stype == -1 || aCSC->stype == 1){
