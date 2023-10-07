@@ -30,6 +30,8 @@ namespace sym_lib{
   /// \return
   CSC* get_matrix_from_parameter(const TestParameters *tp);
 
+  Dense *identity_dense_matrix(int M);
+
   Dense* random_dense_matrix(int M, int N);
 
   Dense* get_feature_matrix_from_parameter(const TestParameters *tp, int NumOfNodes);

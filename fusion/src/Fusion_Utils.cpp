@@ -103,12 +103,12 @@ void parse_args(const int Argc, const char **Argv, ScheduleParameters *Sp,
   } else {
     Tp->_feature_mode = "Random";
   }
-//  if (auto samplingRatio = program.present<double>("-sr")){
-   Tp->_sampling_ratio = program.get<float>("-sr");
-//  }
-//  else{
-//    Tp->_sampling_ratio = 0.3;
-//  }
+  //  if (auto samplingRatio = program.present<double>("-sr")){
+  Tp->_sampling_ratio = program.get<float>("-sr");
+  //  }
+  //  else{
+  //    Tp->_sampling_ratio = 0.3;
+  //  }
   //  if(Argc >= 4)
   //   useLevelCoarsening = atoi(Argv[3]);
   //  if(Argc >= 5)
@@ -230,12 +230,12 @@ CSC *get_matrix_from_parameter(const TestParameters *TP) {
   return aCSC;
 }
 
-Dense *get_feature_matrix_from_parameter(const TestParameters *Tp, int NumOfNodes) {
+Dense *get_feature_matrix_from_parameter(const TestParameters *Tp,
+                                         int NumOfNodes) {
   Dense *featureMatrix = NULLPNTR;
-  if (Tp->_feature_mode == "Random"){
-    featureMatrix = random_dense_matrix(NumOfNodes, 1000);
-  }
-  else{
+  if (Tp->_feature_mode == "Random") {
+    featureMatrix = identity_dense_matrix(NumOfNodes);
+  } else {
     //  std::string fileExt = Tp->_feature_matrix_path.substr(
     //      Tp->_matrix_path.find_last_of(".") + 1);
     //  if (fileExt == "mtx") {
@@ -247,6 +247,15 @@ Dense *get_feature_matrix_from_parameter(const TestParameters *Tp, int NumOfNode
     //  }
   }
   return featureMatrix;
+}
+
+Dense *identity_dense_matrix(int M) {
+  Dense *denseMatrix = new Dense(M, M, M);
+  double *a = denseMatrix->a;
+  for (int i = 0; i < M; i++) {
+    a[i * M + i] = 1;
+  }
+  return denseMatrix;
 }
 
 Dense *random_dense_matrix(int M, int N) {
