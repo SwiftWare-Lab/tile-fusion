@@ -11,7 +11,7 @@
 using namespace swiftware::benchmark;
 
 void forwardForOneLayer(int M, int *Ap, int *Ai, int InputChannelDim,
-                        int OutputChannelDim, double *Degrees, double *Features,
+                        int OutputChannelDim, int *Degrees, double *Features,
                         double *Weight, double *Output) {
   for (int i = 0; i < M; i++) {
     double *messages = Output + OutputChannelDim * i;
@@ -27,7 +27,7 @@ void forwardForOneLayer(int M, int *Ap, int *Ai, int InputChannelDim,
 }
 
 void forwardForOneLayerParallel(int M, int *Ap, int *Ai, int InputChannelDim,
-                                int OutputChannelDim, double *Degrees,
+                                int OutputChannelDim, int *Degrees,
                                 double *Features, double *Weight,
                                 double *Output, int NumThreads) {
 #pragma omp parallel num_threads(NumThreads)
@@ -50,7 +50,7 @@ void forwardForOneLayerParallel(int M, int *Ap, int *Ai, int InputChannelDim,
 
 void forwardForFusedLayersParallel(int M, int *Ap, int *Ai, int InputChannelDim,
                                    int HiddenChannelDim, int OutputChannelDim,
-                                   double *Degrees, double *Features,
+                                   int *Degrees, double *Features,
                                    double *Layer1Weight, double *Layer2Weight,
                                    double *Output, double *HiddenOutput, int NumThreads, int LevelNo,
                                    const int *LevelPtr, const int *ParPtr,
@@ -94,7 +94,7 @@ void forwardForFusedLayersParallel(int M, int *Ap, int *Ai, int InputChannelDim,
 
 void forwardForFusedLayersParallelWithBatching(int M, int *Ap, int *Ai, int *Bp, int *Bi, int InputChannelDim,
                                    int HiddenChannelDim, int OutputChannelDim,
-                                   double *Degrees, double *Features,
+                                   int *Degrees, double *Features,
                                    double *Layer1Weight, double *Layer2Weight,
                                    double *Output, double *HiddenOutput, int NumThreads, int LevelNo,
                                    const int *LevelPtr, const int *ParPtr,

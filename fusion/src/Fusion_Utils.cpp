@@ -78,7 +78,8 @@ void parse_args(const int Argc, const char **Argv, ScheduleParameters *Sp,
   }
   if (!program.is_used("-sm")) {
     Tp->_mode = "Random";
-    Tp->_dim1 = Tp->_dim2 = 16;
+    Tp->_dim1 = Tp->_dim2 = 10;
+    Tp->_dim1 = Tp->_dim2 = 10;
     Tp->_matrix_name = "Random_" + std::to_string(Tp->_dim1);
     Tp->_order_method = SYM_ORDERING::NONE;
     Tp->print_header = true;

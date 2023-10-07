@@ -4,6 +4,7 @@
 #include "GCN_Layer_Demo_Utils.h"
 #include "aggregation/sparse_utilities.h"
 #include "sparse-fusion/Fusion_Utils.h"
+#include "aggregation/sparse_io.h"
 
 using namespace sym_lib;
 int main(const int argc, const char *argv[]) {
@@ -27,21 +28,24 @@ int main(const int argc, const char *argv[]) {
   tp._dim2 = aCSCFull->n;
   tp._nnz = aCSCFull->nnz;
   tp._density = (double)tp._nnz / (double)(tp._dim1 * tp._dim2);
-  int hiddenDim = 128;
+  int hiddenDim = 10;
   int numClasses = 3;
   int numThread = sp._num_threads;
   double *layer1Weight = generateRandomDenseMatrix(features->col, hiddenDim);
   double *layer2Weight = generateRandomDenseMatrix(hiddenDim, numClasses);
+
   int numOfSamples = std::ceil(tp._sampling_ratio*tp._dim1);
   GnnTensorInputs *inputs =
       new GnnTensorInputs(layer1Weight, layer2Weight,features, aCSCFull, aCSCFull->m,
                           hiddenDim, numClasses, numOfSamples, numThread, 1, "GCN_Demo");
+
+
   stats = new swiftware::benchmark::Stats("GCN_Sequential_Demo", "GCN", 7, tp._matrix_name, numThread);
   stats->OtherStats["PackingType"] = {Separated};
   GCNSequential *gcnGnn = new GCNSequential(inputs, stats);
   gcnGnn->run();
   inputs->CorrectSol = new double[inputs->AdjacencyMatrix->m*inputs->NumOfClasses];
-  inputs->CorrectSol = std::copy(gcnGnn->OutTensor->SecondLayerOutput, gcnGnn->OutTensor->SecondLayerOutput+inputs->AdjacencyMatrix->m*inputs->NumOfClasses, inputs->CorrectSol);
+  std::copy(gcnGnn->OutTensor->SecondLayerOutput, gcnGnn->OutTensor->SecondLayerOutput+inputs->AdjacencyMatrix->m*inputs->NumOfClasses, inputs->CorrectSol);
   auto headerStat = gcnGnn->printStatsHeader();
   auto gcnStat = gcnGnn->printStats();
   delete gcnGnn;

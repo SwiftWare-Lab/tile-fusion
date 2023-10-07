@@ -71,6 +71,7 @@ double *generateRandomDenseMatrix(int M, int N) {
 
 struct GnnTensorInputs : public Inputs<double> {
   double *Weight1, *Weight2;
+  int *Degrees;
   sym_lib::Dense *FeatureMatrix;
   sym_lib::CSR *AdjacencyMatrix;
   size_t EmbedDim, NumOfClasses;
@@ -78,6 +79,14 @@ struct GnnTensorInputs : public Inputs<double> {
   size_t BatchSize;
   std::vector<std::set<int>> LayerMasks;
   std::vector<sym_lib::CSR*> LayerMaskedMatrices;
+
+
+  void computeDegrees(){
+    this->Degrees = new int[this->NumOfNodes];
+    for (int i = 0; i < this->NumOfNodes; i++) {
+      this->Degrees[i] += this->AdjacencyMatrix->p[i+1] - this->AdjacencyMatrix->p[i];
+    }
+  }
 
   sym_lib::CSR *generateMaskedMatrix(std::set<int> NodeMask,
                                      sym_lib::CSR *AdjMatrix) {
@@ -155,19 +164,7 @@ struct GnnTensorInputs : public Inputs<double> {
           this->generateMaskedMatrix(mask, this->AdjacencyMatrix)
           );
     }
-  }
-
-  GnnTensorInputs(sym_lib::Dense *FeatureMtx, sym_lib::CSC *AdjMtxCsc,
-                  size_t NumOfNodes, size_t EmbedDim, size_t NumOfClasses,
-                  size_t BatchSize, int NumThreads1, int NumTrial1,
-                  std::string ExpN)
-      : Inputs<double>(NumTrial1, NumThreads1, ExpN), FeatureMatrix(FeatureMtx),
-        NumOfNodes(NumOfNodes), EmbedDim(EmbedDim), NumOfClasses(NumOfClasses),
-        BatchSize(BatchSize) {
-    this->CorrectSol = nullptr;
-    this->Weight1 = generateRandomDenseMatrix(FeatureMtx->col, EmbedDim);
-    this->Weight2 = generateRandomDenseMatrix(EmbedDim, NumOfClasses);
-    this->AdjacencyMatrix = sym_lib::csc_to_csr(AdjMtxCsc);
+    this->computeDegrees();
   }
 
   ~GnnTensorInputs() {
@@ -177,6 +174,7 @@ struct GnnTensorInputs : public Inputs<double> {
     delete AdjacencyMatrix;
     delete LayerMaskedMatrices[0];
     delete LayerMaskedMatrices[1];
+    delete Degrees;
   }
 };
 
@@ -203,23 +201,7 @@ struct GnnTensorOutputs : public Outputs<double> {
 class GCNSequential : public SWTensorBench<double> {
 protected:
   GnnTensorInputs *InTensor;
-  double *Degrees;
   void setup() override {}
-
-  Timer analysis() override {
-    Timer t;
-    t.start();
-    this->Degrees = new double[InTensor->NumOfNodes];
-    for (int i = 0; i < InTensor->NumOfNodes; i++) {
-      this->Degrees[i] = 0;
-      for (int j = InTensor->AdjacencyMatrix->p[i];
-           j < InTensor->AdjacencyMatrix->p[i + 1]; j++) {
-        this->Degrees[i] += 1;
-      }
-    }
-    t.stop();
-    return t;
-  }
 
   bool verify(double &Error) override {
     bool retValue = true;
@@ -247,10 +229,10 @@ protected:
     t.start();
     forwardForOneLayer(InTensor->LayerMaskedMatrices[0]->m,InTensor->LayerMaskedMatrices[0]->p, InTensor->LayerMaskedMatrices[0]->i,
                        InTensor->FeatureMatrix->col, InTensor->EmbedDim,
-                       Degrees, InTensor->FeatureMatrix->a, InTensor->Weight1,
+                       InTensor->Degrees, InTensor->FeatureMatrix->a, InTensor->Weight1,
                        OutTensor->FirstLayerOutput);
     forwardForOneLayer(InTensor->LayerMaskedMatrices[1]->m, InTensor->LayerMaskedMatrices[1]->p, InTensor->LayerMaskedMatrices[1]->i,
-                       InTensor->EmbedDim, InTensor->NumOfClasses, Degrees,
+                       InTensor->EmbedDim, InTensor->NumOfClasses, InTensor->Degrees,
                        OutTensor->FirstLayerOutput, InTensor->Weight2,
                        OutTensor->SecondLayerOutput);
     t.stop();
@@ -268,7 +250,6 @@ public:
 
   ~GCNSequential() {
     delete OutTensor;
-    delete[] Degrees;
   }
 };
 
@@ -282,12 +263,12 @@ protected:
     t.start();
     forwardForOneLayerParallel(
         InTensor->LayerMaskedMatrices[0]->m, InTensor->LayerMaskedMatrices[0]->p, InTensor->LayerMaskedMatrices[0]->i,
-        InTensor->FeatureMatrix->col, InTensor->EmbedDim, Degrees,
+        InTensor->FeatureMatrix->col, InTensor->EmbedDim, InTensor->Degrees,
         InTensor->FeatureMatrix->a, InTensor->Weight1,
         OutTensor->FirstLayerOutput, InTensor->NumThreads);
     forwardForOneLayerParallel(
         InTensor->LayerMaskedMatrices[1]->m, InTensor->LayerMaskedMatrices[1]->p, InTensor->LayerMaskedMatrices[1]->i,
-        InTensor->EmbedDim, InTensor->NumOfClasses, Degrees,
+        InTensor->EmbedDim, InTensor->NumOfClasses, InTensor->Degrees,
         OutTensor->FirstLayerOutput, InTensor->Weight2,
         OutTensor->SecondLayerOutput, InTensor->NumThreads);
     t.stop();
@@ -309,14 +290,6 @@ protected:
   Timer analysis() override {
     Timer t;
     t.start();
-    this->Degrees = new double[InTensor->NumOfNodes];
-    for (int i = 0; i < InTensor->NumOfNodes; i++) {
-      this->Degrees[i] = 0;
-      for (int j = InTensor->AdjacencyMatrix->p[i];
-           j < InTensor->AdjacencyMatrix->p[i + 1]; j++) {
-        this->Degrees[i] += 1;
-      }
-    }
     //    // sym_lib::ScheduleParameters sp;
     //    // sp._num_threads = InTensor->NumThreads;
     //    //  create the fused set
@@ -358,7 +331,7 @@ protected:
     forwardForFusedLayersParallelWithBatching(
         InTensor->LayerMaskedMatrices[0]->m, InTensor->LayerMaskedMatrices[0]->p, InTensor->LayerMaskedMatrices[0]->i, InTensor->LayerMaskedMatrices[1]->p,
         InTensor->LayerMaskedMatrices[1]->i, InTensor->FeatureMatrix->col, InTensor->EmbedDim,
-        InTensor->NumOfClasses, Degrees, InTensor->FeatureMatrix->a,
+        InTensor->NumOfClasses, InTensor->Degrees, InTensor->FeatureMatrix->a,
         InTensor->Weight1, InTensor->Weight2, OutTensor->SecondLayerOutput,
         OutTensor->FirstLayerOutput, InTensor->NumThreads, FusedCompSet->n1_,
         FusedCompSet->ptr1_, FusedCompSet->ptr2_, FusedCompSet->id_,
@@ -386,11 +359,6 @@ public:
    Timer analysis() override {
      Timer t;
      t.start();
-     this->Degrees = new double[InTensor->NumOfNodes];
-     for (int i = 0; i < InTensor->NumOfNodes; i++) {
-       this->Degrees[i] = InTensor->AdjacencyMatrix->p[i+1] -
-       InTensor->AdjacencyMatrix->p[i];
-     }
      FusedCompSet = generateSimpleFusedSchedule(InTensor->NumThreads);
      t.stop();
      return t;
@@ -486,7 +454,7 @@ public:
     forwardForFusedLayersParallelWithBatching(
         InTensor->LayerMaskedMatrices[0]->m, InTensor->LayerMaskedMatrices[0]->p, InTensor->LayerMaskedMatrices[0]->i,
         InTensor->LayerMaskedMatrices[1]->p, InTensor->LayerMaskedMatrices[1]->i, InTensor->FeatureMatrix->col,
-        InTensor->EmbedDim, InTensor->NumOfClasses, Degrees,
+        InTensor->EmbedDim, InTensor->NumOfClasses, InTensor->Degrees,
         InTensor->FeatureMatrix->a, InTensor->Weight1, InTensor->Weight2,
         OutTensor->SecondLayerOutput, OutTensor->FirstLayerOutput,
         InTensor->NumThreads, FusedCompSet->n1_, FusedCompSet->ptr1_,
