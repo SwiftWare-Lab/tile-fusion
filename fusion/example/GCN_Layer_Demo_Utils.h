@@ -78,13 +78,13 @@ struct GnnTensorInputs : public Inputs<double> {
   size_t NumOfNodes;
   size_t BatchSize;
   std::vector<std::set<int>> LayerMasks;
-  std::vector<sym_lib::CSR*> LayerMaskedMatrices;
+  std::vector<sym_lib::CSR *> LayerMaskedMatrices;
 
-
-  void computeDegrees(){
+  void computeDegrees() {
     this->Degrees = new int[this->NumOfNodes];
     for (int i = 0; i < this->NumOfNodes; i++) {
-      this->Degrees[i] += this->AdjacencyMatrix->p[i+1] - this->AdjacencyMatrix->p[i];
+      this->Degrees[i] +=
+          this->AdjacencyMatrix->p[i + 1] - this->AdjacencyMatrix->p[i];
     }
   }
 
@@ -147,7 +147,6 @@ struct GnnTensorInputs : public Inputs<double> {
     return previousLayerMask;
   }
 
-
   GnnTensorInputs(double *Weight1, double *Weight2,
                   sym_lib::Dense *FeatureMatrix, sym_lib::CSC *AdjMtxCSC,
                   size_t NumOfNodes, size_t EmbedDim, size_t NumOfClasses,
@@ -159,10 +158,9 @@ struct GnnTensorInputs : public Inputs<double> {
     this->CorrectSol = nullptr;
     this->AdjacencyMatrix = sym_lib::csc_to_csr(AdjMtxCSC);
     this->LayerMasks = generateLayerMasks();
-    for(auto mask: LayerMasks){
+    for (auto mask : LayerMasks) {
       LayerMaskedMatrices.emplace_back(
-          this->generateMaskedMatrix(mask, this->AdjacencyMatrix)
-          );
+          this->generateMaskedMatrix(mask, this->AdjacencyMatrix));
     }
     this->computeDegrees();
   }
@@ -227,12 +225,16 @@ protected:
     OutTensor->reset();
     Timer t;
     t.start();
-    forwardForOneLayer(InTensor->LayerMaskedMatrices[0]->m,InTensor->LayerMaskedMatrices[0]->p, InTensor->LayerMaskedMatrices[0]->i,
+    forwardForOneLayer(InTensor->LayerMaskedMatrices[0]->m,
+                       InTensor->LayerMaskedMatrices[0]->p,
+                       InTensor->LayerMaskedMatrices[0]->i,
                        InTensor->FeatureMatrix->col, InTensor->EmbedDim,
-                       InTensor->Degrees, InTensor->FeatureMatrix->a, InTensor->Weight1,
-                       OutTensor->FirstLayerOutput);
-    forwardForOneLayer(InTensor->LayerMaskedMatrices[1]->m, InTensor->LayerMaskedMatrices[1]->p, InTensor->LayerMaskedMatrices[1]->i,
-                       InTensor->EmbedDim, InTensor->NumOfClasses, InTensor->Degrees,
+                       InTensor->Degrees, InTensor->FeatureMatrix->a,
+                       InTensor->Weight1, OutTensor->FirstLayerOutput);
+    forwardForOneLayer(InTensor->LayerMaskedMatrices[1]->m,
+                       InTensor->LayerMaskedMatrices[1]->p,
+                       InTensor->LayerMaskedMatrices[1]->i, InTensor->EmbedDim,
+                       InTensor->NumOfClasses, InTensor->Degrees,
                        OutTensor->FirstLayerOutput, InTensor->Weight2,
                        OutTensor->SecondLayerOutput);
     t.stop();
@@ -248,9 +250,7 @@ public:
     InTensor = In1;
   }
 
-  ~GCNSequential() {
-    delete OutTensor;
-  }
+  ~GCNSequential() { delete OutTensor; }
 };
 
 class GCNParallel : public GCNSequential {
@@ -262,15 +262,17 @@ protected:
     OutTensor->reset();
     t.start();
     forwardForOneLayerParallel(
-        InTensor->LayerMaskedMatrices[0]->m, InTensor->LayerMaskedMatrices[0]->p, InTensor->LayerMaskedMatrices[0]->i,
-        InTensor->FeatureMatrix->col, InTensor->EmbedDim, InTensor->Degrees,
-        InTensor->FeatureMatrix->a, InTensor->Weight1,
-        OutTensor->FirstLayerOutput, InTensor->NumThreads);
+        InTensor->LayerMaskedMatrices[0]->m,
+        InTensor->LayerMaskedMatrices[0]->p,
+        InTensor->LayerMaskedMatrices[0]->i, InTensor->FeatureMatrix->col,
+        InTensor->EmbedDim, InTensor->Degrees, InTensor->FeatureMatrix->a,
+        InTensor->Weight1, OutTensor->FirstLayerOutput, InTensor->NumThreads);
     forwardForOneLayerParallel(
-        InTensor->LayerMaskedMatrices[1]->m, InTensor->LayerMaskedMatrices[1]->p, InTensor->LayerMaskedMatrices[1]->i,
-        InTensor->EmbedDim, InTensor->NumOfClasses, InTensor->Degrees,
-        OutTensor->FirstLayerOutput, InTensor->Weight2,
-        OutTensor->SecondLayerOutput, InTensor->NumThreads);
+        InTensor->LayerMaskedMatrices[1]->m,
+        InTensor->LayerMaskedMatrices[1]->p,
+        InTensor->LayerMaskedMatrices[1]->i, InTensor->EmbedDim,
+        InTensor->NumOfClasses, InTensor->Degrees, OutTensor->FirstLayerOutput,
+        InTensor->Weight2, OutTensor->SecondLayerOutput, InTensor->NumThreads);
     t.stop();
     return t;
   }
@@ -329,13 +331,16 @@ protected:
     OutTensor->reset();
     t.start();
     forwardForFusedLayersParallelWithBatching(
-        InTensor->LayerMaskedMatrices[0]->m, InTensor->LayerMaskedMatrices[0]->p, InTensor->LayerMaskedMatrices[0]->i, InTensor->LayerMaskedMatrices[1]->p,
-        InTensor->LayerMaskedMatrices[1]->i, InTensor->FeatureMatrix->col, InTensor->EmbedDim,
-        InTensor->NumOfClasses, InTensor->Degrees, InTensor->FeatureMatrix->a,
-        InTensor->Weight1, InTensor->Weight2, OutTensor->SecondLayerOutput,
-        OutTensor->FirstLayerOutput, InTensor->NumThreads, FusedCompSet->n1_,
-        FusedCompSet->ptr1_, FusedCompSet->ptr2_, FusedCompSet->id_,
-        FusedCompSet->type_);
+        InTensor->LayerMaskedMatrices[0]->m,
+        InTensor->LayerMaskedMatrices[0]->p,
+        InTensor->LayerMaskedMatrices[0]->i,
+        InTensor->LayerMaskedMatrices[1]->p,
+        InTensor->LayerMaskedMatrices[1]->i, InTensor->FeatureMatrix->col,
+        InTensor->EmbedDim, InTensor->NumOfClasses, InTensor->Degrees,
+        InTensor->FeatureMatrix->a, InTensor->Weight1, InTensor->Weight2,
+        OutTensor->SecondLayerOutput, OutTensor->FirstLayerOutput,
+        InTensor->NumThreads, FusedCompSet->n1_, FusedCompSet->ptr1_,
+        FusedCompSet->ptr2_, FusedCompSet->id_, FusedCompSet->type_);
     t.stop();
     return t;
   }
@@ -343,87 +348,84 @@ protected:
 public:
   GCNFused(GnnTensorInputs *In1, Stats *Stat1, sym_lib::ScheduleParameters SpIn)
       : GCNSequential(In1, Stat1), Sp(SpIn) {}
-  ~GCNFused() {
-    delete FusedCompSet;
-  }
+  ~GCNFused() { delete FusedCompSet; }
 };
 
- class GCNFusedWithOmittingEmptyRows : public GCNSequential {
- protected:
-   sym_lib::MultiDimensionalSet *FusedCompSet;
-   sym_lib::ScheduleParameters Sp;
-   sym_lib::SparsityProfileInfo SpInfo;
+class GCNFusedWithOmittingEmptyRows : public GCNSequential {
+protected:
+  sym_lib::MultiDimensionalSet *FusedCompSet;
+  sym_lib::ScheduleParameters Sp;
+  sym_lib::SparsityProfileInfo SpInfo;
 
-   void setup() override {}
+  void setup() override {}
 
-   Timer analysis() override {
-     Timer t;
-     t.start();
-     FusedCompSet = generateSimpleFusedSchedule(InTensor->NumThreads);
-     t.stop();
-     return t;
-   }
+  Timer analysis() override {
+    Timer t;
+    t.start();
+    FusedCompSet = generateSimpleFusedSchedule(InTensor->NumThreads);
+    t.stop();
+    return t;
+  }
 
-   sym_lib::MultiDimensionalSet *generateSimpleFusedSchedule(int NumOfThreads)
-   {
-     sym_lib::MultiDimensionalSet *fusedSchedule =
-         new sym_lib::MultiDimensionalSet();
-     fusedSchedule->n1_ = 2;
-     fusedSchedule->ptr1_ = new int[3];
-     fusedSchedule->ptr2_ = new int[2 * NumOfThreads + 1];
-     fusedSchedule->id_ =
-         new int[InTensor->LayerMasks[0].size() + InTensor->LayerMasks[1].size()];
-     fusedSchedule->type_ =
-         new int[InTensor->LayerMasks[0].size() + InTensor->LayerMasks[1].size()];
-     fusedSchedule->ptr1_[0] = 0;
-     fusedSchedule->ptr1_[1] = NumOfThreads;
-     fusedSchedule->ptr1_[2] = 2 * NumOfThreads;
-     fusedSchedule->ptr2_[0] = 0;
-     sym_lib::CSR *l1 = InTensor->LayerMaskedMatrices[0];
-     sym_lib::CSR *l2 = InTensor->LayerMaskedMatrices[1];
-     int iterPerPartitionL1 =
-         std::ceil(float(InTensor->LayerMasks[0].size()) / NumOfThreads);
-     std::vector<std::set<int>> l1Partitions(NumOfThreads);
-     int partitionCntr = 0;
-     int p = 0;
-     int idCounter = 0;
-     std::set<int> fusedNodes;
-     for (int i = 0; i < l1->m; i++) {
-       if (l1->p[i + 1] == l1->p[i]) {
-         continue;
-       }
-       l1Partitions[p].insert(i);
-       fusedSchedule->id_[idCounter] = i;
-       fusedSchedule->type_[idCounter] = 0;
-       idCounter++;
-       partitionCntr++;
-       if (partitionCntr == iterPerPartitionL1) {
-         partitionCntr = 0;
-         for (int i1 = 0; i1 <= l2->m; i1++) {
-           if (l2->p[i1 + 1] == l2->p[i1]) {
-             continue;
-           }
-           bool flag = true;
-           for (int j1 = l2->p[i1]; j1 < l2->p[i1 + 1]; j1++) {
-             if (l1Partitions[p].find(l2->i[j1]) == l1Partitions[p].end()) {
-               flag = false;
-               break;
-             }
-           }
-           if (flag && fusedNodes.find(i1) == fusedNodes.end()) {
-             fusedSchedule->id_[idCounter] = i1;
-             fusedSchedule->type_[idCounter] = 1;
-             idCounter++;
-             fusedNodes.insert(i1);
-           }
-         }
-         fusedSchedule->ptr2_[p + 1] = idCounter;
-         p++;
-       }
-     }
-     fusedSchedule->ptr2_[NumOfThreads] = idCounter;
-     int unfusedNum = InTensor->LayerMasks[1].size() - fusedNodes.size();
-     partitionCntr = 0;
+  sym_lib::MultiDimensionalSet *generateSimpleFusedSchedule(int NumOfThreads) {
+    sym_lib::MultiDimensionalSet *fusedSchedule =
+        new sym_lib::MultiDimensionalSet();
+    fusedSchedule->n1_ = 2;
+    fusedSchedule->ptr1_ = new int[3];
+    fusedSchedule->ptr2_ = new int[2 * NumOfThreads + 1];
+    fusedSchedule->id_ = new int[InTensor->LayerMasks[0].size() +
+                                 InTensor->LayerMasks[1].size()];
+    fusedSchedule->type_ = new int[InTensor->LayerMasks[0].size() +
+                                   InTensor->LayerMasks[1].size()];
+    fusedSchedule->ptr1_[0] = 0;
+    fusedSchedule->ptr1_[1] = NumOfThreads;
+    fusedSchedule->ptr1_[2] = 2 * NumOfThreads;
+    fusedSchedule->ptr2_[0] = 0;
+    sym_lib::CSR *l1 = InTensor->LayerMaskedMatrices[0];
+    sym_lib::CSR *l2 = InTensor->LayerMaskedMatrices[1];
+    int iterPerPartitionL1 =
+        std::ceil(float(InTensor->LayerMasks[0].size()) / NumOfThreads);
+    std::vector<std::set<int>> l1Partitions(NumOfThreads);
+    int partitionCntr = 0;
+    int p = 0;
+    int idCounter = 0;
+    std::set<int> fusedNodes;
+    for (int i = 0; i < l1->m; i++) {
+      if (l1->p[i + 1] == l1->p[i]) {
+        continue;
+      }
+      l1Partitions[p].insert(i);
+      fusedSchedule->id_[idCounter] = i;
+      fusedSchedule->type_[idCounter] = 0;
+      idCounter++;
+      partitionCntr++;
+      if (partitionCntr == iterPerPartitionL1) {
+        partitionCntr = 0;
+        for (int i1 = 0; i1 <= l2->m; i1++) {
+          if (l2->p[i1 + 1] == l2->p[i1]) {
+            continue;
+          }
+          bool flag = true;
+          for (int j1 = l2->p[i1]; j1 < l2->p[i1 + 1]; j1++) {
+            if (l1Partitions[p].find(l2->i[j1]) == l1Partitions[p].end()) {
+              flag = false;
+              break;
+            }
+          }
+          if (flag && fusedNodes.find(i1) == fusedNodes.end()) {
+            fusedSchedule->id_[idCounter] = i1;
+            fusedSchedule->type_[idCounter] = 1;
+            idCounter++;
+            fusedNodes.insert(i1);
+          }
+        }
+        fusedSchedule->ptr2_[p + 1] = idCounter;
+        p++;
+      }
+    }
+    fusedSchedule->ptr2_[NumOfThreads] = idCounter;
+    int unfusedNum = InTensor->LayerMasks[1].size() - fusedNodes.size();
+    partitionCntr = 0;
     p = 0;
     int iterPerPartitionL2 = ceil(float(unfusedNum) / NumOfThreads);
     for (int i = 0; i < l2->m; i++) {
@@ -452,8 +454,11 @@ public:
     OutTensor->reset();
     t.start();
     forwardForFusedLayersParallelWithBatching(
-        InTensor->LayerMaskedMatrices[0]->m, InTensor->LayerMaskedMatrices[0]->p, InTensor->LayerMaskedMatrices[0]->i,
-        InTensor->LayerMaskedMatrices[1]->p, InTensor->LayerMaskedMatrices[1]->i, InTensor->FeatureMatrix->col,
+        InTensor->LayerMaskedMatrices[0]->m,
+        InTensor->LayerMaskedMatrices[0]->p,
+        InTensor->LayerMaskedMatrices[0]->i,
+        InTensor->LayerMaskedMatrices[1]->p,
+        InTensor->LayerMaskedMatrices[1]->i, InTensor->FeatureMatrix->col,
         InTensor->EmbedDim, InTensor->NumOfClasses, InTensor->Degrees,
         InTensor->FeatureMatrix->a, InTensor->Weight1, InTensor->Weight2,
         OutTensor->SecondLayerOutput, OutTensor->FirstLayerOutput,
@@ -463,11 +468,9 @@ public:
     return t;
   }
 
- public:
+public:
   GCNFusedWithOmittingEmptyRows(GnnTensorInputs *In1, Stats *Stat1,
                                 sym_lib::ScheduleParameters SpIn)
       : GCNSequential(In1, Stat1), Sp(SpIn) {}
-  ~GCNFusedWithOmittingEmptyRows() {
-    delete FusedCompSet;
-  }
+  ~GCNFusedWithOmittingEmptyRows() { delete FusedCompSet; }
 };

@@ -4,7 +4,7 @@
 #SBATCH --job-name="fusion"
 #SBATCH --mail-type=begin  # email me when the job starts
 #SBATCH --mail-type=end    # email me when the job finishes
-#SBATCH --mail-user=msalehid20@gmail.com
+#SBATCH --mail-user=msalehi20@gmail.com
 #SBATCH --nodes=1
 #SBATCH --output="fusion.%j.%N.out"
 #SBATCH -t 11:59:00
@@ -38,7 +38,7 @@ if ! [ -d ./pyg/data ]; then
 fi
 header=1
 while read line; do
-  for sr in {0.2,0.4,0.6,0.8,1}; do
+  for sr in {0.1,0.4,0.7,1}; do
     for w in {50,100,250,500,1000,5000}; do
       echo "for $line $sr $w"
         if [ $header -eq 1 ]; then
