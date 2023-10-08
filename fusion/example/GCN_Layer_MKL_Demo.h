@@ -52,7 +52,8 @@ void forwardForFusedLayersParallel(int M, int *Ap, int *Ai, int InputChannelDim,
                                    int HiddenChannelDim, int OutputChannelDim,
                                    int *Degrees, double *Features,
                                    double *Layer1Weight, double *Layer2Weight,
-                                   double *Output, double *HiddenOutput, int NumThreads, int LevelNo,
+                                   double *Output, double *HiddenOutput,
+                                   int NumThreads, int LevelNo,
                                    const int *LevelPtr, const int *ParPtr,
                                    const int *Partition, const int *ParType) {
   for (int i1 = 0; i1 < LevelNo; i1++) {
@@ -92,13 +93,12 @@ void forwardForFusedLayersParallel(int M, int *Ap, int *Ai, int InputChannelDim,
   }
 }
 
-void forwardForFusedLayersParallelWithBatching(int M, int *Ap, int *Ai, int *Bp, int *Bi, int InputChannelDim,
-                                   int HiddenChannelDim, int OutputChannelDim,
-                                   int *Degrees, double *Features,
-                                   double *Layer1Weight, double *Layer2Weight,
-                                   double *Output, double *HiddenOutput, int NumThreads, int LevelNo,
-                                   const int *LevelPtr, const int *ParPtr,
-                                   const int *Partition, const int *ParType) {
+void forwardForFusedLayersParallelWithBatching(
+    int M, int *Ap, int *Ai, int *Bp, int *Bi, int InputChannelDim,
+    int HiddenChannelDim, int OutputChannelDim, int *Degrees, double *Features,
+    double *Layer1Weight, double *Layer2Weight, double *Output,
+    double *HiddenOutput, int NumThreads, int LevelNo, const int *LevelPtr,
+    const int *ParPtr, const int *Partition, const int *ParType) {
   for (int i1 = 0; i1 < LevelNo; i1++) {
 #pragma omp parallel num_threads(this->NThreads)
     {
@@ -129,6 +129,45 @@ void forwardForFusedLayersParallelWithBatching(int M, int *Ap, int *Ai, int *Bp,
                           HiddenOutput + (n * HiddenChannelDim), 1, 1., // beta
                           messages, 1);
             }
+          }
+        }
+      }
+    }
+  }
+}
+
+void forwardForFusedLayersWithBatching(
+    int M, int *Ap, int *Ai, int *Bp, int *Bi, int InputChannelDim,
+    int HiddenChannelDim, int OutputChannelDim, int *Degrees, double *Features,
+    double *Layer1Weight, double *Layer2Weight, double *Output,
+    double *HiddenOutput, int NumThreads, int LevelNo, const int *LevelPtr,
+    const int *ParPtr, const int *Partition, const int *ParType) {
+  for (int i1 = 0; i1 < LevelNo; i1++) {
+    for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; j1++) {
+      for (int k1 = ParPtr[j1]; k1 < ParPtr[j1 + 1]; ++k1) {
+        int i = Partition[k1];
+        int t = ParType[k1];
+        if (t == 0) {
+          double *messages = HiddenOutput + HiddenChannelDim * i;
+          for (int j = Ap[i]; j < Ap[i + 1]; j++) {
+            int n = Ai[j];
+            cblas_dgemv(CblasRowMajor, CblasTrans, InputChannelDim,
+                        HiddenChannelDim,
+                        1. / sqrt(Degrees[i] * Degrees[n]), // alpha
+                        Layer1Weight, HiddenChannelDim,
+                        Features + (n * InputChannelDim), 1, 1., // beta
+                        messages, 1);
+          }
+        } else {
+          double *messages = Output + OutputChannelDim * i;
+          for (int j = Bp[i]; j < Bp[i + 1]; j++) {
+            int n = Bi[j];
+            cblas_dgemv(CblasRowMajor, CblasTrans, HiddenChannelDim,
+                        OutputChannelDim,
+                        1. / sqrt(Degrees[i] * Degrees[n]), // alpha
+                        Layer2Weight, OutputChannelDim,
+                        HiddenOutput + (n * HiddenChannelDim), 1, 1., // beta
+                        messages, 1);
           }
         }
       }

@@ -235,7 +235,7 @@ Dense *get_feature_matrix_from_parameter(const TestParameters *Tp,
                                          int NumOfNodes) {
   Dense *featureMatrix = NULLPNTR;
   if (Tp->_feature_mode == "Random") {
-    featureMatrix = identity_dense_matrix(NumOfNodes);
+    featureMatrix = random_dense_matrix(NumOfNodes, Tp->_b_cols);
   } else {
     //  std::string fileExt = Tp->_feature_matrix_path.substr(
     //      Tp->_matrix_path.find_last_of(".") + 1);

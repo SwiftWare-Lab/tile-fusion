@@ -69,7 +69,7 @@ int main(const int argc, const char *argv[]) {
 
 //  stats = new swiftware::benchmark::Stats("GCN_FusedWithOmittingEmptyRows_Demo", "GCN", 7, tp._matrix_name, numThread);
 //  stats->OtherStats["PackingType"] = {Interleaved};
-//  GCNFusedWithOmittingEmptyRows *gcnFusedWithOmittingEmptyRows = new GCNFusedWithOmittingEmptyRows(inputs, stats, sp);
+//  GCNFusedParallelWithOmittingEmptyRows *gcnFusedWithOmittingEmptyRows = new GCNFusedParallelWithOmittingEmptyRows(inputs, stats, sp);
 //  gcnFusedWithOmittingEmptyRows->run();
 //  auto gcnFusedWOERStat = gcnFusedWithOmittingEmptyRows->printStats();
 //  delete gcnFusedWithOmittingEmptyRows;
