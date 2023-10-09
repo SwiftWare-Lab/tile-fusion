@@ -11,6 +11,7 @@
 #include <numeric>
 #include <random>
 #include <set>
+#include <cassert>
 #ifndef SPARSE_FUSION_GCN_LAYER_DEMO_H
 #define SPARSE_FUSION_GCN_LAYER_DEMO_H
 
@@ -480,34 +481,76 @@ protected:
   sym_lib::MultiDimensionalSet *FusedCompSet;
   sym_lib::ScheduleParameters Sp;
   sym_lib::SparsityProfileInfo SpInfo;
+  int TileSize;
 
   void setup() override {}
 
   Timer analysis() override {
     Timer t;
     t.start();
-    FusedCompSet = generateSimpleFusedSchedule(InTensor->NumThreads);
+    FusedCompSet = generateSimpleFusedSchedule();
     t.stop();
     return t;
   }
 
-  sym_lib::MultiDimensionalSet *generateSimpleFusedSchedule(int NumOfThreads) {
+  sym_lib::MultiDimensionalSet *generateSimpleFusedSchedule() {
     sym_lib::MultiDimensionalSet *fusedSchedule =
         new sym_lib::MultiDimensionalSet();
     fusedSchedule->n1_ = 2;
     fusedSchedule->ptr1_ = new int[3];
     fusedSchedule->ptr2_ = new int[3];
-    fusedSchedule->id_ = new int[InTensor->LayerMasks[0].size() +
-                                 InTensor->LayerMasks[1].size()];
-    fusedSchedule->type_ = new int[InTensor->LayerMasks[0].size() +
-                                   InTensor->LayerMasks[1].size()];
+    int allNodesNum = InTensor->LayerMasks[0].size() +
+                      InTensor->LayerMasks[1].size();
+    fusedSchedule->id_ = new int[allNodesNum];
+    fusedSchedule->type_ = new int[allNodesNum];
     fusedSchedule->ptr1_[0] = 0;
     fusedSchedule->ptr1_[1] = 1;
     fusedSchedule->ptr1_[2] = 2;
     fusedSchedule->ptr2_[0] = 0;
     sym_lib::CSR *l1 = InTensor->LayerMaskedMatrices[0];
     sym_lib::CSR *l2 = InTensor->LayerMaskedMatrices[1];
-    //TODO
+    std::set<int> fusedNodes;
+    int idCounter = 0;
+    for (int i = 0; i < l1->m; i+=TileSize) {
+      for (int j = i; j < i + TileSize; j++) {
+        if (j >= l1->m)
+          break;
+        if (l1->p[j + 1] == l1->p[j])
+          continue;
+        fusedSchedule->id_[idCounter] = j;
+        fusedSchedule->type_[idCounter] = 0;
+        idCounter++;
+      }
+      for (int i1 = 0; i1 < l2->m; i1++) {
+        if (l2->p[i1] == l2->p[i1 + 1])
+          continue;
+        bool flag = true;
+        for (int j1 = l2->p[i1]; j1 < l2->p[i1 + 1]; j1++) {
+          int neigh = l2->i[j1];
+          if (neigh > i + TileSize || neigh < i) {
+            flag = false;
+            break;
+          }
+        }
+        if (flag && fusedNodes.find(i1) == fusedNodes.end()) {
+          fusedSchedule->id_[idCounter] = i1;
+          fusedSchedule->type_[idCounter] = 1;
+          fusedNodes.insert(i1);
+          idCounter++;
+        }
+      }
+    }
+    fusedSchedule->ptr2_[1] = idCounter;
+    for (int i = 0; i < l2->m; i++){
+      if (l2->p[i] == l2->p[i+1] || fusedNodes.find(i) != fusedNodes.end()){
+        continue;
+      }
+      fusedSchedule->id_[idCounter] = i;
+      fusedSchedule->type_[idCounter] = 1;
+      idCounter++;
+    }
+    fusedSchedule->ptr2_[2] = idCounter;
+    assert(idCounter == allNodesNum);
     return fusedSchedule;
   }
 
@@ -515,7 +558,7 @@ protected:
     Timer t;
     OutTensor->reset();
     t.start();
-    forwardForFusedLayersParallelWithBatching(
+    forwardForFusedLayersWithBatching(
         InTensor->LayerMaskedMatrices[0]->m,
         InTensor->LayerMaskedMatrices[0]->p,
         InTensor->LayerMaskedMatrices[0]->i,
@@ -532,7 +575,7 @@ protected:
 
 public:
   GCNFusedWithOmittingEmptyRows(GnnTensorInputs *In1, Stats *Stat1,
-                                sym_lib::ScheduleParameters SpIn)
-      : GCNSequential(In1, Stat1), Sp(SpIn) {}
+                                sym_lib::ScheduleParameters SpIn, int TileSize1)
+      : GCNSequential(In1, Stat1), Sp(SpIn), TileSize(TileSize1) {}
   ~GCNFusedWithOmittingEmptyRows() { delete FusedCompSet; }
 };

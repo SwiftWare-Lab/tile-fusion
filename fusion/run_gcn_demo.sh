@@ -41,13 +41,13 @@ fi
 for sr in {0.1,0.4,0.7,1}; do
   header=1
   while read line; do
-    for w in {50,100,250,500,1000,5000}; do
-      echo "for $line $sr $w"
+    for t in {4,8,16,32,64,128,256,512,1024}; do
+      echo "for $line $sr $t"
         if [ $header -eq 1 ]; then
-          $BINPATH/gcn_demo -sm ./pyg/data/$line -nt $THREADS -ah -ip $w -sr $sr -bc $BCOL > ./build/logs/gcn_demo_$sr.csv
+          $BINPATH/gcn_demo -sm ./pyg/data/$line -nt $THREADS -ah -tn $t -sr $sr -bc $BCOL > ./build/logs/gcn_demo_$sr.csv
           header=0
         else
-          $BINPATH/gcn_demo -sm ./pyg/data/$line -nt $THREADS -ip $w -sr $sr -bc $BCOL >> ./build/logs/gcn_demo_$sr.csv
+          $BINPATH/gcn_demo -sm ./pyg/data/$line -nt $THREADS -tn $t -sr $sr -bc $BCOL >> ./build/logs/gcn_demo_$sr.csv
         fi
     done
   done < ./pyg/data/mat_list.txt

@@ -31,6 +31,7 @@ int main(const int argc, const char *argv[]) {
   int hiddenDim = 10;
   int numClasses = 3;
   int numThread = sp._num_threads;
+  int tileSize = sp.TileN;
   double *layer1Weight = generateRandomDenseMatrix(features->col, hiddenDim);
   double *layer2Weight = generateRandomDenseMatrix(hiddenDim, numClasses);
 
@@ -59,21 +60,21 @@ int main(const int argc, const char *argv[]) {
   delete gcnParallel;
   delete stats;
 
-  stats = new swiftware::benchmark::Stats("GCN_Fused_Demo", "GCN", 7, tp._matrix_name, numThread);
-  stats->OtherStats["PackingType"] = {Interleaved};
-  GCNFused *gcnFused = new GCNFused(inputs, stats, sp);
-  gcnFused->run();
-  auto gcnFusedStat = gcnFused->printStats();
-  delete gcnFused;
-  delete stats;
-
-//  stats = new swiftware::benchmark::Stats("GCN_FusedWithOmittingEmptyRows_Demo", "GCN", 7, tp._matrix_name, numThread);
+//  stats = new swiftware::benchmark::Stats("GCN_Fused_Demo", "GCN", 7, tp._matrix_name, numThread);
 //  stats->OtherStats["PackingType"] = {Interleaved};
-//  GCNFusedParallelWithOmittingEmptyRows *gcnFusedWithOmittingEmptyRows = new GCNFusedParallelWithOmittingEmptyRows(inputs, stats, sp);
-//  gcnFusedWithOmittingEmptyRows->run();
-//  auto gcnFusedWOERStat = gcnFusedWithOmittingEmptyRows->printStats();
-//  delete gcnFusedWithOmittingEmptyRows;
+//  GCNFused *gcnFused = new GCNFused(inputs, stats, sp);
+//  gcnFused->run();
+//  auto gcnFusedStat = gcnFused->printStats();
+//  delete gcnFused;
 //  delete stats;
+
+  stats = new swiftware::benchmark::Stats("GCN_FusedWithOmittingEmptyRows_Demo", "GCN", 7, tp._matrix_name, numThread);
+  stats->OtherStats["PackingType"] = {Interleaved};
+  GCNFusedWithOmittingEmptyRows *gcnFusedWithOmittingEmptyRows = new GCNFusedWithOmittingEmptyRows(inputs, stats, sp, tileSize);
+  gcnFusedWithOmittingEmptyRows->run();
+  auto gcnFusedWOERStat = gcnFusedWithOmittingEmptyRows->printStats();
+  delete gcnFusedWithOmittingEmptyRows;
+  delete stats;
 
   auto csvInfo = sp.print_csv(true);
   std::string spHeader = std::get<0>(csvInfo);
@@ -87,8 +88,8 @@ int main(const int argc, const char *argv[]) {
     std::cout<<headerStat+spHeader+tpHeader<<std::endl;
   std::cout<< gcnStat <<spStat+tpStat<<std::endl;
   std::cout<< gcnParallelStat <<spStat+tpStat<<std::endl;
-  std::cout<< gcnFusedStat <<spStat+tpStat<<std::endl;
-//  std::cout<< gcnFusedWOERStat <<spStat+tpStat<<std::endl;
+//  std::cout<< gcnFusedStat <<spStat+tpStat<<std::endl;
+  std::cout<< gcnFusedWOERStat <<spStat+tpStat<<std::endl;
 
   delete inputs;
   delete aCSC;
