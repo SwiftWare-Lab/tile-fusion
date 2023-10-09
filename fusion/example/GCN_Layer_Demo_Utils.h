@@ -399,7 +399,7 @@ protected:
       fusedSchedule->type_[idCounter] = 0;
       idCounter++;
       partitionCntr++;
-      if (partitionCntr == iterPerPartitionL1) {
+      if (partitionCntr == iterPerPartitionL1 || i == l1->m - 1) {
         partitionCntr = 0;
         for (int i1 = 0; i1 <= l2->m; i1++) {
           if (l2->p[i1 + 1] == l2->p[i1]) {
@@ -423,7 +423,7 @@ protected:
         p++;
       }
     }
-    fusedSchedule->ptr2_[NumOfThreads] = idCounter;
+//    fusedSchedule->ptr2_[NumOfThreads] = idCounter;
     int unfusedNum = InTensor->LayerMasks[1].size() - fusedNodes.size();
     partitionCntr = 0;
     p = 0;
@@ -496,80 +496,18 @@ protected:
         new sym_lib::MultiDimensionalSet();
     fusedSchedule->n1_ = 2;
     fusedSchedule->ptr1_ = new int[3];
-    fusedSchedule->ptr2_ = new int[2 * NumOfThreads + 1];
+    fusedSchedule->ptr2_ = new int[3];
     fusedSchedule->id_ = new int[InTensor->LayerMasks[0].size() +
                                  InTensor->LayerMasks[1].size()];
     fusedSchedule->type_ = new int[InTensor->LayerMasks[0].size() +
                                    InTensor->LayerMasks[1].size()];
     fusedSchedule->ptr1_[0] = 0;
-    fusedSchedule->ptr1_[1] = NumOfThreads;
-    fusedSchedule->ptr1_[2] = 2 * NumOfThreads;
+    fusedSchedule->ptr1_[1] = 1;
+    fusedSchedule->ptr1_[2] = 2;
     fusedSchedule->ptr2_[0] = 0;
     sym_lib::CSR *l1 = InTensor->LayerMaskedMatrices[0];
     sym_lib::CSR *l2 = InTensor->LayerMaskedMatrices[1];
-    int iterPerPartitionL1 =
-        std::ceil(float(InTensor->LayerMasks[0].size()) / NumOfThreads);
-    std::vector<std::set<int>> l1Partitions(NumOfThreads);
-    int partitionCntr = 0;
-    int p = 0;
-    int idCounter = 0;
-    std::set<int> fusedNodes;
-    for (int i = 0; i < l1->m; i++) {
-      if (l1->p[i + 1] == l1->p[i]) {
-        continue;
-      }
-      l1Partitions[p].insert(i);
-      fusedSchedule->id_[idCounter] = i;
-      fusedSchedule->type_[idCounter] = 0;
-      idCounter++;
-      partitionCntr++;
-      if (partitionCntr == iterPerPartitionL1) {
-        partitionCntr = 0;
-        for (int i1 = 0; i1 <= l2->m; i1++) {
-          if (l2->p[i1 + 1] == l2->p[i1]) {
-            continue;
-          }
-          bool flag = true;
-          for (int j1 = l2->p[i1]; j1 < l2->p[i1 + 1]; j1++) {
-            if (l1Partitions[p].find(l2->i[j1]) == l1Partitions[p].end()) {
-              flag = false;
-              break;
-            }
-          }
-          if (flag && fusedNodes.find(i1) == fusedNodes.end()) {
-            fusedSchedule->id_[idCounter] = i1;
-            fusedSchedule->type_[idCounter] = 1;
-            idCounter++;
-            fusedNodes.insert(i1);
-          }
-        }
-        fusedSchedule->ptr2_[p + 1] = idCounter;
-        p++;
-      }
-    }
-    fusedSchedule->ptr2_[NumOfThreads] = idCounter;
-    int unfusedNum = InTensor->LayerMasks[1].size() - fusedNodes.size();
-    partitionCntr = 0;
-    p = 0;
-    int iterPerPartitionL2 = ceil(float(unfusedNum) / NumOfThreads);
-    for (int i = 0; i < l2->m; i++) {
-      if (l2->p[i + 1] == l2->p[i]) {
-        continue;
-      }
-      if (fusedNodes.find(i) != fusedNodes.end()) {
-        continue;
-      }
-      fusedSchedule->id_[idCounter] = i;
-      fusedSchedule->type_[idCounter] = 1;
-      idCounter++;
-      partitionCntr++;
-      if (partitionCntr == iterPerPartitionL2) {
-        partitionCntr = 0;
-        fusedSchedule->ptr2_[p + 1 + NumOfThreads] = idCounter;
-        p++;
-      }
-    }
-    fusedSchedule->ptr2_[2 * NumOfThreads] = idCounter;
+    //TODO
     return fusedSchedule;
   }
 

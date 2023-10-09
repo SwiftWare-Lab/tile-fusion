@@ -14,7 +14,6 @@ module load NiaEnv/.2022a
 module load intel/2022u2
 export MKL_DIR=$MKLROOT
 module load cmake
-module load gcc
 
 mkdir build
 # shellcheck disable=SC2164
@@ -31,7 +30,7 @@ NUM_THREAD=$THREADS
 echo $NUM_THREAD
 export OMP_NUM_THREADS=$NUM_THREAD
 OMP_NUM_THREADS=$NUM_THREAD; export OMP_NUM_THREADS
-MKL_NUM_THREADS=$NUM_THREAD; export MKL_NUM_THREADS
+MKL_NUM_THREADS=1; export MKL_NUM_THREADS
 export MKL_DYNAMIC=FALSE;
 export OMP_DYNAMIC=FALSE;
 
