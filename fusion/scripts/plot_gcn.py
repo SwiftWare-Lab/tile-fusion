@@ -1,6 +1,8 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import sys
+import os
 
 
 def take_median(df, **kwargs):
@@ -14,26 +16,26 @@ def take_median(df, **kwargs):
     return np.median(time_array)
 
 
-def get_fused_info(matr_list, df, params=None):
+def get_fused_info(matr_list, df, base_column='Iter Per Partition', params=None):
     if params is None:  # TODO: these params are hardcoded for now
         # params = [40, 400, 4000, 8000, 10000]
         # params = [4, 8, 40, 100, 1000]
-        params = [20, 50, 100, 500, 1000]
+        params = df[base_column].unique()
         # params = [10, 20, 50, 100, 200]
-    fused, fused_20, fused_50, fused_100, fused_500, fused_1000 = [], [], [], [], [], []
+    seperated_list = [[] for i in range(params.shape[0])]
     for matr in matr_list:
         cur_matr = df[df['MatrixName'] == matr]
-        fused = cur_matr[cur_matr['Implementation Name'] == 'GCN_Fused_Demo']
-        fused_20.append(take_median(fused[fused['Iter Per Partition'] == params[0]]))
-        fused_50.append(take_median(fused[fused['Iter Per Partition'] == params[1]]))
-        fused_100.append(take_median(fused[fused['Iter Per Partition'] == params[2]]))
-        fused_500.append(take_median(fused[fused['Iter Per Partition'] == params[3]]))
-        fused_1000.append(take_median(fused[fused['Iter Per Partition'] == params[4]]))
-    return fused_20, fused_50, fused_100, fused_500, fused_1000
+        fused = cur_matr[cur_matr['Implementation Name'] == 'GCN_FusedWithOmittingEmptyRows_Demo']
+        for i in range(len(params)):
+            seperated_list[i].append(take_median(fused[fused[base_column] == params[i]]))
+    return seperated_list
 
 
-def plot_gcn():
-    df_fusion = pd.read_csv('./build/logs/gcn_demo.csv')
+def plot_gcn(log_folder, log_file_name):
+    log_file = os.path.join(log_folder, log_file_name)
+    df_fusion = pd.read_csv(log_file)
+    fused_implementation = 'GCN_FusedWithOmittingEmptyRows_Demo'
+    base_param = 'NTile'
     # sort df_fusion based on 'NNZ'
     df_fusion = df_fusion.sort_values(by=['NNZ'])
     # mat_list = df_fusion['MatrixName'].unique()
@@ -50,17 +52,19 @@ def plot_gcn():
     for mat in mat_list:
         cur_mat = df_fusion[df_fusion['MatrixName'] == mat]
         for x in impls:
-            if x != 'GCN_Fused_Demo':
+            if x != fused_implementation:
                 if x in times:
                     times[x].append(take_median(cur_mat[cur_mat['Implementation Name'] == x]))
                 else:
                     times[x] = [take_median(cur_mat[cur_mat['Implementation Name'] == x])]
-    fused_20, fused_50, fused_100, fused_500, fused_1000 = get_fused_info(mat_list,
-                                                                                                              df_fusion)
-    min_fused = np.minimum(
-      np.minimum(np.minimum(np.array(fused_20), np.array(fused_50)), np.array(fused_100)),
-                   np.minimum(np.array(fused_500), np.array(fused_1000)))
-    times['GCN_Fused_Demo'] = min_fused
+    seperated_list = get_fused_info(mat_list, df_fusion, base_column=base_param)
+    min_fused = np.array(seperated_list[0])
+    for x in seperated_list:
+        min_fused = np.minimum(min_fused, np.array(x))
+    times[fused_implementation] = min_fused
+    speedups = {}
+    for impl in impls:
+        speedups[impl] = np.array(times['GCN_Sequential_Demo']) / np.array(times[impl])
     colors = ['purple', 'yellow', 'orange', 'black', 'r', 'g', 'b']
     for impl in impls:
         bars[impl] = [x + k * bar_width for x in br]
@@ -69,15 +73,24 @@ def plot_gcn():
     fig, ax = plt.subplots(figsize=(15, 8))
     for impl, bar in bars.items():
         color = colors.pop()
-        ax.bar(bar, times[impl], width=bar_width, color=color, edgecolor='grey', label=impl)
+        ax.bar(bar, speedups[impl], width=bar_width, color=color, edgecolor='grey', label=impl)
 
     ax.set_xlabel('matrices', fontweight='bold', fontsize=15)
-    ax.set_ylabel('run_time', fontweight='bold', fontsize=15)
+    ax.set_ylabel('speed_up', fontweight='bold', fontsize=15)
     ax.set_xticks([r + 1 * bar_width for r in range(0, len(mat_list))],
                   mat_list)
-
+    plot_path = os.path.join(log_folder, ''.join(log_file_name.split('.')[:-1]) + '.pdf')
     ax.legend()
-    fig.savefig('plot.pdf')
+    fig.savefig(plot_path)
 
 
-plot_gcn()
+def plot_gcn_from_logs_folder(logs_folder):
+    with os.scandir(logs_folder) as entries:
+        for entry in entries:
+            print(entry.name)
+            # if entry is csv file
+            if entry.name.endswith(".csv") and entry.is_file():
+                plot_gcn(logs_folder, entry.name)
+
+
+plot_gcn_from_logs_folder(sys.argv[1])

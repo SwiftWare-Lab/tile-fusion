@@ -4,7 +4,9 @@
 
 #include "SWTensorBench.h"
 #include <math.h>
-#include <mkl.h>
+#ifdef MKL
+  #include <mkl.h>
+#endif
 
 #ifndef SPARSE_FUSION_GCN_LAYER_MKL_DEMO_H
 #define SPARSE_FUSION_GCN_LAYER_MKL_DEMO_H
