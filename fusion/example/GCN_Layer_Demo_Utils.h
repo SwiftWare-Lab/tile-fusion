@@ -141,7 +141,7 @@ struct GnnTensorInputs : public Inputs<double> {
     int *adjMtxP = this->AdjacencyMatrix->p;
     for (auto node : LayerMask) {
       previousLayerMask.emplace(node);
-      for (int j = adjMtxP[node]; j < adjMtxP[node]; j++) {
+      for (int j = adjMtxP[node]; j < adjMtxP[node+1]; j++) {
         previousLayerMask.emplace(adjMtxIndex[j]);
       }
     }
@@ -200,7 +200,11 @@ struct GnnTensorOutputs : public Outputs<double> {
 class GCNSequential : public SWTensorBench<double> {
 protected:
   GnnTensorInputs *InTensor;
-  void setup() override {}
+  void setup() override {
+    this->St->OtherStats["Number of Sampled Nodes"] = {double(InTensor->LayerMasks[1].size())};
+    this->St->OtherStats["Number of First Layer Nodes"] = {double(InTensor->LayerMasks[0].size())};
+    this->St->OtherStats["Number of Fused Nodes"] = {0.};
+  }
 
   bool verify(double &Error) override {
     bool retValue = true;
@@ -256,7 +260,6 @@ public:
 
 class GCNParallel : public GCNSequential {
 protected:
-  void setup() override {}
 
   Timer execute() override {
     Timer t;
@@ -288,7 +291,6 @@ protected:
   sym_lib::ScheduleParameters Sp;
   sym_lib::SparsityProfileInfo SpInfo;
 
-  void setup() override {}
 
   Timer analysis() override {
     Timer t;
@@ -358,7 +360,6 @@ protected:
   sym_lib::ScheduleParameters Sp;
   sym_lib::SparsityProfileInfo SpInfo;
 
-  void setup() override {}
 
   Timer analysis() override {
     Timer t;
@@ -483,8 +484,6 @@ protected:
   sym_lib::SparsityProfileInfo SpInfo;
   int TileSize;
 
-  void setup() override {}
-
   Timer analysis() override {
     Timer t;
     t.start();
@@ -527,7 +526,7 @@ protected:
         bool flag = true;
         for (int j1 = l2->p[i1]; j1 < l2->p[i1 + 1]; j1++) {
           int neigh = l2->i[j1];
-          if (neigh > i + TileSize || neigh < i) {
+          if (neigh >= i + TileSize || neigh < i) {
             flag = false;
             break;
           }
@@ -551,6 +550,7 @@ protected:
     }
     fusedSchedule->ptr2_[2] = idCounter;
     assert(idCounter == allNodesNum);
+    this->St->OtherStats["Number of Fused Nodes"] = {double(fusedNodes.size())};
     return fusedSchedule;
   }
 

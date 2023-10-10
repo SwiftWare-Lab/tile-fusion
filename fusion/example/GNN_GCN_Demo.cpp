@@ -76,6 +76,14 @@ int main(const int argc, const char *argv[]) {
   delete gcnFusedWithOmittingEmptyRows;
   delete stats;
 
+//  stats = new swiftware::benchmark::Stats("GCN_FusedParallelWithOmittingEmptyRows_Demo", "GCN", 7, tp._matrix_name, numThread);
+//  stats->OtherStats["PackingType"] = {Interleaved};
+//  GCNFusedParallelWithOmittingEmptyRows *gcnFusedParallelWithOmittingEmptyRows = new GCNFusedParallelWithOmittingEmptyRows(inputs, stats, sp);
+//  gcnFusedParallelWithOmittingEmptyRows->run();
+//  auto gcnFusedPWOERStat = gcnFusedParallelWithOmittingEmptyRows->printStats();
+//  delete gcnFusedParallelWithOmittingEmptyRows;
+//  delete stats;
+
   auto csvInfo = sp.print_csv(true);
   std::string spHeader = std::get<0>(csvInfo);
   std::string spStat = std::get<1>(csvInfo);
@@ -90,6 +98,7 @@ int main(const int argc, const char *argv[]) {
   std::cout<< gcnParallelStat <<spStat+tpStat<<std::endl;
 //  std::cout<< gcnFusedStat <<spStat+tpStat<<std::endl;
   std::cout<< gcnFusedWOERStat <<spStat+tpStat<<std::endl;
+//  std::cout<< gcnFusedPWOERStat <<spStat+tpStat<<std::endl;
 
   delete inputs;
   delete aCSC;
