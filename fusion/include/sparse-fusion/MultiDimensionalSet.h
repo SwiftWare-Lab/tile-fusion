@@ -7,6 +7,7 @@
 
 #define NULLPNTR nullptr
 #include "sparse-fusion/Fusion_Defs.h"
+#include "aggregation/def.h"
 #include <vector>
 
 namespace sym_lib{
@@ -55,6 +56,7 @@ namespace sym_lib{
 
   ~MultiDimensionalSet() ;
 
+  int getNumberOfFusedNodes(CSR* L2Matrix);
   void print();
   void print_3d();
   int *build_node_to_level();

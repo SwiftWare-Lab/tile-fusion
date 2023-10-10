@@ -319,12 +319,13 @@ protected:
     auto pt = St->OtherStats["PackingType"];
     FusedCompSet = sf01->getFusedCompressed((int)pt[0]);
     //    FusedCompSet->print_3d();
+    St->OtherStats["Number of Fused Nodes"] = {double(FusedCompSet->getNumberOfFusedNodes(InTensor->LayerMaskedMatrices[1]))};
     delete sf01;
     delete mvDAG;
     delete tmpCSCCSR;
     delete Di1;
     delete Di2;
-    //    FusedCompSet->print_3d();
+//        FusedCompSet->print_3d();
     t.stop();
     return t;
   }

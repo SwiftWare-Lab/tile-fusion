@@ -26,6 +26,7 @@ BINPATH=./build/example
 
 THREADS=$1
 BCOL=$2
+MODE=$3
 NUM_THREAD=$THREADS
 echo $NUM_THREAD
 export OMP_NUM_THREADS=$NUM_THREAD
@@ -38,6 +39,7 @@ if ! [ -d ./pyg/data ]; then
  python ./scripts/pyg_data_exporter.py ./pyg
  echo "TEST"
 fi
+if [ $MODE == 1 ]; then
 for sr in {0.1,0.4,0.7,1}; do
   header=1
   while read line; do
@@ -52,3 +54,20 @@ for sr in {0.1,0.4,0.7,1}; do
     done
   done < ./pyg/data/mat_list.txt
 done
+fi
+if [ $MODE == 2 ]; then
+  for sr in {0.1,0.4,0.7,1}; do
+   header=1
+   while read line; do
+     for w in {10,50,100,250,500,1000,2000,4000}; do
+       echo "for $line $sr $w"
+         if [ $header -eq 1 ]; then
+           $BINPATH/gcn_demo -sm ./pyg/data/$line -nt $THREADS -ah -ip $w -sr $sr -bc $BCOL > ./build/logs/gcn_demo_$sr.csv
+           header=0
+         else
+           $BINPATH/gcn_demo -sm ./pyg/data/$line -nt $THREADS -ip $w -sr $sr -bc $BCOL >> ./build/logs/gcn_demo_$sr.csv
+         fi
+     done
+   done < ./pyg/data/mat_list.txt
+  done
+fi
