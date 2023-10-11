@@ -1,17 +1,17 @@
 //
 // Created by mehdi on 6/28/23.
 //
-#include "GCN_Layer_MKL_Demo.h"
+#include "GCN_Layer_MKL_Forward_Utils.h"
 #include "SWTensorBench.h"
 #include "aggregation/def.h"
 #include "aggregation/sparse_utilities.h"
 #include "sparse-fusion/MultiDimensionalSet.h"
 #include "sparse-fusion/SparseFusion.h"
+#include <cassert>
 #include <cmath>
 #include <numeric>
 #include <random>
 #include <set>
-#include <cassert>
 #ifndef SPARSE_FUSION_GCN_LAYER_DEMO_H
 #define SPARSE_FUSION_GCN_LAYER_DEMO_H
 
@@ -29,47 +29,6 @@ double *generateRandomDenseMatrix(int M, int N) {
   return weight;
 }
 
-// void vecMatMul(int M, int N, double *Vec, double *Mat, double *result) {
-//   for (int j = 0; j < N; j++) {
-//     result[j] = 0;
-//     for (int i = 0; i < M; i++) {
-//       result[j] += Vec[i] * Mat[i * N + j];
-//     }
-//   }
-// }
-//
-// void aggregateMessage(int Dim, double *Messages, double *NeighborMessage) {
-//   for (int i = 0; i < Dim; i++) {
-//     Messages[i] += NeighborMessage[i];
-//   }
-// }
-//
-// void normalizeMessage(int Dim, double DegI, double DegJ,
-//                       double *NeighborMessage) {
-//   for (int i = 0; i < Dim; i++) {
-//     NeighborMessage[i] = NeighborMessage[i] / sqrt(DegI * DegJ);
-//   }
-// }
-//
-// void forward(int M, int *Ap, int *Ai, int InputChannelDim, int
-// OutputChannelDim,
-//              double *Degrees, double *Features, double *Weight,
-//              double *Output) {
-//   double *neighborMessage = new double[OutputChannelDim];
-//   for (int i = 0; i < M; i++) {
-//     double *messages = Output + OutputChannelDim * i;
-//     for (int j = Ap[i]; j < Ap[i + 1]; j++) {
-//       int n = Ai[j];
-//       vecMatMul(InputChannelDim, OutputChannelDim,
-//                 Features + (n * InputChannelDim), Weight, neighborMessage);
-//       normalizeMessage(OutputChannelDim, Degrees[i], Degrees[Ai[j]],
-//                        neighborMessage);
-//       aggregateMessage(OutputChannelDim, messages, neighborMessage);
-//     }
-//   }
-//   delete[] neighborMessage;
-// }
-
 struct GnnTensorInputs : public Inputs<double> {
   double *Weight1, *Weight2;
   int *Degrees;
@@ -81,11 +40,16 @@ struct GnnTensorInputs : public Inputs<double> {
   std::vector<std::set<int>> LayerMasks;
   std::vector<sym_lib::CSR *> LayerMaskedMatrices;
 
-  void computeDegrees() {
+  void normalizeAdjacencyMatrix() {
     this->Degrees = new int[this->NumOfNodes];
     for (int i = 0; i < this->NumOfNodes; i++) {
       this->Degrees[i] +=
           this->AdjacencyMatrix->p[i + 1] - this->AdjacencyMatrix->p[i];
+    }
+    for(int i = 0; i < NumOfNodes; i++){
+      for(int j = AdjacencyMatrix->p[i]; j < AdjacencyMatrix->p[i+1]; j++){
+        AdjacencyMatrix->x[j] = AdjacencyMatrix->x[j]/sqrt(Degrees[i]*Degrees[AdjacencyMatrix->i[j]]);
+      }
     }
   }
 
@@ -159,11 +123,11 @@ struct GnnTensorInputs : public Inputs<double> {
     this->CorrectSol = nullptr;
     this->AdjacencyMatrix = sym_lib::csc_to_csr(AdjMtxCSC);
     this->LayerMasks = generateLayerMasks();
+    this->normalizeAdjacencyMatrix();
     for (auto mask : LayerMasks) {
       LayerMaskedMatrices.emplace_back(
           this->generateMaskedMatrix(mask, this->AdjacencyMatrix));
     }
-    this->computeDegrees();
   }
 
   ~GnnTensorInputs() {
@@ -579,4 +543,29 @@ public:
                                 sym_lib::ScheduleParameters SpIn, int TileSize1)
       : GCNSequential(In1, Stat1), Sp(SpIn), TileSize(TileSize1) {}
   ~GCNFusedWithOmittingEmptyRows() { delete FusedCompSet; }
+};
+
+class GCNFusedWithRegisterReuse : public GCNSequential {
+protected:
+  int TileSize;
+  Timer execute() override {
+    Timer t;
+    OutTensor->reset();
+    t.start();
+    forwardForFusedLayersWithBatchingRegisterReuse(
+        InTensor->LayerMaskedMatrices[0]->m,
+        InTensor->LayerMaskedMatrices[0]->p,
+        InTensor->LayerMaskedMatrices[0]->i,
+        InTensor->LayerMaskedMatrices[1]->p,
+        InTensor->LayerMaskedMatrices[1]->i, InTensor->FeatureMatrix->col,
+        InTensor->EmbedDim, InTensor->NumOfClasses, InTensor->Degrees,
+        InTensor->FeatureMatrix->a, InTensor->Weight1, InTensor->Weight2,
+        OutTensor->SecondLayerOutput, OutTensor->FirstLayerOutput,
+        TileSize);
+    t.stop();
+    return t;
+  }
+
+public:
+  GCNFusedWithRegisterReuse(GnnTensorInputs *In1, Stats *Stat1, int TileSize1) : GCNSequential(In1, Stat1), TileSize(TileSize1) {}
 };

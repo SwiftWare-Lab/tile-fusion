@@ -28,7 +28,7 @@ int main(const int argc, const char *argv[]) {
   tp._dim2 = aCSCFull->n;
   tp._nnz = aCSCFull->nnz;
   tp._density = (double)tp._nnz / (double)(tp._dim1 * tp._dim2);
-  int hiddenDim = 10;
+  int hiddenDim = 50;
   int numClasses = 3;
   int numThread = sp._num_threads;
   int tileSize = sp.TileN;
@@ -47,26 +47,34 @@ int main(const int argc, const char *argv[]) {
   gcnGnn->run();
   inputs->CorrectSol = new double[inputs->AdjacencyMatrix->m*inputs->NumOfClasses];
   std::copy(gcnGnn->OutTensor->SecondLayerOutput, gcnGnn->OutTensor->SecondLayerOutput+inputs->AdjacencyMatrix->m*inputs->NumOfClasses, inputs->CorrectSol);
+//  for (int i = 0; i < inputs->NumOfNodes; i++){
+//    for (int j = 0; j < inputs->NumOfClasses; j++){
+//      std::cout << gcnGnn->OutTensor->SecondLayerOutput[i*inputs->NumOfClasses+j] << " ";
+//    }
+//    std::cout << std::endl;
+//  }
+  std::cout << std::endl;
+  std::cout << std::endl;
   auto headerStat = gcnGnn->printStatsHeader();
   auto gcnStat = gcnGnn->printStats();
   delete gcnGnn;
   delete stats;
 
-  stats = new swiftware::benchmark::Stats("GCN_Parallel_Demo", "GCN", 7, tp._matrix_name, numThread);
-  stats->OtherStats["PackingType"] = {Separated};
-  GCNParallel *gcnParallel = new GCNParallel(inputs, stats);
-  gcnParallel->run();
-  auto gcnParallelStat = gcnParallel->printStats();
-  delete gcnParallel;
-  delete stats;
+//  stats = new swiftware::benchmark::Stats("GCN_Parallel_Demo", "GCN", 7, tp._matrix_name, numThread);
+//  stats->OtherStats["PackingType"] = {Separated};
+//  GCNParallel *gcnParallel = new GCNParallel(inputs, stats);
+//  gcnParallel->run();
+//  auto gcnParallelStat = gcnParallel->printStats();
+//  delete gcnParallel;
+//  delete stats;
 
-  stats = new swiftware::benchmark::Stats("GCN_Fused_Demo", "GCN", 7, tp._matrix_name, numThread);
-  stats->OtherStats["PackingType"] = {Interleaved};
-  GCNFused *gcnFused = new GCNFused(inputs, stats, sp);
-  gcnFused->run();
-  auto gcnFusedStat = gcnFused->printStats();
-  delete gcnFused;
-  delete stats;
+//  stats = new swiftware::benchmark::Stats("GCN_Fused_Demo", "GCN", 7, tp._matrix_name, numThread);
+//  stats->OtherStats["PackingType"] = {Interleaved};
+//  GCNFused *gcnFused = new GCNFused(inputs, stats, sp);
+//  gcnFused->run();
+//  auto gcnFusedStat = gcnFused->printStats();
+//  delete gcnFused;
+//  delete stats;
 
 //  stats = new swiftware::benchmark::Stats("GCN_FusedWithOmittingEmptyRows_Demo", "GCN", 7, tp._matrix_name, numThread);
 //  stats->OtherStats["PackingType"] = {Interleaved};
@@ -75,6 +83,20 @@ int main(const int argc, const char *argv[]) {
 //  auto gcnFusedWOERStat = gcnFusedWithOmittingEmptyRows->printStats();
 //  delete gcnFusedWithOmittingEmptyRows;
 //  delete stats;
+
+  stats = new swiftware::benchmark::Stats("GCN_FusedWithOmittingEmptyRows_Demo", "GCN", 7, tp._matrix_name, numThread);
+  stats->OtherStats["PackingType"] = {Interleaved};
+  GCNFusedWithRegisterReuse *gcnFusedWithRegisterReuse = new GCNFusedWithRegisterReuse(inputs, stats, tileSize);
+  gcnFusedWithRegisterReuse->run();
+//  for (int i = 0; i < inputs->NumOfNodes; i++){
+//    for (int j = 0; j < inputs->NumOfClasses; j++){
+//       std::cout << gcnFusedWithRegisterReuse->OutTensor->SecondLayerOutput[i*inputs->NumOfClasses+j] << " ";
+//    }
+//    std::cout << std::endl;
+//  }
+  auto gcnFusedWRRStat = gcnFusedWithRegisterReuse->printStats();
+  delete gcnFusedWithRegisterReuse;
+  delete stats;
 
 //  stats = new swiftware::benchmark::Stats("GCN_FusedParallelWithOmittingEmptyRows_Demo", "GCN", 7, tp._matrix_name, numThread);
 //  stats->OtherStats["PackingType"] = {Interleaved};
@@ -95,9 +117,10 @@ int main(const int argc, const char *argv[]) {
   if(tp.print_header)
     std::cout<<headerStat+spHeader+tpHeader<<std::endl;
   std::cout<< gcnStat <<spStat+tpStat<<std::endl;
-  std::cout<< gcnParallelStat <<spStat+tpStat<<std::endl;
-  std::cout<< gcnFusedStat <<spStat+tpStat<<std::endl;
+//  std::cout<< gcnParallelStat <<spStat+tpStat<<std::endl;
+//  std::cout<< gcnFusedStat <<spStat+tpStat<<std::endl;
 //  std::cout<< gcnFusedWOERStat <<spStat+tpStat<<std::endl;
+  std::cout<< gcnFusedWRRStat <<spStat+tpStat<<std::endl;
 //  std::cout<< gcnFusedPWOERStat <<spStat+tpStat<<std::endl;
 
   delete inputs;

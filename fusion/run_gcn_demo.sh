@@ -40,21 +40,24 @@ if ! [ -d ./pyg/data ]; then
  echo "TEST"
 fi
 if [ $MODE == 1 ]; then
-for sr in {0.1,0.4,0.7,1}; do
+#for sr in {0.1,0.4,0.7,1}; do
   header=1
+  sr=1
   while read line; do
+    echo $line
     for t in {4,8,16,32,64,128,256,512,1024}; do
       echo "for $line $sr $t"
         if [ $header -eq 1 ]; then
-          $BINPATH/gcn_demo -sm ./pyg/data/$line -nt $THREADS -ah -tn $t -sr $sr -bc $BCOL > ./build/logs/gcn_demo_$sr.csv
+          $BINPATH/gcn_demo -sm ./pyg/banded/$line -nt $THREADS -ah -tn $t -sr $sr -bc $BCOL > ./build/logs/gcn_demo_$sr.csv
           header=0
         else
-          $BINPATH/gcn_demo -sm ./pyg/data/$line -nt $THREADS -tn $t -sr $sr -bc $BCOL >> ./build/logs/gcn_demo_$sr.csv
+          $BINPATH/gcn_demo -sm ./pyg/banded/$line -nt $THREADS -tn $t -sr $sr -bc $BCOL >> ./build/logs/gcn_demo_$sr.csv
         fi
     done
-  done < ./pyg/data/mat_list.txt
-done
+  done < ./pyg/banded/mat_list.txt
+#done
 fi
+
 if [ $MODE == 2 ]; then
   for sr in {0.1,0.4,0.7,1}; do
    header=1

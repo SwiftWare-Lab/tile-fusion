@@ -30,6 +30,22 @@ def get_fused_info(matr_list, df, base_column='Iter Per Partition', params=None)
             seperated_list[i].append(take_median(fused[fused[base_column] == params[i]]))
     return seperated_list
 
+def print_fusion_ratios(log_folder, log_file_name):
+    log_file = os.path.join(log_folder, log_file_name)
+    df_fusion = pd.read_csv(log_file)
+    fused_implementation = 'GCN_FusedWithOmittingEmptyRows_Demo'
+    base_param = 'NTile'
+    # calculate fusion ratios
+    mat_list = df_fusion['MatrixName'].unique()
+    for mat in mat_list:
+        print(mat, "------------------")
+        cur_mat = df_fusion[df_fusion['MatrixName'] == mat]
+        fused = cur_mat[cur_mat['Implementation Name'] == fused_implementation]
+        for x in fused[base_param].unique():
+            fused_x = fused[fused[base_param] == x]
+            for i in range(fused_x.shape[0]):
+                print(x, fused_x.iloc[i]['Number of Fused Nodes0'] / fused_x.iloc[i]['Number of Sampled Nodes0'])
+
 
 def plot_gcn(log_folder, log_file_name):
     log_file = os.path.join(log_folder, log_file_name)
@@ -87,10 +103,11 @@ def plot_gcn(log_folder, log_file_name):
 def plot_gcn_from_logs_folder(logs_folder):
     with os.scandir(logs_folder) as entries:
         for entry in entries:
-            print(entry.name)
+            print(entry.name, "-----------------------------------------------")
             # if entry is csv file
             if entry.name.endswith(".csv") and entry.is_file():
                 plot_gcn(logs_folder, entry.name)
+                # print_fusion_ratios(logs_folder, entry.name)
 
 
 plot_gcn_from_logs_folder(sys.argv[1])
