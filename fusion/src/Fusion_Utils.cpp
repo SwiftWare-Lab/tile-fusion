@@ -63,6 +63,12 @@ argparse::ArgumentParser addArguments() {
       .help("Specify ratio of sampling")
       .scan<'g', float>();
 
+  program.add_argument("-en", "--experiment-name")
+      .default_value("gcnFusedSequential")
+      .help("Specify the experiment");
+
+
+
   return program;
 }
 
@@ -90,12 +96,9 @@ void parse_args(const int Argc, const char **Argv, ScheduleParameters *Sp,
     Tp->_mode = "MTX";
     Tp->_matrix_name =
         Tp->_matrix_path.substr(Tp->_matrix_path.find_last_of("/\\") + 1);
-  }
-  //  Sp->_num_threads = 6;
+  };
   Sp->_num_threads = program.get<int>("-nt");
   int useLevelCoarsening = 1;
-  //   useLevelCoarsening = atoi(Argv[3]);
-  //   Sp->_lbc_agg = atoi(Argv[4]);
   useLevelCoarsening = 4;
   Sp->_lbc_agg = 4;
   if (auto featMtxPath = program.present("-fm")) {
@@ -104,28 +107,8 @@ void parse_args(const int Argc, const char **Argv, ScheduleParameters *Sp,
   } else {
     Tp->_feature_mode = "Random";
   }
-  //  if (auto samplingRatio = program.present<double>("-sr")){
   Tp->_sampling_ratio = program.get<float>("-sr");
-  //  }
-  //  else{
-  //    Tp->_sampling_ratio = 0.3;
-  //  }
-  //  if(Argc >= 4)
-  //   useLevelCoarsening = atoi(Argv[3]);
-  //  if(Argc >= 5)
-  //   Sp->_lbc_agg = atoi(Argv[4]);
-  //  Tp->_mode = "MTX";
-  //  Tp->_matrix_name =
-  //  Tp->_matrix_path.substr(Tp->_matrix_path.find_last_of("/\\") + 1);;
-  //  if(Argc >= 6)
-  //   Tp->print_header = atoi(Argv[5]);
-  //  if(Argc >= 7)
-  //   Tp->_b_cols = atoi(Argv[6]);
-  //  if(Argc >= 8)
-  //   Sp->IterPerPartition = atoi(Argv[7]);
-  //  if(Argc >= 9)
-  //   Sp->TileN = atoi(Argv[8]);
-  // }
+  Tp->expariment_name = program.get("-en");
 
   Tp->print_header = 0;
   if (program.is_used("-ah"))

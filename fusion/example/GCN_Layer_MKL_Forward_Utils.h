@@ -185,9 +185,10 @@ void forwardForFusedLayersWithBatchingRegisterReuse(
     int HiddenChannelDim, int OutputChannelDim, int *Degrees, double *Features,
     double *Layer1Weight, double *Layer2Weight, double *Output,
     double *HiddenOutput, int TileSize) {
-  double *tempOut = new double[TileSize * HiddenChannelDim]{};
+  double tempOut[TileSize * HiddenChannelDim];
   int flag = false;
   for (int i = 0; i < M; i += TileSize) {
+    std::memset(tempOut, 0, sizeof(double) * HiddenChannelDim * TileSize);
     for (int ii = 0; ii < TileSize; ii++) {
       if (ii + i >= M) {
         flag = true;
@@ -223,9 +224,7 @@ void forwardForFusedLayersWithBatchingRegisterReuse(
     else
       std::copy(tempOut, tempOut + HiddenChannelDim * TileSize,
                 HiddenOutput + i * HiddenChannelDim);
-    std::memset(tempOut, 0, sizeof(double) * HiddenChannelDim * TileSize);
   }
-  delete[] tempOut;
   for (int i = 0; i < M; i += TileSize) {
     int ii = TileSize - 1;
     int ii1 = 0;

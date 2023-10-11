@@ -51,6 +51,7 @@ namespace sym_lib{
   SYM_ORDERING _order_method; // type of reordering
   std::string _matrix_name{}, _matrix_path{}, _feature_matrix_path{};
   float _sampling_ratio{};
+  std::string expariment_name{};
   std::string _mode{}; //"Random" or "MTX"
   std::string _feature_mode{}; // "Random" or "MTX"
   std::string _algorithm_choice{};
