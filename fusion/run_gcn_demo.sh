@@ -9,6 +9,33 @@
 #SBATCH --output="fusion.%j.%N.out"
 #SBATCH -t 11:59:00
 #SBATCH --constraint=cascade
+DATA="./pyg/banded/mat_list.txt"
+while getopts ":e:t:f:m:" arg; do
+
+  case "${arg}" in
+    e)
+      MODE=$OPTARG
+      ;;
+    f)
+      BCOL=$OPTARG
+      ;;
+    t)
+      THREADS=$OPTARG
+      ;;
+    m)
+      DATA=$OPTARG
+      ;;
+    *) echo "Usage:
+    -e Experiment=tri-banded        Choose a baseline to compare with Fused SpMM SpMM(Current base lines: SpMM_SpMM_Demo_UnFusedParallel,SpMM_SpMM_MKL)
+    -c Feature Dimension=4                                         num of the columns of the dense matrix
+    -t THRD=40                                        num of threads
+    -m DATA=./pyg/data                                    path of matrices data"
+      exit 0
+  esac
+done
+
+
+
 
 module load NiaEnv/.2022a
 module load intel/2022u2

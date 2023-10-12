@@ -252,4 +252,18 @@ void forwardForFusedLayersWithBatchingRegisterReuse(
     }
   }
 }
+
+void forwardWithGeMMAndSpMM(int NumOfNodes, sparse_matrix_t AdjMatrix,
+                            double *Features, int FeatDim, double *Weight,
+                            int OutDim, double *Output) {
+  double *temp = new double[NumOfNodes * OutDim]{};
+  matrix_descr d;
+  d.type = SPARSE_MATRIX_TYPE_GENERAL;
+  cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, NumOfNodes, OutDim,
+              FeatDim, 1., Features, FeatDim, Weight, OutDim, 0., temp,
+              OutDim);
+  mkl_sparse_d_mm(SPARSE_OPERATION_NON_TRANSPOSE, 1, AdjMatrix, d, SPARSE_LAYOUT_ROW_MAJOR, temp,
+                  OutDim, OutDim, 0, Output, OutDim);
+  delete []temp;
+}
 #endif // SPARSE_FUSION_GCN_LAYER_MKL_DEMO_H
