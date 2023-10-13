@@ -46,9 +46,11 @@ struct GnnTensorInputs : public Inputs<double> {
       this->Degrees[i] +=
           this->AdjacencyMatrix->p[i + 1] - this->AdjacencyMatrix->p[i];
     }
-    for(int i = 0; i < NumOfNodes; i++){
-      for(int j = AdjacencyMatrix->p[i]; j < AdjacencyMatrix->p[i+1]; j++){
-        AdjacencyMatrix->x[j] = AdjacencyMatrix->x[j]/sqrt(Degrees[i]*Degrees[AdjacencyMatrix->i[j]]);
+    for (int i = 0; i < NumOfNodes; i++) {
+      for (int j = AdjacencyMatrix->p[i]; j < AdjacencyMatrix->p[i + 1]; j++) {
+        AdjacencyMatrix->x[j] =
+            AdjacencyMatrix->x[j] /
+            sqrt(Degrees[i] * Degrees[AdjacencyMatrix->i[j]]);
       }
     }
   }
@@ -105,7 +107,7 @@ struct GnnTensorInputs : public Inputs<double> {
     int *adjMtxP = this->AdjacencyMatrix->p;
     for (auto node : LayerMask) {
       previousLayerMask.emplace(node);
-      for (int j = adjMtxP[node]; j < adjMtxP[node+1]; j++) {
+      for (int j = adjMtxP[node]; j < adjMtxP[node + 1]; j++) {
         previousLayerMask.emplace(adjMtxIndex[j]);
       }
     }
@@ -165,8 +167,10 @@ class GCNSequential : public SWTensorBench<double> {
 protected:
   GnnTensorInputs *InTensor;
   void setup() override {
-    this->St->OtherStats["Number of Sampled Nodes"] = {double(InTensor->LayerMasks[1].size())};
-    this->St->OtherStats["Number of First Layer Nodes"] = {double(InTensor->LayerMasks[0].size())};
+    this->St->OtherStats["Number of Sampled Nodes"] = {
+        double(InTensor->LayerMasks[1].size())};
+    this->St->OtherStats["Number of First Layer Nodes"] = {
+        double(InTensor->LayerMasks[0].size())};
     this->St->OtherStats["Number of Fused Nodes"] = {0.};
   }
 
@@ -224,7 +228,6 @@ public:
 
 class GCNParallel : public GCNSequential {
 protected:
-
   Timer execute() override {
     Timer t;
     OutTensor->reset();
@@ -255,7 +258,6 @@ protected:
   sym_lib::ScheduleParameters Sp;
   sym_lib::SparsityProfileInfo SpInfo;
 
-
   Timer analysis() override {
     Timer t;
     t.start();
@@ -283,13 +285,14 @@ protected:
     auto pt = St->OtherStats["PackingType"];
     FusedCompSet = sf01->getFusedCompressed((int)pt[0]);
     //    FusedCompSet->print_3d();
-    St->OtherStats["Number of Fused Nodes"] = {double(FusedCompSet->getNumberOfFusedNodes(InTensor->LayerMaskedMatrices[1]))};
+    St->OtherStats["Number of Fused Nodes"] = {double(
+        FusedCompSet->getNumberOfFusedNodes(InTensor->LayerMaskedMatrices[1]))};
     delete sf01;
     delete mvDAG;
     delete tmpCSCCSR;
     delete Di1;
     delete Di2;
-//        FusedCompSet->print_3d();
+    //        FusedCompSet->print_3d();
     t.stop();
     return t;
   }
@@ -324,7 +327,6 @@ protected:
   sym_lib::MultiDimensionalSet *FusedCompSet;
   sym_lib::ScheduleParameters Sp;
   sym_lib::SparsityProfileInfo SpInfo;
-
 
   Timer analysis() override {
     Timer t;
@@ -390,7 +392,7 @@ protected:
         p++;
       }
     }
-//    fusedSchedule->ptr2_[NumOfThreads] = idCounter;
+    //    fusedSchedule->ptr2_[NumOfThreads] = idCounter;
     int unfusedNum = InTensor->LayerMasks[1].size() - fusedNodes.size();
     partitionCntr = 0;
     p = 0;
@@ -437,7 +439,7 @@ protected:
 
 public:
   GCNFusedParallelWithOmittingEmptyRows(GnnTensorInputs *In1, Stats *Stat1,
-                                sym_lib::ScheduleParameters SpIn)
+                                        sym_lib::ScheduleParameters SpIn)
       : GCNSequential(In1, Stat1), Sp(SpIn) {}
   ~GCNFusedParallelWithOmittingEmptyRows() { delete FusedCompSet; }
 };
@@ -463,8 +465,8 @@ protected:
     fusedSchedule->n1_ = 2;
     fusedSchedule->ptr1_ = new int[3];
     fusedSchedule->ptr2_ = new int[3];
-    int allNodesNum = InTensor->LayerMasks[0].size() +
-                      InTensor->LayerMasks[1].size();
+    int allNodesNum =
+        InTensor->LayerMasks[0].size() + InTensor->LayerMasks[1].size();
     fusedSchedule->id_ = new int[allNodesNum];
     fusedSchedule->type_ = new int[allNodesNum];
     fusedSchedule->ptr1_[0] = 0;
@@ -475,7 +477,7 @@ protected:
     sym_lib::CSR *l2 = InTensor->LayerMaskedMatrices[1];
     std::set<int> fusedNodes;
     int idCounter = 0;
-    for (int i = 0; i < l1->m; i+=TileSize) {
+    for (int i = 0; i < l1->m; i += TileSize) {
       for (int j = i; j < i + TileSize; j++) {
         if (j >= l1->m)
           break;
@@ -505,8 +507,8 @@ protected:
       }
     }
     fusedSchedule->ptr2_[1] = idCounter;
-    for (int i = 0; i < l2->m; i++){
-      if (l2->p[i] == l2->p[i+1] || fusedNodes.find(i) != fusedNodes.end()){
+    for (int i = 0; i < l2->m; i++) {
+      if (l2->p[i] == l2->p[i + 1] || fusedNodes.find(i) != fusedNodes.end()) {
         continue;
       }
       fusedSchedule->id_[idCounter] = i;
@@ -560,12 +562,60 @@ protected:
         InTensor->LayerMaskedMatrices[1]->i, InTensor->FeatureMatrix->col,
         InTensor->EmbedDim, InTensor->NumOfClasses, InTensor->Degrees,
         InTensor->FeatureMatrix->a, InTensor->Weight1, InTensor->Weight2,
-        OutTensor->SecondLayerOutput, OutTensor->FirstLayerOutput,
-        TileSize);
+        OutTensor->SecondLayerOutput, OutTensor->FirstLayerOutput, TileSize);
     t.stop();
     return t;
   }
 
 public:
-  GCNFusedWithRegisterReuse(GnnTensorInputs *In1, Stats *Stat1, int TileSize1) : GCNSequential(In1, Stat1), TileSize(TileSize1) {}
+  GCNFusedWithRegisterReuse(GnnTensorInputs *In1, Stats *Stat1, int TileSize1)
+      : GCNSequential(In1, Stat1), TileSize(TileSize1) {}
+};
+
+class GCNOneLayerFused : public GCNSequential {
+protected:
+  Timer execute() override {
+    OutTensor->reset();
+    Timer t;
+    t.start();
+    forwardForOneLayer(InTensor->LayerMaskedMatrices[0]->m,
+                       InTensor->LayerMaskedMatrices[0]->p,
+                       InTensor->LayerMaskedMatrices[0]->i,
+                       InTensor->FeatureMatrix->col, InTensor->EmbedDim,
+                       InTensor->Degrees, InTensor->FeatureMatrix->a,
+                       InTensor->Weight1, OutTensor->FirstLayerOutput);
+    t.stop();
+    return t;
+  }
+
+public:
+  GCNOneLayerFused(GnnTensorInputs *In1, Stats *Stat1)
+      : GCNSequential(In1, Stat1) {}
+};
+
+class GCNOneLayerMKL : public GCNSequential {
+  sparse_matrix_t MKLAdj;
+
+protected:
+  Timer execute() override {
+    OutTensor->reset();
+    Timer t;
+    t.start();
+    forwardForOneLayerWithGeMMAndSpMM(
+        InTensor->AdjacencyMatrix->m, MKLAdj, InTensor->FeatureMatrix->a,
+        InTensor->FeatureMatrix->col, InTensor->Weight1, InTensor->EmbedDim,
+        OutTensor->FirstLayerOutput);
+    t.stop();
+    return t;
+  }
+
+public:
+  GCNOneLayerMKL(GnnTensorInputs *In1, Stats *Stat1)
+      : GCNSequential(In1, Stat1) {
+    mkl_sparse_d_create_csr(
+        &MKLAdj, SPARSE_INDEX_BASE_ZERO, this->InTensor->NumOfNodes,
+        this->InTensor->NumOfNodes, this->InTensor->AdjacencyMatrix->p,
+        this->InTensor->AdjacencyMatrix->p + 1,
+        this->InTensor->AdjacencyMatrix->i, this->InTensor->AdjacencyMatrix->x);
+  }
 };

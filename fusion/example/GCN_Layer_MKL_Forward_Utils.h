@@ -253,7 +253,7 @@ void forwardForFusedLayersWithBatchingRegisterReuse(
   }
 }
 
-void forwardWithGeMMAndSpMM(int NumOfNodes, sparse_matrix_t AdjMatrix,
+void forwardForOneLayerWithGeMMAndSpMM(int NumOfNodes, sparse_matrix_t AdjMatrix,
                             double *Features, int FeatDim, double *Weight,
                             int OutDim, double *Output) {
   double *temp = new double[NumOfNodes * OutDim]{};
