@@ -41,6 +41,21 @@ if(TARGET MKL::MKL)
             $<LINK_ONLY:MKL::MKL>
     )
 
+    add_executable(gcn_layer_demo
+            GCN_Layer_Demo.cpp
+            )
+
+    target_include_directories(gcn_layer_demo PRIVATE
+            $<TARGET_PROPERTY:MKL::MKL,INTERFACE_INCLUDE_DIRECTORIES>
+            )
+
+    target_link_libraries(gcn_layer_demo
+            fusion
+            swbench::swbench
+            $<LINK_ONLY:MKL::MKL>
+            )
+
+
 endif()
 
 add_executable(dag_decomp

@@ -574,13 +574,32 @@ public:
 
 class GCNOneLayerFused : public GCNSequential {
 protected:
+
+  bool verify(double &Error) override {
+    bool retValue = true;
+    if (In->CorrectSol == nullptr)
+      return true;
+    double infNorm = 0;
+    for (int i = 0; i < InTensor->NumOfNodes * InTensor->EmbedDim; ++i) {
+      if (std::abs(OutTensor->FirstLayerOutput[i] - In->CorrectSol[i]) >
+          infNorm) {
+        infNorm = std::abs(OutTensor->FirstLayerOutput[i] - In->CorrectSol[i]);
+      }
+    }
+    Error = (double)infNorm;
+    if (infNorm > In->Threshold) {
+      retValue = false;
+    }
+    return retValue;
+  }
+
   Timer execute() override {
     OutTensor->reset();
     Timer t;
     t.start();
-    forwardForOneLayer(InTensor->LayerMaskedMatrices[0]->m,
-                       InTensor->LayerMaskedMatrices[0]->p,
-                       InTensor->LayerMaskedMatrices[0]->i,
+    forwardForOneLayer(InTensor->AdjacencyMatrix->m,
+                       InTensor->AdjacencyMatrix->p,
+                       InTensor->AdjacencyMatrix->i,
                        InTensor->FeatureMatrix->col, InTensor->EmbedDim,
                        InTensor->Degrees, InTensor->FeatureMatrix->a,
                        InTensor->Weight1, OutTensor->FirstLayerOutput);
@@ -593,7 +612,7 @@ public:
       : GCNSequential(In1, Stat1) {}
 };
 
-class GCNOneLayerMKL : public GCNSequential {
+class GCNOneLayerMKL : public GCNOneLayerFused {
   sparse_matrix_t MKLAdj;
 
 protected:
@@ -602,7 +621,7 @@ protected:
     Timer t;
     t.start();
     forwardForOneLayerWithGeMMAndSpMM(
-        InTensor->AdjacencyMatrix->m, MKLAdj, InTensor->FeatureMatrix->a,
+        InTensor->NumOfNodes, MKLAdj, InTensor->FeatureMatrix->a,
         InTensor->FeatureMatrix->col, InTensor->Weight1, InTensor->EmbedDim,
         OutTensor->FirstLayerOutput);
     t.stop();
@@ -611,11 +630,15 @@ protected:
 
 public:
   GCNOneLayerMKL(GnnTensorInputs *In1, Stats *Stat1)
-      : GCNSequential(In1, Stat1) {
+      : GCNOneLayerFused(In1, Stat1) {
+    MKL_INT* LLI_A = new MKL_INT[this->InTensor->NumOfNodes + 1]();
+    for (int l = 0; l < this->InTensor->NumOfNodes + 1; ++l) {
+      LLI_A[l] = this->InTensor->AdjacencyMatrix->p[l];
+    }
     mkl_sparse_d_create_csr(
         &MKLAdj, SPARSE_INDEX_BASE_ZERO, this->InTensor->NumOfNodes,
-        this->InTensor->NumOfNodes, this->InTensor->AdjacencyMatrix->p,
-        this->InTensor->AdjacencyMatrix->p + 1,
+        this->InTensor->NumOfNodes, LLI_A,
+        LLI_A + 1,
         this->InTensor->AdjacencyMatrix->i, this->InTensor->AdjacencyMatrix->x);
   }
 };

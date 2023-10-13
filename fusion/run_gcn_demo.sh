@@ -117,3 +117,17 @@ if [ $MODE == 3 ]; then
     done
   done < ./pyg/banded/mat_list.txt
 fi
+
+if [ $MODE == 4 ]; then
+  header=1
+  sr=1
+  while read line; do
+    echo $line
+        if [ $header -eq 1 ]; then
+          $BINPATH/gcn_layer_demo -sm ./pyg/banded/$line -nt $THREADS -ah -sr $sr -bc $BCOL > ./build/logs/gcn_demo_$sr.csv
+          header=0
+        else
+          $BINPATH/gcn_layer_demo -sm ./pyg/banded/$line -nt $THREADS -sr $sr -bc $BCOL >> ./build/logs/gcn_demo_$sr.csv
+        fi
+  done < ./pyg/banded/mat_list.txt
+fi
