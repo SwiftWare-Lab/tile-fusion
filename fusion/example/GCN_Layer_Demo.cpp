@@ -37,7 +37,7 @@ int main(const int argc, const char *argv[]) {
       layer1Weight, layer2Weight, features, aCSCFull, aCSCFull->m, hiddenDim,
       numClasses, numOfSamples, numThread, 1, "GCN_Demo");
 
-  stats = new swiftware::benchmark::Stats("GCN_SequentialFusedLayer", "GCN", 7,
+  stats = new swiftware::benchmark::Stats("GCN_SequentialFusedLayer", "GCN", 1,
                                           tp._matrix_name, numThread);
   stats->OtherStats["PackingType"] = {Separated};
   GCNSequential *gcnSequentialFusedLayer = new GCNOneLayerFused(inputs, stats);
@@ -61,7 +61,7 @@ int main(const int argc, const char *argv[]) {
   delete stats;
   delete gcnSequentialFusedLayer;
 
-  stats = new swiftware::benchmark::Stats("GCN_MKLUnfusedLayer", "GCN", 7,
+  stats = new swiftware::benchmark::Stats("GCN_MKLUnfusedLayer", "GCN", 1,
                                           tp._matrix_name, numThread);
   GCNOneLayerMKL *gcnOneLayerMkl = new GCNOneLayerMKL(inputs, stats);
   gcnOneLayerMkl->run();
@@ -88,4 +88,8 @@ int main(const int argc, const char *argv[]) {
     std::cout << headerStat + spHeader + tpHeader << std::endl;
   std::cout << gcnSequentialFusedLayerStat << spStat + tpStat << std::endl;
   std::cout << gcnOneLayerMKLStat << spStat + tpStat << std::endl;
+
+  delete inputs;
+  delete aCSC;
+  delete aCSCFull;
 }

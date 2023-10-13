@@ -43,7 +43,7 @@ struct GnnTensorInputs : public Inputs<double> {
   void normalizeAdjacencyMatrix() {
     this->Degrees = new int[this->NumOfNodes];
     for (int i = 0; i < this->NumOfNodes; i++) {
-      this->Degrees[i] +=
+      this->Degrees[i] =
           this->AdjacencyMatrix->p[i + 1] - this->AdjacencyMatrix->p[i];
     }
     for (int i = 0; i < NumOfNodes; i++) {
@@ -201,12 +201,14 @@ protected:
     forwardForOneLayer(InTensor->LayerMaskedMatrices[0]->m,
                        InTensor->LayerMaskedMatrices[0]->p,
                        InTensor->LayerMaskedMatrices[0]->i,
+                       InTensor->LayerMaskedMatrices[0]->x,
                        InTensor->FeatureMatrix->col, InTensor->EmbedDim,
                        InTensor->Degrees, InTensor->FeatureMatrix->a,
                        InTensor->Weight1, OutTensor->FirstLayerOutput);
     forwardForOneLayer(InTensor->LayerMaskedMatrices[1]->m,
                        InTensor->LayerMaskedMatrices[1]->p,
-                       InTensor->LayerMaskedMatrices[1]->i, InTensor->EmbedDim,
+                       InTensor->LayerMaskedMatrices[1]->i,
+                       InTensor->LayerMaskedMatrices[0]->x, InTensor->EmbedDim,
                        InTensor->NumOfClasses, InTensor->Degrees,
                        OutTensor->FirstLayerOutput, InTensor->Weight2,
                        OutTensor->SecondLayerOutput);
@@ -235,13 +237,15 @@ protected:
     forwardForOneLayerParallel(
         InTensor->LayerMaskedMatrices[0]->m,
         InTensor->LayerMaskedMatrices[0]->p,
-        InTensor->LayerMaskedMatrices[0]->i, InTensor->FeatureMatrix->col,
+        InTensor->LayerMaskedMatrices[0]->i,
+        InTensor->LayerMaskedMatrices[0]->x, InTensor->FeatureMatrix->col,
         InTensor->EmbedDim, InTensor->Degrees, InTensor->FeatureMatrix->a,
         InTensor->Weight1, OutTensor->FirstLayerOutput, InTensor->NumThreads);
     forwardForOneLayerParallel(
         InTensor->LayerMaskedMatrices[1]->m,
         InTensor->LayerMaskedMatrices[1]->p,
-        InTensor->LayerMaskedMatrices[1]->i, InTensor->EmbedDim,
+        InTensor->LayerMaskedMatrices[1]->i,
+        InTensor->LayerMaskedMatrices[1]->x, InTensor->EmbedDim,
         InTensor->NumOfClasses, InTensor->Degrees, OutTensor->FirstLayerOutput,
         InTensor->Weight2, OutTensor->SecondLayerOutput, InTensor->NumThreads);
     t.stop();
@@ -305,8 +309,10 @@ protected:
         InTensor->LayerMaskedMatrices[0]->m,
         InTensor->LayerMaskedMatrices[0]->p,
         InTensor->LayerMaskedMatrices[0]->i,
+        InTensor->LayerMaskedMatrices[0]->x,
         InTensor->LayerMaskedMatrices[1]->p,
-        InTensor->LayerMaskedMatrices[1]->i, InTensor->FeatureMatrix->col,
+        InTensor->LayerMaskedMatrices[1]->i,
+        InTensor->LayerMaskedMatrices[1]->x, InTensor->FeatureMatrix->col,
         InTensor->EmbedDim, InTensor->NumOfClasses, InTensor->Degrees,
         InTensor->FeatureMatrix->a, InTensor->Weight1, InTensor->Weight2,
         OutTensor->SecondLayerOutput, OutTensor->FirstLayerOutput,
@@ -426,8 +432,10 @@ protected:
         InTensor->LayerMaskedMatrices[0]->m,
         InTensor->LayerMaskedMatrices[0]->p,
         InTensor->LayerMaskedMatrices[0]->i,
+        InTensor->LayerMaskedMatrices[0]->x,
         InTensor->LayerMaskedMatrices[1]->p,
-        InTensor->LayerMaskedMatrices[1]->i, InTensor->FeatureMatrix->col,
+        InTensor->LayerMaskedMatrices[1]->i,
+        InTensor->LayerMaskedMatrices[1]->x, InTensor->FeatureMatrix->col,
         InTensor->EmbedDim, InTensor->NumOfClasses, InTensor->Degrees,
         InTensor->FeatureMatrix->a, InTensor->Weight1, InTensor->Weight2,
         OutTensor->SecondLayerOutput, OutTensor->FirstLayerOutput,
@@ -529,8 +537,10 @@ protected:
         InTensor->LayerMaskedMatrices[0]->m,
         InTensor->LayerMaskedMatrices[0]->p,
         InTensor->LayerMaskedMatrices[0]->i,
+        InTensor->LayerMaskedMatrices[0]->x,
         InTensor->LayerMaskedMatrices[1]->p,
-        InTensor->LayerMaskedMatrices[1]->i, InTensor->FeatureMatrix->col,
+        InTensor->LayerMaskedMatrices[1]->i,
+        InTensor->LayerMaskedMatrices[1]->x, InTensor->FeatureMatrix->col,
         InTensor->EmbedDim, InTensor->NumOfClasses, InTensor->Degrees,
         InTensor->FeatureMatrix->a, InTensor->Weight1, InTensor->Weight2,
         OutTensor->SecondLayerOutput, OutTensor->FirstLayerOutput,
@@ -558,8 +568,10 @@ protected:
         InTensor->LayerMaskedMatrices[0]->m,
         InTensor->LayerMaskedMatrices[0]->p,
         InTensor->LayerMaskedMatrices[0]->i,
+        InTensor->LayerMaskedMatrices[0]->x,
         InTensor->LayerMaskedMatrices[1]->p,
-        InTensor->LayerMaskedMatrices[1]->i, InTensor->FeatureMatrix->col,
+        InTensor->LayerMaskedMatrices[1]->i,
+        InTensor->LayerMaskedMatrices[1]->x, InTensor->FeatureMatrix->col,
         InTensor->EmbedDim, InTensor->NumOfClasses, InTensor->Degrees,
         InTensor->FeatureMatrix->a, InTensor->Weight1, InTensor->Weight2,
         OutTensor->SecondLayerOutput, OutTensor->FirstLayerOutput, TileSize);
@@ -574,7 +586,6 @@ public:
 
 class GCNOneLayerFused : public GCNSequential {
 protected:
-
   bool verify(double &Error) override {
     bool retValue = true;
     if (In->CorrectSol == nullptr)
@@ -597,12 +608,12 @@ protected:
     OutTensor->reset();
     Timer t;
     t.start();
-    forwardForOneLayer(InTensor->AdjacencyMatrix->m,
-                       InTensor->AdjacencyMatrix->p,
-                       InTensor->AdjacencyMatrix->i,
-                       InTensor->FeatureMatrix->col, InTensor->EmbedDim,
-                       InTensor->Degrees, InTensor->FeatureMatrix->a,
-                       InTensor->Weight1, OutTensor->FirstLayerOutput);
+    forwardForOneLayer(
+        InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->p,
+        InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x,
+        InTensor->FeatureMatrix->col, InTensor->EmbedDim, InTensor->Degrees,
+        InTensor->FeatureMatrix->a, InTensor->Weight1,
+        OutTensor->FirstLayerOutput);
     t.stop();
     return t;
   }
@@ -631,14 +642,10 @@ protected:
 public:
   GCNOneLayerMKL(GnnTensorInputs *In1, Stats *Stat1)
       : GCNOneLayerFused(In1, Stat1) {
-    MKL_INT* LLI_A = new MKL_INT[this->InTensor->NumOfNodes + 1]();
-    for (int l = 0; l < this->InTensor->NumOfNodes + 1; ++l) {
-      LLI_A[l] = this->InTensor->AdjacencyMatrix->p[l];
-    }
     mkl_sparse_d_create_csr(
         &MKLAdj, SPARSE_INDEX_BASE_ZERO, this->InTensor->NumOfNodes,
-        this->InTensor->NumOfNodes, LLI_A,
-        LLI_A + 1,
-        this->InTensor->AdjacencyMatrix->i, this->InTensor->AdjacencyMatrix->x);
+        this->InTensor->NumOfNodes, InTensor->AdjacencyMatrix->p,
+        InTensor->AdjacencyMatrix->p + 1, this->InTensor->AdjacencyMatrix->i,
+        this->InTensor->AdjacencyMatrix->x);
   }
 };
