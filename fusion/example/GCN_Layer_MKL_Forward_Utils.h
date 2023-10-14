@@ -26,12 +26,7 @@ void forwardForOneLayer(int M, int *Ap, int *Ai, double *Ax, int InputChannelDim
                   Weight, OutputChannelDim, Features + (n * InputChannelDim), 1,
                   1., // beta
                   messages, 1);
-      for (int k = 0; k < OutputChannelDim; k++){
-        std::cout << messages[k] << " ";
-      }
-      std::cout << std::endl;
     }
-    std::cout << std::endl;
   }
 
 }
@@ -268,14 +263,6 @@ void forwardForOneLayerWithGeMMAndSpMM(int NumOfNodes, sparse_matrix_t AdjMatrix
   cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, NumOfNodes, OutDim,
               FeatDim, 1., Features, FeatDim, Weight, OutDim, 0., temp,
               OutDim);
-  for (int i = 0; i < NumOfNodes; i++){
-    for (int j = 0; j < OutDim; j++){
-      std::cout <<
-          temp[i*OutDim+j] << " ";
-    }
-    std::cout << std::endl;
-  }
-  std::cout << std::endl;
   mkl_sparse_d_mm(SPARSE_OPERATION_NON_TRANSPOSE, 1, AdjMatrix, d, SPARSE_LAYOUT_ROW_MAJOR, temp,
                   OutDim, OutDim, 0, Output, OutDim);
   delete []temp;

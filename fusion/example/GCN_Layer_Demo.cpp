@@ -35,21 +35,13 @@ int main(const int argc, const char *argv[]) {
   int numOfSamples = std::ceil(tp._sampling_ratio * tp._dim1);
   GnnTensorInputs *inputs = new GnnTensorInputs(
       layer1Weight, layer2Weight, features, aCSCFull, aCSCFull->m, hiddenDim,
-      numClasses, numOfSamples, numThread, 1, "GCN_Demo");
+      numClasses, numOfSamples, numThread, 7, "GCN_Demo");
 
-  stats = new swiftware::benchmark::Stats("GCN_SequentialFusedLayer", "GCN", 1,
+  stats = new swiftware::benchmark::Stats("GCN_SequentialFusedLayer", "GCN", 7,
                                           tp._matrix_name, numThread);
   stats->OtherStats["PackingType"] = {Separated};
   GCNSequential *gcnSequentialFusedLayer = new GCNOneLayerFused(inputs, stats);
   gcnSequentialFusedLayer->run();
-    for (int i = 0; i < inputs->NumOfNodes; i++){
-      for (int j = 0; j < inputs->EmbedDim; j++){
-        std::cout <<
-        gcnSequentialFusedLayer->OutTensor->FirstLayerOutput[i*inputs->EmbedDim+j] << " ";
-      }
-      std::cout << std::endl;
-    }
-    std::cout << std::endl;
   inputs->CorrectSol =
       new double[inputs->AdjacencyMatrix->m * inputs->EmbedDim];
   std::copy(gcnSequentialFusedLayer->OutTensor->FirstLayerOutput,
@@ -61,18 +53,12 @@ int main(const int argc, const char *argv[]) {
   delete stats;
   delete gcnSequentialFusedLayer;
 
-  stats = new swiftware::benchmark::Stats("GCN_MKLUnfusedLayer", "GCN", 1,
+  stats = new swiftware::benchmark::Stats("GCN_MKLUnfusedLayer", "GCN", 7,
                                           tp._matrix_name, numThread);
+  stats->OtherStats["PackingType"] = {Separated};
   GCNOneLayerMKL *gcnOneLayerMkl = new GCNOneLayerMKL(inputs, stats);
   gcnOneLayerMkl->run();
   auto gcnOneLayerMKLStat = gcnOneLayerMkl->printStats();
-  for (int i = 0; i < inputs->NumOfNodes; i++){
-      for (int j = 0; j < inputs->EmbedDim; j++){
-        std::cout <<
-            gcnOneLayerMkl->OutTensor->FirstLayerOutput[i*inputs->EmbedDim+j] << " ";
-      }
-      std::cout << std::endl;
-  }
   delete stats;
   delete gcnOneLayerMkl;
 
