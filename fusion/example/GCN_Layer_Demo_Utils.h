@@ -322,6 +322,47 @@ public:
   ~GCNFused() { delete FusedCompSet; }
 };
 
+
+class GCNFusedBanded : public GCNSequential {
+protected:
+  sym_lib::MultiDimensionalSet *FusedCompSet;
+  sym_lib::ScheduleParameters Sp;
+  sym_lib::SparsityProfileInfo SpInfo;
+
+  Timer analysis() override {
+    Timer t;
+    t.start();
+    //        FusedCompSet->print_3d();
+    t.stop();
+    return t;
+  }
+
+  Timer execute() override {
+    Timer t;
+    OutTensor->reset();
+    t.start();
+    forwardForFusedLayersWithBatchingBanded3(
+        InTensor->LayerMaskedMatrices[0]->m,
+        InTensor->LayerMaskedMatrices[0]->p,
+        InTensor->LayerMaskedMatrices[0]->i,
+        InTensor->LayerMaskedMatrices[1]->p,
+        InTensor->LayerMaskedMatrices[1]->i, InTensor->FeatureMatrix->col,
+        InTensor->EmbedDim, InTensor->NumOfClasses, InTensor->Degrees,
+        InTensor->FeatureMatrix->a, InTensor->Weight1, InTensor->Weight2,
+        OutTensor->SecondLayerOutput, OutTensor->FirstLayerOutput,
+        InTensor->NumThreads, 0, nullptr,
+        nullptr, nullptr, nullptr);
+    t.stop();
+    return t;
+  }
+
+public:
+  GCNFusedBanded(GnnTensorInputs *In1, Stats *Stat1, sym_lib::ScheduleParameters SpIn)
+      : GCNSequential(In1, Stat1), Sp(SpIn) {}
+  ~GCNFusedBanded() { }
+};
+
+
 class GCNFusedParallelWithOmittingEmptyRows : public GCNSequential {
 protected:
   sym_lib::MultiDimensionalSet *FusedCompSet;

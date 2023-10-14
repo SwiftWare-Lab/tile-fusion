@@ -179,6 +179,61 @@ void forwardForFusedLayersWithBatching(
   }
 }
 
+void forwardForFusedLayersWithBatchingBanded3(
+    int M, int *Ap, int *Ai, int *Bp, int *Bi, int InputChannelDim,
+    int HiddenChannelDim, int OutputChannelDim, int *Degrees, double *Features,
+    double *Layer1Weight, double *Layer2Weight, double *Output,
+    double *HiddenOutput, int NumThreads, int LevelNo, const int *LevelPtr,
+    const int *ParPtr, const int *Partition, const int *ParType) {
+  // compute for i = 0
+  int i = 0;
+  double *messages = HiddenOutput + HiddenChannelDim * i;
+  for (int j = Ap[i]; j < Ap[i + 1]; j++) {
+    int n = Ai[j];
+    cblas_dgemv(CblasRowMajor, CblasTrans, InputChannelDim,
+                HiddenChannelDim,
+                1., // alpha
+                Layer1Weight, HiddenChannelDim,
+                Features + (n * InputChannelDim), 1, 1., // beta
+                messages, 1);
+  }
+  // iterate for i = 1 to M-2
+  for (i = 1; i < M-1; ++i) {
+    messages = HiddenOutput + HiddenChannelDim * i;
+    for (int j = Ap[i]; j < Ap[i + 1]; j++) {
+      int n = Ai[j];
+      cblas_dgemv(CblasRowMajor, CblasTrans, InputChannelDim,
+                  HiddenChannelDim,
+                  1., // alpha
+                  Layer1Weight, HiddenChannelDim,
+                  Features + (n * InputChannelDim), 1, 1., // beta
+                  messages, 1);
+    }
+    messages = Output + OutputChannelDim * i;
+    for (int j = Bp[i-1]; j < Bp[i]; j++) {
+      int n = Bi[j];
+      cblas_dgemv(CblasRowMajor, CblasTrans, HiddenChannelDim,
+                  OutputChannelDim,
+                  1., // alpha
+                  Layer2Weight, OutputChannelDim,
+                  HiddenOutput + (n * HiddenChannelDim), 1, 1., // beta
+                  messages, 1);
+    }
+  }
+  // computation for i = M-1
+  i = M-1;
+  messages = Output + OutputChannelDim * i;
+  for (int j = Bp[i-1]; j < Bp[i]; j++) {
+    int n = Bi[j];
+    cblas_dgemv(CblasRowMajor, CblasTrans, HiddenChannelDim,
+                OutputChannelDim,
+                1., // alpha
+                Layer2Weight, OutputChannelDim,
+                HiddenOutput + (n * HiddenChannelDim), 1, 1., // beta
+                messages, 1);
+  }
+}
+
 // only works without batching for now
 void forwardForFusedLayersWithBatchingRegisterReuse(
     int M, int *Ap, int *Ai, int *Bp, int *Bi, int InputChannelDim,

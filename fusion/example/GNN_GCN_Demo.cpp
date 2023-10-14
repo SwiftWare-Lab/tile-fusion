@@ -131,7 +131,22 @@ int main(const int argc, const char *argv[]) {
     auto gcnFusedWRRStat = gcnFusedWithRegisterReuse->printStats();
     delete gcnFusedWithRegisterReuse;
     delete stats;
+
+
+    stats = new swiftware::benchmark::Stats("GCN_FusedBanded_Demo",
+                                        "GCN", 7,
+                                            tp._matrix_name, numThread);
+    stats->OtherStats["PackingType"] = {Interleaved};
+    GCNFusedBanded *gcnFusedBanded3 =
+        new GCNFusedBanded(inputs, stats, sp);
+    gcnFusedBanded3->run();
+    auto gcnFusedBandedStat = gcnFusedBanded3->printStats();
+    delete gcnFusedBanded3;
+    delete stats;
+
+
     std::cout << gcnFusedWRRStat << spStat + tpStat << std::endl;
+    std::cout << gcnFusedBandedStat << spStat + tpStat << std::endl;
   }
 
   if (tp.expariment_name == "GCNFusedSequential") {
@@ -151,4 +166,5 @@ int main(const int argc, const char *argv[]) {
   delete inputs;
   delete aCSC;
   delete aCSCFull;
+  return 0;
 }
