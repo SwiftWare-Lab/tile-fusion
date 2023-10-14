@@ -122,6 +122,7 @@ if [ $MODE == 4 ]; then
   header=1
   sr=1
   while read line; do
+    for BCOL in {50,100,200,500,100}; do
     echo $line
         if [ $header -eq 1 ]; then
           $BINPATH/gcn_layer_demo -sm ./pyg/banded/$line -nt $THREADS -ah -sr $sr -bc $BCOL > ./build/logs/gcn_demo_$sr.csv
@@ -129,5 +130,6 @@ if [ $MODE == 4 ]; then
         else
           $BINPATH/gcn_layer_demo -sm ./pyg/banded/$line -nt $THREADS -sr $sr -bc $BCOL >> ./build/logs/gcn_demo_$sr.csv
         fi
+        done
   done < ./pyg/banded/mat_list.txt
 fi

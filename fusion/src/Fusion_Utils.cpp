@@ -67,7 +67,10 @@ argparse::ArgumentParser addArguments() {
       .default_value("gcnFusedSequential")
       .help("Specify the experiment");
 
-
+//  program.add_argument("-ed", "--embed-dim")
+//      .default_value(10)
+//      .help("Specify the embedding dimensions.")
+//      .scan<'i', int>();
 
   return program;
 }

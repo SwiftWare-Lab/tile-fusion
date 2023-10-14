@@ -26,7 +26,7 @@ int main(const int argc, const char *argv[]) {
   tp._dim2 = aCSCFull->n;
   tp._nnz = aCSCFull->nnz;
   tp._density = (double)tp._nnz / (double)(tp._dim1 * tp._dim2);
-  int hiddenDim = 8;
+  int hiddenDim = 128;
   int numClasses = 3;
   int numThread = sp._num_threads;
   double *layer1Weight = generateRandomDenseMatrix(features->col, hiddenDim);
