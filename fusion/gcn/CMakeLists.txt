@@ -42,6 +42,21 @@ if(TARGET MKL::MKL)
             swbench::swbench
             $<LINK_ONLY:MKL::MKL>
     )
+else ()
+    add_executable(gcn_demo
+            GNN_GCN_Demo.cpp
+    )
 
+    target_link_libraries(gcn_demo
+            fusion
+            swbench::swbench
+    )
 
+#    add_executable(gcn_layer_demo
+#            GCN_Layer_Demo.cpp
+#    )
+#
+#    target_link_libraries(gcn_layer_demo
+#            fusion
+#            swbench::swbench)
 endif()

@@ -1,7 +1,11 @@
 //
 // Created by mehdi on 6/28/23.
 //
-#include "GCN_Layer_MKL_Forward_Utils.h"
+#ifdef MKL
+  #include "GCN_Layer_MKL_Forward_Utils.h"
+#else
+  #include "GCN_Layer_Forward_Utils.h"
+#endif
 #include "SWTensorBench.h"
 #include "aggregation/def.h"
 #include "aggregation/sparse_utilities.h"
@@ -452,6 +456,7 @@ public:
   ~GCNFusedParallelWithOmittingEmptyRows() { delete FusedCompSet; }
 };
 
+
 class GCNFusedWithOmittingEmptyRows : public GCNSequential {
 protected:
   sym_lib::MultiDimensionalSet *FusedCompSet;
@@ -557,6 +562,8 @@ public:
   ~GCNFusedWithOmittingEmptyRows() { delete FusedCompSet; }
 };
 
+
+
 class GCNFusedWithRegisterReuse : public GCNSequential {
 protected:
   int TileSize;
@@ -623,6 +630,7 @@ public:
       : GCNSequential(In1, Stat1) {}
 };
 
+#ifdef MKL
 class GCNOneLayerMKL : public GCNOneLayerFused {
   sparse_matrix_t MKLAdj;
 
@@ -649,3 +657,4 @@ public:
         this->InTensor->AdjacencyMatrix->x);
   }
 };
+#endif

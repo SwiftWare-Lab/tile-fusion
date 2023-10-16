@@ -26,36 +26,6 @@ if(TARGET MKL::MKL)
             swbench::swbench
             OpenMP::OpenMP_CXX
             )
-
-    add_executable(gcn_demo
-            ../gcn/GNN_GCN_Demo.cpp
-    )
-
-    target_include_directories(gcn_demo PRIVATE
-            $<TARGET_PROPERTY:MKL::MKL,INTERFACE_INCLUDE_DIRECTORIES>
-    )
-
-    target_link_libraries(gcn_demo
-            fusion
-            swbench::swbench
-            $<LINK_ONLY:MKL::MKL>
-    )
-
-    add_executable(gcn_layer_demo
-            ../gcn/GCN_Layer_Demo.cpp
-            )
-
-    target_include_directories(gcn_layer_demo PRIVATE
-            $<TARGET_PROPERTY:MKL::MKL,INTERFACE_INCLUDE_DIRECTORIES>
-            )
-
-    target_link_libraries(gcn_layer_demo
-            fusion
-            swbench::swbench
-            $<LINK_ONLY:MKL::MKL>
-            )
-
-
 endif()
 
 add_executable(dag_decomp
