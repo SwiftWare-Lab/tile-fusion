@@ -28,7 +28,7 @@ if(TARGET MKL::MKL)
             )
 
     add_executable(gcn_demo
-            GNN_GCN_Demo.cpp
+            ../gcn/GNN_GCN_Demo.cpp
     )
 
     target_include_directories(gcn_demo PRIVATE
@@ -42,7 +42,7 @@ if(TARGET MKL::MKL)
     )
 
     add_executable(gcn_layer_demo
-            GCN_Layer_Demo.cpp
+            ../gcn/GCN_Layer_Demo.cpp
             )
 
     target_include_directories(gcn_layer_demo PRIVATE
