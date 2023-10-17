@@ -75,15 +75,15 @@ int main(const int argc, const char *argv[]) {
     std::cout << headerStat + spHeader + tpHeader << std::endl;
   std::cout << gcnStat << spStat + tpStat << std::endl;
 
-  stats = new swiftware::benchmark::Stats("GCN_Parallel_Demo", "GCN", 7,
-                                          tp._matrix_name, numThread);
-  stats->OtherStats["PackingType"] = {Separated};
-  GCNParallel *gcnParallel = new GCNParallel(inputs, stats);
-  gcnParallel->run();
-  auto gcnParallelStat = gcnParallel->printStats();
-  delete gcnParallel;
-  delete stats;
-  std::cout << gcnParallelStat << spStat + tpStat << std::endl;
+//  stats = new swiftware::benchmark::Stats("GCN_Parallel_Demo", "GCN", 7,
+//                                          tp._matrix_name, numThread);
+//  stats->OtherStats["PackingType"] = {Separated};
+//  GCNParallel *gcnParallel = new GCNParallel(inputs, stats);
+//  gcnParallel->run();
+//  auto gcnParallelStat = gcnParallel->printStats();
+//  delete gcnParallel;
+//  delete stats;
+//  std::cout << gcnParallelStat << spStat + tpStat << std::endl;
 
   if (tp.expariment_name == "GCNFusedParallel") {
     stats = new swiftware::benchmark::Stats("GCN_Fused_Demo", "GCN", 7,
@@ -146,6 +146,17 @@ int main(const int argc, const char *argv[]) {
     delete stats;
 
     std::cout << gcnFusedWOERStat << spStat + tpStat << std::endl;
+  }
+  if (tp.expariment_name == "GCNIntraFusedVsUnfused") {
+    stats = new swiftware::benchmark::Stats("GCN_IntraUnfused_Demo", "GCN", 7,
+                                            tp._matrix_name, numThread);
+    stats->OtherStats["PackingType"] = {Separated};
+    GCNIntraUnfusedMKL *gcnIntraUnfusedMKL = new GCNIntraUnfusedMKL(inputs, stats);
+    gcnIntraUnfusedMKL->run();
+    auto gcnIntraUnfusedMKLStat = gcnIntraUnfusedMKL->printStats();
+    delete gcnIntraUnfusedMKL;
+    delete stats;
+    std::cout << gcnIntraUnfusedMKLStat << spStat + tpStat << std::endl;
   }
   delete inputs;
   delete aCSC;

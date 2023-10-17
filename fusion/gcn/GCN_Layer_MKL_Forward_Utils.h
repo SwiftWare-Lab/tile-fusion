@@ -14,9 +14,9 @@
 #define SPARSE_FUSION_GCN_LAYER_MKL_DEMO_H
 using namespace swiftware::benchmark;
 
-void forwardForOneLayer(int M, int *Ap, int *Ai, double *Ax, int InputChannelDim,
-                        int OutputChannelDim, int *Degrees, double *Features,
-                        double *Weight, double *Output) {
+void forwardForOneLayer(int M, int *Ap, int *Ai, double *Ax,
+                        int InputChannelDim, int OutputChannelDim, int *Degrees,
+                        double *Features, double *Weight, double *Output) {
   for (int i = 0; i < M; i++) {
     double *messages = Output + OutputChannelDim * i;
     for (int j = Ap[i]; j < Ap[i + 1]; j++) {
@@ -28,12 +28,11 @@ void forwardForOneLayer(int M, int *Ap, int *Ai, double *Ax, int InputChannelDim
                   messages, 1);
     }
   }
-
 }
 
-void forwardForOneLayerParallel(int M, int *Ap, int *Ai, double *Ax, int InputChannelDim,
-                                int OutputChannelDim, int *Degrees,
-                                double *Features, double *Weight,
+void forwardForOneLayerParallel(int M, int *Ap, int *Ai, double *Ax,
+                                int InputChannelDim, int OutputChannelDim,
+                                int *Degrees, double *Features, double *Weight,
                                 double *Output, int NumThreads) {
 #pragma omp parallel num_threads(NumThreads)
   {
@@ -53,14 +52,12 @@ void forwardForOneLayerParallel(int M, int *Ap, int *Ai, double *Ax, int InputCh
   }
 }
 
-void forwardForFusedLayersParallel(int M, int *Ap, int *Ai, double *Ax, int InputChannelDim,
-                                   int HiddenChannelDim, int OutputChannelDim,
-                                   int *Degrees, double *Features,
-                                   double *Layer1Weight, double *Layer2Weight,
-                                   double *Output, double *HiddenOutput,
-                                   int NumThreads, int LevelNo,
-                                   const int *LevelPtr, const int *ParPtr,
-                                   const int *Partition, const int *ParType) {
+void forwardForFusedLayersParallel(
+    int M, int *Ap, int *Ai, double *Ax, int InputChannelDim,
+    int HiddenChannelDim, int OutputChannelDim, int *Degrees, double *Features,
+    double *Layer1Weight, double *Layer2Weight, double *Output,
+    double *HiddenOutput, int NumThreads, int LevelNo, const int *LevelPtr,
+    const int *ParPtr, const int *Partition, const int *ParType) {
   for (int i1 = 0; i1 < LevelNo; i1++) {
 #pragma omp parallel num_threads(this->NThreads)
     {
@@ -99,11 +96,12 @@ void forwardForFusedLayersParallel(int M, int *Ap, int *Ai, double *Ax, int Inpu
 }
 
 void forwardForFusedLayersParallelWithBatching(
-    int M, int *Ap, int *Ai, double *Ax, int *Bp, int *Bi, double *Bx, int InputChannelDim,
-    int HiddenChannelDim, int OutputChannelDim, int *Degrees, double *Features,
-    double *Layer1Weight, double *Layer2Weight, double *Output,
-    double *HiddenOutput, int NumThreads, int LevelNo, const int *LevelPtr,
-    const int *ParPtr, const int *Partition, const int *ParType) {
+    int M, int *Ap, int *Ai, double *Ax, int *Bp, int *Bi, double *Bx,
+    int InputChannelDim, int HiddenChannelDim, int OutputChannelDim,
+    int *Degrees, double *Features, double *Layer1Weight, double *Layer2Weight,
+    double *Output, double *HiddenOutput, int NumThreads, int LevelNo,
+    const int *LevelPtr, const int *ParPtr, const int *Partition,
+    const int *ParType) {
   for (int i1 = 0; i1 < LevelNo; i1++) {
 #pragma omp parallel num_threads(this->NThreads)
     {
@@ -142,11 +140,12 @@ void forwardForFusedLayersParallelWithBatching(
 }
 
 void forwardForFusedLayersWithBatching(
-    int M, int *Ap, int *Ai, double *Ax, int *Bp, int *Bi, double *Bx, int InputChannelDim,
-    int HiddenChannelDim, int OutputChannelDim, int *Degrees, double *Features,
-    double *Layer1Weight, double *Layer2Weight, double *Output,
-    double *HiddenOutput, int NumThreads, int LevelNo, const int *LevelPtr,
-    const int *ParPtr, const int *Partition, const int *ParType) {
+    int M, int *Ap, int *Ai, double *Ax, int *Bp, int *Bi, double *Bx,
+    int InputChannelDim, int HiddenChannelDim, int OutputChannelDim,
+    int *Degrees, double *Features, double *Layer1Weight, double *Layer2Weight,
+    double *Output, double *HiddenOutput, int NumThreads, int LevelNo,
+    const int *LevelPtr, const int *ParPtr, const int *Partition,
+    const int *ParType) {
   for (int i1 = 0; i1 < LevelNo; i1++) {
     for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; j1++) {
       for (int k1 = ParPtr[j1]; k1 < ParPtr[j1 + 1]; ++k1) {
@@ -182,10 +181,10 @@ void forwardForFusedLayersWithBatching(
 
 // only works without batching for now
 void forwardForFusedLayersWithBatchingRegisterReuse(
-    int M, int *Ap, int *Ai, double *Ax, int *Bp, int *Bi, double *Bx, int InputChannelDim,
-    int HiddenChannelDim, int OutputChannelDim, int *Degrees, double *Features,
-    double *Layer1Weight, double *Layer2Weight, double *Output,
-    double *HiddenOutput, int TileSize) {
+    int M, int *Ap, int *Ai, double *Ax, int *Bp, int *Bi, double *Bx,
+    int InputChannelDim, int HiddenChannelDim, int OutputChannelDim,
+    int *Degrees, double *Features, double *Layer1Weight, double *Layer2Weight,
+    double *Output, double *HiddenOutput, int TileSize) {
   double tempOut[TileSize * HiddenChannelDim];
   int flag = false;
   for (int i = 0; i < M; i += TileSize) {
@@ -254,17 +253,102 @@ void forwardForFusedLayersWithBatchingRegisterReuse(
   }
 }
 
-void forwardForOneLayerWithGeMMAndSpMM(int NumOfNodes, sparse_matrix_t AdjMatrix,
-                            double *Features, int FeatDim, double *Weight,
-                            int OutDim, double *Output) {
+void forwardForOneLayerWithGeMMAndSpMM(int NumOfNodes,
+                                       sparse_matrix_t AdjMatrix,
+                                       double *Features, int FeatDim,
+                                       double *Weight, int OutDim,
+                                       double *Output) {
   double *temp = new double[NumOfNodes * OutDim]{};
   matrix_descr d;
   d.type = SPARSE_MATRIX_TYPE_GENERAL;
   cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, NumOfNodes, OutDim,
-              FeatDim, 1., Features, FeatDim, Weight, OutDim, 0., temp,
-              OutDim);
-  mkl_sparse_d_mm(SPARSE_OPERATION_NON_TRANSPOSE, 1, AdjMatrix, d, SPARSE_LAYOUT_ROW_MAJOR, temp,
-                  OutDim, OutDim, 0, Output, OutDim);
-  delete []temp;
+              FeatDim, 1., Features, FeatDim, Weight, OutDim, 0., temp, OutDim);
+  mkl_sparse_d_mm(SPARSE_OPERATION_NON_TRANSPOSE, 1, AdjMatrix, d,
+                  SPARSE_LAYOUT_ROW_MAJOR, temp, OutDim, OutDim, 0, Output,
+                  OutDim);
+  delete[] temp;
+}
+
+void forwardForOneLayerFromCSC(int M, int *Ap, int *Ai, double *Ax,
+                               int InputChannelDim, int OutputChannelDim,
+                               int *Degrees, double *Features, double *Weight,
+                               double *Output) {
+  double cache[OutputChannelDim];
+  for (int i = 0; i < M; i++) {
+    bool useCache = false;
+    std::memset(cache, 0, sizeof(double *) * OutputChannelDim);
+    for (int j = Ap[i]; j < Ap[i + 1]; j++) {
+      if (!useCache) {
+        cblas_dgemv(
+            CblasRowMajor, CblasTrans, InputChannelDim, OutputChannelDim,
+            1, // alpha
+            Weight, OutputChannelDim, Features + (i * InputChannelDim), 1,
+            1., // beta
+            cache, 1);
+        useCache = true;
+      }
+      for (int k = 0; k < OutputChannelDim; k++) {
+        Output[Ai[j] * OutputChannelDim + k] += Ax[j] * cache[k];
+      }
+    }
+  }
+}
+
+void forwardForOneLayerFromCSCParallel(int M, int *Ap, int *Ai, double *Ax,
+                                       int InputChannelDim,
+                                       int OutputChannelDim, int *Degrees,
+                                       double *Features, double *Weight,
+                                       double *Output, int NumThreads) {
+  double cache[OutputChannelDim];
+#pragma omp parallel num_threads(NumThreads)
+  {
+#pragma omp parallel for
+    for (int i = 0; i < M; i++) {
+      bool useCache = false;
+      std::memset(cache, 0, sizeof(double *) * OutputChannelDim);
+      for (int j = Ap[i]; j < Ap[i + 1]; j++) {
+        if (!useCache) {
+          cblas_dgemv(
+              CblasRowMajor, CblasTrans, InputChannelDim, OutputChannelDim,
+              1, // alpha
+              Weight, OutputChannelDim, Features + (i * InputChannelDim), 1,
+              1., // beta
+              cache, 1);
+          useCache = true;
+        }
+        for (int k = 0; k < OutputChannelDim; k++) {
+          Output[Ai[j] * OutputChannelDim + k] += Ax[j] * cache[k];
+        }
+      }
+    }
+  }
+}
+
+// prediction is that it only perform good for reordered graphs
+//for now only works on tri-banded
+void forwardForOneLayerTiled(int M, int *Ap, int *Ai, double *Ax,
+                             int InputChannelDim,
+                             int OutputChannelDim, int *Degrees,
+                             double *Features, double *Weight,
+                             double *Output, int TileSize) {
+  double temp[ (TileSize+2) * OutputChannelDim];
+  for (int i = 0; i < M; i += TileSize){
+    memset(temp, 0, sizeof(double) * (TileSize+2) * OutputChannelDim);
+    int geMMTileStartLoc = std::max(i-1, 0);
+    int geMMTileEndLoc = std::min(i+TileSize+1, M);
+    int geMMTileSize = geMMTileEndLoc - geMMTileStartLoc;
+    cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, geMMTileSize, OutputChannelDim,
+                InputChannelDim, 1., Features + geMMTileStartLoc, InputChannelDim, Weight, OutputChannelDim, 0., temp, OutputChannelDim);
+    for(int ii = 0; ii < TileSize; ii++){
+      if(i + ii > M)
+        break;
+      for(int j = Ap[i+ii]; j < Ap[i+ii+1]; j++){
+        int n = Ai[j];
+        for(int k = 0; k < OutputChannelDim; k++){
+          Output[(i+ii)*OutputChannelDim+k] += Ax[j] * temp[(n-geMMTileStartLoc)*OutputChannelDim+k];
+        }
+      }
+    }
+  }
 }
 #endif // SPARSE_FUSION_GCN_LAYER_MKL_DEMO_H

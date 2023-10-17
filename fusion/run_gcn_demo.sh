@@ -13,6 +13,7 @@ DATA="./pyg/data/"
 MODE="GCNFusedSequential"
 THREADS=8
 BCOL=100
+
 while getopts ":e:t:f:m:" arg; do
 
   case "${arg}" in
@@ -77,10 +78,10 @@ if [ $MODE == "GCNFusedSequential" ]; then
       for t in {4,8,16,32,64,128,256,512,1024}; do
         echo "for $line $sr $t"
           if [ $header -eq 1 ]; then
-            $BINPATH/gcn_demo -sm $DATA/$line -nt $THREADS -ah -tn $t -sr $sr -bc $BCOL > ./build/logs/gcn_demo_$sr.csv
+            $BINPATH/gcn_demo -sm $DATA/$line -nt $THREADS -ah -tn $t -sr $sr -bc $BCOL -en $MODE > ./build/logs/gcn_demo_$sr.csv
             header=0
           else
-            $BINPATH/gcn_demo -sm $DATA/$line -nt $THREADS -tn $t -sr $sr -bc $BCOL >> ./build/logs/gcn_demo_$sr.csv
+            $BINPATH/gcn_demo -sm $DATA/$line -nt $THREADS -tn $t -sr $sr -bc $BCOL -en $MODE >> ./build/logs/gcn_demo_$sr.csv
           fi
       done
     done < $MATLIST
@@ -95,10 +96,10 @@ if [ $MODE == "GCNFusedParallel" ]; then
      for w in {10,50,100,250,500,1000,2000,4000}; do
        echo "for $line $sr $w"
          if [ $header -eq 1 ]; then
-           $BINPATH/gcn_demo -sm $DATA/$line -nt $THREADS -ah -ip $w -sr $sr -bc $BCOL > ./build/logs/gcn_demo_$sr.csv
+           $BINPATH/gcn_demo -sm $DATA/$line -nt $THREADS -ah -ip $w -sr $sr -bc $BCOL -en $MODE > ./build/logs/gcn_demo_$sr.csv
            header=0
          else
-           $BINPATH/gcn_demo -sm $DATA/$line -nt $THREADS -ip $w -sr $sr -bc $BCOL >> ./build/logs/gcn_demo_$sr.csv
+           $BINPATH/gcn_demo -sm $DATA/$line -nt $THREADS -ip $w -sr $sr -bc $BCOL -en $MODE >> ./build/logs/gcn_demo_$sr.csv
          fi
      done
    done < $MATLIST
@@ -114,10 +115,10 @@ if [ $MODE == "GCNFusedBandedSpecific" ]; then
     for t in {4,8,16,32,64,128,256,512,1024}; do
       echo "for $line $sr $t"
         if [ $header -eq 1 ]; then
-          $BINPATH/gcn_demo -sm $DATA/$line -nt $THREADS -ah -tn $t -sr $sr -bc $BCOL -en GCNFusedBandedSpecific > ./build/logs/gcn_demo_$sr.csv
+          $BINPATH/gcn_demo -sm $DATA/$line -nt $THREADS -ah -tn $t -sr $sr -bc $BCOL -en $MODE > ./build/logs/gcn_demo_$sr.csv
           header=0
         else
-          $BINPATH/gcn_demo -sm $DATA/$line -nt $THREADS -tn $t -sr $sr -bc $BCOL -en GCNFusedBandedSpecific >> ./build/logs/gcn_demo_$sr.csv
+          $BINPATH/gcn_demo -sm $DATA/$line -nt $THREADS -tn $t -sr $sr -bc $BCOL -en $MODE >> ./build/logs/gcn_demo_$sr.csv
         fi
     done
   done < $MATLIST
@@ -128,14 +129,35 @@ if [ $MODE == "GCNSingleLayerCompare" ]; then
   header=1
   sr=1
   while read line; do
-    for BCOL in {4,8,32,50,100,200,500,1000}; do
+    for BCOL in {4,8,32,50,100,200,256,500,1000}; do
+#      for sr in {0.1,0.4,0.7,1}; do
     echo "for $line $sr $BCOL"
         if [ $header -eq 1 ]; then
-          $BINPATH/gcn_layer_demo -sm $DATA/$line -nt $THREADS -ah -sr $sr -bc $BCOL > ./build/logs/gcn_demo_$sr.csv
+          $BINPATH/gcn_layer_demo -sm $DATA/$line -nt $THREADS -ah -sr $sr -bc $BCOL -en $MODE > ./build/logs/gcn_single_layer_demo_$sr.csv
           header=0
         else
-          $BINPATH/gcn_layer_demo -sm $DATA/$line -nt $THREADS -sr $sr -bc $BCOL >> ./build/logs/gcn_demo_$sr.csv
+          $BINPATH/gcn_layer_demo -sm $DATA/$line -nt $THREADS -sr $sr -bc $BCOL -en $MODE >> ./build/logs/gcn_single_layer_demo_$sr.csv
         fi
         done
+#        done
   done < $MATLIST
+fi
+
+if [ $MODE == "GCNIntraFusedVsUnfused" ]; then
+ echo "Experiment: GCNIntraFusedVsUnfused"
+  sr=1
+#  for sr in {0.1,0.4,0.7,1}; do
+    header=1
+    while read line; do
+      for BCOL in {4,8,32,50,100,200,256,500,1000}; do
+        echo "for $line $sr $BCOL"
+        if [ $header -eq 1 ]; then
+          $BINPATH/gcn_demo -sm $DATA/$line -nt $THREADS -ah -sr $sr -bc $BCOL -en $MODE > ./build/logs/gcn_demo_$sr.csv
+          header=0
+        else
+          $BINPATH/gcn_demo -sm $DATA/$line -nt $THREADS -sr $sr -bc $BCOL -en $MODE >> ./build/logs/gcn_demo_$sr.csv
+        fi
+      done
+    done < $MATLIST
+#  done
 fi

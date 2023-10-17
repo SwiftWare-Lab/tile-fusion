@@ -26,7 +26,7 @@ int main(const int argc, const char *argv[]) {
   tp._dim2 = aCSCFull->n;
   tp._nnz = aCSCFull->nnz;
   tp._density = (double)tp._nnz / (double)(tp._dim1 * tp._dim2);
-  int hiddenDim = 128;
+  int hiddenDim = 8;
   int numClasses = 3;
   int numThread = sp._num_threads;
   double *layer1Weight = generateRandomDenseMatrix(features->col, hiddenDim);
@@ -42,6 +42,15 @@ int main(const int argc, const char *argv[]) {
   stats->OtherStats["PackingType"] = {Separated};
   GCNSequential *gcnSequentialFusedLayer = new GCNOneLayerFused(inputs, stats);
   gcnSequentialFusedLayer->run();
+  for (int i = 0; i < inputs->NumOfNodes; i++){
+    for (int j = 0; j < inputs->EmbedDim; j++){
+      std::cout <<
+          gcnSequentialFusedLayer->OutTensor->FirstLayerOutput[i*inputs->EmbedDim+j]
+                << " ";
+    }
+    std::cout << std::endl;
+  }
+  std::cout << std::endl;
   inputs->CorrectSol =
       new double[inputs->AdjacencyMatrix->m * inputs->EmbedDim];
   std::copy(gcnSequentialFusedLayer->OutTensor->FirstLayerOutput,
@@ -53,10 +62,27 @@ int main(const int argc, const char *argv[]) {
   delete stats;
   delete gcnSequentialFusedLayer;
 
+  stats = new swiftware::benchmark::Stats("GCN_TiledFusedLayer", "GCN", 7,
+                                          tp._matrix_name, numThread);
+  stats->OtherStats["PackingType"] = {Separated};
+  GCNTiledFusedSingleLayer *gcnTiledFusedSingleLayer = new GCNTiledFusedSingleLayer(inputs, stats, 2);
+  gcnTiledFusedSingleLayer->run();
+    for (int i = 0; i < inputs->NumOfNodes; i++){
+      for (int j = 0; j < inputs->EmbedDim; j++){
+         std::cout <<
+         gcnTiledFusedSingleLayer->OutTensor->FirstLayerOutput[i*inputs->EmbedDim+j]
+         << " ";
+      }
+      std::cout << std::endl;
+    }
+  auto gcnTiledFusedSingleLayerStat = gcnTiledFusedSingleLayer->printStats();
+  delete stats;
+  delete gcnTiledFusedSingleLayer;
+
   stats = new swiftware::benchmark::Stats("GCN_MKLUnfusedLayer", "GCN", 7,
                                           tp._matrix_name, numThread);
   stats->OtherStats["PackingType"] = {Separated};
-  GCNOneLayerMKL *gcnOneLayerMkl = new GCNOneLayerMKL(inputs, stats);
+  GCNSingleLayerMKL *gcnOneLayerMkl = new GCNSingleLayerMKL(inputs, stats);
   gcnOneLayerMkl->run();
   auto gcnOneLayerMKLStat = gcnOneLayerMkl->printStats();
   delete stats;
@@ -74,6 +100,7 @@ int main(const int argc, const char *argv[]) {
     std::cout << headerStat + spHeader + tpHeader << std::endl;
   std::cout << gcnSequentialFusedLayerStat << spStat + tpStat << std::endl;
   std::cout << gcnOneLayerMKLStat << spStat + tpStat << std::endl;
+  std::cout << gcnTiledFusedSingleLayerStat << spStat + tpStat << std::endl;
 
   delete inputs;
   delete aCSC;
