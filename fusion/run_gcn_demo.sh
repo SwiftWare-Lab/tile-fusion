@@ -129,16 +129,19 @@ if [ $MODE == "GCNSingleLayerCompare" ]; then
   header=1
   sr=1
   while read line; do
-    for BCOL in {4,8,32,50,100,200,256,500,1000}; do
+    BCOL=128
+#    for BCOL in {4,8,32,64,128,256,512,1024}; do
+      for tn in {8,16,32,64,128,256,512,1024,2048,4096}; do
 #      for sr in {0.1,0.4,0.7,1}; do
-    echo "for $line $sr $BCOL"
+    echo "for $line $tn $BCOL"
         if [ $header -eq 1 ]; then
-          $BINPATH/gcn_layer_demo -sm $DATA/$line -nt $THREADS -ah -sr $sr -bc $BCOL -en $MODE > ./build/logs/gcn_single_layer_demo_$sr.csv
+          $BINPATH/gcn_layer_demo -sm $DATA/$line -nt $THREADS -tn $tn -ah -sr $sr -bc $BCOL -ed $BCOL -en $MODE > ./build/logs/gcn_single_layer_demo_$BCOL.csv
           header=0
         else
-          $BINPATH/gcn_layer_demo -sm $DATA/$line -nt $THREADS -sr $sr -bc $BCOL -en $MODE >> ./build/logs/gcn_single_layer_demo_$sr.csv
+          $BINPATH/gcn_layer_demo -sm $DATA/$line -nt $THREADS -tn $tn -sr $sr -bc $BCOL -ed $BCOL -en $MODE >> ./build/logs/gcn_single_layer_demo_$BCOL.csv
         fi
         done
+#      done
 #        done
   done < $MATLIST
 fi
@@ -149,7 +152,7 @@ if [ $MODE == "GCNIntraFusedVsUnfused" ]; then
 #  for sr in {0.1,0.4,0.7,1}; do
     header=1
     while read line; do
-      for BCOL in {4,8,32,50,100,200,256,500,1000}; do
+      for BCOL in {4,8,32,64,128,256,512,1024}; do
         echo "for $line $sr $BCOL"
         if [ $header -eq 1 ]; then
           $BINPATH/gcn_demo -sm $DATA/$line -nt $THREADS -ah -sr $sr -bc $BCOL -en $MODE > ./build/logs/gcn_demo_$sr.csv

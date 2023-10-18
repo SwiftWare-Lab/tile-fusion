@@ -57,7 +57,7 @@ namespace sym_lib{
   std::string _algorithm_choice{};
   double _density{}, _dim1{}, _dim2{}, _nnz{}; // for random mode
   bool print_header{};
-  int _b_cols{};
+  int _b_cols{}, _embed_dim{};
   TestParameters(){
    _mode = "Random";
   }

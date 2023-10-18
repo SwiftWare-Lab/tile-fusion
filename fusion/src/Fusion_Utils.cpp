@@ -67,10 +67,10 @@ argparse::ArgumentParser addArguments() {
       .default_value("gcnFusedSequential")
       .help("Specify the experiment");
 
-//  program.add_argument("-ed", "--embed-dim")
-//      .default_value(10)
-//      .help("Specify the embedding dimensions.")
-//      .scan<'i', int>();
+  program.add_argument("-ed", "--embed-dim")
+      .default_value(10)
+      .help("Specify the embedding dimensions.")
+      .scan<'i', int>();
 
   return program;
 }
@@ -118,10 +118,12 @@ void parse_args(const int Argc, const char **Argv, ScheduleParameters *Sp,
     Tp->print_header = 1;
 
   Tp->_b_cols = program.get<int>("-bc");
+  Tp->_embed_dim = program.get<int>("-ed");
   if (auto iterPerPart = program.present<int>("-ip"))
     Sp->IterPerPartition = iterPerPart.value();
   if (auto tileN = program.present<int>("-tn"))
     Sp->TileN = tileN.value();
+
 }
 
 int get_reorderd_matrix(const CSC *L1_csc, std::vector<CSC *> &mat_vec) {

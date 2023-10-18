@@ -304,18 +304,13 @@ void forwardForOneLayerFromCSCParallel(int M, int *Ap, int *Ai, double *Ax,
   {
 #pragma omp parallel for
     for (int i = 0; i < M; i++) {
-      bool useCache = false;
       std::memset(cache, 0, sizeof(double *) * OutputChannelDim);
+      cblas_dgemv(CblasRowMajor, CblasTrans, InputChannelDim, OutputChannelDim,
+                  1, // alpha
+                  Weight, OutputChannelDim, Features + (i * InputChannelDim), 1,
+                  1., // beta
+                  cache, 1);
       for (int j = Ap[i]; j < Ap[i + 1]; j++) {
-        if (!useCache) {
-          cblas_dgemv(
-              CblasRowMajor, CblasTrans, InputChannelDim, OutputChannelDim,
-              1, // alpha
-              Weight, OutputChannelDim, Features + (i * InputChannelDim), 1,
-              1., // beta
-              cache, 1);
-          useCache = true;
-        }
         for (int k = 0; k < OutputChannelDim; k++) {
           Output[Ai[j] * OutputChannelDim + k] += Ax[j] * cache[k];
         }
@@ -325,29 +320,67 @@ void forwardForOneLayerFromCSCParallel(int M, int *Ap, int *Ai, double *Ax,
 }
 
 // prediction is that it only perform good for reordered graphs
-//for now only works on tri-banded
+// for now only works on tri-banded
 void forwardForOneLayerTiled(int M, int *Ap, int *Ai, double *Ax,
-                             int InputChannelDim,
-                             int OutputChannelDim, int *Degrees,
-                             double *Features, double *Weight,
+                             int InputChannelDim, int OutputChannelDim,
+                             int *Degrees, double *Features, double *Weight,
                              double *Output, int TileSize) {
-  double temp[ (TileSize+2) * OutputChannelDim];
-  for (int i = 0; i < M; i += TileSize){
-    memset(temp, 0, sizeof(double) * (TileSize+2) * OutputChannelDim);
-    int geMMTileStartLoc = std::max(i-1, 0);
-    int geMMTileEndLoc = std::min(i+TileSize+1, M);
+  double temp[(TileSize + 2) * OutputChannelDim];
+  for (int i = 0; i < M; i += TileSize) {
+    memset(temp, 0, sizeof(double) * (TileSize + 2) * OutputChannelDim);
+    int geMMTileStartLoc = std::max(i - 1, 0);
+    int geMMTileEndLoc = std::min(i + TileSize + 1, M);
     int geMMTileSize = geMMTileEndLoc - geMMTileStartLoc;
-    cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, geMMTileSize, OutputChannelDim,
-                InputChannelDim, 1., Features + geMMTileStartLoc*OutputChannelDim, InputChannelDim, Weight, OutputChannelDim, 0., temp, OutputChannelDim);
-    for(int ii = 0; ii < TileSize; ii++){
-      if(i + ii > M)
+    cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, geMMTileSize,
+                OutputChannelDim, InputChannelDim, 1.,
+                Features + geMMTileStartLoc * InputChannelDim, InputChannelDim,
+                Weight, OutputChannelDim, 0., temp, OutputChannelDim);
+    for (int ii = 0; ii < TileSize; ii++) {
+      if (i + ii > M)
         break;
-      for(int j = Ap[i+ii]; j < Ap[i+ii+1]; j++){
+      for (int j = Ap[i + ii]; j < Ap[i + ii + 1]; j++) {
         int n = Ai[j];
-        for(int k = 0; k < OutputChannelDim; k++){
-          Output[(i+ii)*OutputChannelDim+k] += Ax[j] * temp[(n-geMMTileStartLoc)*OutputChannelDim+k];
+        for (int k = 0; k < OutputChannelDim; k++) {
+          Output[(i + ii) * OutputChannelDim + k] +=
+              Ax[j] * temp[(n - geMMTileStartLoc) * OutputChannelDim + k];
         }
       }
+    }
+  }
+}
+
+void forwardForOneLayerFromCSCTiled(int M, int *Ap, int *Ai, double *Ax,
+                                    int InputChannelDim, int OutputChannelDim,
+                                    int *Degrees, double *Features,
+                                    double *Weight, double *Output,
+                                    int TileSize) {
+  double cache[TileSize * OutputChannelDim];
+  int lastTileSize = M%TileSize;
+  int lastCompleteTileEnd = M - lastTileSize;
+  for (int i = 0; i < lastCompleteTileEnd; i += TileSize) {
+    std::memset(cache, 0, sizeof(double *) * TileSize * OutputChannelDim);
+    cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, TileSize,
+                 OutputChannelDim, InputChannelDim, 1.,
+                 Features + i * InputChannelDim, InputChannelDim, Weight,
+                 OutputChannelDim, 0., cache, OutputChannelDim);
+    for (int ii = 0; ii < TileSize; ii++){
+        for (int j = Ap[i + ii]; j < Ap[i + ii + 1]; j++) {
+            for (int k = 0; k < OutputChannelDim; k++) {
+            Output[Ai[j] * OutputChannelDim + k] += Ax[j] * cache[ii * OutputChannelDim + k];
+            }
+        }
+    }
+  }
+  std::memset(cache, 0, sizeof(double *) * TileSize * OutputChannelDim);
+  cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, lastTileSize,
+              OutputChannelDim, InputChannelDim, 1.,
+              Features + lastCompleteTileEnd * InputChannelDim, InputChannelDim, Weight,
+              OutputChannelDim, 0., cache, OutputChannelDim);
+  for (int ii = 0; ii < TileSize; ii++){
+    for (int j = Ap[lastCompleteTileEnd + ii]; j < Ap[lastCompleteTileEnd + ii + 1]; j++) {
+        for (int k = 0; k < OutputChannelDim; k++) {
+            Output[Ai[j] * OutputChannelDim + k] += Ax[j] * cache[ii * OutputChannelDim + k];
+        }
     }
   }
 }
