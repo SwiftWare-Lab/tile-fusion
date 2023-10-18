@@ -29,6 +29,7 @@ int main(const int argc, const char *argv[]) {
   int hiddenDim = 8;
   int numClasses = 3;
   int numThread = sp._num_threads;
+  int tileSize = sp.TileN;
   double *layer1Weight = generateRandomDenseMatrix(features->col, hiddenDim);
   double *layer2Weight = generateRandomDenseMatrix(hiddenDim, numClasses);
 
@@ -42,15 +43,15 @@ int main(const int argc, const char *argv[]) {
   stats->OtherStats["PackingType"] = {Separated};
   GCNSequential *gcnSequentialFusedLayer = new GCNOneLayerFused(inputs, stats);
   gcnSequentialFusedLayer->run();
-  for (int i = 0; i < inputs->NumOfNodes; i++){
-    for (int j = 0; j < inputs->EmbedDim; j++){
-      std::cout <<
-          gcnSequentialFusedLayer->OutTensor->FirstLayerOutput[i*inputs->EmbedDim+j]
-                << " ";
-    }
-    std::cout << std::endl;
-  }
-  std::cout << std::endl;
+//  for (int i = 0; i < inputs->NumOfNodes; i++){
+//    for (int j = 0; j < inputs->EmbedDim; j++){
+//      std::cout <<
+//          gcnSequentialFusedLayer->OutTensor->FirstLayerOutput[i*inputs->EmbedDim+j]
+//                << " ";
+//    }
+//    std::cout << std::endl;
+//  }
+//  std::cout << std::endl;
   inputs->CorrectSol =
       new double[inputs->AdjacencyMatrix->m * inputs->EmbedDim];
   std::copy(gcnSequentialFusedLayer->OutTensor->FirstLayerOutput,
@@ -65,16 +66,16 @@ int main(const int argc, const char *argv[]) {
   stats = new swiftware::benchmark::Stats("GCN_TiledFusedLayer", "GCN", 7,
                                           tp._matrix_name, numThread);
   stats->OtherStats["PackingType"] = {Separated};
-  GCNTiledFusedSingleLayer *gcnTiledFusedSingleLayer = new GCNTiledFusedSingleLayer(inputs, stats, 2);
+  GCNTiledFusedSingleLayer *gcnTiledFusedSingleLayer = new GCNTiledFusedSingleLayer(inputs, stats, tileSize);
   gcnTiledFusedSingleLayer->run();
-    for (int i = 0; i < inputs->NumOfNodes; i++){
-      for (int j = 0; j < inputs->EmbedDim; j++){
-         std::cout <<
-         gcnTiledFusedSingleLayer->OutTensor->FirstLayerOutput[i*inputs->EmbedDim+j]
-         << " ";
-      }
-      std::cout << std::endl;
-    }
+//    for (int i = 0; i < inputs->NumOfNodes; i++){
+//      for (int j = 0; j < inputs->EmbedDim; j++){
+//         std::cout <<
+//         gcnTiledFusedSingleLayer->OutTensor->FirstLayerOutput[i*inputs->EmbedDim+j]
+//         << " ";
+//      }
+//      std::cout << std::endl;
+//    }
   auto gcnTiledFusedSingleLayerStat = gcnTiledFusedSingleLayer->printStats();
   delete stats;
   delete gcnTiledFusedSingleLayer;

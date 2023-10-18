@@ -338,7 +338,7 @@ void forwardForOneLayerTiled(int M, int *Ap, int *Ai, double *Ax,
     int geMMTileEndLoc = std::min(i+TileSize+1, M);
     int geMMTileSize = geMMTileEndLoc - geMMTileStartLoc;
     cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, geMMTileSize, OutputChannelDim,
-                InputChannelDim, 1., Features + geMMTileStartLoc, InputChannelDim, Weight, OutputChannelDim, 0., temp, OutputChannelDim);
+                InputChannelDim, 1., Features + geMMTileStartLoc*OutputChannelDim, InputChannelDim, Weight, OutputChannelDim, 0., temp, OutputChannelDim);
     for(int ii = 0; ii < TileSize; ii++){
       if(i + ii > M)
         break;
