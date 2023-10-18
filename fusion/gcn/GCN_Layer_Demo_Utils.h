@@ -678,6 +678,28 @@ public:
       : GCNSingleLayerFused(In1, Stat1), TileSize(TileSize1) {}
 };
 
+class GCNSingleLayerTiledFusedCSC : public GCNSingleLayerFused {
+  int TileSize;
+protected:
+  Timer execute() override {
+    OutTensor->reset();
+    Timer t;
+    t.start();
+    forwardForOneLayerFromCSCTiled(
+        InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->p,
+        InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x,
+        InTensor->FeatureMatrix->col, InTensor->EmbedDim, InTensor->Degrees,
+        InTensor->FeatureMatrix->a, InTensor->Weight1,
+        OutTensor->FirstLayerOutput, TileSize);
+    t.stop();
+    return t;
+  }
+
+public:
+  GCNSingleLayerTiledFusedCSC(GnnTensorInputs *In1, Stats *Stat1, int TileSize1)
+      : GCNSingleLayerFused(In1, Stat1), TileSize(TileSize1) {}
+};
+
 class GCNSingleLayerFusedCSC : public GCNSingleLayerFused {
 protected:
   Timer execute() override {
@@ -698,6 +720,56 @@ public:
   GCNSingleLayerFusedCSC(GnnTensorInputs *In1, Stats *Stat1)
       : GCNSingleLayerFused(In1, Stat1) {}
 };
+
+
+#ifdef __AVX2__
+class GCNSingleLayerFusedCSCVectorized : public GCNSingleLayerFused {
+protected:
+  Timer execute() override {
+    OutTensor->reset();
+    Timer t;
+    t.start();
+
+    forwardForOneLayerFromCSCVectorized(
+        InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->p,
+        InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x,
+        InTensor->FeatureMatrix->col, InTensor->EmbedDim, InTensor->Degrees,
+        InTensor->FeatureMatrix->a, InTensor->Weight1,
+        OutTensor->FirstLayerOutput);
+
+    t.stop();
+    return t;
+  }
+
+public:
+  GCNSingleLayerFusedCSCVectorized(GnnTensorInputs *In1, Stats *Stat1)
+      : GCNSingleLayerFused(In1, Stat1) {}
+};
+
+class GCNSingleLayerTiledFusedCSCVectorized : public GCNSingleLayerFused {
+protected:
+  int TileSize;
+
+  Timer execute() override {
+    OutTensor->reset();
+    Timer t;
+    t.start();
+
+    forwardForOneLayerFromCSCTiledVectorized(InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->p,
+                                             InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x,
+                                             InTensor->FeatureMatrix->col, InTensor->EmbedDim, InTensor->Degrees,
+                                             InTensor->FeatureMatrix->a, InTensor->Weight1,
+                                             OutTensor->FirstLayerOutput, TileSize);
+    t.stop();
+    return t;
+  }
+public:
+  GCNSingleLayerTiledFusedCSCVectorized(GnnTensorInputs *In1, Stats *Stat1, int TileSize1)
+      : GCNSingleLayerFused(In1, Stat1), TileSize(TileSize1) {}
+};
+
+#endif
+
 
 class GCNSingleLayerFusedCSCParallel : public GCNSingleLayerFused {
 protected:

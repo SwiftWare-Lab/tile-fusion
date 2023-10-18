@@ -10,6 +10,10 @@
 #include <mkl.h>
 #endif
 
+#ifdef __AVX2__
+#include <immintrin.h>
+#endif
+
 #ifndef SPARSE_FUSION_GCN_LAYER_MKL_DEMO_H
 #define SPARSE_FUSION_GCN_LAYER_MKL_DEMO_H
 using namespace swiftware::benchmark;
@@ -376,7 +380,7 @@ void forwardForOneLayerFromCSCTiled(int M, int *Ap, int *Ai, double *Ax,
               OutputChannelDim, InputChannelDim, 1.,
               Features + lastCompleteTileEnd * InputChannelDim, InputChannelDim, Weight,
               OutputChannelDim, 0., cache, OutputChannelDim);
-  for (int ii = 0; ii < TileSize; ii++){
+  for (int ii = 0; ii < lastTileSize; ii++){
     for (int j = Ap[lastCompleteTileEnd + ii]; j < Ap[lastCompleteTileEnd + ii + 1]; j++) {
         for (int k = 0; k < OutputChannelDim; k++) {
             Output[Ai[j] * OutputChannelDim + k] += Ax[j] * cache[ii * OutputChannelDim + k];
@@ -384,4 +388,91 @@ void forwardForOneLayerFromCSCTiled(int M, int *Ap, int *Ai, double *Ax,
     }
   }
 }
+
+#ifdef __AVX2__
+void forwardForOneLayerFromCSCVectorized(int M, int *Ap, int *Ai, double *Ax,
+                                         int InputChannelDim, int OutputChannelDim,
+                                         int *Degrees, double *Features, double *Weight,
+                                         double *Output){
+  double cache[OutputChannelDim];
+  for (int i = 0; i < M; i++) {
+    bool useCache = false;
+    std::memset(cache, 0, sizeof(double *) * OutputChannelDim);
+    for (int j = Ap[i]; j < Ap[i + 1]; j++) {
+        if (!useCache) {
+            cblas_dgemv(
+                CblasRowMajor, CblasTrans, InputChannelDim, OutputChannelDim,
+                1, // alpha
+                Weight, OutputChannelDim, Features + (i * InputChannelDim), 1,
+                1., // beta
+                cache, 1);
+            useCache = true;
+        }
+        int vectorizedSize = OutputChannelDim - OutputChannelDim % 4;
+        __m256d Axj = _mm256_set1_pd(Ax[j]);
+        for (int k = 0; k < vectorizedSize; k+=4) {
+            __m256d cachek = _mm256_loadu_pd(cache + k);
+            __m256d outputk = _mm256_loadu_pd(Output + Ai[j] * OutputChannelDim + k);
+            __m256d result = _mm256_fmadd_pd(Axj, cachek, outputk);
+            _mm256_storeu_pd(Output + Ai[j] * OutputChannelDim + k, result);
+        }
+        for (int k = vectorizedSize; k < OutputChannelDim; k++) {
+            Output[Ai[j] * OutputChannelDim + k] += Ax[j] * cache[k];
+        }
+    }
+  }
+}
+
+void forwardForOneLayerFromCSCTiledVectorized(int M, int *Ap, int *Ai, double *Ax,
+                                    int InputChannelDim, int OutputChannelDim,
+                                    int *Degrees, double *Features,
+                                    double *Weight, double *Output,
+                                    int TileSize) {
+  double cache[TileSize * OutputChannelDim];
+  int lastTileSize = M%TileSize;
+  int lastCompleteTileEnd = M - lastTileSize;
+  int vectorizedSize = OutputChannelDim - OutputChannelDim % 4;
+  for (int i = 0; i < lastCompleteTileEnd; i += TileSize) {
+    std::memset(cache, 0, sizeof(double *) * TileSize * OutputChannelDim);
+    cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, TileSize,
+                OutputChannelDim, InputChannelDim, 1.,
+                Features + i * InputChannelDim, InputChannelDim, Weight,
+                OutputChannelDim, 0., cache, OutputChannelDim);
+    for (int ii = 0; ii < TileSize; ii++){
+        for (int j = Ap[i + ii]; j < Ap[i + ii + 1]; j++) {
+            __m256d Axj = _mm256_set1_pd(Ax[j]);
+            for (int k = 0; k < vectorizedSize; k+=4) {
+                __m256d cachek = _mm256_loadu_pd(cache + ii * OutputChannelDim + k);
+                __m256d outputk = _mm256_loadu_pd(Output + Ai[j] * OutputChannelDim + k);
+                __m256d result = _mm256_fmadd_pd(Axj, cachek, outputk);
+                _mm256_storeu_pd(Output + Ai[j] * OutputChannelDim + k, result);
+            }
+            for (int k = vectorizedSize; k < OutputChannelDim; k++) {
+                Output[Ai[j] * OutputChannelDim + k] += Ax[j] * cache[ii * OutputChannelDim + k];
+            }
+        }
+    }
+  }
+  std::memset(cache, 0, sizeof(double *) * TileSize * OutputChannelDim);
+  cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, lastTileSize,
+              OutputChannelDim, InputChannelDim, 1.,
+              Features + lastCompleteTileEnd * InputChannelDim, InputChannelDim, Weight,
+              OutputChannelDim, 0., cache, OutputChannelDim);
+  for (int ii = 0; ii < lastTileSize; ii++){
+    for (int j = Ap[lastCompleteTileEnd + ii]; j < Ap[lastCompleteTileEnd + ii + 1]; j++) {
+        __m256d axj = _mm256_set1_pd(Ax[j]);
+        for (int k = 0; k < vectorizedSize; k+=4) {
+            __m256d cachek = _mm256_loadu_pd(cache + ii * OutputChannelDim + k);
+            __m256d outputk = _mm256_loadu_pd(Output + Ai[j] * OutputChannelDim + k);
+            __m256d result = _mm256_fmadd_pd(axj, cachek, outputk);
+            _mm256_storeu_pd(Output + Ai[j] * OutputChannelDim + k, result);
+        }
+        for (int k = vectorizedSize; k < OutputChannelDim; k++) {
+            Output[Ai[j] * OutputChannelDim + k] += Ax[j] * cache[ii * OutputChannelDim + k];
+        }
+    }
+  }
+}
+#endif
+
 #endif // SPARSE_FUSION_GCN_LAYER_MKL_DEMO_H
