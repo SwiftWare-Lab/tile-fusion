@@ -42,7 +42,6 @@ void forwardForOneLayerParallel(int M, int *Ap, int *Ai, double *Ax,
   {
 #pragma omp for
     for (int i = 0; i < M; i++) {
-      mkl_set_num_threads_local(1);
       double *messages = Output + OutputChannelDim * i;
       for (int j = Ap[i]; j < Ap[i + 1]; j++) {
         int n = Ai[j];
@@ -280,18 +279,14 @@ void forwardForOneLayerFromCSC(int M, int *Ap, int *Ai, double *Ax,
                                double *Output) {
   double cache[OutputChannelDim];
   for (int i = 0; i < M; i++) {
-    bool useCache = false;
     std::memset(cache, 0, sizeof(double *) * OutputChannelDim);
+    cblas_dgemv(
+        CblasRowMajor, CblasTrans, InputChannelDim, OutputChannelDim,
+        1, // alpha
+        Weight, OutputChannelDim, Features + (i * InputChannelDim), 1,
+        1., // beta
+        cache, 1);
     for (int j = Ap[i]; j < Ap[i + 1]; j++) {
-      if (!useCache) {
-        cblas_dgemv(
-            CblasRowMajor, CblasTrans, InputChannelDim, OutputChannelDim,
-            1, // alpha
-            Weight, OutputChannelDim, Features + (i * InputChannelDim), 1,
-            1., // beta
-            cache, 1);
-        useCache = true;
-      }
       for (int k = 0; k < OutputChannelDim; k++) {
         Output[Ai[j] * OutputChannelDim + k] += Ax[j] * cache[k];
       }
@@ -304,12 +299,12 @@ void forwardForOneLayerFromCSCParallel(int M, int *Ap, int *Ai, double *Ax,
                                        int OutputChannelDim, int *Degrees,
                                        double *Features, double *Weight,
                                        double *Output, int NumThreads) {
-  double cache[OutputChannelDim];
+
 #pragma omp parallel num_threads(NumThreads)
   {
 #pragma omp parallel for
     for (int i = 0; i < M; i++) {
-      mkl_set_num_threads_local(1);
+      double cache[OutputChannelDim];
       std::memset(cache, 0, sizeof(double *) * OutputChannelDim);
       cblas_dgemv(CblasRowMajor, CblasTrans, InputChannelDim, OutputChannelDim,
                   1, // alpha
@@ -395,31 +390,32 @@ void forwardForOneLayerFromCSCTiled(int M, int *Ap, int *Ai, double *Ax,
 void forwardForOneLayerFromCSCVectorized(int M, int *Ap, int *Ai, double *Ax,
                                          int InputChannelDim, int OutputChannelDim,
                                          int *Degrees, double *Features, double *Weight,
-                                         double *Output){
-  double cache[OutputChannelDim];
-  for (int i = 0; i < M; i++) {
-    bool useCache = false;
-    std::memset(cache, 0, sizeof(double *) * OutputChannelDim);
-    for (int j = Ap[i]; j < Ap[i + 1]; j++) {
-        if (!useCache) {
-            cblas_dgemv(
-                CblasRowMajor, CblasTrans, InputChannelDim, OutputChannelDim,
-                1, // alpha
-                Weight, OutputChannelDim, Features + (i * InputChannelDim), 1,
-                1., // beta
-                cache, 1);
-            useCache = true;
-        }
-        int vectorizedSize = OutputChannelDim - OutputChannelDim % 4;
-        __m256d Axj = _mm256_set1_pd(Ax[j]);
-        for (int k = 0; k < vectorizedSize; k+=4) {
+                                         double *Output, int NumThreads){
+#pragma omp parallel num_threads(NumThreads)
+  {
+#pragma omp for
+    for (int i = 0; i < M; i++) {
+        double cache[OutputChannelDim];
+        std::memset(cache, 0, sizeof(double *) * OutputChannelDim);
+        cblas_dgemv(
+            CblasRowMajor, CblasTrans, InputChannelDim, OutputChannelDim,
+            1, // alpha
+            Weight, OutputChannelDim, Features + (i * InputChannelDim), 1,
+            1., // beta
+            cache, 1);
+        for (int j = Ap[i]; j < Ap[i + 1]; j++) {
+            int vectorizedSize = OutputChannelDim - OutputChannelDim % 4;
+            __m256d Axj = _mm256_set1_pd(Ax[j]);
+            for (int k = 0; k < vectorizedSize; k += 4) {
             __m256d cachek = _mm256_loadu_pd(cache + k);
-            __m256d outputk = _mm256_loadu_pd(Output + Ai[j] * OutputChannelDim + k);
+            __m256d outputk =
+                _mm256_loadu_pd(Output + Ai[j] * OutputChannelDim + k);
             __m256d result = _mm256_fmadd_pd(Axj, cachek, outputk);
             _mm256_storeu_pd(Output + Ai[j] * OutputChannelDim + k, result);
-        }
-        for (int k = vectorizedSize; k < OutputChannelDim; k++) {
+            }
+            for (int k = vectorizedSize; k < OutputChannelDim; k++) {
             Output[Ai[j] * OutputChannelDim + k] += Ax[j] * cache[k];
+            }
         }
     }
   }

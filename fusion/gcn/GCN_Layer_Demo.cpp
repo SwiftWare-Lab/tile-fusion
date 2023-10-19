@@ -41,7 +41,7 @@ int main(const int argc, const char *argv[]) {
   stats = new swiftware::benchmark::Stats("GCN_SingleLayerFused", "GCN", 7,
                                           tp._matrix_name, numThread);
   stats->OtherStats["PackingType"] = {Separated};
-  GCNSequential *gcnSingleLayerFused = new GCNSingleLayerFused(inputs, stats);
+  GCNSingleLayerFused *gcnSingleLayerFused = new GCNSingleLayerFused(inputs, stats);
   gcnSingleLayerFused->run();
   inputs->CorrectSol =
       new double[inputs->AdjacencyMatrix->m * inputs->EmbedDim];
@@ -53,6 +53,14 @@ int main(const int argc, const char *argv[]) {
   auto gcnSequentialFusedLayerStat = gcnSingleLayerFused->printStats();
   delete stats;
   delete gcnSingleLayerFused;
+
+  stats = new swiftware::benchmark::Stats("GCN_SingleLayerFusedParallel", "GCN", 7,
+                                          tp._matrix_name, numThread);
+  GCNSingleLayerFusedParallel *gcnSingleLayerFusedParallel = new GCNSingleLayerFusedParallel(inputs,stats);
+  gcnSingleLayerFusedParallel->run();
+  auto gcnSingleLayerFusedParallelStat = gcnSingleLayerFusedParallel->printStats();
+  delete stats;
+  delete gcnSingleLayerFusedParallel;
 
   stats = new swiftware::benchmark::Stats("GCN_SingleLayerTiledFused", "GCN", 7,
                                           tp._matrix_name, numThread);
@@ -80,13 +88,13 @@ int main(const int argc, const char *argv[]) {
   delete stats;
   delete gcnSingleLayerFusedCsc;
 
-//  stats = new swiftware::benchmark::Stats("GCN_SingleLayerFusedCSCParallel", "GCN", 7, tp._matrix_name, numThread);
-//  stats->OtherStats["PackingType"] = {Separated};
-//  GCNSingleLayerFusedCSCParallel* gcnSingleLayerFusedCscParallel = new GCNSingleLayerFusedCSCParallel(inputs, stats);
-//  gcnSingleLayerFusedCscParallel->run();
-//  auto gcnSingleLayerFusedCscParallelStat = gcnSingleLayerFusedCscParallel->printStats();
-//  delete stats;
-//  delete gcnSingleLayerFusedCscParallel;
+  stats = new swiftware::benchmark::Stats("GCN_SingleLayerFusedCSCParallel", "GCN", 7, tp._matrix_name, numThread);
+  stats->OtherStats["PackingType"] = {Separated};
+  GCNSingleLayerFusedCSCParallel* gcnSingleLayerFusedCscParallel = new GCNSingleLayerFusedCSCParallel(inputs, stats);
+  gcnSingleLayerFusedCscParallel->run();
+  auto gcnSingleLayerFusedCscParallelStat = gcnSingleLayerFusedCscParallel->printStats();
+  delete stats;
+  delete gcnSingleLayerFusedCscParallel;
 
   stats = new swiftware::benchmark::Stats("GCN_SingleLayerTiledFusedCSC", "GCN", 7, tp._matrix_name, numThread);
   stats->OtherStats["PackingType"] = {Separated};
@@ -99,7 +107,7 @@ int main(const int argc, const char *argv[]) {
 #ifdef __AVX2__
   stats = new swiftware::benchmark::Stats("GCN_SingleLayerFusedCSCVectorized", "GCN", 7, tp._matrix_name, numThread);
   stats->OtherStats["PackingType"] = {Separated};
-  GCNSingleLayerFusedCSCVectorized* gcnSingleLayerFusedCscVectorized = new GCNSingleLayerFusedCSCVectorized(inputs, stats);
+  GCNSingleLayerFusedCSCParallelVectorized * gcnSingleLayerFusedCscVectorized = new GCNSingleLayerFusedCSCParallelVectorized(inputs, stats);
   gcnSingleLayerFusedCscVectorized->run();
   auto gcnSingleLayerFusedCscVectorizedStat = gcnSingleLayerFusedCscVectorized->printStats();
   delete stats;
@@ -128,8 +136,9 @@ int main(const int argc, const char *argv[]) {
   std::cout << gcnOneLayerMKLStat << spStat + tpStat << std::endl;
   std::cout << gcnTiledFusedSingleLayerStat << spStat + tpStat << std::endl;
   std::cout << gcnSingleLayerFusedCscStat << spStat + tpStat << std::endl;
-//  std::cout << gcnSingleLayerFusedCscParallelStat << spStat + tpStat << std::endl;
+  std::cout << gcnSingleLayerFusedCscParallelStat << spStat + tpStat << std::endl;
   std::cout << gcnSingleLayerTiledFusedCscStat << spStat + tpStat << std::endl;
+  std::cout << gcnSingleLayerFusedParallelStat << spStat + tpStat << std::endl;
 #ifdef __AVX2__
   std::cout << gcnSingleLayerFusedCscVectorizedStat << spStat + tpStat << std::endl;
   std::cout << gcnSingleLayerTiledFusedCscVectorizedStat << spStat + tpStat << std::endl;

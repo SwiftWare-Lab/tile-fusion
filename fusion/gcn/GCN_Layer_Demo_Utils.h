@@ -610,6 +610,7 @@ protected:
 
   Timer execute() override {
     OutTensor->reset();
+    mkl_set_num_threads(1);
     Timer t;
     t.start();
     forwardForOneLayer(
@@ -627,6 +628,28 @@ public:
       : GCNSequential(In1, Stat1) {}
 };
 
+class GCNSingleLayerFusedParallel : public GCNSingleLayerFused {
+protected:
+  Timer execute() override {
+    OutTensor->reset();
+    Timer t;
+    mkl_set_num_threads(1);
+    t.start();
+    forwardForOneLayerParallel(
+        InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->p,
+        InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x,
+        InTensor->FeatureMatrix->col, InTensor->EmbedDim, InTensor->Degrees,
+        InTensor->FeatureMatrix->a, InTensor->Weight1,
+        OutTensor->FirstLayerOutput, InTensor->NumThreads);
+    t.stop();
+    return t;
+  }
+
+public:
+  GCNSingleLayerFusedParallel(GnnTensorInputs *In1, Stats *Stat1)
+      : GCNSingleLayerFused(In1, Stat1) {}
+};
+
 #ifdef MKL
 class GCNSingleLayerMKL : public GCNSingleLayerFused {
   sparse_matrix_t MKLAdj;
@@ -634,6 +657,7 @@ class GCNSingleLayerMKL : public GCNSingleLayerFused {
 protected:
   Timer execute() override {
     OutTensor->reset();
+    mkl_set_num_threads(InTensor->NumThreads);
     Timer t;
     t.start();
     forwardForOneLayerWithGeMMAndSpMM(
@@ -661,6 +685,7 @@ class GCNSingleLayerTiledFused : public GCNSingleLayerFused {
 protected:
   Timer execute() override {
     OutTensor->reset();
+    mkl_set_num_threads(InTensor->NumThreads);
     Timer t;
     t.start();
     forwardForOneLayerTiled(
@@ -683,6 +708,7 @@ class GCNSingleLayerTiledFusedCSC : public GCNSingleLayerFused {
 protected:
   Timer execute() override {
     OutTensor->reset();
+    mkl_set_num_threads(InTensor->NumThreads);
     Timer t;
     t.start();
     forwardForOneLayerFromCSCTiled(
@@ -704,6 +730,7 @@ class GCNSingleLayerFusedCSC : public GCNSingleLayerFused {
 protected:
   Timer execute() override {
     OutTensor->reset();
+    mkl_set_num_threads(1);
     Timer t;
     t.start();
     forwardForOneLayerFromCSC(
@@ -723,10 +750,11 @@ public:
 
 
 #ifdef __AVX2__
-class GCNSingleLayerFusedCSCVectorized : public GCNSingleLayerFused {
+class GCNSingleLayerFusedCSCParallelVectorized : public GCNSingleLayerFused {
 protected:
   Timer execute() override {
     OutTensor->reset();
+    mkl_set_num_threads(1);
     Timer t;
     t.start();
 
@@ -735,14 +763,14 @@ protected:
         InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x,
         InTensor->FeatureMatrix->col, InTensor->EmbedDim, InTensor->Degrees,
         InTensor->FeatureMatrix->a, InTensor->Weight1,
-        OutTensor->FirstLayerOutput);
+        OutTensor->FirstLayerOutput, InTensor->NumThreads);
 
     t.stop();
     return t;
   }
 
 public:
-  GCNSingleLayerFusedCSCVectorized(GnnTensorInputs *In1, Stats *Stat1)
+  GCNSingleLayerFusedCSCParallelVectorized(GnnTensorInputs *In1, Stats *Stat1)
       : GCNSingleLayerFused(In1, Stat1) {}
 };
 
@@ -752,9 +780,9 @@ protected:
 
   Timer execute() override {
     OutTensor->reset();
+    mkl_set_num_threads(InTensor->NumThreads);
     Timer t;
     t.start();
-
     forwardForOneLayerFromCSCTiledVectorized(InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->p,
                                              InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x,
                                              InTensor->FeatureMatrix->col, InTensor->EmbedDim, InTensor->Degrees,
@@ -775,6 +803,7 @@ class GCNSingleLayerFusedCSCParallel : public GCNSingleLayerFused {
 protected:
   Timer execute() override {
     OutTensor->reset();
+    mkl_set_num_threads(1);
     Timer t;
     t.start();
     forwardForOneLayerFromCSCParallel(
