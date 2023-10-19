@@ -134,10 +134,10 @@ if [ $MODE == "GCNSingleLayerCompare" ]; then
         for tn in {8,16,32,64,128,256,512,1024,2048,4096}; do
           echo "for $line $tn $BCOL"
           if [ $header -eq 1 ]; then
-            $BINPATH/gcn_layer_demo -sm $DATA/$line -nt $THREADS -tn $tn -ah -sr $sr -bc $BCOL -ed $BCOL -en $MODE > ./build/logs/gcn_single_layer_demo_$BCOL.csv
+            $BINPATH/gcn_layer_demo -sm $DATA/$line -nt $THREADS -tn $tn -ah -sr $sr -bc $BCOL -ed $BCOL -en $MODE > ./build/logs/gcn_single_layer_demo.csv
             header=0
           else
-            $BINPATH/gcn_layer_demo -sm $DATA/$line -nt $THREADS -tn $tn -sr $sr -bc $BCOL -ed $BCOL -en $MODE >> ./build/logs/gcn_single_layer_demo_$BCOL.csv
+            $BINPATH/gcn_layer_demo -sm $DATA/$line -nt $THREADS -tn $tn -sr $sr -bc $BCOL -ed $BCOL -en $MODE >> ./build/logs/gcn_single_layer_demo.csv
           fi
         done
       done
