@@ -42,6 +42,7 @@ void forwardForOneLayerParallel(int M, int *Ap, int *Ai, double *Ax,
   {
 #pragma omp for
     for (int i = 0; i < M; i++) {
+      mkl_set_num_threads_local(1);
       double *messages = Output + OutputChannelDim * i;
       for (int j = Ap[i]; j < Ap[i + 1]; j++) {
         int n = Ai[j];
@@ -308,6 +309,7 @@ void forwardForOneLayerFromCSCParallel(int M, int *Ap, int *Ai, double *Ax,
   {
 #pragma omp parallel for
     for (int i = 0; i < M; i++) {
+      mkl_set_num_threads_local(1);
       std::memset(cache, 0, sizeof(double *) * OutputChannelDim);
       cblas_dgemv(CblasRowMajor, CblasTrans, InputChannelDim, OutputChannelDim,
                   1, // alpha
