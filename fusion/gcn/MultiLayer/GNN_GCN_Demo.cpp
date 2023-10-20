@@ -1,7 +1,7 @@
 //
 // Created by mehdi on 6/30/23.
 //
-#include "GCN_Layer_Demo_Utils.h"
+#include "GCN_Multi_Layer_Demo_Utils.h"
 #include "aggregation/sparse_utilities.h"
 #include "sparse-fusion/Fusion_Utils.h"
 

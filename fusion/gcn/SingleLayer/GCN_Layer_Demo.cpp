@@ -1,7 +1,7 @@
 //
 // Created by salehm32 on 12/10/23.
 //
-#include "GCN_Layer_Demo_Utils.h"
+#include "GCN_Single_Layer_Demo_Utils.h"
 #include "aggregation/sparse_utilities.h"
 #include "sparse-fusion/Fusion_Utils.h"
 using namespace sym_lib;
@@ -56,6 +56,7 @@ int main(const int argc, const char *argv[]) {
 
   stats = new swiftware::benchmark::Stats("GCN_SingleLayerFusedParallel", "GCN", 7,
                                           tp._matrix_name, numThread);
+  stats->OtherStats["PackingType"] = {Separated};
   GCNSingleLayerFusedParallel *gcnSingleLayerFusedParallel = new GCNSingleLayerFusedParallel(inputs,stats);
   gcnSingleLayerFusedParallel->run();
   auto gcnSingleLayerFusedParallelStat = gcnSingleLayerFusedParallel->printStats();

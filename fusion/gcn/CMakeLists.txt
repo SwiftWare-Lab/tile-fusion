@@ -16,7 +16,7 @@ if(TARGET MKL::MKL)
     message(STATUS "${MKL_IMPORTED_TARGETS}")
 
     add_executable(gcn_demo
-            GNN_GCN_Demo.cpp
+            MultiLayer/GNN_GCN_Demo.cpp
     )
 
     target_include_directories(gcn_demo PRIVATE
@@ -30,7 +30,7 @@ if(TARGET MKL::MKL)
     )
 
     add_executable(gcn_layer_demo
-            GCN_Layer_Demo.cpp
+            SingleLayer/GCN_Layer_Demo.cpp
     )
 
     target_include_directories(gcn_layer_demo PRIVATE
@@ -44,7 +44,8 @@ if(TARGET MKL::MKL)
     )
 else ()
     add_executable(gcn_demo
-            GNN_GCN_Demo.cpp
+            MultiLayer/GNN_GCN_Demo.cpp
+            SingleLayer/GCN_Single_Layer_Demo_Utils.h
     )
 
     target_link_libraries(gcn_demo
