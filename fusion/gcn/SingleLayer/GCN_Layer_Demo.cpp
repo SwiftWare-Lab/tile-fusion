@@ -36,7 +36,7 @@ int main(const int argc, const char *argv[]) {
   int numOfSamples = std::ceil(tp._sampling_ratio * tp._dim1);
   GnnTensorInputs *inputs = new GnnTensorInputs(
       layer1Weight, layer2Weight, features, aCSCFull, aCSCFull->m, embedDim,
-      numClasses, numOfSamples, numThread, 7, "GCN_Demo");
+      numOfSamples, numThread, 7, "GCN_Demo");
 
   stats = new swiftware::benchmark::Stats("GCN_SingleLayerFused", "GCN", 7,
                                           tp._matrix_name, numThread);

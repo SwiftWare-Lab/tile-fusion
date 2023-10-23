@@ -27,37 +27,29 @@ int main(const int argc, const char *argv[]) {
   tp._dim2 = aCSCFull->n;
   tp._nnz = aCSCFull->nnz;
   tp._density = (double)tp._nnz / (double)(tp._dim1 * tp._dim2);
-  int hiddenDim = 50;
-  int numClasses = 3;
+  int hiddenDim = tp._embed_dim;
   int numThread = sp._num_threads;
   int tileSize = sp.TileN;
   double *layer1Weight = generateRandomDenseMatrix(features->col, hiddenDim);
-  double *layer2Weight = generateRandomDenseMatrix(hiddenDim, numClasses);
+  double *layer2Weight = generateRandomDenseMatrix(hiddenDim, hiddenDim);
 
   int numOfSamples = std::ceil(tp._sampling_ratio * tp._dim1);
   GnnTensorInputs *inputs = new GnnTensorInputs(
       layer1Weight, layer2Weight, features, aCSCFull, aCSCFull->m, hiddenDim,
-      numClasses, numOfSamples, numThread, 1, "GCN_Demo");
+      numOfSamples, numThread, 1, "GCN_Demo");
 
   stats = new swiftware::benchmark::Stats("GCN_Sequential_Demo", "GCN", 7,
                                           tp._matrix_name, numThread);
   stats->OtherStats["PackingType"] = {Separated};
-  GCNSequential *gcnGnn = new GCNSequential(inputs, stats);
+  GCNIntraFusedSequential *gcnGnn = new GCNIntraFusedSequential(inputs, stats);
   gcnGnn->run();
   inputs->CorrectSol =
-      new double[inputs->AdjacencyMatrix->m * inputs->NumOfClasses];
+      new double[inputs->AdjacencyMatrix->m * inputs->EmbedDim];
   std::copy(gcnGnn->OutTensor->SecondLayerOutput,
             gcnGnn->OutTensor->SecondLayerOutput +
-                inputs->AdjacencyMatrix->m * inputs->NumOfClasses,
+                inputs->AdjacencyMatrix->m * inputs->EmbedDim,
             inputs->CorrectSol);
 
-  //  for (int i = 0; i < inputs->NumOfNodes; i++){
-  //    for (int j = 0; j < inputs->NumOfClasses; j++){
-  //      std::cout <<
-  //      gcnGnn->OutTensor->SecondLayerOutput[i*inputs->NumOfClasses+j] << " ";
-  //    }
-  //    std::cout << std::endl;
-  //  }
   auto headerStat = gcnGnn->printStatsHeader();
   auto gcnStat = gcnGnn->printStats();
   delete gcnGnn;
@@ -75,43 +67,40 @@ int main(const int argc, const char *argv[]) {
     std::cout << headerStat + spHeader + tpHeader << std::endl;
   std::cout << gcnStat << spStat + tpStat << std::endl;
 
-//  stats = new swiftware::benchmark::Stats("GCN_Parallel_Demo", "GCN", 7,
-//                                          tp._matrix_name, numThread);
-//  stats->OtherStats["PackingType"] = {Separated};
-//  GCNParallel *gcnParallel = new GCNParallel(inputs, stats);
-//  gcnParallel->run();
-//  auto gcnParallelStat = gcnParallel->printStats();
-//  delete gcnParallel;
-//  delete stats;
-//  std::cout << gcnParallelStat << spStat + tpStat << std::endl;
+  stats = new swiftware::benchmark::Stats("GCN_IntraFusedParallel_Demo", "GCN", 7,
+                                          tp._matrix_name, numThread);
+  stats->OtherStats["PackingType"] = {Separated};
+  GCNIntraFusedParallel *gcnParallel = new GCNIntraFusedParallel(inputs, stats);
+  gcnParallel->run();
+  auto gcnParallelStat = gcnParallel->printStats();
+  delete gcnParallel;
+  delete stats;
+  std::cout << gcnParallelStat << spStat + tpStat << std::endl;
 
   if (tp.expariment_name == "GCNFusedParallel") {
-    stats = new swiftware::benchmark::Stats("GCN_Fused_Demo", "GCN", 7,
+    stats = new swiftware::benchmark::Stats("GCN_AllFused_Demo", "GCN", 7,
                                             tp._matrix_name, numThread);
     stats->OtherStats["PackingType"] = {Interleaved};
-    GCNFused *gcnFused = new GCNFused(inputs, stats, sp);
+    GCNAllFusedParallel *gcnFused = new GCNAllFusedParallel(inputs, stats, sp);
     gcnFused->run();
     auto gcnFusedStat = gcnFused->printStats();
     delete gcnFused;
     delete stats;
 
     std::cout << gcnFusedStat << spStat + tpStat << std::endl;
-    stats = new swiftware::benchmark::Stats(
-        "GCN_FusedParallelWithOmittingEmptyRows_Demo", "GCN", 7,
-        tp._matrix_name, numThread);
-    stats->OtherStats["PackingType"] = {Interleaved};
-    GCNFusedParallelWithOmittingEmptyRows
-        *gcnFusedParallelWithOmittingEmptyRows =
-            new GCNFusedParallelWithOmittingEmptyRows(inputs, stats, sp);
-    gcnFusedParallelWithOmittingEmptyRows->run();
-    auto gcnFusedPWOERStat =
-        gcnFusedParallelWithOmittingEmptyRows->printStats();
-    delete gcnFusedParallelWithOmittingEmptyRows;
+
+    stats = new swiftware::benchmark::Stats("GCN_IntraUnfused_Demo", "GCN", 7,
+                                            tp._matrix_name, numThread);
+    stats->OtherStats["PackingType"] = {Separated};
+    GCNUnfused *gcnIntraUnfusedMKL = new GCNUnfused(inputs, stats);
+    gcnIntraUnfusedMKL->run();
+    auto gcnIntraUnfusedMKLStat = gcnIntraUnfusedMKL->printStats();
+    delete gcnIntraUnfusedMKL;
     delete stats;
-    std::cout << gcnFusedPWOERStat << spStat + tpStat << std::endl;
+    std::cout << gcnIntraUnfusedMKLStat << spStat + tpStat << std::endl;
   }
 
-  if (tp.expariment_name == "GCNFusedBandedSpecific") {
+  if (tp.expariment_name == "GCNFusedBatchingForBandedSpecific") {
     stats =
         new swiftware::benchmark::Stats("GCN_FusedWithOmittingEmptyRows_Demo",
                                         "GCN", 7, tp._matrix_name, numThread);
@@ -133,7 +122,7 @@ int main(const int argc, const char *argv[]) {
     std::cout << gcnFusedWRRStat << spStat + tpStat << std::endl;
   }
 
-  if (tp.expariment_name == "GCNFusedSequential") {
+  if (tp.expariment_name == "GCNFusedBatching") {
     stats =
         new swiftware::benchmark::Stats("GCN_FusedWithOmittingEmptyRows_Demo",
                                         "GCN", 7, tp._matrix_name, numThread);
@@ -146,17 +135,74 @@ int main(const int argc, const char *argv[]) {
     delete stats;
 
     std::cout << gcnFusedWOERStat << spStat + tpStat << std::endl;
+
+    //should be bug fixed
+//    stats = new swiftware::benchmark::Stats(
+//        "GCN_FusedParallelWithOmittingEmptyRows_Demo", "GCN", 7,
+//        tp._matrix_name, numThread);
+//    stats->OtherStats["PackingType"] = {Interleaved};
+//    GCNFusedParallelWithOmittingEmptyRows
+//        *gcnFusedParallelWithOmittingEmptyRows =
+//            new GCNFusedParallelWithOmittingEmptyRows(inputs, stats, sp);
+//    gcnFusedParallelWithOmittingEmptyRows->run();
+//    auto gcnFusedPWOERStat =
+//        gcnFusedParallelWithOmittingEmptyRows->printStats();
+//    delete gcnFusedParallelWithOmittingEmptyRows;
+//    delete stats;
+//    std::cout << gcnFusedPWOERStat << spStat + tpStat << std::endl;
   }
-  if (tp.expariment_name == "GCNIntraFusedVsUnfused") {
+
+  if (tp.expariment_name == "GCNWithDifferentFusionLevels") {
+
     stats = new swiftware::benchmark::Stats("GCN_IntraUnfused_Demo", "GCN", 7,
                                             tp._matrix_name, numThread);
     stats->OtherStats["PackingType"] = {Separated};
-    GCNIntraUnfusedMKL *gcnIntraUnfusedMKL = new GCNIntraUnfusedMKL(inputs, stats);
+    GCNUnfused *gcnIntraUnfusedMKL = new GCNUnfused(inputs, stats);
     gcnIntraUnfusedMKL->run();
     auto gcnIntraUnfusedMKLStat = gcnIntraUnfusedMKL->printStats();
     delete gcnIntraUnfusedMKL;
     delete stats;
     std::cout << gcnIntraUnfusedMKLStat << spStat + tpStat << std::endl;
+
+    stats = new swiftware::benchmark::Stats("GCN_IntraTiledFused_Demo", "GCN", 7,
+                                            tp._matrix_name, numThread);
+    stats->OtherStats["PackingType"] = {Separated};
+    GCNIntraLayerTiledFused *gcnIntraTiledFused = new GCNIntraLayerTiledFused(inputs, stats, tileSize);
+    gcnIntraTiledFused->run();
+    auto gcnIntraTiledFusedStats = gcnIntraTiledFused->printStats();
+    delete gcnIntraTiledFused;
+    delete stats;
+    std::cout << gcnIntraTiledFusedStats << spStat + tpStat << std::endl;
+
+    stats = new swiftware::benchmark::Stats("GCN_IntraFusedCSCSequential_Demo", "GCN", 7,
+                                            tp._matrix_name, numThread);
+    stats->OtherStats["PackingType"] = {Separated};
+    GCNIntraFusedUsingCSCSequential *gcnIntraFusedCSCSequential = new GCNIntraFusedUsingCSCSequential(inputs, stats);
+    gcnIntraFusedCSCSequential->run();
+    auto gcnIFCSStats = gcnIntraFusedCSCSequential->printStats();
+    delete gcnIntraFusedCSCSequential;
+    delete stats;
+    std::cout << gcnIFCSStats << spStat + tpStat << std::endl;
+
+    stats = new swiftware::benchmark::Stats("GCN_IntraTiledFusedCSC_Demo", "GCN", 7,
+                                            tp._matrix_name, numThread);
+    stats->OtherStats["PackingType"] = {Interleaved};
+    GCNIntraTiledFusedUsingCSC *gcnIntraTiledFusedCSC = new GCNIntraTiledFusedUsingCSC(inputs, stats, tileSize);
+    gcnIntraTiledFusedCSC->run();
+    auto gcnIntraTiledFusedCSCStats = gcnIntraTiledFusedCSC->printStats();
+    delete gcnIntraTiledFusedCSC;
+    delete stats;
+    std::cout << gcnIntraTiledFusedCSCStats << spStat + tpStat << std::endl;
+
+//    stats = new swiftware::benchmark::Stats("GCN_AllFused_Demo","GCN", 7,
+//                                            tp._matrix_name, numThread);
+//    stats->OtherStats["PackingType"] = {Interleaved};
+//    GCNAllFusedParallel *gcnAllFusedParallel = new GCNAllFusedParallel(inputs, stats, sp);
+//    gcnAllFusedParallel->run();
+//    auto gcnAllFusedParallelStats = gcnAllFusedParallel->printStats();
+//    delete gcnAllFusedParallel;
+//    delete stats;
+//    std::cout << gcnAllFusedParallelStats << spStat + tpStat << std::endl;
   }
   delete inputs;
   delete aCSC;

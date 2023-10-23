@@ -16,7 +16,7 @@
 
 using namespace swiftware::benchmark;
 
-class GCNSingleLayerFused : public GCNSequential {
+class GCNSingleLayerFused : public GCNIntraFusedSequential {
 protected:
   bool verify(double &Error) override {
     bool retValue = true;
@@ -53,7 +53,7 @@ protected:
 
 public:
   GCNSingleLayerFused(GnnTensorInputs *In1, Stats *Stat1)
-      : GCNSequential(In1, Stat1) {}
+      : GCNIntraFusedSequential(In1, Stat1) {}
 };
 
 class GCNSingleLayerFusedParallel : public GCNSingleLayerFused {

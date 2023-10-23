@@ -90,20 +90,25 @@ fi
 
 if [ $MODE == "GCNFusedParallel" ]; then
   echo "Experiment: GCNFusedParallel"
-  for sr in {0.1,0.4,0.7,1}; do
+#  for sr in {0.1,0.4,0.7,1}; do
+   sr=1
    header=1
    while read line; do
      for w in {10,50,100,250,500,1000,2000,4000}; do
-       echo "for $line $sr $w"
-         if [ $header -eq 1 ]; then
-           $BINPATH/gcn_demo -sm $DATA/$line -nt $THREADS -ah -ip $w -sr $sr -bc $BCOL -en $MODE > ./build/logs/gcn_demo_$sr.csv
-           header=0
-         else
-           $BINPATH/gcn_demo -sm $DATA/$line -nt $THREADS -ip $w -sr $sr -bc $BCOL -en $MODE >> ./build/logs/gcn_demo_$sr.csv
-         fi
+       for BCOL in {128,256,512,1024,2048}; do
+         for EDIM in {4,8,32,64,128,256}; do
+          echo "for $line $w $BCOL $EDIM"
+          if [ $header -eq 1 ]; then
+          $BINPATH/gcn_demo -sm $DATA/$line -nt $THREADS -ah -ip $w -sr $sr -bc $BCOL -ed $EDIM -en $MODE > ./build/logs/gcn_demo.csv
+          header=0
+          else
+           $BINPATH/gcn_demo -sm $DATA/$line -nt $THREADS -ip $w -sr $sr -bc $BCOL -ed $EDIM -en $MODE >> ./build/logs/gcn_demo.csv
+          fi
+       done
+     done
      done
    done < $MATLIST
-  done
+#  done
 fi
 
 if [ $MODE == "GCNFusedBandedSpecific" ]; then
@@ -145,21 +150,23 @@ if [ $MODE == "GCNSingleLayerCompare" ]; then
   done < $MATLIST
 fi
 
-if [ $MODE == "GCNIntraFusedVsUnfused" ]; then
- echo "Experiment: GCNIntraFusedVsUnfused"
+if [ $MODE == "GCNWithDifferentFusionLevels" ]; then
+ echo "Experiment: GCNWithDifferentFusionLevels"
   sr=1
-#  for sr in {0.1,0.4,0.7,1}; do
-    header=1
-    while read line; do
-      for BCOL in {4,8,32,64,128,256,512,1024}; do
-        echo "for $line $sr $BCOL"
-        if [ $header -eq 1 ]; then
-          $BINPATH/gcn_demo -sm $DATA/$line -nt $THREADS -ah -sr $sr -bc $BCOL -en $MODE > ./build/logs/gcn_demo_$sr.csv
-          header=0
-        else
-          $BINPATH/gcn_demo -sm $DATA/$line -nt $THREADS -sr $sr -bc $BCOL -en $MODE >> ./build/logs/gcn_demo_$sr.csv
-        fi
+  header=1
+  while read line; do
+    for BCOL in {128,256,512,1024,2048}; do
+      for EDIM in {4,8,32,64,128,256}; do
+        for tn in {8,16,32,64,128,256,512,1024,2048,4096}; do
+          echo "for $line $tn $BCOL $sr"
+          if [ $header -eq 1 ]; then
+            $BINPATH/gcn_demo -sm $DATA/$line -nt $THREADS -tn $tn -ah -sr $sr -bc $BCOL -en $MODE -ed $BCOL > ./build/logs/gcn_demo.csv
+            header=0
+          else
+            $BINPATH/gcn_demo -sm $DATA/$line -nt $THREADS -tn $tn -sr $sr -bc $BCOL -en $MODE -ed $BCOL >> ./build/logs/gcn_demo.csv
+          fi
+        done
       done
-    done < $MATLIST
-#  done
+    done
+  done < $MATLIST
 fi

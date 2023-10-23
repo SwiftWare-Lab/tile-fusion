@@ -326,7 +326,7 @@ void forwardForOneLayerTiled(int M, int *Ap, int *Ai, double *Ax,
                              int InputChannelDim, int OutputChannelDim,
                              int *Degrees, double *Features, double *Weight,
                              double *Output, int TileSize) {
-  double temp[(TileSize + 2) * OutputChannelDim];
+  double* temp = new double [(TileSize + 2) * OutputChannelDim];
   for (int i = 0; i < M; i += TileSize) {
     memset(temp, 0, sizeof(double) * (TileSize + 2) * OutputChannelDim);
     int geMMTileStartLoc = std::max(i - 1, 0);
@@ -348,6 +348,7 @@ void forwardForOneLayerTiled(int M, int *Ap, int *Ai, double *Ax,
       }
     }
   }
+  delete[] temp;
 }
 
 void forwardForOneLayerFromCSCTiled(int M, int *Ap, int *Ai, double *Ax,
@@ -355,7 +356,7 @@ void forwardForOneLayerFromCSCTiled(int M, int *Ap, int *Ai, double *Ax,
                                     int *Degrees, double *Features,
                                     double *Weight, double *Output,
                                     int TileSize) {
-  double cache[TileSize * OutputChannelDim];
+  double *cache = new double [TileSize * OutputChannelDim];
   int lastTileSize = M%TileSize;
   int lastCompleteTileEnd = M - lastTileSize;
   for (int i = 0; i < lastCompleteTileEnd; i += TileSize) {
@@ -384,6 +385,7 @@ void forwardForOneLayerFromCSCTiled(int M, int *Ap, int *Ai, double *Ax,
         }
     }
   }
+  delete[] cache;
 }
 
 #ifdef __AVX2__
