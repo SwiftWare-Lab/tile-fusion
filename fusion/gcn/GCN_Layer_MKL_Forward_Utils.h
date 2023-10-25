@@ -280,12 +280,11 @@ void forwardForOneLayerFromCSC(int M, int *Ap, int *Ai, double *Ax,
   double cache[OutputChannelDim];
   for (int i = 0; i < M; i++) {
     std::memset(cache, 0, sizeof(double *) * OutputChannelDim);
-    cblas_dgemv(
-        CblasRowMajor, CblasTrans, InputChannelDim, OutputChannelDim,
-        1, // alpha
-        Weight, OutputChannelDim, Features + (i * InputChannelDim), 1,
-        1., // beta
-        cache, 1);
+    cblas_dgemv(CblasRowMajor, CblasTrans, InputChannelDim, OutputChannelDim,
+                1, // alpha
+                Weight, OutputChannelDim, Features + (i * InputChannelDim), 1,
+                1., // beta
+                cache, 1);
     for (int j = Ap[i]; j < Ap[i + 1]; j++) {
       for (int k = 0; k < OutputChannelDim; k++) {
         Output[Ai[j] * OutputChannelDim + k] += Ax[j] * cache[k];
@@ -326,7 +325,7 @@ void forwardForOneLayerTiled(int M, int *Ap, int *Ai, double *Ax,
                              int InputChannelDim, int OutputChannelDim,
                              int *Degrees, double *Features, double *Weight,
                              double *Output, int TileSize) {
-  double* temp = new double [(TileSize + 2) * OutputChannelDim];
+  double *temp = new double[(TileSize + 2) * OutputChannelDim];
   for (int i = 0; i < M; i += TileSize) {
     memset(temp, 0, sizeof(double) * (TileSize + 2) * OutputChannelDim);
     int geMMTileStartLoc = std::max(i - 1, 0);
@@ -356,80 +355,162 @@ void forwardForOneLayerFromCSCTiled(int M, int *Ap, int *Ai, double *Ax,
                                     int *Degrees, double *Features,
                                     double *Weight, double *Output,
                                     int TileSize) {
-  double *cache = new double [TileSize * OutputChannelDim];
-  int lastTileSize = M%TileSize;
+  double *cache = new double[TileSize * OutputChannelDim];
+  int lastTileSize = M % TileSize;
   int lastCompleteTileEnd = M - lastTileSize;
   for (int i = 0; i < lastCompleteTileEnd; i += TileSize) {
     std::memset(cache, 0, sizeof(double *) * TileSize * OutputChannelDim);
     cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, TileSize,
-                 OutputChannelDim, InputChannelDim, 1.,
-                 Features + i * InputChannelDim, InputChannelDim, Weight,
-                 OutputChannelDim, 0., cache, OutputChannelDim);
-    for (int ii = 0; ii < TileSize; ii++){
-        for (int j = Ap[i + ii]; j < Ap[i + ii + 1]; j++) {
-            for (int k = 0; k < OutputChannelDim; k++) {
-            Output[Ai[j] * OutputChannelDim + k] += Ax[j] * cache[ii * OutputChannelDim + k];
-            }
+                OutputChannelDim, InputChannelDim, 1.,
+                Features + i * InputChannelDim, InputChannelDim, Weight,
+                OutputChannelDim, 0., cache, OutputChannelDim);
+    for (int ii = 0; ii < TileSize; ii++) {
+      for (int j = Ap[i + ii]; j < Ap[i + ii + 1]; j++) {
+        for (int k = 0; k < OutputChannelDim; k++) {
+          Output[Ai[j] * OutputChannelDim + k] +=
+              Ax[j] * cache[ii * OutputChannelDim + k];
         }
+      }
     }
   }
   std::memset(cache, 0, sizeof(double *) * TileSize * OutputChannelDim);
   cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, lastTileSize,
               OutputChannelDim, InputChannelDim, 1.,
-              Features + lastCompleteTileEnd * InputChannelDim, InputChannelDim, Weight,
-              OutputChannelDim, 0., cache, OutputChannelDim);
-  for (int ii = 0; ii < lastTileSize; ii++){
-    for (int j = Ap[lastCompleteTileEnd + ii]; j < Ap[lastCompleteTileEnd + ii + 1]; j++) {
-        for (int k = 0; k < OutputChannelDim; k++) {
-            Output[Ai[j] * OutputChannelDim + k] += Ax[j] * cache[ii * OutputChannelDim + k];
-        }
+              Features + lastCompleteTileEnd * InputChannelDim, InputChannelDim,
+              Weight, OutputChannelDim, 0., cache, OutputChannelDim);
+  for (int ii = 0; ii < lastTileSize; ii++) {
+    for (int j = Ap[lastCompleteTileEnd + ii];
+         j < Ap[lastCompleteTileEnd + ii + 1]; j++) {
+      for (int k = 0; k < OutputChannelDim; k++) {
+        Output[Ai[j] * OutputChannelDim + k] +=
+            Ax[j] * cache[ii * OutputChannelDim + k];
+      }
     }
   }
   delete[] cache;
 }
 
+void forwardForFusedLayersFromCSCTiled(
+    int M, int *Ap, int *Ai, double *Ax, int InputChannelDim,
+    int HiddenChannelDim, int OutputChannelDim, int *Degrees, double *Features,
+    double *Weight1, double *Weight2, double *FirstLayerOutput, double *Output,
+    int TileSize, int *ParPtr, int *Partition, int *Type) {
+  double *cache1 = new double[TileSize * HiddenChannelDim];
+  double *cache2 = new double[TileSize * OutputChannelDim];
+  int lastTileSize = M % TileSize;
+  int lastCompleteTileEnd = M - lastTileSize;
+  for (int it = 0; it < ParPtr[1]; it++) {
+    int i = Partition[it];
+    int t = Type[it];
+    if (t == 0) {
+      std::memset(cache1, 0, sizeof(double *) * TileSize * HiddenChannelDim);
+      cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, TileSize,
+                  HiddenChannelDim, InputChannelDim, 1.,
+                  Features + i * InputChannelDim, InputChannelDim, Weight1,
+                  HiddenChannelDim, 0., cache1, HiddenChannelDim);
+      for (int ii = 0; ii < TileSize; ii++) {
+        for (int j = Ap[i + ii]; j < Ap[i + ii + 1]; j++) {
+          for (int k = 0; k < HiddenChannelDim; k++) {
+            FirstLayerOutput[Ai[j] * HiddenChannelDim + k] +=
+                Ax[j] * cache1[ii * HiddenChannelDim + k];
+          }
+        }
+      }
+    } else if (t == 2) {
+      std::memset(cache1, 0, sizeof(double *) * TileSize * HiddenChannelDim);
+      cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, lastTileSize,
+                  HiddenChannelDim, InputChannelDim, 1.,
+                  Features + lastCompleteTileEnd * InputChannelDim,
+                  InputChannelDim, Weight1, HiddenChannelDim, 0., cache1,
+                  HiddenChannelDim);
+      for (int ii = 0; ii < lastTileSize; ii++) {
+        for (int j = Ap[lastCompleteTileEnd + ii];
+             j < Ap[lastCompleteTileEnd + ii + 1]; j++) {
+          for (int k = 0; k < HiddenChannelDim; k++) {
+            FirstLayerOutput[Ai[j] * HiddenChannelDim + k] +=
+                Ax[j] * cache1[ii * HiddenChannelDim + k];
+          }
+        }
+      }
+    } else if (t == 1) {
+      std::memset(cache2, 0, sizeof(double *) * TileSize * OutputChannelDim);
+      cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, TileSize,
+                  OutputChannelDim, HiddenChannelDim, 1.,
+                  FirstLayerOutput + i * HiddenChannelDim, HiddenChannelDim,
+                  Weight2, OutputChannelDim, 0., cache2, OutputChannelDim);
+      for (int ii = 0; ii < TileSize; ii++) {
+        for (int j = Ap[i + ii]; j < Ap[i + ii + 1]; j++) {
+          for (int k = 0; k < OutputChannelDim; k++) {
+            Output[Ai[j] * OutputChannelDim + k] +=
+                Ax[j] * cache2[ii * OutputChannelDim + k];
+          }
+        }
+      }
+    } else if (t == 3) {
+      std::memset(cache2, 0, sizeof(double *) * TileSize * OutputChannelDim);
+      cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, lastTileSize,
+                  OutputChannelDim, HiddenChannelDim, 1.,
+                  FirstLayerOutput + lastCompleteTileEnd * HiddenChannelDim,
+                  HiddenChannelDim, Weight2, OutputChannelDim, 0., cache2,
+                  OutputChannelDim);
+      for (int ii = 0; ii < lastTileSize; ii++) {
+        for (int j = Ap[lastCompleteTileEnd + ii];
+             j < Ap[lastCompleteTileEnd + ii + 1]; j++) {
+          for (int k = 0; k < OutputChannelDim; k++) {
+            Output[Ai[j] * OutputChannelDim + k] +=
+                Ax[j] * cache2[ii * OutputChannelDim + k];
+          }
+        }
+      }
+    }
+  }
+  delete[] cache1;
+  delete[] cache2;
+}
+
 #ifdef __AVX2__
 void forwardForOneLayerFromCSCVectorized(int M, int *Ap, int *Ai, double *Ax,
-                                         int InputChannelDim, int OutputChannelDim,
-                                         int *Degrees, double *Features, double *Weight,
-                                         double *Output, int NumThreads){
+                                         int InputChannelDim,
+                                         int OutputChannelDim, int *Degrees,
+                                         double *Features, double *Weight,
+                                         double *Output, int NumThreads) {
 #pragma omp parallel num_threads(NumThreads)
   {
 #pragma omp for
     for (int i = 0; i < M; i++) {
-        double cache[OutputChannelDim];
-        std::memset(cache, 0, sizeof(double *) * OutputChannelDim);
-        cblas_dgemv(
-            CblasRowMajor, CblasTrans, InputChannelDim, OutputChannelDim,
-            1, // alpha
-            Weight, OutputChannelDim, Features + (i * InputChannelDim), 1,
-            1., // beta
-            cache, 1);
-        for (int j = Ap[i]; j < Ap[i + 1]; j++) {
-            int vectorizedSize = OutputChannelDim - OutputChannelDim % 4;
-            __m256d Axj = _mm256_set1_pd(Ax[j]);
-            for (int k = 0; k < vectorizedSize; k += 4) {
-            __m256d cachek = _mm256_loadu_pd(cache + k);
-            __m256d outputk =
-                _mm256_loadu_pd(Output + Ai[j] * OutputChannelDim + k);
-            __m256d result = _mm256_fmadd_pd(Axj, cachek, outputk);
-            _mm256_storeu_pd(Output + Ai[j] * OutputChannelDim + k, result);
-            }
-            for (int k = vectorizedSize; k < OutputChannelDim; k++) {
-            Output[Ai[j] * OutputChannelDim + k] += Ax[j] * cache[k];
-            }
+      double cache[OutputChannelDim];
+      std::memset(cache, 0, sizeof(double *) * OutputChannelDim);
+      cblas_dgemv(CblasRowMajor, CblasTrans, InputChannelDim, OutputChannelDim,
+                  1, // alpha
+                  Weight, OutputChannelDim, Features + (i * InputChannelDim), 1,
+                  1., // beta
+                  cache, 1);
+      for (int j = Ap[i]; j < Ap[i + 1]; j++) {
+        int vectorizedSize = OutputChannelDim - OutputChannelDim % 4;
+        __m256d Axj = _mm256_set1_pd(Ax[j]);
+        for (int k = 0; k < vectorizedSize; k += 4) {
+          __m256d cachek = _mm256_loadu_pd(cache + k);
+          __m256d outputk =
+              _mm256_loadu_pd(Output + Ai[j] * OutputChannelDim + k);
+          __m256d result = _mm256_fmadd_pd(Axj, cachek, outputk);
+          _mm256_storeu_pd(Output + Ai[j] * OutputChannelDim + k, result);
         }
+        for (int k = vectorizedSize; k < OutputChannelDim; k++) {
+          Output[Ai[j] * OutputChannelDim + k] += Ax[j] * cache[k];
+        }
+      }
     }
   }
 }
 
-void forwardForOneLayerFromCSCTiledVectorized(int M, int *Ap, int *Ai, double *Ax,
-                                    int InputChannelDim, int OutputChannelDim,
-                                    int *Degrees, double *Features,
-                                    double *Weight, double *Output,
-                                    int TileSize) {
+void forwardForOneLayerFromCSCTiledVectorized(int M, int *Ap, int *Ai,
+                                              double *Ax, int InputChannelDim,
+                                              int OutputChannelDim,
+                                              int *Degrees, double *Features,
+                                              double *Weight, double *Output,
+                                              int TileSize) {
   double cache[TileSize * OutputChannelDim];
-  int lastTileSize = M%TileSize;
+  int lastTileSize = M % TileSize;
   int lastCompleteTileEnd = M - lastTileSize;
   int vectorizedSize = OutputChannelDim - OutputChannelDim % 4;
   for (int i = 0; i < lastCompleteTileEnd; i += TileSize) {
@@ -438,38 +519,43 @@ void forwardForOneLayerFromCSCTiledVectorized(int M, int *Ap, int *Ai, double *A
                 OutputChannelDim, InputChannelDim, 1.,
                 Features + i * InputChannelDim, InputChannelDim, Weight,
                 OutputChannelDim, 0., cache, OutputChannelDim);
-    for (int ii = 0; ii < TileSize; ii++){
-        for (int j = Ap[i + ii]; j < Ap[i + ii + 1]; j++) {
-            __m256d Axj = _mm256_set1_pd(Ax[j]);
-            for (int k = 0; k < vectorizedSize; k+=4) {
-                __m256d cachek = _mm256_loadu_pd(cache + ii * OutputChannelDim + k);
-                __m256d outputk = _mm256_loadu_pd(Output + Ai[j] * OutputChannelDim + k);
-                __m256d result = _mm256_fmadd_pd(Axj, cachek, outputk);
-                _mm256_storeu_pd(Output + Ai[j] * OutputChannelDim + k, result);
-            }
-            for (int k = vectorizedSize; k < OutputChannelDim; k++) {
-                Output[Ai[j] * OutputChannelDim + k] += Ax[j] * cache[ii * OutputChannelDim + k];
-            }
+    for (int ii = 0; ii < TileSize; ii++) {
+      for (int j = Ap[i + ii]; j < Ap[i + ii + 1]; j++) {
+        __m256d Axj = _mm256_set1_pd(Ax[j]);
+        for (int k = 0; k < vectorizedSize; k += 4) {
+          __m256d cachek = _mm256_loadu_pd(cache + ii * OutputChannelDim + k);
+          __m256d outputk =
+              _mm256_loadu_pd(Output + Ai[j] * OutputChannelDim + k);
+          __m256d result = _mm256_fmadd_pd(Axj, cachek, outputk);
+          _mm256_storeu_pd(Output + Ai[j] * OutputChannelDim + k, result);
         }
+        for (int k = vectorizedSize; k < OutputChannelDim; k++) {
+          Output[Ai[j] * OutputChannelDim + k] +=
+              Ax[j] * cache[ii * OutputChannelDim + k];
+        }
+      }
     }
   }
   std::memset(cache, 0, sizeof(double *) * TileSize * OutputChannelDim);
   cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, lastTileSize,
               OutputChannelDim, InputChannelDim, 1.,
-              Features + lastCompleteTileEnd * InputChannelDim, InputChannelDim, Weight,
-              OutputChannelDim, 0., cache, OutputChannelDim);
-  for (int ii = 0; ii < lastTileSize; ii++){
-    for (int j = Ap[lastCompleteTileEnd + ii]; j < Ap[lastCompleteTileEnd + ii + 1]; j++) {
-        __m256d axj = _mm256_set1_pd(Ax[j]);
-        for (int k = 0; k < vectorizedSize; k+=4) {
-            __m256d cachek = _mm256_loadu_pd(cache + ii * OutputChannelDim + k);
-            __m256d outputk = _mm256_loadu_pd(Output + Ai[j] * OutputChannelDim + k);
-            __m256d result = _mm256_fmadd_pd(axj, cachek, outputk);
-            _mm256_storeu_pd(Output + Ai[j] * OutputChannelDim + k, result);
-        }
-        for (int k = vectorizedSize; k < OutputChannelDim; k++) {
-            Output[Ai[j] * OutputChannelDim + k] += Ax[j] * cache[ii * OutputChannelDim + k];
-        }
+              Features + lastCompleteTileEnd * InputChannelDim, InputChannelDim,
+              Weight, OutputChannelDim, 0., cache, OutputChannelDim);
+  for (int ii = 0; ii < lastTileSize; ii++) {
+    for (int j = Ap[lastCompleteTileEnd + ii];
+         j < Ap[lastCompleteTileEnd + ii + 1]; j++) {
+      __m256d axj = _mm256_set1_pd(Ax[j]);
+      for (int k = 0; k < vectorizedSize; k += 4) {
+        __m256d cachek = _mm256_loadu_pd(cache + ii * OutputChannelDim + k);
+        __m256d outputk =
+            _mm256_loadu_pd(Output + Ai[j] * OutputChannelDim + k);
+        __m256d result = _mm256_fmadd_pd(axj, cachek, outputk);
+        _mm256_storeu_pd(Output + Ai[j] * OutputChannelDim + k, result);
+      }
+      for (int k = vectorizedSize; k < OutputChannelDim; k++) {
+        Output[Ai[j] * OutputChannelDim + k] +=
+            Ax[j] * cache[ii * OutputChannelDim + k];
+      }
     }
   }
 }

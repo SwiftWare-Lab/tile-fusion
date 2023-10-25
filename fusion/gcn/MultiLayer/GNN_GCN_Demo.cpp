@@ -194,6 +194,16 @@ int main(const int argc, const char *argv[]) {
     delete stats;
     std::cout << gcnIntraTiledFusedCSCStats << spStat + tpStat << std::endl;
 
+    stats = new swiftware::benchmark::Stats("GCN_AllTiledFusedCSC_Demo", "GCN", 7,
+                                            tp._matrix_name, numThread);
+    stats->OtherStats["PackingType"] = {Interleaved};
+    GCNAllTiledFusedCSC *gcnAllFusedCSC = new GCNAllTiledFusedCSC(inputs, stats, tileSize);
+    gcnAllFusedCSC->run();
+    auto gcnAllFusedCSCStats = gcnAllFusedCSC->printStats();
+    delete gcnAllFusedCSC;
+    delete stats;
+    std::cout << gcnAllFusedCSCStats << spStat + tpStat << std::endl;
+
 //    stats = new swiftware::benchmark::Stats("GCN_AllFused_Demo","GCN", 7,
 //                                            tp._matrix_name, numThread);
 //    stats->OtherStats["PackingType"] = {Interleaved};

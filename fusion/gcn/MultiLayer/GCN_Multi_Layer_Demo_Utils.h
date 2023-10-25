@@ -120,9 +120,8 @@ struct GnnTensorInputs : public Inputs<double> {
 
   GnnTensorInputs(double *Weight1, double *Weight2,
                   sym_lib::Dense *FeatureMatrix, sym_lib::CSC *AdjMtxCSC,
-                  size_t NumOfNodes, size_t EmbedDim,
-                  size_t BatchSize, int NumThreads1, int NumTrial1,
-                  std::string ExpN)
+                  size_t NumOfNodes, size_t EmbedDim, size_t BatchSize,
+                  int NumThreads1, int NumTrial1, std::string ExpN)
       : Inputs<double>(NumTrial1, NumThreads1, ExpN), Weight1(Weight1),
         Weight2(Weight2), FeatureMatrix(FeatureMatrix), NumOfNodes(NumOfNodes),
         EmbedDim(EmbedDim), BatchSize(BatchSize) {
@@ -223,8 +222,7 @@ public:
   GnnTensorOutputs *OutTensor;
   GCNIntraFusedSequential(GnnTensorInputs *In1, Stats *Stat1)
       : SWTensorBench<double>(In1, Stat1) {
-    OutTensor =
-        new GnnTensorOutputs(In1->EmbedDim, In1->NumOfNodes);
+    OutTensor = new GnnTensorOutputs(In1->EmbedDim, In1->NumOfNodes);
     InTensor = In1;
   }
 
@@ -314,12 +312,13 @@ protected:
     t.start();
     forwardForFusedLayersParallel(
         InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->p,
-        InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x,InTensor->FeatureMatrix->col,
-        InTensor->EmbedDim, InTensor->EmbedDim, InTensor->Degrees,
-        InTensor->FeatureMatrix->a, InTensor->Weight1, InTensor->Weight2,
-        OutTensor->SecondLayerOutput, OutTensor->FirstLayerOutput,
-        InTensor->NumThreads, FusedCompSet->n1_, FusedCompSet->ptr1_,
-        FusedCompSet->ptr2_, FusedCompSet->id_, FusedCompSet->type_);
+        InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x,
+        InTensor->FeatureMatrix->col, InTensor->EmbedDim, InTensor->EmbedDim,
+        InTensor->Degrees, InTensor->FeatureMatrix->a, InTensor->Weight1,
+        InTensor->Weight2, OutTensor->SecondLayerOutput,
+        OutTensor->FirstLayerOutput, InTensor->NumThreads, FusedCompSet->n1_,
+        FusedCompSet->ptr1_, FusedCompSet->ptr2_, FusedCompSet->id_,
+        FusedCompSet->type_);
     t.stop();
     return t;
   }
@@ -359,14 +358,12 @@ public:
     mkl_sparse_d_create_csr(
         &MKLFirstLayerAdj, SPARSE_INDEX_BASE_ZERO, this->InTensor->NumOfNodes,
         this->InTensor->NumOfNodes, InTensor->LayerMaskedMatrices[0]->p,
-        InTensor->AdjacencyMatrix->p + 1,
-        InTensor->AdjacencyMatrix->i,
+        InTensor->AdjacencyMatrix->p + 1, InTensor->AdjacencyMatrix->i,
         InTensor->AdjacencyMatrix->x);
     mkl_sparse_d_create_csr(
         &MKLSecondLayerAdj, SPARSE_INDEX_BASE_ZERO, this->InTensor->NumOfNodes,
         this->InTensor->NumOfNodes, InTensor->LayerMaskedMatrices[1]->p,
-        InTensor->AdjacencyMatrix->p + 1,
-        InTensor->AdjacencyMatrix->i,
+        InTensor->AdjacencyMatrix->p + 1, InTensor->AdjacencyMatrix->i,
         InTensor->AdjacencyMatrix->x);
   }
   ~GCNUnfused() {
@@ -382,20 +379,18 @@ protected:
     mkl_set_num_threads(1);
     OutTensor->reset();
     t.start();
-    forwardForOneLayerFromCSC(InTensor->AdjacencyMatrix->m,
-                              InTensor->AdjacencyMatrix->p,
-                              InTensor->AdjacencyMatrix->i,
-                              InTensor->AdjacencyMatrix->x,
-                              InTensor->FeatureMatrix->col, InTensor->EmbedDim,
-                              InTensor->Degrees, InTensor->FeatureMatrix->a,
-                              InTensor->Weight1, OutTensor->FirstLayerOutput);
-    forwardForOneLayerFromCSC(InTensor->AdjacencyMatrix->m,
-                              InTensor->AdjacencyMatrix->p,
-                              InTensor->AdjacencyMatrix->i,
-                              InTensor->AdjacencyMatrix->x,
-                              InTensor->EmbedDim, InTensor->EmbedDim,
-                              InTensor->Degrees, OutTensor->FirstLayerOutput,
-                              InTensor->Weight2, OutTensor->SecondLayerOutput);
+    forwardForOneLayerFromCSC(
+        InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->p,
+        InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x,
+        InTensor->FeatureMatrix->col, InTensor->EmbedDim, InTensor->Degrees,
+        InTensor->FeatureMatrix->a, InTensor->Weight1,
+        OutTensor->FirstLayerOutput);
+    forwardForOneLayerFromCSC(
+        InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->p,
+        InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x,
+        InTensor->EmbedDim, InTensor->EmbedDim, InTensor->Degrees,
+        OutTensor->FirstLayerOutput, InTensor->Weight2,
+        OutTensor->SecondLayerOutput);
     t.stop();
     return t;
   }
@@ -407,7 +402,6 @@ public:
 
 class GCNIntraTiledFusedUsingCSC : public GCNIntraFusedUsingCSCSequential {
 protected:
-
   int TileSize;
 
   Timer execute() override {
@@ -416,19 +410,17 @@ protected:
     OutTensor->reset();
     t.start();
     forwardForOneLayerFromCSCTiled(
-        InTensor->AdjacencyMatrix->m,
-        InTensor->AdjacencyMatrix->p,
-        InTensor->AdjacencyMatrix->i,
-        InTensor->AdjacencyMatrix->x, InTensor->FeatureMatrix->col,
-        InTensor->EmbedDim, InTensor->Degrees, InTensor->FeatureMatrix->a,
-        InTensor->Weight1, OutTensor->FirstLayerOutput, TileSize);
+        InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->p,
+        InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x,
+        InTensor->FeatureMatrix->col, InTensor->EmbedDim, InTensor->Degrees,
+        InTensor->FeatureMatrix->a, InTensor->Weight1,
+        OutTensor->FirstLayerOutput, TileSize);
     forwardForOneLayerFromCSCTiled(
-        InTensor->AdjacencyMatrix->m,
-        InTensor->AdjacencyMatrix->p,
-        InTensor->AdjacencyMatrix->i,
-        InTensor->AdjacencyMatrix->x, InTensor->EmbedDim,
-        InTensor->EmbedDim, InTensor->Degrees, OutTensor->FirstLayerOutput,
-        InTensor->Weight2, OutTensor->SecondLayerOutput, TileSize);
+        InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->p,
+        InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x,
+        InTensor->EmbedDim, InTensor->EmbedDim, InTensor->Degrees,
+        OutTensor->FirstLayerOutput, InTensor->Weight2,
+        OutTensor->SecondLayerOutput, TileSize);
     t.stop();
     return t;
   }
@@ -440,7 +432,6 @@ public:
 
 class GCNIntraLayerTiledFused : public GCNIntraFusedUsingCSCSequential {
 protected:
-
   int TileSize;
 
   Timer execute() override {
@@ -449,32 +440,28 @@ protected:
     OutTensor->reset();
     t.start();
     forwardForOneLayerTiled(
-        InTensor->AdjacencyMatrix->m,
-        InTensor->AdjacencyMatrix->p,
-        InTensor->AdjacencyMatrix->i,
-        InTensor->AdjacencyMatrix->x, InTensor->FeatureMatrix->col,
-        InTensor->EmbedDim, InTensor->Degrees, InTensor->FeatureMatrix->a,
-        InTensor->Weight1, OutTensor->FirstLayerOutput, TileSize);
+        InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->p,
+        InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x,
+        InTensor->FeatureMatrix->col, InTensor->EmbedDim, InTensor->Degrees,
+        InTensor->FeatureMatrix->a, InTensor->Weight1,
+        OutTensor->FirstLayerOutput, TileSize);
     forwardForOneLayerTiled(
-        InTensor->AdjacencyMatrix->m,
-        InTensor->AdjacencyMatrix->p,
-        InTensor->AdjacencyMatrix->i,
-        InTensor->AdjacencyMatrix->x, InTensor->EmbedDim,
-        InTensor->EmbedDim, InTensor->Degrees, OutTensor->FirstLayerOutput,
-        InTensor->Weight2, OutTensor->SecondLayerOutput, TileSize);
+        InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->p,
+        InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x,
+        InTensor->EmbedDim, InTensor->EmbedDim, InTensor->Degrees,
+        OutTensor->FirstLayerOutput, InTensor->Weight2,
+        OutTensor->SecondLayerOutput, TileSize);
     t.stop();
     return t;
   }
 
 public:
-
   GCNIntraLayerTiledFused(GnnTensorInputs *In1, Stats *Stat1, int TileSize1)
       : GCNIntraFusedUsingCSCSequential(In1, Stat1), TileSize(TileSize1) {}
 };
 
-
-//TODO: implement the scheduling
-class GCNAllTiledFusedCSC: public GCNIntraFusedSequential{
+// TODO: implement the execute code
+class GCNAllTiledFusedCSC : public GCNIntraFusedSequential {
 protected:
   int TileSize;
   sym_lib::MultiDimensionalSet *FusedCompSet;
@@ -483,24 +470,91 @@ protected:
     Timer t;
     t.start();
     FusedCompSet = new sym_lib::MultiDimensionalSet();
-    int numOfTiles = InTensor->NumOfNodes/TileSize + 1;
-    int numOfNodes = numOfTiles*2;
-    FusedCompSet->n1_ = 1;
-    for (int i = 0; i < InTensor->NumOfNodes; i+=TileSize){
-
+    int numOfTiles = InTensor->NumOfNodes / TileSize;
+    if (InTensor->NumOfNodes % TileSize > 0){
+      numOfTiles = InTensor->NumOfNodes / TileSize + 1;
     }
+    int numOfComputeNodes = numOfTiles * 2;
+    sym_lib::CSR *adjMtx = InTensor->AdjacencyMatrix;
+    FusedCompSet->ptr1_ = new int[2];
+    FusedCompSet->ptr1_[0] = 0;
+    FusedCompSet->ptr1_[1] = numOfComputeNodes;
+    FusedCompSet->id_ = new int[numOfComputeNodes];
+    FusedCompSet->type_ = new int[numOfComputeNodes];
+    int rowsLastTile[InTensor->NumOfNodes];
+    for (int i = 0; i < InTensor->NumOfNodes; i += TileSize) {
+      for (int ii = 0; ii < TileSize; ++ii) {
+        if (i + ii >= InTensor->NumOfNodes ) {
+          break;
+        }
+        for (int j = adjMtx->p[i + ii]; j < adjMtx->p[i + ii + 1]; ++j) {
+          rowsLastTile[adjMtx->i[j]] = i/TileSize;
+        }
+      }
+    }
+    int tileLastNeededTile[numOfTiles];
+    memset(tileLastNeededTile, 0, numOfTiles * sizeof(int));
+    for (int i = 0; i < InTensor->NumOfNodes; i += TileSize) {
+      for (int ii = 0; ii < TileSize; ++ii) {
+        if (i + ii >= InTensor->NumOfNodes) {
+          break;
+        }
+        for (int j = adjMtx->p[i + ii]; j < adjMtx->p[i + ii + 1]; j++) {
+          if (rowsLastTile[adjMtx->i[j]] > tileLastNeededTile[i/TileSize]) {
+            tileLastNeededTile[i/TileSize] = rowsLastTile[adjMtx->i[j]];
+          }
+        }
+      }
+    }
+    int idCounter = 0;
+    for (int i = 0; i < InTensor->NumOfNodes; i += TileSize) {
+      FusedCompSet->id_[idCounter] = i;
+      FusedCompSet->type_[idCounter] = 0;
+      if (i != InTensor->NumOfNodes - TileSize && i/TileSize == numOfTiles - 1) {
+        FusedCompSet->type_[idCounter] = 2;
+      }
+      idCounter++;
+      for (int k = 0; k < InTensor->NumOfNodes; k += TileSize) {
+        if (tileLastNeededTile[k/TileSize] == i/TileSize) {
+          FusedCompSet->id_[idCounter] = k;
+          FusedCompSet->type_[idCounter] = 1;
+          if (k != InTensor->NumOfNodes - TileSize && k/TileSize == numOfTiles - 1) {
+            FusedCompSet->type_[idCounter] = 3;
+          }
+          idCounter++;
+        }
+      }
+    }
+    t.stop();
     return t;
   }
 
+  Timer execute() override {
+    Timer t;
+    mkl_set_num_threads(InTensor->NumThreads);
+    OutTensor->reset();
+    t.start();
+    forwardForFusedLayersFromCSCTiled(
+        InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->p,
+        InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x,
+        InTensor->FeatureMatrix->col, InTensor->EmbedDim, InTensor->EmbedDim,
+        InTensor->Degrees, InTensor->FeatureMatrix->a, InTensor->Weight1,
+        InTensor->Weight2, OutTensor->FirstLayerOutput,
+        OutTensor->SecondLayerOutput, TileSize, FusedCompSet->ptr1_,
+        FusedCompSet->id_, FusedCompSet->type_);
+    t.stop();
+    return t;
+  }
+public:
+  GCNAllTiledFusedCSC(GnnTensorInputs *In1, Stats *Stat1, int TileSize1)
+      : GCNIntraFusedSequential(In1, Stat1), TileSize(TileSize1) {}
 };
 
 #endif
 
-
 //////////////// Sampling Based
 
-class GCNFusedParallelWithOmittingEmptyRows
-    : public GCNIntraFusedSequential {
+class GCNFusedParallelWithOmittingEmptyRows : public GCNIntraFusedSequential {
 protected:
   sym_lib::MultiDimensionalSet *FusedCompSet;
   sym_lib::ScheduleParameters Sp;
@@ -725,8 +779,7 @@ protected:
 public:
   GCNFusedWithOmittingEmptyRows(GnnTensorInputs *In1, Stats *Stat1,
                                 sym_lib::ScheduleParameters SpIn, int TileSize1)
-      : GCNIntraFusedSequential(In1, Stat1), Sp(SpIn),
-        TileSize(TileSize1) {}
+      : GCNIntraFusedSequential(In1, Stat1), Sp(SpIn), TileSize(TileSize1) {}
   ~GCNFusedWithOmittingEmptyRows() { delete FusedCompSet; }
 };
 
