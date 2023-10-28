@@ -122,7 +122,7 @@ def check_fusion(W1, W2, row_tile):
 
 if __name__ == '__main__':
     n_samples = 50
-    sample_ratio = 0.2
+    sample_ratio = 1
     tile_size = 64
     if len(sys.argv) > 1:
         A = spio.mmread(sys.argv[1])
@@ -138,14 +138,19 @@ if __name__ == '__main__':
         sample_ratio = float(sys.argv[2])
     if len(sys.argv) > 3:
         tile_size = int(sys.argv[3])
-    n_samples = math.ceil(A.shape[0] * sample_ratio)
-    sampled_rows = random.sample(range(A.shape[0]), n_samples)
-    # sample the graph
-    neighbors = neighbors_of_sampled_graph(A, sampled_rows)
-    graph_L1 = graph_sampling_rows(A, neighbors)
-    sampled_graph_L2 = graph_sampling_rows(A, sampled_rows)
+    if sample_ratio < 1:
+        n_samples = math.ceil(A.shape[0] * sample_ratio)
+        sampled_rows = random.sample(range(A.shape[0]), n_samples)
+        # sample the graph
+        neighbors = neighbors_of_sampled_graph(A, sampled_rows)
+        graph_L1 = graph_sampling_rows(A, neighbors)
+        sampled_graph_L2 = graph_sampling_rows(A, sampled_rows)
 
-    zero_rows2 = count_zero_rows(sampled_graph_L2)
+        zero_rows2 = count_zero_rows(sampled_graph_L2)
+    else:
+        graph_L1 = A.tocsr()
+        sampled_graph_L2 = A.tocsr()
+        zero_rows2 = 0
 
     for tile_size in {2, 4, 8, 16, 32, 64, 128, 256, 512}:
         fused1 = check_fusion(graph_L1, sampled_graph_L2, tile_size)
