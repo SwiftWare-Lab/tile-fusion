@@ -1,4 +1,0 @@
-tri-banded-1000.mtx
-tri-banded-5000.mtx
-tri-banded-10000.mtx
-tri-banded.mtx

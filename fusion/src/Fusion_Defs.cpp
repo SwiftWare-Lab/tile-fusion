@@ -25,12 +25,12 @@ namespace sym_lib{
  std::tuple<std::string,std::string> TestParameters::print_csv(bool header) const {
   std::string header_text, row;
   if(header){
-   header_text  = "MatrixName,Density,nRows,nCols,NNZ,Mode,Ordering,Algorithm,bCols,";
+   header_text  = "MatrixName,Density,nRows,nCols,NNZ,Mode,Ordering,Algorithm,bCols,EmbedDim";
   }
   row = _matrix_name+","+ std::to_string(_density)+","+ std::to_string(_dim1)+","+
     std::to_string(_dim2)+","+ std::to_string(_nnz)+","+_mode+","+
     get_ordering_string(_order_method)+","+_algorithm_choice+","
-      +std::to_string(_b_cols)+",";
+      +std::to_string(_b_cols)+","+std::to_string(_embed_dim);
   return std::make_tuple(header_text, row);
  }
 

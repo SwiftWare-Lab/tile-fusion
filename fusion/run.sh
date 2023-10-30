@@ -1,7 +1,7 @@
 #!/bin/bash
 
 BASELINE="SpMM_SpMM_Demo_UnFusedParallel"
-UFDB=./data
+UFDB="./data/ss-graphs/"
 BCOL=4
 
 THRD=40

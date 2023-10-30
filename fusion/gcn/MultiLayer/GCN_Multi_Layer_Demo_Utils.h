@@ -430,6 +430,7 @@ public:
       : GCNIntraFusedUsingCSCSequential(In1, Stat1), TileSize(TileSize1) {}
 };
 
+//TODO: this one is only banded-specific for now. it should be made generic.
 class GCNIntraLayerTiledFused : public GCNIntraFusedUsingCSCSequential {
 protected:
   int TileSize;
@@ -548,6 +549,7 @@ protected:
 public:
   GCNAllTiledFusedCSC(GnnTensorInputs *In1, Stats *Stat1, int TileSize1)
       : GCNIntraFusedSequential(In1, Stat1), TileSize(TileSize1) {}
+  ~GCNAllTiledFusedCSC() { delete FusedCompSet; }
 };
 
 #endif
@@ -676,6 +678,7 @@ public:
                                         sym_lib::ScheduleParameters SpIn)
       : GCNIntraFusedSequential(In1, Stat1), Sp(SpIn) {}
   ~GCNFusedParallelWithOmittingEmptyRows() { delete FusedCompSet; }
+
 };
 
 class GCNFusedWithOmittingEmptyRows : public GCNIntraFusedSequential {

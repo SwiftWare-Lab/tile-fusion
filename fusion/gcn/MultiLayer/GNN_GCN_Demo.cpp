@@ -136,7 +136,7 @@ int main(const int argc, const char *argv[]) {
 
     std::cout << gcnFusedWOERStat << spStat + tpStat << std::endl;
 
-    //should be bug fixed
+////    should be bug fixed
 //    stats = new swiftware::benchmark::Stats(
 //        "GCN_FusedParallelWithOmittingEmptyRows_Demo", "GCN", 7,
 //        tp._matrix_name, numThread);

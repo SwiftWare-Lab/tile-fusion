@@ -9,7 +9,7 @@
 #SBATCH --output="fusion.%j.%N.out"
 #SBATCH -t 11:59:00
 #SBATCH --constraint=cascade
-DATA="./pyg/data/"
+DATA="./data/planetoid/graphs/"
 MODE="GCNFusedSequential"
 THREADS=8
 BCOL=100
@@ -134,19 +134,19 @@ if [ $MODE == "GCNSingleLayerCompare" ]; then
   header=1
   sr=1
   while read line; do
-    for BCOL in {8,64,128}; do
-#      for ED in {4,8,32,64,128,256}; do
+    for BCOL in {500,1000,3000}; do
+      for ED in {4,8,32,64,128,256}; do
         for tn in {8,16,32,64,128,256,512,1024,2048,4096}; do
           echo "for $line $tn $BCOL"
           if [ $header -eq 1 ]; then
-            $BINPATH/gcn_layer_demo -sm $DATA/$line -nt $THREADS -tn $tn -ah -sr $sr -bc $BCOL -ed $BCOL -en $MODE > ./build/logs/gcn_single_layer_demo.csv
+            $BINPATH/gcn_layer_demo -sm $DATA/$line -nt $THREADS -tn $tn -ah -sr $sr -bc $BCOL -ed $ED -en $MODE > ./build/logs/gcn_single_layer_demo.csv
             header=0
           else
-            $BINPATH/gcn_layer_demo -sm $DATA/$line -nt $THREADS -tn $tn -sr $sr -bc $BCOL -ed $BCOL -en $MODE >> ./build/logs/gcn_single_layer_demo.csv
+            $BINPATH/gcn_layer_demo -sm $DATA/$line -nt $THREADS -tn $tn -sr $sr -bc $BCOL -ed $ED -en $MODE >> ./build/logs/gcn_single_layer_demo.csv
           fi
         done
       done
-#    done
+    done
   done < $MATLIST
 fi
 
@@ -155,17 +155,17 @@ if [ $MODE == "GCNWithDifferentFusionLevels" ]; then
   sr=1
   header=1
   while read line; do
-    for BCOL in {128,256}; do
-      for EDIM in {8,32,128}; do
+    for BCOL in {128,256,1024}; do
+#      for EDIM in {8,32,64}; do
         for tn in {16,32,64,128,256,512,1024,2048,4096}; do
           echo "for $line $BCOL $EDIM $tn"
           if [ $header -eq 1 ]; then
-            $BINPATH/gcn_demo -sm $DATA/$line -nt $THREADS -tn $tn -ah -sr $sr -bc $BCOL -en $MODE -ed $BCOL > ./build/logs/gcn_demo.csv
+            $BINPATH/gcn_demo -sm $DATA/$line -nt $THREADS -tn $tn -ah -sr $sr -bc $BCOL -en $MODE -ed 8 > ./build/logs/gcn_demo.csv
             header=0
           else
-            $BINPATH/gcn_demo -sm $DATA/$line -nt $THREADS -tn $tn -sr $sr -bc $BCOL -en $MODE -ed $BCOL >> ./build/logs/gcn_demo.csv
+            $BINPATH/gcn_demo -sm $DATA/$line -nt $THREADS -tn $tn -sr $sr -bc $BCOL -en $MODE -ed 8 >> ./build/logs/gcn_demo.csv
           fi
-        done
+#        done
       done
     done
   done < $MATLIST

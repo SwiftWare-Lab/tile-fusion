@@ -105,23 +105,23 @@ int main(const int argc, const char *argv[]) {
   delete stats;
   delete gcnSingleLayerTiledFusedCsc;
 
-#ifdef __AVX2__
-  stats = new swiftware::benchmark::Stats("GCN_SingleLayerFusedCSCVectorized", "GCN", 7, tp._matrix_name, numThread);
-  stats->OtherStats["PackingType"] = {Separated};
-  GCNSingleLayerFusedCSCParallelVectorized * gcnSingleLayerFusedCscVectorized = new GCNSingleLayerFusedCSCParallelVectorized(inputs, stats);
-  gcnSingleLayerFusedCscVectorized->run();
-  auto gcnSingleLayerFusedCscVectorizedStat = gcnSingleLayerFusedCscVectorized->printStats();
-  delete stats;
-  delete gcnSingleLayerFusedCscVectorized;
-
-  stats = new swiftware::benchmark::Stats("GCN_SingleLayerTiledFusedCSCVectorized", "GCN", 7, tp._matrix_name, numThread);
-  stats->OtherStats["PackingType"] = {Separated};
-  GCNSingleLayerTiledFusedCSCVectorized* gcnSingleLayerTiledFusedCscVectorized = new GCNSingleLayerTiledFusedCSCVectorized(inputs, stats, tileSize);
-  gcnSingleLayerTiledFusedCscVectorized->run();
-  auto gcnSingleLayerTiledFusedCscVectorizedStat = gcnSingleLayerTiledFusedCscVectorized->printStats();
-  delete stats;
-  delete gcnSingleLayerTiledFusedCscVectorized;
-#endif
+//#ifdef __AVX2__
+//  stats = new swiftware::benchmark::Stats("GCN_SingleLayerFusedCSCVectorized", "GCN", 7, tp._matrix_name, numThread);
+//  stats->OtherStats["PackingType"] = {Separated};
+//  GCNSingleLayerFusedCSCParallelVectorized * gcnSingleLayerFusedCscVectorized = new GCNSingleLayerFusedCSCParallelVectorized(inputs, stats);
+//  gcnSingleLayerFusedCscVectorized->run();
+//  auto gcnSingleLayerFusedCscVectorizedStat = gcnSingleLayerFusedCscVectorized->printStats();
+//  delete stats;
+//  delete gcnSingleLayerFusedCscVectorized;
+//
+//  stats = new swiftware::benchmark::Stats("GCN_SingleLayerTiledFusedCSCVectorized", "GCN", 7, tp._matrix_name, numThread);
+//  stats->OtherStats["PackingType"] = {Separated};
+//  GCNSingleLayerTiledFusedCSCVectorized* gcnSingleLayerTiledFusedCscVectorized = new GCNSingleLayerTiledFusedCSCVectorized(inputs, stats, tileSize);
+//  gcnSingleLayerTiledFusedCscVectorized->run();
+//  auto gcnSingleLayerTiledFusedCscVectorizedStat = gcnSingleLayerTiledFusedCscVectorized->printStats();
+//  delete stats;
+//  delete gcnSingleLayerTiledFusedCscVectorized;
+//#endif
 
   auto csvInfo = sp.print_csv(true);
   std::string spHeader = std::get<0>(csvInfo);
@@ -140,10 +140,10 @@ int main(const int argc, const char *argv[]) {
   std::cout << gcnSingleLayerFusedCscParallelStat << spStat + tpStat << std::endl;
   std::cout << gcnSingleLayerTiledFusedCscStat << spStat + tpStat << std::endl;
   std::cout << gcnSingleLayerFusedParallelStat << spStat + tpStat << std::endl;
-#ifdef __AVX2__
-  std::cout << gcnSingleLayerFusedCscVectorizedStat << spStat + tpStat << std::endl;
-  std::cout << gcnSingleLayerTiledFusedCscVectorizedStat << spStat + tpStat << std::endl;
-#endif
+//#ifdef __AVX2__
+//  std::cout << gcnSingleLayerFusedCscVectorizedStat << spStat + tpStat << std::endl;
+//  std::cout << gcnSingleLayerTiledFusedCscVectorizedStat << spStat + tpStat << std::endl;
+//#endif
 
   delete inputs;
   delete aCSC;

@@ -27,8 +27,6 @@ def get_fused_info(matr_list, df, base_column, implementation_name, params=None)
         cur_matr = df[df['MatrixName'] == matr]
         fused = cur_matr[cur_matr['Implementation Name'] == implementation_name]
         for i in range(len(params)):
-            print(params[i])
-            print(matr)
             seperated_list[i].append(take_median(fused[fused[base_column] == params[i]]))
     return seperated_list
 
@@ -53,7 +51,8 @@ def plot_gcn(log_folder, log_file_name):
     log_file = os.path.join(log_folder, log_file_name)
     df_fusion = pd.read_csv(log_file)
     bcols = df_fusion['bCols'].unique()
-    fused_implementations = ['GCN_IntraTiledFusedCSC_Demo', 'GCN_IntraTiledFused_Demo', 'GCN_AllTiledFusedCSC_Demo']
+    edims = df_fusion['EmbedDim'].unique()
+    fused_implementations = ['GCN_AllTiledFusedCSC_Demo', 'IntraTiledFusedCSC_Demo']
     base_param = 'NTile'
     # sort df_fusion based on 'NNZ'
     df_fusion = df_fusion.sort_values(by=['NNZ'])
@@ -66,44 +65,46 @@ def plot_gcn(log_folder, log_file_name):
     br = np.arange(len(mat_list)*2, step=2)
     bar_width = 0.2
     for bcol in bcols:
-        df_fusion_bcol = df_fusion[df_fusion['bCols'] == bcol]
-        times = {}
-        bars = {}
-        for mat in mat_list:
-            cur_mat = df_fusion_bcol[df_fusion_bcol['MatrixName'] == mat]
-            for x in impls:
-                if x not in fused_implementations:
-                    if x in times:
-                        times[x].append(take_median(cur_mat[cur_mat['Implementation Name'] == x]))
-                    else:
-                        times[x] = [take_median(cur_mat[cur_mat['Implementation Name'] == x])]
-        for impl in fused_implementations:
-            seperated_list = get_fused_info(mat_list, df_fusion_bcol, base_column=base_param, implementation_name=impl)
-            min_fused = np.array(seperated_list[0])
-            for x in seperated_list:
-                min_fused = np.minimum(min_fused, np.array(x))
-            times[impl] = min_fused
-        speedups = {}
-        for impl in impls:
-            speedups[impl] = np.array(times['GCN_IntraUnfused_Demo']) / np.array(times[impl])
-        colors = ['maroon', 'brown', 'purple', 'yellow', 'orange', 'black', 'r', 'g', 'b']
-        k = 0
-        for impl in impls:
-            bars[impl] = [x + k * bar_width for x in br]
-            k += 1
-        plt.rcParams.update(plt.rcParamsDefault)
-        fig, ax = plt.subplots(figsize=(15, 8))
-        for impl, bar in bars.items():
-            color = colors.pop()
-            ax.bar(bar, speedups[impl], width=bar_width, color=color, edgecolor='grey', label=impl)
+        for edim in edims:
+            df_fusion_bcol = df_fusion[df_fusion['bCols'] == bcol]
+            df_fusion_bcol_edim = df_fusion_bcol[df_fusion_bcol['EmbedDim'] == edim]
+            times = {}
+            bars = {}
+            for mat in mat_list:
+                cur_mat = df_fusion_bcol_edim[df_fusion_bcol_edim['MatrixName'] == mat]
+                for x in impls:
+                    if x not in fused_implementations:
+                        if x in times:
+                            times[x].append(take_median(cur_mat[cur_mat['Implementation Name'] == x]))
+                        else:
+                            times[x] = [take_median(cur_mat[cur_mat['Implementation Name'] == x])]
+            for impl in fused_implementations:
+                seperated_list = get_fused_info(mat_list, df_fusion_bcol_edim, base_column=base_param, implementation_name=impl)
+                min_fused = np.array(seperated_list[0])
+                for x in seperated_list:
+                    min_fused = np.minimum(min_fused, np.array(x))
+                times[impl] = min_fused
+            speedups = {}
+            for impl in impls:
+                speedups[impl] = np.array(times['GCN_SingleLayerFused']) / np.array(times[impl])
+            colors = ['maroon', 'brown', 'purple', 'yellow', 'orange', 'black', 'r', 'g', 'b']
+            k = 0
+            for impl in impls:
+                bars[impl] = [x + k * bar_width for x in br]
+                k += 1
+            plt.rcParams.update(plt.rcParamsDefault)
+            fig, ax = plt.subplots(figsize=(15, 8))
+            for impl, bar in bars.items():
+                color = colors.pop()
+                ax.bar(bar, speedups[impl], width=bar_width, color=color, edgecolor='grey', label=impl)
 
-        ax.set_xlabel('matrices', fontweight='bold', fontsize=15)
-        ax.set_ylabel('speed_up', fontweight='bold', fontsize=15)
-        ax.set_xticks([r + 1 * bar_width for r in range(0, len(mat_list)*2, 2)],
-                      mat_list)
-        plot_path = os.path.join(log_folder, ''.join(log_file_name.split('.')[:-1]) + str(bcol) + '.pdf')
-        ax.legend()
-        fig.savefig(plot_path)
+            ax.set_xlabel('matrices', fontweight='bold', fontsize=15)
+            ax.set_ylabel('speed_up', fontweight='bold', fontsize=15)
+            ax.set_xticks([r + 1 * bar_width for r in range(0, len(mat_list)*2, 2)],
+                          mat_list)
+            plot_path = os.path.join(log_folder, ''.join(log_file_name.split('.')[:-1])+ '_' + str(bcol) + '_' + str(edim) + '.pdf')
+            ax.legend()
+            fig.savefig(plot_path)
 
 
 def plot_gcn_from_logs_folder(logs_folder):
