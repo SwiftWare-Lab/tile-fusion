@@ -91,7 +91,7 @@ int main(const int argc, const char *argv[]) {
 
   stats = new swiftware::benchmark::Stats("GCN_SingleLayerFusedCSCParallel", "GCN", 7, tp._matrix_name, numThread);
   stats->OtherStats["PackingType"] = {Separated};
-  GCNSingleLayerFusedCSCParallel* gcnSingleLayerFusedCscParallel = new GCNSingleLayerFusedCSCParallel(inputs, stats);
+  GCNSingleLayerTiledFusedCSCParallel* gcnSingleLayerFusedCscParallel = new GCNSingleLayerTiledFusedCSCParallel(inputs, stats, tileSize);
   gcnSingleLayerFusedCscParallel->run();
   auto gcnSingleLayerFusedCscParallelStat = gcnSingleLayerFusedCscParallel->printStats();
   delete stats;

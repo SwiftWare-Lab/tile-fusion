@@ -349,7 +349,9 @@ void forwardForOneLayerTiled(int M, int *Ap, int *Ai, double *Ax,
   }
   delete[] temp;
 }
-
+// pick a column tile of adjacency matrix, perform gemm on the corresponding
+// feature row tile and weight matrix, spmm on the corresponding adjacency
+// matrix tile and the output of gemm
 void forwardForOneLayerFromCSCTiled(int M, int *Ap, int *Ai, double *Ax,
                                     int InputChannelDim, int OutputChannelDim,
                                     int *Degrees, double *Features,
@@ -359,7 +361,6 @@ void forwardForOneLayerFromCSCTiled(int M, int *Ap, int *Ai, double *Ax,
   int lastTileSize = M % TileSize;
   int lastCompleteTileEnd = M - lastTileSize;
   for (int i = 0; i < lastCompleteTileEnd; i += TileSize) {
-    std::memset(cache, 0, sizeof(double *) * TileSize * OutputChannelDim);
     cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, TileSize,
                 OutputChannelDim, InputChannelDim, 1.,
                 Features + i * InputChannelDim, InputChannelDim, Weight,
@@ -373,7 +374,6 @@ void forwardForOneLayerFromCSCTiled(int M, int *Ap, int *Ai, double *Ax,
       }
     }
   }
-  std::memset(cache, 0, sizeof(double *) * TileSize * OutputChannelDim);
   cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, lastTileSize,
               OutputChannelDim, InputChannelDim, 1.,
               Features + lastCompleteTileEnd * InputChannelDim, InputChannelDim,
@@ -390,6 +390,71 @@ void forwardForOneLayerFromCSCTiled(int M, int *Ap, int *Ai, double *Ax,
   delete[] cache;
 }
 
+
+void forwardForOneLayerFromCSCTiledParallel(int M, int *Ap, int *Ai, double *Ax,
+                                            int InputChannelDim, int OutputChannelDim,
+                                            int *Degrees, double *Features,
+                                            double *Weight, double *Output,
+                                            int TileSize, int NumThreads) {
+  double lastTileSize = M % TileSize;
+  int lastCompleteTileEnd = M - lastTileSize;
+  double *cache = new double[TileSize * OutputChannelDim];
+#pragma omp parallel num_threads(NumThreads)
+  {
+#pragma omp for
+    for(int i = 0; i < lastCompleteTileEnd; i+=2*TileSize){
+      cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, TileSize,
+                  OutputChannelDim, InputChannelDim, 1.,
+                  Features + i * InputChannelDim, InputChannelDim, Weight,
+                  OutputChannelDim, 0., cache, OutputChannelDim);
+      for (int ii = 0; ii < TileSize; ii++) {
+        for (int j = Ap[i + ii]; j < Ap[i + ii + 1]; j++) {
+          for (int k = 0; k < OutputChannelDim; k++) {
+            Output[Ai[j] * OutputChannelDim + k] +=
+                Ax[j] * cache[ii * OutputChannelDim + k];
+          }
+        }
+      }
+    }
+  }
+#pragma omp parallel num_threads(NumThreads)
+  {
+#pragma omp for
+    for(int i = TileSize; i < lastCompleteTileEnd; i+=2*TileSize){
+      cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, TileSize,
+                  OutputChannelDim, InputChannelDim, 1.,
+                  Features + i * InputChannelDim, InputChannelDim, Weight,
+                  OutputChannelDim, 0., cache, OutputChannelDim);
+      for (int ii = 0; ii < TileSize; ii++) {
+        for (int j = Ap[i + ii]; j < Ap[i + ii + 1]; j++) {
+          for (int k = 0; k < OutputChannelDim; k++) {
+            Output[Ai[j] * OutputChannelDim + k] +=
+                Ax[j] * cache[ii * OutputChannelDim + k];
+          }
+        }
+      }
+    }
+  }
+  cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, lastTileSize,
+              OutputChannelDim, InputChannelDim, 1.,
+              Features + lastCompleteTileEnd * InputChannelDim, InputChannelDim,
+              Weight, OutputChannelDim, 0., cache, OutputChannelDim);
+  for (int ii = 0; ii < lastTileSize; ii++) {
+    for (int j = Ap[lastCompleteTileEnd + ii];
+         j < Ap[lastCompleteTileEnd + ii + 1]; j++) {
+      for (int k = 0; k < OutputChannelDim; k++) {
+        Output[Ai[j] * OutputChannelDim + k] +=
+            Ax[j] * cache[ii * OutputChannelDim + k];
+      }
+    }
+  }
+  delete[] cache;
+}
+// executer code for fused layers using csc format of the adjacency matrix
+
+// has three types of layers: 0 for first layer, 1 for second layer, 2 for last
+// tile of first layer, 3 for last tile of second layer(In case of different
+// tile sizes)
 void forwardForFusedLayersFromCSCTiled(
     int M, int *Ap, int *Ai, double *Ax, int InputChannelDim,
     int HiddenChannelDim, int OutputChannelDim, int *Degrees, double *Features,
@@ -403,7 +468,6 @@ void forwardForFusedLayersFromCSCTiled(
     int i = Partition[it];
     int t = Type[it];
     if (t == 0) {
-      std::memset(cache1, 0, sizeof(double *) * TileSize * HiddenChannelDim);
       cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, TileSize,
                   HiddenChannelDim, InputChannelDim, 1.,
                   Features + i * InputChannelDim, InputChannelDim, Weight1,
@@ -417,7 +481,6 @@ void forwardForFusedLayersFromCSCTiled(
         }
       }
     } else if (t == 2) {
-      std::memset(cache1, 0, sizeof(double *) * TileSize * HiddenChannelDim);
       cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, lastTileSize,
                   HiddenChannelDim, InputChannelDim, 1.,
                   Features + lastCompleteTileEnd * InputChannelDim,
@@ -433,7 +496,6 @@ void forwardForFusedLayersFromCSCTiled(
         }
       }
     } else if (t == 1) {
-      std::memset(cache2, 0, sizeof(double *) * TileSize * OutputChannelDim);
       cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, TileSize,
                   OutputChannelDim, HiddenChannelDim, 1.,
                   FirstLayerOutput + i * HiddenChannelDim, HiddenChannelDim,
@@ -447,7 +509,6 @@ void forwardForFusedLayersFromCSCTiled(
         }
       }
     } else if (t == 3) {
-      std::memset(cache2, 0, sizeof(double *) * TileSize * OutputChannelDim);
       cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, lastTileSize,
                   OutputChannelDim, HiddenChannelDim, 1.,
                   FirstLayerOutput + lastCompleteTileEnd * HiddenChannelDim,

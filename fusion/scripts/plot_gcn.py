@@ -52,7 +52,7 @@ def plot_gcn(log_folder, log_file_name):
     df_fusion = pd.read_csv(log_file)
     bcols = df_fusion['bCols'].unique()
     edims = df_fusion['EmbedDim'].unique()
-    fused_implementations = ['GCN_AllTiledFusedCSC_Demo', 'IntraTiledFusedCSC_Demo']
+    fused_implementations = ['GCN_SingleLayerTiledFused', 'GCN_SingleLayerFusedCSCParallel', 'GCN_SingleLayerTiledFusedCSC']
     base_param = 'NTile'
     # sort df_fusion based on 'NNZ'
     df_fusion = df_fusion.sort_values(by=['NNZ'])

@@ -227,26 +227,27 @@ public:
 #endif
 
 
-class GCNSingleLayerFusedCSCParallel : public GCNSingleLayerFused {
+class GCNSingleLayerTiledFusedCSCParallel : public GCNSingleLayerFused {
 protected:
+  int TileSize;
   Timer execute() override {
     OutTensor->reset();
     mkl_set_num_threads(1);
     Timer t;
     t.start();
-    forwardForOneLayerFromCSCParallel(
+    forwardForOneLayerFromCSCTiledParallel(
         InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->p,
         InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x,
         InTensor->FeatureMatrix->col, InTensor->EmbedDim, InTensor->Degrees,
         InTensor->FeatureMatrix->a, InTensor->Weight1,
-        OutTensor->FirstLayerOutput, InTensor->NumThreads);
+        OutTensor->FirstLayerOutput, TileSize, InTensor->NumThreads);
     t.stop();
     return t;
   }
 
 public:
-  GCNSingleLayerFusedCSCParallel(GnnTensorInputs *In1, Stats *Stat1)
-      : GCNSingleLayerFused(In1, Stat1) {}
+  GCNSingleLayerTiledFusedCSCParallel(GnnTensorInputs *In1, Stats *Stat1, int TileSize1)
+      : GCNSingleLayerFused(In1, Stat1), TileSize(TileSize1) {}
 };
 
 #endif
