@@ -450,17 +450,14 @@ void spmmCsrSpmmCsrTiledFusedBanded(int M, int N, int K, int L,
     Dx[inkk + 3] += Bx[j] * acxI11;
   }
 
-  // iter 1,2 : 1
-  i += 3;
+  // remaining iters
   for (int jj = 3; jj < M; ++jj) {
-    int loop2 = jj;
     for (int kk = 0; kk < N; kk+=NTile) {
-      int loop1 = jj;
       // 2 overlapping iterations
       acxI0 = acxI4; acxI1 = acxI5; acxI2 = acxI6; acxI3 = acxI7;
       acxI4 = acxI8; acxI5 = acxI9; acxI6 = acxI10; acxI7 = acxI11;
       // 1 new iteration
-      for (int j = Ap[loop1]; j < Ap[loop1 + 1]; j++) {
+      for (int j = Ap[jj]; j < Ap[jj + 1]; j++) {
         int aij = Ai[j] * N;
         // ACx[i * N + kk] += Ax[j] * Cx[aij + kk];
         acxI8 += Ax[j] * Cx[aij + kk];
@@ -470,9 +467,8 @@ void spmmCsrSpmmCsrTiledFusedBanded(int M, int N, int K, int L,
       }
       // copy acx to the output (not needed here)
 
-      int inkk = loop2 * N + kk;
       int j =jj - 1;
-      int aij = Ai[j] * N;
+      int inkk = j * N + kk;
       Dx[inkk + 0] += Bx[j] * acxI0;
       Dx[inkk + 1] += Bx[j] * acxI1;
       Dx[inkk + 2] += Bx[j] * acxI2;
