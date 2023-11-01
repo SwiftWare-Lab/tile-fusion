@@ -38,7 +38,9 @@ int main(const int argc, const char *argv[]) {
       layer1Weight, layer2Weight, features, aCSCFull, aCSCFull->m, hiddenDim,
       numOfSamples, numThread, 1, "GCN_Demo");
 
-  stats = new swiftware::benchmark::Stats("GCN_Sequential_Demo", "GCN", 7,
+  // The method that iterate over rows of the adjacency matrix and by doing the
+  // corresponding GeMV to each nonzero, calculates the output for each layer.
+  stats = new swiftware::benchmark::Stats("GCN_IntraFused_Demo", "GCN", 7,
                                           tp._matrix_name, numThread);
   stats->OtherStats["PackingType"] = {Separated};
   GCNIntraFusedSequential *gcnGnn = new GCNIntraFusedSequential(inputs, stats);
@@ -78,6 +80,7 @@ int main(const int argc, const char *argv[]) {
 //  std::cout << gcnParallelStat << spStat + tpStat << std::endl;
 
   if (tp.expariment_name == "GCNFusedParallel") {
+
     stats = new swiftware::benchmark::Stats("GCN_AllFused_Demo", "GCN", 7,
                                             tp._matrix_name, numThread);
     stats->OtherStats["PackingType"] = {Interleaved};
@@ -174,6 +177,8 @@ int main(const int argc, const char *argv[]) {
 //    delete stats;
 //    std::cout << gcnIntraTiledFusedStats << spStat + tpStat << std::endl;
 
+    // Method that iterates over columns of Adjacency matrix and by doing the
+    // corresponding GeMV to each nonzero, calculates the partial products of that column's non-zeros for each layer.
     stats = new swiftware::benchmark::Stats("GCN_IntraFusedCSCSequential_Demo", "GCN", 7,
                                             tp._matrix_name, numThread);
     stats->OtherStats["PackingType"] = {Separated};
@@ -184,6 +189,9 @@ int main(const int argc, const char *argv[]) {
     delete stats;
     std::cout << gcnIFCSStats << spStat + tpStat << std::endl;
 
+    // Method that iterates over tiles of columns of Adjacency matrix and by doing
+    // corresponding GeMM to each tile, then doing SpMM for midway result,
+    // calculates the output for each layer.
     stats = new swiftware::benchmark::Stats("GCN_IntraTiledFusedCSC_Demo", "GCN", 7,
                                             tp._matrix_name, numThread);
     stats->OtherStats["PackingType"] = {Interleaved};
@@ -194,6 +202,9 @@ int main(const int argc, const char *argv[]) {
     delete stats;
     std::cout << gcnIntraTiledFusedCSCStats << spStat + tpStat << std::endl;
 
+    // Method that iterates over tiles of columns of Adjacency matrix and by doing
+    // corresponding GeMM to each tile, then doing SpMM for midway result,
+    // calculates the output for each layer. Layers are scheduled to be run interleaved in this version.
     stats = new swiftware::benchmark::Stats("GCN_AllTiledFusedCSC_Demo", "GCN", 7,
                                             tp._matrix_name, numThread);
     stats->OtherStats["PackingType"] = {Interleaved};

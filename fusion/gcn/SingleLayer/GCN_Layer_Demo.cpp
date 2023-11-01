@@ -38,10 +38,13 @@ int main(const int argc, const char *argv[]) {
       layer1Weight, layer2Weight, features, aCSCFull, aCSCFull->m, embedDim,
       numOfSamples, numThread, 7, "GCN_Demo");
 
+  // The method that iterate over rows of the adjacency matrix and by doing the
+  // corresponding GeMV to each nonzero, calculates the output
   stats = new swiftware::benchmark::Stats("GCN_SingleLayerFused", "GCN", 7,
                                           tp._matrix_name, numThread);
   stats->OtherStats["PackingType"] = {Separated};
-  GCNSingleLayerFused *gcnSingleLayerFused = new GCNSingleLayerFused(inputs, stats);
+  GCNSingleLayerFused *gcnSingleLayerFused =
+      new GCNSingleLayerFused(inputs, stats);
   gcnSingleLayerFused->run();
   inputs->CorrectSol =
       new double[inputs->AdjacencyMatrix->m * inputs->EmbedDim];
@@ -54,24 +57,33 @@ int main(const int argc, const char *argv[]) {
   delete stats;
   delete gcnSingleLayerFused;
 
-  stats = new swiftware::benchmark::Stats("GCN_SingleLayerFusedParallel", "GCN", 7,
-                                          tp._matrix_name, numThread);
+  // The method that iterate over rows of the adjacency matrix in parallel and
+  // by doing the corresponding GeMV to each nonzero, calculates the output
+  stats = new swiftware::benchmark::Stats("GCN_SingleLayerFusedParallel", "GCN",
+                                          7, tp._matrix_name, numThread);
   stats->OtherStats["PackingType"] = {Separated};
-  GCNSingleLayerFusedParallel *gcnSingleLayerFusedParallel = new GCNSingleLayerFusedParallel(inputs,stats);
+  GCNSingleLayerFusedParallel *gcnSingleLayerFusedParallel =
+      new GCNSingleLayerFusedParallel(inputs, stats);
   gcnSingleLayerFusedParallel->run();
-  auto gcnSingleLayerFusedParallelStat = gcnSingleLayerFusedParallel->printStats();
+  auto gcnSingleLayerFusedParallelStat =
+      gcnSingleLayerFusedParallel->printStats();
   delete stats;
   delete gcnSingleLayerFusedParallel;
 
+  // Method iterate over tile of rows, and by doing the corresponding GeMM to
+  // each tile, then doing SpMM for midway result, calculates the output.
   stats = new swiftware::benchmark::Stats("GCN_SingleLayerTiledFused", "GCN", 7,
                                           tp._matrix_name, numThread);
   stats->OtherStats["PackingType"] = {Separated};
-  GCNSingleLayerTiledFused *gcnSingleLayerTiledFused = new GCNSingleLayerTiledFused(inputs, stats, tileSize);
+  GCNSingleLayerTiledFused *gcnSingleLayerTiledFused =
+      new GCNSingleLayerTiledFused(inputs, stats, tileSize);
   gcnSingleLayerTiledFused->run();
   auto gcnTiledFusedSingleLayerStat = gcnSingleLayerTiledFused->printStats();
   delete stats;
   delete gcnSingleLayerTiledFused;
 
+  // Method that calculates the output by doing a GeMM and then an SpMM to the
+  // input
   stats = new swiftware::benchmark::Stats("GCN_SingleLayerMKL", "GCN", 7,
                                           tp._matrix_name, numThread);
   stats->OtherStats["PackingType"] = {Separated};
@@ -81,47 +93,70 @@ int main(const int argc, const char *argv[]) {
   delete stats;
   delete gcnSingleLayerMkl;
 
-  stats = new swiftware::benchmark::Stats("GCN_SingleLayerFusedCSC", "GCN", 7, tp._matrix_name, numThread);
+  // Method that iterates over columns of Adjacency matrix and by doing the
+  // corresponding GeMV to each nonzero, calculates the partial products of that column's non-zeros.
+  stats = new swiftware::benchmark::Stats("GCN_SingleLayerFusedCSC", "GCN", 7,
+                                          tp._matrix_name, numThread);
   stats->OtherStats["PackingType"] = {Separated};
-  GCNSingleLayerFusedCSC* gcnSingleLayerFusedCsc = new GCNSingleLayerFusedCSC(inputs, stats);
+  GCNSingleLayerFusedCSC *gcnSingleLayerFusedCsc =
+      new GCNSingleLayerFusedCSC(inputs, stats);
   gcnSingleLayerFusedCsc->run();
   auto gcnSingleLayerFusedCscStat = gcnSingleLayerFusedCsc->printStats();
   delete stats;
   delete gcnSingleLayerFusedCsc;
 
-  stats = new swiftware::benchmark::Stats("GCN_SingleLayerFusedCSCParallel", "GCN", 7, tp._matrix_name, numThread);
+  // Method that iterates over tiles of columns of Adjacency matrix in
+  // parallel(First the odd tiles and after that the even tiles) and by doing
+  // the corresponding GEMM to each tile, then doing SpMM for midway result,
+  // calculates the output
+  stats = new swiftware::benchmark::Stats("GCN_SingleLayerFusedCSCParallel",
+                                          "GCN", 7, tp._matrix_name, numThread);
   stats->OtherStats["PackingType"] = {Separated};
-  GCNSingleLayerTiledFusedCSCParallel* gcnSingleLayerFusedCscParallel = new GCNSingleLayerTiledFusedCSCParallel(inputs, stats, tileSize);
+  GCNSingleLayerTiledFusedCSCParallel *gcnSingleLayerFusedCscParallel =
+      new GCNSingleLayerTiledFusedCSCParallel(inputs, stats, tileSize);
   gcnSingleLayerFusedCscParallel->run();
-  auto gcnSingleLayerFusedCscParallelStat = gcnSingleLayerFusedCscParallel->printStats();
+  auto gcnSingleLayerFusedCscParallelStat =
+      gcnSingleLayerFusedCscParallel->printStats();
   delete stats;
   delete gcnSingleLayerFusedCscParallel;
 
-  stats = new swiftware::benchmark::Stats("GCN_SingleLayerTiledFusedCSC", "GCN", 7, tp._matrix_name, numThread);
+  // Method that iterates over tiles of columns of Adjacency matrix and by doing
+  // corresponding GeMM to each tile, then doing SpMM for midway result,
+  // calculates the output.
+  stats = new swiftware::benchmark::Stats("GCN_SingleLayerTiledFusedCSC", "GCN",
+                                          7, tp._matrix_name, numThread);
   stats->OtherStats["PackingType"] = {Separated};
-  GCNSingleLayerTiledFusedCSC* gcnSingleLayerTiledFusedCsc = new GCNSingleLayerTiledFusedCSC(inputs, stats, tileSize);
+  GCNSingleLayerTiledFusedCSC *gcnSingleLayerTiledFusedCsc =
+      new GCNSingleLayerTiledFusedCSC(inputs, stats, tileSize);
   gcnSingleLayerTiledFusedCsc->run();
-  auto gcnSingleLayerTiledFusedCscStat = gcnSingleLayerTiledFusedCsc->printStats();
+  auto gcnSingleLayerTiledFusedCscStat =
+      gcnSingleLayerTiledFusedCsc->printStats();
   delete stats;
   delete gcnSingleLayerTiledFusedCsc;
 
-//#ifdef __AVX2__
-//  stats = new swiftware::benchmark::Stats("GCN_SingleLayerFusedCSCVectorized", "GCN", 7, tp._matrix_name, numThread);
-//  stats->OtherStats["PackingType"] = {Separated};
-//  GCNSingleLayerFusedCSCParallelVectorized * gcnSingleLayerFusedCscVectorized = new GCNSingleLayerFusedCSCParallelVectorized(inputs, stats);
-//  gcnSingleLayerFusedCscVectorized->run();
-//  auto gcnSingleLayerFusedCscVectorizedStat = gcnSingleLayerFusedCscVectorized->printStats();
-//  delete stats;
-//  delete gcnSingleLayerFusedCscVectorized;
-//
-//  stats = new swiftware::benchmark::Stats("GCN_SingleLayerTiledFusedCSCVectorized", "GCN", 7, tp._matrix_name, numThread);
-//  stats->OtherStats["PackingType"] = {Separated};
-//  GCNSingleLayerTiledFusedCSCVectorized* gcnSingleLayerTiledFusedCscVectorized = new GCNSingleLayerTiledFusedCSCVectorized(inputs, stats, tileSize);
-//  gcnSingleLayerTiledFusedCscVectorized->run();
-//  auto gcnSingleLayerTiledFusedCscVectorizedStat = gcnSingleLayerTiledFusedCscVectorized->printStats();
-//  delete stats;
-//  delete gcnSingleLayerTiledFusedCscVectorized;
-//#endif
+  // #ifdef __AVX2__
+  //   stats = new
+  //   swiftware::benchmark::Stats("GCN_SingleLayerFusedCSCVectorized", "GCN",
+  //   7, tp._matrix_name, numThread); stats->OtherStats["PackingType"] =
+  //   {Separated}; GCNSingleLayerFusedCSCParallelVectorized *
+  //   gcnSingleLayerFusedCscVectorized = new
+  //   GCNSingleLayerFusedCSCParallelVectorized(inputs, stats);
+  //   gcnSingleLayerFusedCscVectorized->run();
+  //   auto gcnSingleLayerFusedCscVectorizedStat =
+  //   gcnSingleLayerFusedCscVectorized->printStats(); delete stats; delete
+  //   gcnSingleLayerFusedCscVectorized;
+  //
+  //   stats = new
+  //   swiftware::benchmark::Stats("GCN_SingleLayerTiledFusedCSCVectorized",
+  //   "GCN", 7, tp._matrix_name, numThread); stats->OtherStats["PackingType"] =
+  //   {Separated}; GCNSingleLayerTiledFusedCSCVectorized*
+  //   gcnSingleLayerTiledFusedCscVectorized = new
+  //   GCNSingleLayerTiledFusedCSCVectorized(inputs, stats, tileSize);
+  //   gcnSingleLayerTiledFusedCscVectorized->run();
+  //   auto gcnSingleLayerTiledFusedCscVectorizedStat =
+  //   gcnSingleLayerTiledFusedCscVectorized->printStats(); delete stats; delete
+  //   gcnSingleLayerTiledFusedCscVectorized;
+  // #endif
 
   auto csvInfo = sp.print_csv(true);
   std::string spHeader = std::get<0>(csvInfo);
@@ -137,13 +172,15 @@ int main(const int argc, const char *argv[]) {
   std::cout << gcnOneLayerMKLStat << spStat + tpStat << std::endl;
   std::cout << gcnTiledFusedSingleLayerStat << spStat + tpStat << std::endl;
   std::cout << gcnSingleLayerFusedCscStat << spStat + tpStat << std::endl;
-  std::cout << gcnSingleLayerFusedCscParallelStat << spStat + tpStat << std::endl;
+  std::cout << gcnSingleLayerFusedCscParallelStat << spStat + tpStat
+            << std::endl;
   std::cout << gcnSingleLayerTiledFusedCscStat << spStat + tpStat << std::endl;
   std::cout << gcnSingleLayerFusedParallelStat << spStat + tpStat << std::endl;
-//#ifdef __AVX2__
-//  std::cout << gcnSingleLayerFusedCscVectorizedStat << spStat + tpStat << std::endl;
-//  std::cout << gcnSingleLayerTiledFusedCscVectorizedStat << spStat + tpStat << std::endl;
-//#endif
+  // #ifdef __AVX2__
+  //   std::cout << gcnSingleLayerFusedCscVectorizedStat << spStat + tpStat <<
+  //   std::endl; std::cout << gcnSingleLayerTiledFusedCscVectorizedStat <<
+  //   spStat + tpStat << std::endl;
+  // #endif
 
   delete inputs;
   delete aCSC;
