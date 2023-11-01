@@ -673,6 +673,12 @@ public:
 
 class SpMMSpMMFusedTiledTriRegFused : public SpMMSpMMFusedTiledTri{
 
+  Timer analysis() override {
+    Timer t;
+    t.start();
+    t.stop();
+    return t;
+  }
 
   Timer execute() override {
     //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
