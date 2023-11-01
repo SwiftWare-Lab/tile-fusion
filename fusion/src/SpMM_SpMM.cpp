@@ -355,6 +355,148 @@ void spmmCsrSpmmCsrTiledFused(int M, int N, int K, int L,
 }
 
 
+/// This works for tri-diagonal only
+void spmmCsrSpmmCsrTiledFusedBanded(int M, int N, int K, int L,
+                                    const int *Ap, const int *Ai, const double *Ax,
+                                    const int *Bp, const int *Bi,const double *Bx,
+                                    const double *Cx,
+                                    double *Dx,
+                                    double *ACx,
+                                    int LevelNo, const int *LevelPtr, const int *ParPtr,
+                                    const int *Partition, const int *ParType, const int*MixPtr,
+                                    int NThreads, int MTile, int NTile, double *Ws) {
+  pw_init_instruments;
+  // do iterations 0,1 from i and 0 from j
+//  for (auto i : {0 ,1}) {
+//    for (int j = Ap[i]; j < Ap[i + 1]; j++) {
+//      int aij = Ai[j] * N;
+//      for (int kk = 0; kk < N; ++kk) {
+//        ACx[i * N + kk] += Ax[j] * Cx[aij + kk];
+//      }
+//    }
+//  }
+//  int i = 0; // loop 2
+//    for (int k = Bp[i]; k < Bp[i + 1]; k++) {
+//      int bij = Bi[k] * N;
+//      for (int kk = 0; kk < N; ++kk) {
+//        Dx[i * N + kk] += Bx[k] * ACx[bij + kk];
+//      }
+//    }
+
+  // 0, 1, 2 of loop 1 : 0 and 1 loop 2
+  int i = 0;
+  // i = i+0
+  int iIdx = i;
+  double acxI0 = 0, acxI1 = 0, acxI2 = 0, acxI3 = 0;
+  double acxI4 = 0, acxI5 = 0, acxI6 = 0, acxI7 = 0;
+  double acxI8 = 0, acxI9 = 0, acxI10 = 0, acxI11 = 0;
+  for (int kk = 0; kk < N; kk+=NTile) {
+    iIdx = i; // i = i+0, first dependent iteration
+    for (int j = Ap[iIdx]; j < Ap[iIdx + 1]; j++) {
+      int aij = Ai[j] * N;
+      //ACx[i * N + kk] += Ax[j] * Cx[aij + kk];
+      acxI0 += Ax[j] * Cx[aij + kk];
+      acxI1 += Ax[j] * Cx[aij + kk + 1];
+      acxI2 += Ax[j] * Cx[aij + kk + 2];
+      acxI3 += Ax[j] * Cx[aij + kk + 3];
+    }
+
+    iIdx = i+1; // i = i+1, second dependent iteration
+    for (int j = Ap[iIdx]; j < Ap[iIdx + 1]; j++) {
+      int aij = Ai[j] * N;
+      //ACx[i * N + kk] += Ax[j] * Cx[aij + kk];
+      acxI4 += Ax[j] * Cx[aij + kk];
+      acxI5 += Ax[j] * Cx[aij + kk + 1];
+      acxI6 += Ax[j] * Cx[aij + kk + 2];
+      acxI7 += Ax[j] * Cx[aij + kk + 3];
+    }
+
+    iIdx = i+2; // i = i+1, third dependent iteration
+    for (int j = Ap[iIdx]; j < Ap[iIdx + 1]; j++) {
+      int aij = Ai[j] * N;
+      //ACx[i * N + kk] += Ax[j] * Cx[aij + kk];
+      acxI8 += Ax[j] * Cx[aij + kk];
+      acxI9 += Ax[j] * Cx[aij + kk + 1];
+      acxI10 += Ax[j] * Cx[aij + kk + 2];
+      acxI11 += Ax[j] * Cx[aij + kk + 3];
+    }
+    // copy acx to the output (not needed here)
+
+    i = 0; // loop 2
+    for (int k = Bp[i]; k < Bp[i + 1]; k++) {
+      int bij = Bi[k] * N;
+        Dx[i * N + kk] += Bx[k] * ACx[bij + kk];
+    }
+
+    int jj = i+1;
+    int inkk = jj * N + kk;
+    int j = Bp[i];
+    int aij = Ai[j] * N;
+    //ACx[i * N + kk] += Ax[j] * Cx[aij + kk];
+    Dx[inkk + 0] += Bx[j] * acxI0;
+    Dx[inkk + 1] += Bx[j] * acxI1;
+    Dx[inkk + 2] += Bx[j] * acxI2;
+    Dx[inkk + 3] += Bx[j] * acxI3;
+    j++;
+    Dx[inkk + 0] += Bx[j] * acxI4;
+    Dx[inkk + 1] += Bx[j] * acxI5;
+    Dx[inkk + 2] += Bx[j] * acxI6;
+    Dx[inkk + 3] += Bx[j] * acxI7;
+    j++;
+    Dx[inkk + 0] += Bx[j] * acxI8;
+    Dx[inkk + 1] += Bx[j] * acxI9;
+    Dx[inkk + 2] += Bx[j] * acxI10;
+    Dx[inkk + 3] += Bx[j] * acxI11;
+  }
+
+  // iter 1,2 : 1
+  i += 3;
+  for (int jj = 3; jj < M; ++jj) {
+    int loop2 = jj;
+    for (int kk = 0; kk < N; kk+=NTile) {
+      int loop1 = jj;
+      // 2 overlapping iterations
+      acxI0 = acxI4; acxI1 = acxI5; acxI2 = acxI6; acxI3 = acxI7;
+      acxI4 = acxI8; acxI5 = acxI9; acxI6 = acxI10; acxI7 = acxI11;
+      // 1 new iteration
+      for (int j = Ap[loop1]; j < Ap[loop1 + 1]; j++) {
+        int aij = Ai[j] * N;
+        // ACx[i * N + kk] += Ax[j] * Cx[aij + kk];
+        acxI8 += Ax[j] * Cx[aij + kk];
+        acxI9 += Ax[j] * Cx[aij + kk + 1];
+        acxI10 += Ax[j] * Cx[aij + kk + 2];
+        acxI11 += Ax[j] * Cx[aij + kk + 3];
+      }
+      // copy acx to the output (not needed here)
+
+      int inkk = loop2 * N + kk;
+      int j =jj - 1;
+      int aij = Ai[j] * N;
+      Dx[inkk + 0] += Bx[j] * acxI0;
+      Dx[inkk + 1] += Bx[j] * acxI1;
+      Dx[inkk + 2] += Bx[j] * acxI2;
+      Dx[inkk + 3] += Bx[j] * acxI3;
+      j++;
+      Dx[inkk + 0] += Bx[j] * acxI4;
+      Dx[inkk + 1] += Bx[j] * acxI5;
+      Dx[inkk + 2] += Bx[j] * acxI6;
+      Dx[inkk + 3] += Bx[j] * acxI7;
+      j++;
+      Dx[inkk + 0] += Bx[j] * acxI8;
+      Dx[inkk + 1] += Bx[j] * acxI9;
+      Dx[inkk + 2] += Bx[j] * acxI10;
+      Dx[inkk + 3] += Bx[j] * acxI11;
+    }
+  }
+  pw_stop_instruments_loop(omp_get_thread_num());
+}
+
+
+
+
+
+
+
 void spmmCsrSpmmCsrTiledFusedRedundantBanded(int M, int N, int K, int L,
                                              const int *Ap, const int *Ai, const double *Ax,
                                              const int *Bp, const int *Bi,const double *Bx,

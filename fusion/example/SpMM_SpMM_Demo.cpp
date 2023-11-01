@@ -152,6 +152,13 @@ int main(const int argc, const char *argv[]){
 //  delete fusedTiledParallelGenMixed;
 //  delete stats;
 
+  stats = new swiftware::benchmark::Stats("SpMM_SpMM_Fused_Reg_Tri","SpMM", 7,tp._matrix_name,numThread);
+  auto *fusedTri = new SpMMSpMMFusedTiledTriRegFused(inSpMM, stats, sp);
+  fusedTri->run();
+  //fusedParallel->OutTensor->printDx();
+  auto fusedTriStat = fusedTri->printStats();
+  delete fusedTri;
+  delete stats;
 
   stats = new swiftware::benchmark::Stats("SpMM_SpMM_OuterProduct_FusedParallel","SpMM", 7,tp._matrix_name,numThread);
   stats->OtherStats["PackingType"] = {Interleaved};
