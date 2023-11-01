@@ -398,11 +398,11 @@ void forwardForOneLayerFromCSCTiledParallel(int M, int *Ap, int *Ai, double *Ax,
                                             int TileSize, int NumThreads) {
   double lastTileSize = M % TileSize;
   int lastCompleteTileEnd = M - lastTileSize;
-  double *cache = new double[TileSize * OutputChannelDim];
 #pragma omp parallel num_threads(NumThreads)
   {
 #pragma omp for
     for(int i = 0; i < lastCompleteTileEnd; i+=2*TileSize){
+      double *cache = new double[TileSize * OutputChannelDim];
       cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, TileSize,
                   OutputChannelDim, InputChannelDim, 1.,
                   Features + i * InputChannelDim, InputChannelDim, Weight,
@@ -415,12 +415,14 @@ void forwardForOneLayerFromCSCTiledParallel(int M, int *Ap, int *Ai, double *Ax,
           }
         }
       }
+      delete[] cache;
     }
   }
 #pragma omp parallel num_threads(NumThreads)
   {
 #pragma omp for
     for(int i = TileSize; i < lastCompleteTileEnd; i+=2*TileSize){
+      double *cache = new double[TileSize * OutputChannelDim];
       cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, TileSize,
                   OutputChannelDim, InputChannelDim, 1.,
                   Features + i * InputChannelDim, InputChannelDim, Weight,
@@ -433,8 +435,10 @@ void forwardForOneLayerFromCSCTiledParallel(int M, int *Ap, int *Ai, double *Ax,
           }
         }
       }
+      delete[] cache;
     }
   }
+  double *cache = new double[TileSize * OutputChannelDim];
   cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, lastTileSize,
               OutputChannelDim, InputChannelDim, 1.,
               Features + lastCompleteTileEnd * InputChannelDim, InputChannelDim,
