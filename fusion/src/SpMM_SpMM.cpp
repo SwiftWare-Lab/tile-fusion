@@ -473,7 +473,15 @@ void spmmCsrSpmmCsrTiledFusedBanded(int M, int N, int K, int L,
       Dx[inkk + 3] += Bx[j] * acxI11;
     }
   }
-  
+  int jIdx = M-1; // loop 2
+  for (int kk = 0; kk < N; kk+=NTile) {
+    for (int j = Bp[jIdx]; j < Bp[jIdx + 1]; j++) {
+      int bij = Bi[j] * N;
+      for (int k = 0; k < NTile; ++k) {
+        Dx[jIdx * N + kk + k] += Bx[j] * ACx[bij + kk + k];
+      }
+    }
+  }
   pw_stop_instruments_loop(omp_get_thread_num());
 }
 
