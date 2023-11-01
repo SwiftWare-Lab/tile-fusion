@@ -160,32 +160,32 @@ int main(const int argc, const char *argv[]){
   delete fusedTri;
   delete stats;
 
-  stats = new swiftware::benchmark::Stats("SpMM_SpMM_OuterProduct_FusedParallel","SpMM", 7,tp._matrix_name,numThread);
-  stats->OtherStats["PackingType"] = {Interleaved};
-  auto *fusedOuterParallel = new SpMMSpMMFusedInnerProdInterLayer(inSpMM, stats, sp);
-  fusedOuterParallel->run();
-  //fusedParallel->OutTensor->printDx();
-  auto fusedParallelOutStat = fusedOuterParallel->printStats();
-  delete fusedOuterParallel;
-  delete stats;
-
-  stats = new swiftware::benchmark::Stats("SpMM_SpMM_Mixed_FusedParallel","SpMM", 7,tp._matrix_name,numThread);
-  stats->OtherStats["PackingType"] = {Interleaved};
-  auto *fusedMixedParallel = new SpMMSpMMFusedInnerProdInterLayer(inSpMM, stats, sp);
-  fusedMixedParallel->run();
-  //fusedParallel->OutTensor->printDx();
-  auto fusedParallelMixedStat = fusedMixedParallel->printStats();
-  delete fusedMixedParallel;
-  delete stats;
-
-  stats = new swiftware::benchmark::Stats("SpMM_SpMM_Separated_FusedParallel","SpMM", 7,tp._matrix_name,numThread);
-  stats->OtherStats["PackingType"] = {Separated};
-  auto *fusedSepParallel = new SpMMSpMMFusedSepInterLayer(inSpMM, stats, sp);
-  fusedSepParallel->run();
-  //fusedParallel->OutTensor->printDx();
-  auto fusedParallelSepStat = fusedSepParallel->printStats();
-  delete fusedSepParallel;
-  delete stats;
+//  stats = new swiftware::benchmark::Stats("SpMM_SpMM_OuterProduct_FusedParallel","SpMM", 7,tp._matrix_name,numThread);
+//  stats->OtherStats["PackingType"] = {Interleaved};
+//  auto *fusedOuterParallel = new SpMMSpMMFusedInnerProdInterLayer(inSpMM, stats, sp);
+//  fusedOuterParallel->run();
+//  //fusedParallel->OutTensor->printDx();
+//  auto fusedParallelOutStat = fusedOuterParallel->printStats();
+//  delete fusedOuterParallel;
+//  delete stats;
+//
+//  stats = new swiftware::benchmark::Stats("SpMM_SpMM_Mixed_FusedParallel","SpMM", 7,tp._matrix_name,numThread);
+//  stats->OtherStats["PackingType"] = {Interleaved};
+//  auto *fusedMixedParallel = new SpMMSpMMFusedInnerProdInterLayer(inSpMM, stats, sp);
+//  fusedMixedParallel->run();
+//  //fusedParallel->OutTensor->printDx();
+//  auto fusedParallelMixedStat = fusedMixedParallel->printStats();
+//  delete fusedMixedParallel;
+//  delete stats;
+//
+//  stats = new swiftware::benchmark::Stats("SpMM_SpMM_Separated_FusedParallel","SpMM", 7,tp._matrix_name,numThread);
+//  stats->OtherStats["PackingType"] = {Separated};
+//  auto *fusedSepParallel = new SpMMSpMMFusedSepInterLayer(inSpMM, stats, sp);
+//  fusedSepParallel->run();
+//  //fusedParallel->OutTensor->printDx();
+//  auto fusedParallelSepStat = fusedSepParallel->printStats();
+//  delete fusedSepParallel;
+//  delete stats;
 
   stats = new swiftware::benchmark::Stats("SpMM_SpMM_Profiler","SpMM", 7,tp._matrix_name,numThread);
   auto *fusionProfiler = new SpMMSpMMFusionProfiler(inSpMM, stats, sp);
@@ -216,12 +216,13 @@ int main(const int argc, const char *argv[]){
   //std::cout<<unfusedCTiledParallelStat<<spStat+tpStat+profStat<<std::endl;
   std::cout<<fusedParallelStat<<spStat+tpStat+profStat<<std::endl;
   std::cout<<fusedParallelStatBfs<<spStat+tpStat+profStat<<std::endl;
+  std::cout<<fusedTriStat<<spStat+tpStat+profStat<<std::endl;
   //std::cout<<fusedTiledParallelStat<<spStat+tpStat+profStat<<std::endl;
   //std::cout<<fusedTiledParallelGenStat<<spStat+tpStat+profStatRed<<std::endl;
   //std::cout<<fusedTiledParallelMixedStat<<spStat+tpStat+profStatMixed<<std::endl;
-  std::cout<<fusedParallelOutStat<<spStat+tpStat+profStat<<std::endl;
-  std::cout<<fusedParallelMixedStat<<spStat+tpStat+profStat<<std::endl;
-  std::cout<<fusedParallelSepStat<<spStat+tpStat+profStat;
+  //std::cout<<fusedParallelOutStat<<spStat+tpStat+profStat<<std::endl;
+  //std::cout<<fusedParallelMixedStat<<spStat+tpStat+profStat<<std::endl;
+  //std::cout<<fusedParallelSepStat<<spStat+tpStat+profStat;
 
 //  sp._num_w_partition = 2;
 //  //print_csc(1,"",A_csc);

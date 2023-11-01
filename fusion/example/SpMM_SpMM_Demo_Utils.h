@@ -347,6 +347,7 @@ public:
   SpMMSpMMFusedInterLayer(TensorInputs<double> *In1, Stats *Stat1,
                           sym_lib::ScheduleParameters SpIn)
       : SpMMSpMMUnFused(In1, Stat1), Sp(SpIn){
+    FusedCompSet = NULLPNTR;
   }
 
   ~SpMMSpMMFusedInterLayer(){
@@ -691,9 +692,9 @@ class SpMMSpMMFusedTiledTriRegFused : public SpMMSpMMFusedTiledTri{
         InTensor->M, InTensor->N, InTensor->K, InTensor->L, InTensor->ACsr->p,
         InTensor->ACsr->i, InTensor->ACsr->x, InTensor->BCsr->p,
         InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Cx, OutTensor->Dx,
-        OutTensor->ACx, FusedCompSet->n1_, FusedCompSet->ptr1_,
-        FusedCompSet->ptr2_, FusedCompSet->id_, FusedCompSet->type_,
-        FusedCompSet->ker_begin_, InTensor->NumThreads, Sp.TileM, Sp.TileN, ws);
+        OutTensor->ACx, 1, NULLPNTR,
+        NULLPNTR, NULLPNTR, NULLPNTR,
+        NULLPNTR, InTensor->NumThreads, Sp.TileM, Sp.TileN, ws);
 
     t.stop();
     delete[] ws;
