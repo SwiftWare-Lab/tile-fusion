@@ -153,6 +153,7 @@ int main(const int argc, const char *argv[]){
 //  delete stats;
 
   stats = new swiftware::benchmark::Stats("SpMM_SpMM_Fused_Reg_Tri","SpMM", 7,tp._matrix_name,numThread);
+  stats->OtherStats["PackingType"] = {Interleaved};
   auto *fusedTri = new SpMMSpMMFusedTiledTriRegFused(inSpMM, stats, sp);
   fusedTri->run();
   //fusedTri->OutTensor->printDx();
