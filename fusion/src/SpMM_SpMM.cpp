@@ -366,23 +366,6 @@ void spmmCsrSpmmCsrTiledFusedBanded(int M, int N, int K, int L,
                                     const int *Partition, const int *ParType, const int*MixPtr,
                                     int NThreads, int MTile, int NTile, double *Ws) {
   pw_init_instruments;
-  // do iterations 0,1 from i and 0 from j
-//  for (auto i : {0 ,1}) {
-//    for (int j = Ap[i]; j < Ap[i + 1]; j++) {
-//      int aij = Ai[j] * N;
-//      for (int kk = 0; kk < N; ++kk) {
-//        ACx[i * N + kk] += Ax[j] * Cx[aij + kk];
-//      }
-//    }
-//  }
-//  int i = 0; // loop 2
-//    for (int k = Bp[i]; k < Bp[i + 1]; k++) {
-//      int bij = Bi[k] * N;
-//      for (int kk = 0; kk < N; ++kk) {
-//        Dx[i * N + kk] += Bx[k] * ACx[bij + kk];
-//      }
-//    }
-
   // 0, 1, 2 of loop 1 : 0 and 1 loop 2
   int i = 0;
   // i = i+0
@@ -421,6 +404,9 @@ void spmmCsrSpmmCsrTiledFusedBanded(int M, int N, int K, int L,
       acxI11 += Ax[j] * Cx[aij + kk + 3];
     }
     // copy acx to the output (not needed here)
+    ACx[i * N + kk + 0] = acxI0; ACx[i * N + kk + 1] = acxI1; ACx[i * N + kk + 2] = acxI2; ACx[i * N + kk + 3] = acxI3;
+    ACx[(i+1) * N + kk + 0] = acxI4; ACx[(i+1) * N + kk + 1] = acxI5; ACx[(i+1) * N + kk + 2] = acxI6; ACx[(i+1) * N + kk + 3] = acxI7;
+    ACx[(i+2) * N + kk + 0] = acxI8; ACx[(i+2) * N + kk + 1] = acxI9; ACx[(i+2) * N + kk + 2] = acxI10; ACx[(i+2) * N + kk + 3] = acxI11;
 
     int jIdx = 0; // loop 2
     for (int j = Bp[jIdx]; j < Bp[jIdx + 1]; j++) {
@@ -456,6 +442,7 @@ void spmmCsrSpmmCsrTiledFusedBanded(int M, int N, int K, int L,
       // 2 overlapping iterations
       acxI0 = acxI4; acxI1 = acxI5; acxI2 = acxI6; acxI3 = acxI7;
       acxI4 = acxI8; acxI5 = acxI9; acxI6 = acxI10; acxI7 = acxI11;
+      acxI8 = 0; acxI9 = 0; acxI10 = 0; acxI11 = 0;
       // 1 new iteration
       for (int j = Ap[jj]; j < Ap[jj + 1]; j++) {
         int aij = Ai[j] * N;
@@ -466,6 +453,7 @@ void spmmCsrSpmmCsrTiledFusedBanded(int M, int N, int K, int L,
         acxI11 += Ax[j] * Cx[aij + kk + 3];
       }
       // copy acx to the output (not needed here)
+      ACx[(jj) * N + kk + 0] = acxI8; ACx[(jj) * N + kk + 1] = acxI9; ACx[(jj) * N + kk + 2] = acxI10; ACx[(jj) * N + kk + 3] = acxI11;
 
       int j =jj - 1;
       int inkk = j * N + kk;
@@ -485,6 +473,7 @@ void spmmCsrSpmmCsrTiledFusedBanded(int M, int N, int K, int L,
       Dx[inkk + 3] += Bx[j] * acxI11;
     }
   }
+  
   pw_stop_instruments_loop(omp_get_thread_num());
 }
 
