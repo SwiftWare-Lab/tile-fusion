@@ -136,7 +136,7 @@ int main(const int argc, const char *argv[]) {
    * the corresponding GEMM to each tile, then doing SpMM for midway result,
    * calculates the output
    */
-  stats = new swiftware::benchmark::Stats("GCN_SingleLayerFusedCSCParallel",
+  stats = new swiftware::benchmark::Stats("GCN_SingleLayerTiledFusedCSCParallel",
                                           "GCN", 7, tp._matrix_name, numThread);
   stats->OtherStats["PackingType"] = {Separated};
   GCNSingleLayerTiledFusedCSCParallel *gcnSingleLayerFusedCscParallel =
