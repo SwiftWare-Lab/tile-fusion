@@ -55,3 +55,22 @@ python plot.py where/spmv_spmv_4.csv
 The plot should be modified to save a graph
 
 ## GCN Fusion
+
+### experiment on tri-banded Matrices
+
+First you need to create matrices using this script
+
+```bash
+python scripts/gen_matrix_folder -sl 1000 5000 10000 100000 -f ./data/banded -b 3
+```
+
+Make sure you have mkl installed and setup its environment variables.
+Then run the code using: 
+```bash
+bash run_gcn_demo.sh -t 8 -m ./data/banded -e GCNSingleLayerCompare
+```
+
+set the thread number using -t, matrices folder using -m, and name of experiment using -e.
+Some example experiments:
+ - GCNSingleLayerExperiment
+ - GCNWithDifferentFusionLevels
