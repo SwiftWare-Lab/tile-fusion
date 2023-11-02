@@ -5,6 +5,7 @@
 #include "SWTensorBench.h"
 #include <cstring>
 #include <math.h>
+#include <omp.h>
 
 #ifdef MKL
 #include <mkl.h>
@@ -451,57 +452,58 @@ void forwardForOneLayerFromCSCTiledParallel(int M, int *Ap, int *Ai, double *Ax,
                                             int TileSize, int NumThreads) {
   double lastTileSize = M % TileSize;
   int lastCompleteTileEnd = M - lastTileSize;
+  double* cache = new double[TileSize * OutputChannelDim * NumThreads];
 #pragma omp parallel num_threads(NumThreads)
   {
 #pragma omp for
     for(int i = 0; i < lastCompleteTileEnd; i+=2*TileSize){
-      double *cache = new double[TileSize * OutputChannelDim];
+      int threadId = omp_get_thread_num();
+      double* tcache = cache + threadId * TileSize * OutputChannelDim;
       cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, TileSize,
                   OutputChannelDim, InputChannelDim, 1.,
                   Features + i * InputChannelDim, InputChannelDim, Weight,
-                  OutputChannelDim, 0., cache, OutputChannelDim);
+                  OutputChannelDim, 0., tcache, OutputChannelDim);
       for (int ii = 0; ii < TileSize; ii++) {
         for (int j = Ap[i + ii]; j < Ap[i + ii + 1]; j++) {
           for (int k = 0; k < OutputChannelDim; k++) {
             Output[Ai[j] * OutputChannelDim + k] +=
-                Ax[j] * cache[ii * OutputChannelDim + k];
+                Ax[j] * tcache[ii * OutputChannelDim + k];
           }
         }
       }
-      delete[] cache;
     }
   }
 #pragma omp parallel num_threads(NumThreads)
   {
 #pragma omp for
     for(int i = TileSize; i < lastCompleteTileEnd; i+=2*TileSize){
-      double *cache = new double[TileSize * OutputChannelDim];
+      int threadId = omp_get_thread_num();
+      double* tcache = cache + threadId * TileSize * OutputChannelDim;
       cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, TileSize,
                   OutputChannelDim, InputChannelDim, 1.,
                   Features + i * InputChannelDim, InputChannelDim, Weight,
-                  OutputChannelDim, 0., cache, OutputChannelDim);
+                  OutputChannelDim, 0., tcache, OutputChannelDim);
       for (int ii = 0; ii < TileSize; ii++) {
         for (int j = Ap[i + ii]; j < Ap[i + ii + 1]; j++) {
           for (int k = 0; k < OutputChannelDim; k++) {
             Output[Ai[j] * OutputChannelDim + k] +=
-                Ax[j] * cache[ii * OutputChannelDim + k];
+                Ax[j] * tcache[ii * OutputChannelDim + k];
           }
         }
       }
-      delete[] cache;
     }
   }
-  double *cache = new double[TileSize * OutputChannelDim];
+  double* tcache = cache + 0 * TileSize * OutputChannelDim;
   cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, lastTileSize,
               OutputChannelDim, InputChannelDim, 1.,
               Features + lastCompleteTileEnd * InputChannelDim, InputChannelDim,
-              Weight, OutputChannelDim, 0., cache, OutputChannelDim);
+              Weight, OutputChannelDim, 0., tcache, OutputChannelDim);
   for (int ii = 0; ii < lastTileSize; ii++) {
     for (int j = Ap[lastCompleteTileEnd + ii];
          j < Ap[lastCompleteTileEnd + ii + 1]; j++) {
       for (int k = 0; k < OutputChannelDim; k++) {
         Output[Ai[j] * OutputChannelDim + k] +=
-            Ax[j] * cache[ii * OutputChannelDim + k];
+            Ax[j] * tcache[ii * OutputChannelDim + k];
       }
     }
   }
