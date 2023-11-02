@@ -455,7 +455,7 @@ void forwardForOneLayerFromCSCTiledParallel(int M, int *Ap, int *Ai, double *Ax,
   double* cache = new double[TileSize * OutputChannelDim * NumThreads];
 #pragma omp parallel num_threads(NumThreads)
   {
-    int threadId = 1;
+    int threadId = omp_get_thread_num();
 #pragma omp for
     for(int i = 0; i < lastCompleteTileEnd; i+=2*TileSize){
       double* tcache = cache + threadId * TileSize * OutputChannelDim;
@@ -475,7 +475,7 @@ void forwardForOneLayerFromCSCTiledParallel(int M, int *Ap, int *Ai, double *Ax,
   }
 #pragma omp parallel num_threads(NumThreads)
   {
-  int threadId = 1;
+  int threadId = omp_get_thread_num();
 #pragma omp for
     for(int i = TileSize; i < lastCompleteTileEnd; i+=2*TileSize){
       double* tcache = cache + threadId * TileSize * OutputChannelDim;
