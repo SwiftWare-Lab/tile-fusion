@@ -209,6 +209,8 @@ int main(const int argc, const char *argv[]) {
   std::cout << gcnSequentialFusedLayerStat << spStat + tpStat << std::endl;
   std::cout << gcnOneLayerMKLStat << spStat + tpStat << std::endl;
   std::cout << gcnTiledFusedSingleLayerStat << spStat + tpStat << std::endl;
+  std::cout << gcnSingleLayerTiledFusedParallelStat << spStat + tpStat
+            << std::endl;
   std::cout << gcnSingleLayerFusedCscStat << spStat + tpStat << std::endl;
   std::cout << gcnSingleLayerFusedCscParallelStat << spStat + tpStat << std::endl;
   std::cout << gcnSingleLayerTiledFusedCscStat << spStat + tpStat << std::endl;
