@@ -64,7 +64,7 @@ void forwardForFusedLayersParallel(
     double *HiddenOutput, int NumThreads, int LevelNo, const int *LevelPtr,
     const int *ParPtr, const int *Partition, const int *ParType) {
   for (int i1 = 0; i1 < LevelNo; i1++) {
-#pragma omp parallel num_threads(this->NThreads)
+#pragma omp parallel num_threads(NumThreads)
     {
 #pragma omp for
       for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; j1++) {
@@ -108,7 +108,7 @@ void forwardForFusedLayersParallelWithBatching(
     const int *LevelPtr, const int *ParPtr, const int *Partition,
     const int *ParType) {
   for (int i1 = 0; i1 < LevelNo; i1++) {
-#pragma omp parallel num_threads(this->NThreads)
+#pragma omp parallel num_threads(NumThreads)
     {
 #pragma omp for
       for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; j1++) {
@@ -455,9 +455,9 @@ void forwardForOneLayerFromCSCTiledParallel(int M, int *Ap, int *Ai, double *Ax,
   double* cache = new double[TileSize * OutputChannelDim * NumThreads];
 #pragma omp parallel num_threads(NumThreads)
   {
+    int threadId = 1;
 #pragma omp for
     for(int i = 0; i < lastCompleteTileEnd; i+=2*TileSize){
-      int threadId = omp_get_thread_num();
       double* tcache = cache + threadId * TileSize * OutputChannelDim;
       cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, TileSize,
                   OutputChannelDim, InputChannelDim, 1.,
@@ -475,9 +475,9 @@ void forwardForOneLayerFromCSCTiledParallel(int M, int *Ap, int *Ai, double *Ax,
   }
 #pragma omp parallel num_threads(NumThreads)
   {
+  int threadId = 1;
 #pragma omp for
     for(int i = TileSize; i < lastCompleteTileEnd; i+=2*TileSize){
-      int threadId = omp_get_thread_num();
       double* tcache = cache + threadId * TileSize * OutputChannelDim;
       cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, TileSize,
                   OutputChannelDim, InputChannelDim, 1.,

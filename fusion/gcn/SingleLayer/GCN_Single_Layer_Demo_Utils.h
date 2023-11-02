@@ -80,12 +80,17 @@ public:
 
 #ifdef MKL
 class GCNSingleLayerMKL : public GCNSingleLayerFused {
-  sparse_matrix_t MKLAdj;
 
 protected:
   Timer execute() override {
     OutTensor->reset();
     mkl_set_num_threads(InTensor->NumThreads);
+    sparse_matrix_t MKLAdj;
+    mkl_sparse_d_create_csr(
+        &MKLAdj, SPARSE_INDEX_BASE_ZERO, this->InTensor->NumOfNodes,
+        this->InTensor->NumOfNodes, InTensor->AdjacencyMatrix->p,
+        InTensor->AdjacencyMatrix->p + 1, this->InTensor->AdjacencyMatrix->i,
+        this->InTensor->AdjacencyMatrix->x);
     Timer t;
     t.start();
     forwardForOneLayerWithGeMMAndSpMM(
@@ -93,19 +98,14 @@ protected:
         InTensor->FeatureMatrix->col, InTensor->Weight1, InTensor->EmbedDim,
         OutTensor->FirstLayerOutput);
     t.stop();
+    mkl_free(MKLAdj);
     return t;
   }
 
 public:
   GCNSingleLayerMKL(GnnTensorInputs *In1, Stats *Stat1)
       : GCNSingleLayerFused(In1, Stat1) {
-    mkl_sparse_d_create_csr(
-        &MKLAdj, SPARSE_INDEX_BASE_ZERO, this->InTensor->NumOfNodes,
-        this->InTensor->NumOfNodes, InTensor->AdjacencyMatrix->p,
-        InTensor->AdjacencyMatrix->p + 1, this->InTensor->AdjacencyMatrix->i,
-        this->InTensor->AdjacencyMatrix->x);
   }
-  ~GCNSingleLayerMKL() { mkl_free(MKLAdj); }
 };
 
 class GCNSingleLayerTiledFused : public GCNSingleLayerFused {

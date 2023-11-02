@@ -4,7 +4,7 @@
 #ifdef MKL
 #include "../GCN_Layer_MKL_Forward_Utils.h"
 #else
-#include "GCN_Layer_Forward_Utils.h"
+#include "../GCN_Layer_Forward_Utils.h"
 #endif
 #include "SWTensorBench.h"
 #include "aggregation/def.h"
@@ -142,7 +142,7 @@ struct GnnTensorInputs : public Inputs<double> {
     delete AdjacencyMatrix;
     delete LayerMaskedMatrices[0];
     delete LayerMaskedMatrices[1];
-    delete Degrees;
+    delete[] Degrees;
   }
 };
 
@@ -461,7 +461,7 @@ public:
       : GCNIntraFusedUsingCSCSequential(In1, Stat1), TileSize(TileSize1) {}
 };
 
-// TODO: implement the execute code
+
 class GCNAllTiledFusedCSC : public GCNIntraFusedSequential {
 protected:
   int TileSize;

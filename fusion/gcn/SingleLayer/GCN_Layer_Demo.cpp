@@ -210,8 +210,7 @@ int main(const int argc, const char *argv[]) {
   std::cout << gcnOneLayerMKLStat << spStat + tpStat << std::endl;
   std::cout << gcnTiledFusedSingleLayerStat << spStat + tpStat << std::endl;
   std::cout << gcnSingleLayerFusedCscStat << spStat + tpStat << std::endl;
-  std::cout << gcnSingleLayerFusedCscParallelStat << spStat + tpStat
-            << std::endl;
+  std::cout << gcnSingleLayerFusedCscParallelStat << spStat + tpStat << std::endl;
   std::cout << gcnSingleLayerTiledFusedCscStat << spStat + tpStat << std::endl;
   std::cout << gcnSingleLayerFusedParallelStat << spStat + tpStat << std::endl;
 #ifdef __AVX2__
@@ -221,6 +220,7 @@ int main(const int argc, const char *argv[]) {
             << std::endl;
 #endif
 
+  delete[] inputs->CorrectSol;
   delete inputs;
   delete aCSC;
   delete aCSCFull;

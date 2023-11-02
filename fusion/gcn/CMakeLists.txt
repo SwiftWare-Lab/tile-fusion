@@ -26,6 +26,7 @@ if(TARGET MKL::MKL)
     target_link_libraries(gcn_demo
             fusion
             swbench::swbench
+            OpenMP::OpenMP_CXX
             $<LINK_ONLY:MKL::MKL>
     )
 
@@ -40,6 +41,7 @@ if(TARGET MKL::MKL)
     target_link_libraries(gcn_layer_demo
             fusion
             swbench::swbench
+            OpenMP::OpenMP_CXX
             $<LINK_ONLY:MKL::MKL>
     )
 else ()
