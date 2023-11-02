@@ -72,5 +72,5 @@ bash run_gcn_demo.sh -t 8 -m ./data/banded -e GCNSingleLayerCompare
 
 set the thread number using -t, matrices folder using -m, and name of experiment using -e.
 Some example experiments:
- - GCNSingleLayerExperiment
+ - GCNSingleLayerCompare
  - GCNWithDifferentFusionLevels
