@@ -3,6 +3,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import sys
 import os
+import yaml
+
+
+def import_config(config_file):
+    with open(config_file) as f:
+        config = yaml.load(f, Loader=yaml.FullLoader)
+    return config
 
 
 def take_median(df, **kwargs):
@@ -27,8 +34,12 @@ def get_fused_info(matr_list, df, base_column, implementation_name, params=None)
         cur_matr = df[df['MatrixName'] == matr]
         fused = cur_matr[cur_matr['Implementation Name'] == implementation_name]
         for i in range(len(params)):
-            seperated_list[i].append(take_median(fused[fused[base_column] == params[i]]))
+            try:
+                seperated_list[i].append(take_median(fused[fused[base_column] == params[i]]))
+            except IndexError as e:
+                print("Error for Tuned implementation: ", implementation_name)
     return seperated_list
+
 
 def print_fusion_ratios(log_folder, log_file_name):
     log_file = os.path.join(log_folder, log_file_name)
@@ -47,22 +58,19 @@ def print_fusion_ratios(log_folder, log_file_name):
                 print(x, fused_x.iloc[i]['Number of Fused Nodes0'] / fused_x.iloc[i]['Number of Sampled Nodes0'])
 
 
-def plot_gcn(log_folder, log_file_name):
+def plot_gcn(log_folder, log_file_name, config):
     log_file = os.path.join(log_folder, log_file_name)
     df_fusion = pd.read_csv(log_file)
-    bcols = df_fusion['bCols'].unique()
+    bcols = config['feature_sizes']
     edims = df_fusion['EmbedDim'].unique()
-    fused_implementations = ['GCN_SingleLayerTiledFused', 'GCN_SingleLayerTiledFusedCSCParallel', 'GCN_SingleLayerTiledFusedCSC', 'GCN_SingleLayerFusedCSCVectorized', 'GCN_SingleLayerTiledFusedCSCVectorized']
-    base_param = 'NTile'
+    tuned_implementations = [impl['name'] for impl in config['implementations'] if impl['tuned']]
+    tuned_implementations_base_param = {impl['name']: impl['tune_parameter'] for impl in config['implementations'] if impl['tuned']}
     # sort df_fusion based on 'NNZ'
     df_fusion = df_fusion.sort_values(by=['NNZ'])
     # mat_list = df_fusion['MatrixName'].unique()
     mat_list = df_fusion['Matrix Name'].unique()
-    bCol = df_fusion['bCols'].unique()[0]
-    nnz_list = df_fusion['NNZ'].unique()
-    seq_exe_time, separated_exe_time = [], []
-    impls = df_fusion['Implementation Name'].unique()
-    br = np.arange(len(mat_list)*2, step=2)
+    impls = list(map(lambda i: i['name'], config['implementations']))
+    br = np.arange(len(mat_list) * 2, step=2)
     bar_width = 0.2
     for bcol in bcols:
         for edim in edims:
@@ -73,21 +81,26 @@ def plot_gcn(log_folder, log_file_name):
             for mat in mat_list:
                 cur_mat = df_fusion_bcol_edim[df_fusion_bcol_edim['MatrixName'] == mat]
                 for x in impls:
-                    if x not in fused_implementations:
-                        if x in times:
-                            times[x].append(take_median(cur_mat[cur_mat['Implementation Name'] == x]))
-                        else:
-                            times[x] = [take_median(cur_mat[cur_mat['Implementation Name'] == x])]
-            for impl in fused_implementations:
-                seperated_list = get_fused_info(mat_list, df_fusion_bcol_edim, base_column=base_param, implementation_name=impl)
+                    if x not in tuned_implementations:
+                        try:
+                            if x in times:
+                                times[x].append(take_median(cur_mat[cur_mat['Implementation Name'] == x]))
+                            else:
+                                times[x] = [take_median(cur_mat[cur_mat['Implementation Name'] == x])]
+                        except IndexError as e:
+                            print("Error for Not Tuned Implementation: ", x)
+            for impl in tuned_implementations:
+                seperated_list = get_fused_info(mat_list, df_fusion_bcol_edim,
+                                                base_column=tuned_implementations_base_param[impl],
+                                                implementation_name=impl)
                 min_fused = np.array(seperated_list[0])
                 for x in seperated_list:
                     min_fused = np.minimum(min_fused, np.array(x))
                 times[impl] = min_fused
             speedups = {}
             for impl in impls:
-                speedups[impl] = np.array(times['GCN_SingleLayerFused']) / np.array(times[impl])
-            colors = ['maroon', 'brown', 'purple', 'yellow', 'orange', 'black', 'r', 'g', 'b']
+                speedups[impl] = np.array(times[config['baseline']]) / np.array(times[impl])
+            colors = ['maroon', 'brown', 'purple', 'yellow', 'orange', 'black', 'grey', 'r', 'g', 'b']
             k = 0
             for impl in impls:
                 bars[impl] = [x + k * bar_width for x in br]
@@ -100,21 +113,23 @@ def plot_gcn(log_folder, log_file_name):
 
             ax.set_xlabel('matrices', fontweight='bold', fontsize=15)
             ax.set_ylabel('speed_up', fontweight='bold', fontsize=15)
-            ax.set_xticks([r + 1 * bar_width for r in range(0, len(mat_list)*2, 2)],
+            ax.set_xticks([r + 1 * bar_width for r in range(0, len(mat_list) * 2, 2)],
                           mat_list)
-            plot_path = os.path.join(log_folder, ''.join(log_file_name.split('.')[:-1])+ '_' + str(bcol) + '_' + str(edim) + '.pdf')
+            plot_path = os.path.join(log_folder, ''.join(log_file_name.split('.')[:-1]) + '_' + str(bcol) + '_' + str(
+                edim) + '.pdf')
             ax.legend()
             fig.savefig(plot_path)
 
 
-def plot_gcn_from_logs_folder(logs_folder):
+def plot_gcn_from_logs_folder(logs_folder, config_file):
+    config = import_config(config_file)
     with os.scandir(logs_folder) as entries:
         for entry in entries:
             print(entry.name, "-----------------------------------------------")
             # if entry is csv file
             if entry.name.endswith(".csv") and entry.is_file():
-                plot_gcn(logs_folder, entry.name)
+                plot_gcn(logs_folder, entry.name, config)
                 # print_fusion_ratios(logs_folder, entry.name)
 
 
-plot_gcn_from_logs_folder(sys.argv[1])
+plot_gcn_from_logs_folder(sys.argv[1], sys.argv[2])
