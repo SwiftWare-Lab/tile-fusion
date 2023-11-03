@@ -6,6 +6,7 @@
 #else
 #include "../GCN_Layer_Forward_Utils.h"
 #endif
+#include "Fusion_Inspector.h"
 #include "SWTensorBench.h"
 #include "aggregation/def.h"
 #include "aggregation/sparse_utilities.h"
@@ -260,47 +261,12 @@ public:
 class GCNAllFusedParallel : public GCNIntraFusedSequential {
 protected:
   sym_lib::MultiDimensionalSet *FusedCompSet;
-  sym_lib::ScheduleParameters Sp;
-  sym_lib::SparsityProfileInfo SpInfo;
+  InspectorForAllFused *Inspector;
 
   Timer analysis() override {
     Timer t;
     t.start();
-    //    // sym_lib::ScheduleParameters sp;
-    //    // sp._num_threads = InTensor->NumThreads;
-    //    //  create the fused set
-
-    // for sampling
-    //    sym_lib::CSC *Di1 =
-    //    sym_lib::csr_to_csc(InTensor->LayerMaskedMatrices[0]); sym_lib::CSC
-    //    *Di2 = sym_lib::csr_to_csc(InTensor->LayerMaskedMatrices[1]);
-    Sp._num_w_partition =
-        std::max<int>(InTensor->AdjacencyMatrix->m / Sp.IterPerPartition,
-                      2 * Sp._num_threads);
-    auto *sf01 = new sym_lib::SparseFusion(&Sp, 2);
-    auto *mvDAG = sym_lib::diagonal(InTensor->AdjacencyMatrix->m, 1.0);
-    auto *tmpCSCCSR = new sym_lib::CSC(
-        InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->n,
-        InTensor->AdjacencyMatrix->nnz, InTensor->AdjacencyMatrix->p,
-        InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x);
-    auto *Di = InTensor->AdjacencyMatrix;
-    // sym_lib::print_csc(1, "Di", 6, Di->p, Di->i, Di->x);
-    sf01->fuse(0, mvDAG, tmpCSCCSR);
-
-    // sf01->print_final_list();
-    sf01->fuse(1, mvDAG, tmpCSCCSR);
-    // sf01->print_final_list();
-    auto pt = St->OtherStats["PackingType"];
-    FusedCompSet = sf01->getFusedCompressed((int)pt[0]);
-    //    FusedCompSet->print_3d();
-    St->OtherStats["Number of Fused Nodes"] = {double(
-        FusedCompSet->getNumberOfFusedNodes(InTensor->LayerMaskedMatrices[1]))};
-    delete sf01;
-    delete mvDAG;
-    delete tmpCSCCSR;
-    //    delete Di1;
-    //    delete Di2;
-    //        FusedCompSet->print_3d();
+    FusedCompSet = Inspector->generateFusedScheduleForAllFused(InTensor->AdjacencyMatrix);
     t.stop();
     return t;
   }
@@ -326,8 +292,13 @@ protected:
 public:
   GCNAllFusedParallel(GnnTensorInputs *In1, Stats *Stat1,
                       sym_lib::ScheduleParameters SpIn)
-      : GCNIntraFusedSequential(In1, Stat1), Sp(SpIn) {}
-  ~GCNAllFusedParallel() { delete FusedCompSet; }
+      : GCNIntraFusedSequential(In1, Stat1) {
+    Inspector = new InspectorForAllFused(SpIn, Stat1);
+  }
+  ~GCNAllFusedParallel() {
+    delete FusedCompSet;
+    delete Inspector;
+  }
 };
 
 #ifdef MKL
@@ -430,7 +401,7 @@ public:
       : GCNIntraFusedUsingCSCSequential(In1, Stat1), TileSize(TileSize1) {}
 };
 
-//TODO: this one is only banded-specific for now. it should be made generic.
+// TODO: this one is only banded-specific for now. it should be made generic.
 class GCNIntraLayerTiledFused : public GCNIntraFusedUsingCSCSequential {
 protected:
   int TileSize;
@@ -461,71 +432,16 @@ public:
       : GCNIntraFusedUsingCSCSequential(In1, Stat1), TileSize(TileSize1) {}
 };
 
-
 class GCNAllTiledFusedCSC : public GCNIntraFusedSequential {
 protected:
   int TileSize;
+  InspectorForAllTiledFusedCSC *Inspector;
   sym_lib::MultiDimensionalSet *FusedCompSet;
-
   Timer analysis() override {
     Timer t;
     t.start();
-    FusedCompSet = new sym_lib::MultiDimensionalSet();
-    int numOfTiles = InTensor->NumOfNodes / TileSize;
-    if (InTensor->NumOfNodes % TileSize > 0){
-      numOfTiles = InTensor->NumOfNodes / TileSize + 1;
-    }
-    int numOfComputeNodes = numOfTiles * 2;
-    sym_lib::CSR *adjMtx = InTensor->AdjacencyMatrix;
-    FusedCompSet->ptr1_ = new int[2];
-    FusedCompSet->ptr1_[0] = 0;
-    FusedCompSet->ptr1_[1] = numOfComputeNodes;
-    FusedCompSet->id_ = new int[numOfComputeNodes];
-    FusedCompSet->type_ = new int[numOfComputeNodes];
-    int rowsLastTile[InTensor->NumOfNodes];
-    for (int i = 0; i < InTensor->NumOfNodes; i += TileSize) {
-      for (int ii = 0; ii < TileSize; ++ii) {
-        if (i + ii >= InTensor->NumOfNodes ) {
-          break;
-        }
-        for (int j = adjMtx->p[i + ii]; j < adjMtx->p[i + ii + 1]; ++j) {
-          rowsLastTile[adjMtx->i[j]] = i/TileSize;
-        }
-      }
-    }
-    int tileLastNeededTile[numOfTiles];
-    memset(tileLastNeededTile, 0, numOfTiles * sizeof(int));
-    for (int i = 0; i < InTensor->NumOfNodes; i += TileSize) {
-      for (int ii = 0; ii < TileSize; ++ii) {
-        if (i + ii >= InTensor->NumOfNodes) {
-          break;
-        }
-        for (int j = adjMtx->p[i + ii]; j < adjMtx->p[i + ii + 1]; j++) {
-          if (rowsLastTile[adjMtx->i[j]] > tileLastNeededTile[i/TileSize]) {
-            tileLastNeededTile[i/TileSize] = rowsLastTile[adjMtx->i[j]];
-          }
-        }
-      }
-    }
-    int idCounter = 0;
-    for (int i = 0; i < InTensor->NumOfNodes; i += TileSize) {
-      FusedCompSet->id_[idCounter] = i;
-      FusedCompSet->type_[idCounter] = 0;
-      if (i != InTensor->NumOfNodes - TileSize && i/TileSize == numOfTiles - 1) {
-        FusedCompSet->type_[idCounter] = 2;
-      }
-      idCounter++;
-      for (int k = 0; k < InTensor->NumOfNodes; k += TileSize) {
-        if (tileLastNeededTile[k/TileSize] == i/TileSize) {
-          FusedCompSet->id_[idCounter] = k;
-          FusedCompSet->type_[idCounter] = 1;
-          if (k != InTensor->NumOfNodes - TileSize && k/TileSize == numOfTiles - 1) {
-            FusedCompSet->type_[idCounter] = 3;
-          }
-          idCounter++;
-        }
-      }
-    }
+    FusedCompSet = Inspector->generateFusedScheduleForAllTiledFusedCSC(
+        InTensor->AdjacencyMatrix, TileSize);
     t.stop();
     return t;
   }
@@ -546,269 +462,18 @@ protected:
     t.stop();
     return t;
   }
+
 public:
   GCNAllTiledFusedCSC(GnnTensorInputs *In1, Stats *Stat1, int TileSize1)
-      : GCNIntraFusedSequential(In1, Stat1), TileSize(TileSize1) {}
-  ~GCNAllTiledFusedCSC() { delete FusedCompSet; }
+      : GCNIntraFusedSequential(In1, Stat1), TileSize(TileSize1) {
+    Inspector = new InspectorForAllTiledFusedCSC();
+  }
+  ~GCNAllTiledFusedCSC() {
+    delete Inspector;
+    delete FusedCompSet;
+  }
 };
 
 #endif
 
 //////////////// Sampling Based
-
-class GCNFusedParallelWithOmittingEmptyRows : public GCNIntraFusedSequential {
-protected:
-  sym_lib::MultiDimensionalSet *FusedCompSet;
-  sym_lib::ScheduleParameters Sp;
-  sym_lib::SparsityProfileInfo SpInfo;
-
-  Timer analysis() override {
-    Timer t;
-    t.start();
-    FusedCompSet = generateSimpleFusedSchedule(InTensor->NumThreads);
-    t.stop();
-    return t;
-  }
-
-  sym_lib::MultiDimensionalSet *generateSimpleFusedSchedule(int NumOfThreads) {
-    sym_lib::MultiDimensionalSet *fusedSchedule =
-        new sym_lib::MultiDimensionalSet();
-    fusedSchedule->n1_ = 2;
-    fusedSchedule->ptr1_ = new int[3];
-    fusedSchedule->ptr2_ = new int[2 * NumOfThreads + 1];
-    fusedSchedule->id_ = new int[InTensor->LayerMasks[0].size() +
-                                 InTensor->LayerMasks[1].size()];
-    fusedSchedule->type_ = new int[InTensor->LayerMasks[0].size() +
-                                   InTensor->LayerMasks[1].size()];
-    fusedSchedule->ptr1_[0] = 0;
-    fusedSchedule->ptr1_[1] = NumOfThreads;
-    fusedSchedule->ptr1_[2] = 2 * NumOfThreads;
-    fusedSchedule->ptr2_[0] = 0;
-    sym_lib::CSR *l1 = InTensor->LayerMaskedMatrices[0];
-    sym_lib::CSR *l2 = InTensor->LayerMaskedMatrices[1];
-    int iterPerPartitionL1 =
-        std::ceil(float(InTensor->LayerMasks[0].size()) / NumOfThreads);
-    std::vector<std::set<int>> l1Partitions(NumOfThreads);
-    int partitionCntr = 0;
-    int p = 0;
-    int idCounter = 0;
-    std::set<int> fusedNodes;
-    for (int i = 0; i < l1->m; i++) {
-      if (l1->p[i + 1] == l1->p[i]) {
-        continue;
-      }
-      l1Partitions[p].insert(i);
-      fusedSchedule->id_[idCounter] = i;
-      fusedSchedule->type_[idCounter] = 0;
-      idCounter++;
-      partitionCntr++;
-      if (partitionCntr == iterPerPartitionL1 || i == l1->m - 1) {
-        partitionCntr = 0;
-        for (int i1 = 0; i1 <= l2->m; i1++) {
-          if (l2->p[i1 + 1] == l2->p[i1]) {
-            continue;
-          }
-          bool flag = true;
-          for (int j1 = l2->p[i1]; j1 < l2->p[i1 + 1]; j1++) {
-            if (l1Partitions[p].find(l2->i[j1]) == l1Partitions[p].end()) {
-              flag = false;
-              break;
-            }
-          }
-          if (flag && fusedNodes.find(i1) == fusedNodes.end()) {
-            fusedSchedule->id_[idCounter] = i1;
-            fusedSchedule->type_[idCounter] = 1;
-            idCounter++;
-            fusedNodes.insert(i1);
-          }
-        }
-        fusedSchedule->ptr2_[p + 1] = idCounter;
-        p++;
-      }
-    }
-    //    fusedSchedule->ptr2_[NumOfThreads] = idCounter;
-    int unfusedNum = InTensor->LayerMasks[1].size() - fusedNodes.size();
-    partitionCntr = 0;
-    p = 0;
-    int iterPerPartitionL2 = ceil(float(unfusedNum) / NumOfThreads);
-    for (int i = 0; i < l2->m; i++) {
-      if (l2->p[i + 1] == l2->p[i]) {
-        continue;
-      }
-      if (fusedNodes.find(i) != fusedNodes.end()) {
-        continue;
-      }
-      fusedSchedule->id_[idCounter] = i;
-      fusedSchedule->type_[idCounter] = 1;
-      idCounter++;
-      partitionCntr++;
-      if (partitionCntr == iterPerPartitionL2) {
-        partitionCntr = 0;
-        fusedSchedule->ptr2_[p + 1 + NumOfThreads] = idCounter;
-        p++;
-      }
-    }
-    fusedSchedule->ptr2_[2 * NumOfThreads] = idCounter;
-    return fusedSchedule;
-  }
-
-  Timer execute() override {
-    Timer t;
-    OutTensor->reset();
-    t.start();
-    forwardForFusedLayersParallelWithBatching(
-        InTensor->LayerMaskedMatrices[0]->m,
-        InTensor->LayerMaskedMatrices[0]->p,
-        InTensor->LayerMaskedMatrices[0]->i,
-        InTensor->LayerMaskedMatrices[0]->x,
-        InTensor->LayerMaskedMatrices[1]->p,
-        InTensor->LayerMaskedMatrices[1]->i,
-        InTensor->LayerMaskedMatrices[1]->x, InTensor->FeatureMatrix->col,
-        InTensor->EmbedDim, InTensor->EmbedDim, InTensor->Degrees,
-        InTensor->FeatureMatrix->a, InTensor->Weight1, InTensor->Weight2,
-        OutTensor->SecondLayerOutput, OutTensor->FirstLayerOutput,
-        InTensor->NumThreads, FusedCompSet->n1_, FusedCompSet->ptr1_,
-        FusedCompSet->ptr2_, FusedCompSet->id_, FusedCompSet->type_);
-    t.stop();
-    return t;
-  }
-
-public:
-  GCNFusedParallelWithOmittingEmptyRows(GnnTensorInputs *In1, Stats *Stat1,
-                                        sym_lib::ScheduleParameters SpIn)
-      : GCNIntraFusedSequential(In1, Stat1), Sp(SpIn) {}
-  ~GCNFusedParallelWithOmittingEmptyRows() { delete FusedCompSet; }
-
-};
-
-class GCNFusedWithOmittingEmptyRows : public GCNIntraFusedSequential {
-protected:
-  sym_lib::MultiDimensionalSet *FusedCompSet;
-  sym_lib::ScheduleParameters Sp;
-  sym_lib::SparsityProfileInfo SpInfo;
-  int TileSize;
-
-  Timer analysis() override {
-    Timer t;
-    t.start();
-    FusedCompSet = generateSimpleFusedSchedule();
-    t.stop();
-    return t;
-  }
-
-  sym_lib::MultiDimensionalSet *generateSimpleFusedSchedule() {
-    sym_lib::MultiDimensionalSet *fusedSchedule =
-        new sym_lib::MultiDimensionalSet();
-    fusedSchedule->n1_ = 2;
-    fusedSchedule->ptr1_ = new int[3];
-    fusedSchedule->ptr2_ = new int[3];
-    int allNodesNum =
-        InTensor->LayerMasks[0].size() + InTensor->LayerMasks[1].size();
-    fusedSchedule->id_ = new int[allNodesNum];
-    fusedSchedule->type_ = new int[allNodesNum];
-    fusedSchedule->ptr1_[0] = 0;
-    fusedSchedule->ptr1_[1] = 1;
-    fusedSchedule->ptr1_[2] = 2;
-    fusedSchedule->ptr2_[0] = 0;
-    sym_lib::CSR *l1 = InTensor->LayerMaskedMatrices[0];
-    sym_lib::CSR *l2 = InTensor->LayerMaskedMatrices[1];
-    std::set<int> fusedNodes;
-    int idCounter = 0;
-    for (int i = 0; i < l1->m; i += TileSize) {
-      for (int j = i; j < i + TileSize; j++) {
-        if (j >= l1->m)
-          break;
-        if (l1->p[j + 1] == l1->p[j])
-          continue;
-        fusedSchedule->id_[idCounter] = j;
-        fusedSchedule->type_[idCounter] = 0;
-        idCounter++;
-      }
-      for (int i1 = 0; i1 < l2->m; i1++) {
-        if (l2->p[i1] == l2->p[i1 + 1])
-          continue;
-        bool flag = true;
-        for (int j1 = l2->p[i1]; j1 < l2->p[i1 + 1]; j1++) {
-          int neigh = l2->i[j1];
-          if (neigh >= i + TileSize || neigh < i) {
-            flag = false;
-            break;
-          }
-        }
-        if (flag && fusedNodes.find(i1) == fusedNodes.end()) {
-          fusedSchedule->id_[idCounter] = i1;
-          fusedSchedule->type_[idCounter] = 1;
-          fusedNodes.insert(i1);
-          idCounter++;
-        }
-      }
-    }
-    fusedSchedule->ptr2_[1] = idCounter;
-    for (int i = 0; i < l2->m; i++) {
-      if (l2->p[i] == l2->p[i + 1] || fusedNodes.find(i) != fusedNodes.end()) {
-        continue;
-      }
-      fusedSchedule->id_[idCounter] = i;
-      fusedSchedule->type_[idCounter] = 1;
-      idCounter++;
-    }
-    fusedSchedule->ptr2_[2] = idCounter;
-    assert(idCounter == allNodesNum);
-    this->St->OtherStats["Number of Fused Nodes"] = {double(fusedNodes.size())};
-    return fusedSchedule;
-  }
-
-  Timer execute() override {
-    Timer t;
-    OutTensor->reset();
-    t.start();
-    forwardForFusedLayersWithBatching(
-        InTensor->LayerMaskedMatrices[0]->m,
-        InTensor->LayerMaskedMatrices[0]->p,
-        InTensor->LayerMaskedMatrices[0]->i,
-        InTensor->LayerMaskedMatrices[0]->x,
-        InTensor->LayerMaskedMatrices[1]->p,
-        InTensor->LayerMaskedMatrices[1]->i,
-        InTensor->LayerMaskedMatrices[1]->x, InTensor->FeatureMatrix->col,
-        InTensor->EmbedDim, InTensor->EmbedDim, InTensor->Degrees,
-        InTensor->FeatureMatrix->a, InTensor->Weight1, InTensor->Weight2,
-        OutTensor->SecondLayerOutput, OutTensor->FirstLayerOutput,
-        InTensor->NumThreads, FusedCompSet->n1_, FusedCompSet->ptr1_,
-        FusedCompSet->ptr2_, FusedCompSet->id_, FusedCompSet->type_);
-    t.stop();
-    return t;
-  }
-
-public:
-  GCNFusedWithOmittingEmptyRows(GnnTensorInputs *In1, Stats *Stat1,
-                                sym_lib::ScheduleParameters SpIn, int TileSize1)
-      : GCNIntraFusedSequential(In1, Stat1), Sp(SpIn), TileSize(TileSize1) {}
-  ~GCNFusedWithOmittingEmptyRows() { delete FusedCompSet; }
-};
-
-class GCNFusedWithRegisterReuse : public GCNIntraFusedSequential {
-protected:
-  int TileSize;
-  Timer execute() override {
-    Timer t;
-    OutTensor->reset();
-    t.start();
-    forwardForFusedLayersWithBatchingRegisterReuse(
-        InTensor->LayerMaskedMatrices[0]->m,
-        InTensor->LayerMaskedMatrices[0]->p,
-        InTensor->LayerMaskedMatrices[0]->i,
-        InTensor->LayerMaskedMatrices[0]->x,
-        InTensor->LayerMaskedMatrices[1]->p,
-        InTensor->LayerMaskedMatrices[1]->i,
-        InTensor->LayerMaskedMatrices[1]->x, InTensor->FeatureMatrix->col,
-        InTensor->EmbedDim, InTensor->EmbedDim, InTensor->Degrees,
-        InTensor->FeatureMatrix->a, InTensor->Weight1, InTensor->Weight2,
-        OutTensor->SecondLayerOutput, OutTensor->FirstLayerOutput, TileSize);
-    t.stop();
-    return t;
-  }
-
-public:
-  GCNFusedWithRegisterReuse(GnnTensorInputs *In1, Stats *Stat1, int TileSize1)
-      : GCNIntraFusedSequential(In1, Stat1), TileSize(TileSize1) {}
-};

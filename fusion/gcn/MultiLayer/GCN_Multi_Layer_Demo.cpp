@@ -108,57 +108,57 @@ int main(const int argc, const char *argv[]) {
     std::cout << gcnIntraUnfusedMKLStat << spStat + tpStat << std::endl;
   }
 
-  if (tp.expariment_name == "GCNFusedBatchingForBandedSpecific") {
-    stats =
-        new swiftware::benchmark::Stats("GCN_FusedWithOmittingEmptyRows_Demo",
-                                        "GCN", 7, tp._matrix_name, numThread);
-    stats->OtherStats["PackingType"] = {Interleaved};
-    GCNFusedWithRegisterReuse *gcnFusedWithRegisterReuse =
-        new GCNFusedWithRegisterReuse(inputs, stats, tileSize);
-    gcnFusedWithRegisterReuse->run();
-    //  for (int i = 0; i < inputs->NumOfNodes; i++){
-    //    for (int j = 0; j < inputs->NumOfClasses; j++){
-    //       std::cout <<
-    //       gcnFusedWithRegisterReuse->OutTensor->SecondLayerOutput[i*inputs->NumOfClasses+j]
-    //       << " ";
-    //    }
-    //    std::cout << std::endl;
-    //  }
-    auto gcnFusedWRRStat = gcnFusedWithRegisterReuse->printStats();
-    delete gcnFusedWithRegisterReuse;
-    delete stats;
-    std::cout << gcnFusedWRRStat << spStat + tpStat << std::endl;
-  }
-
-  if (tp.expariment_name == "GCNFusedBatching") {
-    stats =
-        new swiftware::benchmark::Stats("GCN_FusedWithOmittingEmptyRows_Demo",
-                                        "GCN", 7, tp._matrix_name, numThread);
-    stats->OtherStats["PackingType"] = {Interleaved};
-    GCNFusedWithOmittingEmptyRows *gcnFusedWithOmittingEmptyRows =
-        new GCNFusedWithOmittingEmptyRows(inputs, stats, sp, tileSize);
-    gcnFusedWithOmittingEmptyRows->run();
-    auto gcnFusedWOERStat = gcnFusedWithOmittingEmptyRows->printStats();
-    delete gcnFusedWithOmittingEmptyRows;
-    delete stats;
-
-    std::cout << gcnFusedWOERStat << spStat + tpStat << std::endl;
-
-    ////    should be bug fixed
-    //    stats = new swiftware::benchmark::Stats(
-    //        "GCN_FusedParallelWithOmittingEmptyRows_Demo", "GCN", 7,
-    //        tp._matrix_name, numThread);
-    //    stats->OtherStats["PackingType"] = {Interleaved};
-    //    GCNFusedParallelWithOmittingEmptyRows
-    //        *gcnFusedParallelWithOmittingEmptyRows =
-    //            new GCNFusedParallelWithOmittingEmptyRows(inputs, stats, sp);
-    //    gcnFusedParallelWithOmittingEmptyRows->run();
-    //    auto gcnFusedPWOERStat =
-    //        gcnFusedParallelWithOmittingEmptyRows->printStats();
-    //    delete gcnFusedParallelWithOmittingEmptyRows;
-    //    delete stats;
-    //    std::cout << gcnFusedPWOERStat << spStat + tpStat << std::endl;
-  }
+//  if (tp.expariment_name == "GCNFusedBatchingForBandedSpecific") {
+//    stats =
+//        new swiftware::benchmark::Stats("GCN_FusedWithOmittingEmptyRows_Demo",
+//                                        "GCN", 7, tp._matrix_name, numThread);
+//    stats->OtherStats["PackingType"] = {Interleaved};
+//    GCNFusedWithRegisterReuse *gcnFusedWithRegisterReuse =
+//        new GCNFusedWithRegisterReuse(inputs, stats, tileSize);
+//    gcnFusedWithRegisterReuse->run();
+//    //  for (int i = 0; i < inputs->NumOfNodes; i++){
+//    //    for (int j = 0; j < inputs->NumOfClasses; j++){
+//    //       std::cout <<
+//    //       gcnFusedWithRegisterReuse->OutTensor->SecondLayerOutput[i*inputs->NumOfClasses+j]
+//    //       << " ";
+//    //    }
+//    //    std::cout << std::endl;
+//    //  }
+//    auto gcnFusedWRRStat = gcnFusedWithRegisterReuse->printStats();
+//    delete gcnFusedWithRegisterReuse;
+//    delete stats;
+//    std::cout << gcnFusedWRRStat << spStat + tpStat << std::endl;
+//  }
+//
+//  if (tp.expariment_name == "GCNFusedBatching") {
+//    stats =
+//        new swiftware::benchmark::Stats("GCN_FusedWithOmittingEmptyRows_Demo",
+//                                        "GCN", 7, tp._matrix_name, numThread);
+//    stats->OtherStats["PackingType"] = {Interleaved};
+//    GCNFusedWithOmittingEmptyRows *gcnFusedWithOmittingEmptyRows =
+//        new GCNFusedWithOmittingEmptyRows(inputs, stats, sp, tileSize);
+//    gcnFusedWithOmittingEmptyRows->run();
+//    auto gcnFusedWOERStat = gcnFusedWithOmittingEmptyRows->printStats();
+//    delete gcnFusedWithOmittingEmptyRows;
+//    delete stats;
+//
+//    std::cout << gcnFusedWOERStat << spStat + tpStat << std::endl;
+//
+//    ////    should be bug fixed
+//    //    stats = new swiftware::benchmark::Stats(
+//    //        "GCN_FusedParallelWithOmittingEmptyRows_Demo", "GCN", 7,
+//    //        tp._matrix_name, numThread);
+//    //    stats->OtherStats["PackingType"] = {Interleaved};
+//    //    GCNFusedParallelWithOmittingEmptyRows
+//    //        *gcnFusedParallelWithOmittingEmptyRows =
+//    //            new GCNFusedParallelWithOmittingEmptyRows(inputs, stats, sp);
+//    //    gcnFusedParallelWithOmittingEmptyRows->run();
+//    //    auto gcnFusedPWOERStat =
+//    //        gcnFusedParallelWithOmittingEmptyRows->printStats();
+//    //    delete gcnFusedParallelWithOmittingEmptyRows;
+//    //    delete stats;
+//    //    std::cout << gcnFusedPWOERStat << spStat + tpStat << std::endl;
+//  }
 
   if (tp.expariment_name == "GCNWithDifferentFusionLevels") {
 
@@ -241,15 +241,15 @@ int main(const int argc, const char *argv[]) {
      * This Mehtod combines the fusion method used for SpMM-SpMM with the GCN_IntraFused method.
      * Inspection-Executor
      */
-    //    stats = new swiftware::benchmark::Stats("GCN_AllFused_Demo","GCN", 7,
-    //                                            tp._matrix_name, numThread);
-    //    stats->OtherStats["PackingType"] = {Interleaved};
-    //    GCNAllFusedParallel *gcnAllFusedParallel = new
-    //    GCNAllFusedParallel(inputs, stats, sp); gcnAllFusedParallel->run();
-    //    auto gcnAllFusedParallelStats = gcnAllFusedParallel->printStats();
-    //    delete gcnAllFusedParallel;
-    //    delete stats;
-    //    std::cout << gcnAllFusedParallelStats << spStat + tpStat << std::endl;
+      stats = new swiftware::benchmark::Stats("GCN_AllFused_Demo","GCN", 7,
+                                              tp._matrix_name, numThread);
+      stats->OtherStats["PackingType"] = {Interleaved};
+      GCNAllFusedParallel *gcnAllFusedParallel = new
+      GCNAllFusedParallel(inputs, stats, sp); gcnAllFusedParallel->run();
+      auto gcnAllFusedParallelStats = gcnAllFusedParallel->printStats();
+      delete gcnAllFusedParallel;
+      delete stats;
+      std::cout << gcnAllFusedParallelStats << spStat + tpStat << std::endl;
   }
   delete inputs;
   delete aCSC;

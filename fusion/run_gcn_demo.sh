@@ -160,10 +160,10 @@ if [ $MODE == "GCNWithDifferentFusionLevels" ]; then
         for tn in {16,32,64,128,256,512,1024,2048,4096}; do
           echo "for $line $BCOL $EDIM $tn"
           if [ $header -eq 1 ]; then
-            $BINPATH/gcn_demo -sm $DATA/$line -nt $THREADS -tn $tn -ah -sr $sr -bc $BCOL -en $MODE -ed $EDIM > ./build/logs/gcn_demo.csv
+            $BINPATH/gcn_demo -sm $DATA/$line -nt $THREADS -tn $tn -ah -sr $sr -bc $BCOL -en $MODE -ed $EDIM -ip 100 > ./build/logs/gcn_demo.csv
             header=0
           else
-            $BINPATH/gcn_demo -sm $DATA/$line -nt $THREADS -tn $tn -sr $sr -bc $BCOL -en $MODE -ed $EDIM >> ./build/logs/gcn_demo.csv
+            $BINPATH/gcn_demo -sm $DATA/$line -nt $THREADS -tn $tn -sr $sr -bc $BCOL -en $MODE -ed $EDIM -ip 100 >> ./build/logs/gcn_demo.csv
           fi
         done
       done
