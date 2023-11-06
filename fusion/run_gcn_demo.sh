@@ -9,8 +9,8 @@
 #SBATCH --output="fusion.%j.%N.out"
 #SBATCH -t 11:59:00
 #SBATCH --constraint=cascade
-DATA="./data/planetoid/graphs/"
-MODE="GCNFusedSequential"
+DATA="./data/planetoid-graphs/"
+MODE="GCNWithDifferentFusionLevels"
 THREADS=8
 BCOL=100
 
@@ -63,71 +63,11 @@ MKL_NUM_THREADS=$NUM_THREAD; export MKL_NUM_THREADS
 export MKL_DYNAMIC=FALSE;
 export OMP_DYNAMIC=FALSE;
 
-if ! [ -d $DATA ]; then # if data folder does not exist(not applicable for experiments with banded matrices)
-  mkdir $DATA
- python ./scripts/pyg_data_exporter.py ./pyg
- echo "TEST"
-fi
-
-if [ $MODE == "GCNFusedSequential" ]; then
-  echo "Experiment: GCNFusedSequential"
-  for sr in {0.1,0.4,0.7,1}; do
-    header=1
-    while read line; do
-      echo $line
-      for t in {4,8,16,32,64,128,256,512,1024}; do
-        echo "for $line $sr $t"
-          if [ $header -eq 1 ]; then
-            $BINPATH/gcn_demo -sm $DATA/$line -nt $THREADS -ah -tn $t -sr $sr -bc $BCOL -en $MODE > ./build/logs/gcn_demo_$sr.csv
-            header=0
-          else
-            $BINPATH/gcn_demo -sm $DATA/$line -nt $THREADS -tn $t -sr $sr -bc $BCOL -en $MODE >> ./build/logs/gcn_demo_$sr.csv
-          fi
-      done
-    done < $MATLIST
-  done
-fi
-
-if [ $MODE == "GCNFusedParallel" ]; then
-  echo "Experiment: GCNFusedParallel"
-#  for sr in {0.1,0.4,0.7,1}; do
-   sr=1
-   header=1
-   while read line; do
-     for w in {10,50,100,250,500,1000,2000,4000}; do
-       for BCOL in {128,256,512,1024,2048}; do
-         for EDIM in {4,8,32,64,128,256}; do
-          echo "for $line $w $BCOL $EDIM"
-          if [ $header -eq 1 ]; then
-          $BINPATH/gcn_demo -sm $DATA/$line -nt $THREADS -ah -ip $w -sr $sr -bc $BCOL -ed $EDIM -en $MODE > ./build/logs/gcn_demo.csv
-          header=0
-          else
-           $BINPATH/gcn_demo -sm $DATA/$line -nt $THREADS -ip $w -sr $sr -bc $BCOL -ed $EDIM -en $MODE >> ./build/logs/gcn_demo.csv
-          fi
-       done
-     done
-     done
-   done < $MATLIST
-#  done
-fi
-
-if [ $MODE == "GCNFusedBandedSpecific" ]; then
-  echo "Experiment: GCNFusedBandedSpecific"
-  header=1
-  sr=1
-  while read line; do
-    echo $line
-    for t in {4,8,16,32,64,128,256,512,1024}; do
-      echo "for $line $sr $t"
-        if [ $header -eq 1 ]; then
-          $BINPATH/gcn_demo -sm $DATA/$line -nt $THREADS -ah -tn $t -sr $sr -bc $BCOL -en $MODE > ./build/logs/gcn_demo_$sr.csv
-          header=0
-        else
-          $BINPATH/gcn_demo -sm $DATA/$line -nt $THREADS -tn $t -sr $sr -bc $BCOL -en $MODE >> ./build/logs/gcn_demo_$sr.csv
-        fi
-    done
-  done < $MATLIST
-fi
+#if ! [ -d $DATA ]; then # if data folder does not exist(not applicable for experiments with banded matrices)
+#  mkdir $DATA
+# python ./scripts/pyg_data_exporter.py ./pyg
+# echo "TEST"
+#fi
 
 if [ $MODE == "GCNSingleLayerCompare" ]; then
   echo "Experiment: GCNSingleLayerCompare"

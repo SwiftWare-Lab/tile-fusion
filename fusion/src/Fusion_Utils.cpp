@@ -20,54 +20,54 @@
 
 namespace sym_lib {
 
-argparse::ArgumentParser addArguments() {
-  argparse::ArgumentParser program("fusion");
-  program.add_argument("-sm", "--sparse-matrix-path")
+argparse::ArgumentParser* addArguments() {
+  argparse::ArgumentParser* program = new argparse::ArgumentParser("fusion");
+  program->add_argument("-sm", "--sparse-matrix-path")
       .help("specify sparse matrix path");
 
-  program.add_argument("-nt", "--num-threads")
+  program->add_argument("-nt", "--num-threads")
       .default_value(3)
       .help("specify number of threads to be used by kernels.")
       .scan<'d', int>();
-  //  program.add_argument("-lc, --use-level-coarsening")
+  //  program->add_argument("-lc, --use-level-coarsening")
   //      .default_value(1)
   //      .help("use level coarsening")
   //      .scan<'i', int>();
-  //  program.add_argument("-la", "--lbc-agg")
+  //  program->add_argument("-la", "--lbc-agg")
   //      .default_value(1)
   //      .help("lbc agg")
   //      .scan<'i', int>();
-  program.add_argument("-fm", "--feature-matrix-path")
+  program->add_argument("-fm", "--feature-matrix-path")
       .help("Specify feature matrix when applicable.");
 
-  program.add_argument("-ah", "--add-header")
+  program->add_argument("-ah", "--add-header")
       .default_value(false)
       .implicit_value(true)
       .help("Specify whether to add the CSV header or not.");
 
-  program.add_argument("-bc", "--b-coloums")
+  program->add_argument("-bc", "--b-coloums")
       .default_value(4)
       .help("Specify number of dense matrix columns where applicable.")
       .scan<'i', int>();
 
-  program.add_argument("-ip", "--iter-per-partition")
+  program->add_argument("-ip", "--iter-per-partition")
       .help("Iter per partition")
       .scan<'i', int>();
 
-  program.add_argument("-tn", "--tile-n")
+  program->add_argument("-tn", "--tile-n")
       .help("Specify number of tiles for N.")
       .scan<'i', int>();
 
-  program.add_argument("-sr", "--sampling-ratio")
+  program->add_argument("-sr", "--sampling-ratio")
       .default_value(float(0.2))
       .help("Specify ratio of sampling")
       .scan<'g', float>();
 
-  program.add_argument("-en", "--experiment-name")
+  program->add_argument("-en", "--experiment-name")
       .default_value("gcnFusedSequential")
       .help("Specify the experiment");
 
-  program.add_argument("-ed", "--embed-dim")
+  program->add_argument("-ed", "--embed-dim")
       .default_value(10)
       .help("Specify the embedding dimensions.")
       .scan<'i', int>();
@@ -77,15 +77,15 @@ argparse::ArgumentParser addArguments() {
 
 void parse_args(const int Argc, const char **Argv, ScheduleParameters *Sp,
                 TestParameters *Tp) {
-  argparse::ArgumentParser program = addArguments();
+  argparse::ArgumentParser* program = addArguments();
   try {
-    program.parse_args(Argc, Argv); // Example: ./main -abc 1.95 2.47
+    program->parse_args(Argc, Argv); // Example: ./main -abc 1.95 2.47
   } catch (const std::runtime_error &err) {
     std::cerr << err.what() << std::endl;
     std::cerr << program;
     std::exit(1);
   }
-  if (!program.is_used("-sm")) {
+  if (!program->is_used("-sm")) {
     Tp->_mode = "Random";
     Tp->_dim1 = Tp->_dim2 = 10;
     Tp->_dim1 = Tp->_dim2 = 10;
@@ -95,34 +95,36 @@ void parse_args(const int Argc, const char **Argv, ScheduleParameters *Sp,
     Sp->_num_w_partition = Sp->_num_threads;
     Sp->_lbc_agg = Sp->_lbc_initial_cut = 4;
   } else {
-    Tp->_matrix_path = program.get("-sm");
+    Tp->_matrix_path = program->get("-sm");
     Tp->_mode = "MTX";
     Tp->_matrix_name =
         Tp->_matrix_path.substr(Tp->_matrix_path.find_last_of("/\\") + 1);
   };
-  Sp->_num_threads = program.get<int>("-nt");
+  Sp->_num_threads = program->get<int>("-nt");
   int useLevelCoarsening = 1;
   useLevelCoarsening = 4;
   Sp->_lbc_agg = 4;
-  if (auto featMtxPath = program.present("-fm")) {
+  if (auto featMtxPath = program->present("-fm")) {
     Tp->_feature_mode = "MTX";
     Tp->_feature_matrix_path = featMtxPath.value();
   } else {
     Tp->_feature_mode = "Random";
   }
-  Tp->_sampling_ratio = program.get<float>("-sr");
-  Tp->expariment_name = program.get("-en");
+  Tp->_sampling_ratio = program->get<float>("-sr");
+  Tp->expariment_name = program->get("-en");
 
   Tp->print_header = 0;
-  if (program.is_used("-ah"))
+  if (program->is_used("-ah"))
     Tp->print_header = 1;
 
-  Tp->_b_cols = program.get<int>("-bc");
-  Tp->_embed_dim = program.get<int>("-ed");
-  if (auto iterPerPart = program.present<int>("-ip"))
+  Tp->_b_cols = program->get<int>("-bc");
+  Tp->_embed_dim = program->get<int>("-ed");
+  if (auto iterPerPart = program->present<int>("-ip"))
     Sp->IterPerPartition = iterPerPart.value();
-  if (auto tileN = program.present<int>("-tn"))
+  if (auto tileN = program->present<int>("-tn"))
     Sp->TileN = tileN.value();
+
+  delete program;
 
 }
 

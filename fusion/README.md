@@ -83,7 +83,7 @@ The plot should be modified to save a graph
 First you need to create matrices using this script
 
 ```bash
-python scripts/gen_matrix_folder -sl 1000 5000 10000 100000 -f ./data/banded -b 3
+python scripts/gen_matrix_folder.py -sl 1000 5000 10000 100000 -f ./data/banded -b 3
 ```
 
 Make sure you have mkl installed and setup its environment variables.
