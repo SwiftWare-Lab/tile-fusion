@@ -46,8 +46,6 @@ class InspectorForAllTiledFusedCSC {
 protected:
 
 public:
-  InspectorForAllTiledFusedCSC() {}
-  ~InspectorForAllTiledFusedCSC() {}
 
   sym_lib::MultiDimensionalSet *
   generateFusedScheduleForAllTiledFusedCSC(sym_lib::CSR *AdjMtx, int TileSize) {
@@ -132,6 +130,18 @@ private:
       }
     }
   }
+};
+
+class InspectorForSingleLayerTiledFusedCSCParallel{
+public:
+  sym_lib::MultiDimensionalSet *
+  generateFusedScheduleForSingleLayerTiledFusedCSCParallel(sym_lib::CSR *AdjMtx, int TileSize) {
+
+  }
+
+  void createTilesDependencyGraph(sym_lib::CSR *AdjMtx, int TileSize) {
+  }
+
 };
 
 #endif // SPARSE_FUSION_FUSIONINSPECTOR_H
