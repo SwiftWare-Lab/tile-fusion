@@ -1,0 +1,13 @@
+experiment_name: "gcn_multi_layer"
+implementations:
+  - name: "GCN_AllFused_Demo"
+    color: "green"
+    tuned: True
+    tune_parameter: "Iter Per Partition"
+  - name: "GCN_IntraFusedParallel_Demo"
+    color: "blue"
+    tuned: False
+feature_sizes:
+  - 500
+  - 1000
+baseline: "GCN_IntraFusedParallel_Demo"

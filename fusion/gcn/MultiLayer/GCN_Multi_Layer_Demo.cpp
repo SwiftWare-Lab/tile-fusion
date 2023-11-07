@@ -102,7 +102,7 @@ int main(const int argc, const char *argv[]) {
    * corresponding GeMV to each nonzero, calculates the partial products
    * of that column's non-zeros for each layer.
    */
-  stats = new swiftware::benchmark::Stats("GCN_IntraFusedCSCSequential_Demo",
+  stats = new swiftware::benchmark::Stats("GCN_IntraFusedCSC_Demo",
                                           "GCN", 7, tp._matrix_name, numThread);
   stats->OtherStats["PackingType"] = {Separated};
   GCNIntraFusedUsingCSCSequential *gcnIntraFusedCSCSequential =

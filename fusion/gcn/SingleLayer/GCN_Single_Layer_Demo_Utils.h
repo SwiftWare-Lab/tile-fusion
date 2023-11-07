@@ -4,6 +4,7 @@
 
 #ifdef MKL
 #include "../GCN_Layer_MKL_Forward_Utils.h"
+#include "../MultiLayer/Fusion_Inspector.h"
 #else
 #include "GCN_Layer_Forward_Utils.h"
 #endif
@@ -251,6 +252,14 @@ public:
 class GCNSingleLayerTiledFusedCSCParallel : public GCNSingleLayerFused {
 protected:
   int TileSize;
+  InspectorForSingleLayerTiledFusedCSCParallel Inspector;
+  Timer analysis() override {
+    Timer t;
+    t.start();
+//    Inspector.generateFusedScheduleForSingleLayerTiledFusedCSCParallel(InTensor->AdjacencyMatrix, TileSize);
+    t.stop();
+    return t;
+  }
   Timer execute() override {
     OutTensor->reset();
     mkl_set_num_threads(1);
@@ -270,7 +279,6 @@ public:
   GCNSingleLayerTiledFusedCSCParallel(GnnTensorInputs *In1, Stats *Stat1, int TileSize1)
       : GCNSingleLayerFused(In1, Stat1), TileSize(TileSize1) {}
 };
-
 #endif
 
 

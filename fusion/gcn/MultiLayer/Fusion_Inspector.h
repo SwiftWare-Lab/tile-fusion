@@ -1,11 +1,14 @@
 //
 // Created by salehm32 on 03/11/23.
 //
+#include "Stats.h"
 #include "aggregation/def.h"
 #include "aggregation/sparse_utilities.h"
 #include "sparse-fusion/MultiDimensionalSet.h"
 #include "sparse-fusion/SparseFusion.h"
-#include "Stats.h"
+#include <algorithm>
+#include <climits>
+#include <cmath>
 #ifndef SPARSE_FUSION_FUSIONINSPECTOR_H
 #define SPARSE_FUSION_FUSIONINSPECTOR_H
 
@@ -136,10 +139,231 @@ class InspectorForSingleLayerTiledFusedCSCParallel{
 public:
   sym_lib::MultiDimensionalSet *
   generateFusedScheduleForSingleLayerTiledFusedCSCParallel(sym_lib::CSR *AdjMtx, int TileSize) {
-
+    std::map<std::string, std::vector<std::string>> conflictGraph = createTilesConflictGraph(AdjMtx, TileSize);
+    std::map<std::string, int> coloring = dsaturColoring(conflictGraph);
+    std::map<int, std::vector<std::string>> colorToTiles;
+    for (std::map<std::string, int>::iterator it = coloring.begin(); it != coloring.end(); ++it) {
+      if(colorToTiles.find(it->second) == colorToTiles.end()){
+        colorToTiles[it->second] = std::vector<std::string>();
+      }
+      colorToTiles[it->second].push_back(it->first);
+    }
+    std::cout << "Num Of DSATUR Colors: " << std::endl;
+    int maxNum = 0;
+    for (std::map<std::string, int>::iterator it = coloring.begin(); it != coloring.end(); ++it) {
+      if(it->second > maxNum)
+        maxNum = it->second;
+    }
+    for (std::map<int, std::vector<std::string>>::iterator it = colorToTiles.begin(); it != colorToTiles.end(); ++it) {
+      std::cout << it->first << " : " << it->second.size() << std::endl;
+    }
+    std::cout << maxNum << std::endl;
+    greedyColoring(conflictGraph);
   }
 
-  void createTilesDependencyGraph(sym_lib::CSR *AdjMtx, int TileSize) {
+  void greedyColoring(std::map<std::string, std::vector<std::string>> Graph){
+    int numOfNodes = Graph.size();
+    int result[numOfNodes];
+    bool available[numOfNodes];
+    for (int i = 0; i < numOfNodes; i++){
+      result[i] = -1;
+      available[i] = true;
+    }
+    result[0] = 0;
+    for(int i = 1; i < numOfNodes; i++){
+      std::vector<std::string> adjList = Graph[std::to_string(i)];
+      for (int j = 0; j < adjList.size(); j++){
+        if(result[std::stoi(adjList[j])] != -1){
+          available[result[std::stoi(adjList[j])]] = false;
+        }
+      }
+      for (int j = 0; j < numOfNodes; j++){
+        if (available[j]){
+          result[i] = j;
+          break;
+        }
+      }
+      for (int j = 0; j < numOfNodes; j++){
+        available[j] = true;
+      }
+    }
+    int maxNum = 0;
+    for (int i = 0; i < numOfNodes; i++){
+      if(result[i] > maxNum)
+        maxNum = result[i];
+    }
+    std::cout << "Num Of Greedy Colors: " << maxNum << std::endl;
+  }
+
+  std::map<std::string,int>
+  dsaturColoring(std::map<std::string, std::vector<std::string>> Graph) {
+    std::map<std::string, int> graphColors;
+    if(Graph.size() == 0) {
+      return std::map<std::string,int>();
+    }
+
+    std::vector<std::string> todo;
+    std::string maxDegree = "";
+    int degree = -1;
+
+    // find maximal degree vertex to color first and color with 0
+    for(std::map< std::string, std::vector<std::string> >::iterator i = Graph.begin(); i != Graph.end(); i++) {
+      if((int)i->second.size() > degree) {
+        degree = i->second.size();
+        maxDegree = i->first;
+      }
+    }
+    if(maxDegree == "") {
+      graphColors = std::map<std::string,int>();
+      return std::map<std::string,int>();
+    }
+    graphColors[maxDegree] = 0;
+
+    //Create saturation_level so that we can see which graph nodes have the
+    //highest saturation without having to scan through the entire graph
+    //each time
+    std::map<std::string,int> saturationLevel;
+
+    //Add all nodes and set their saturation level to 0
+    for(std::map<std::string,std::vector<std::string> >::iterator i = Graph.begin(); i != Graph.end(); i++) {
+      saturationLevel[i->first] = 0;
+    }
+
+    //For the single node that has been colored, increment its neighbors so
+    //that their current saturation level is correct
+    for(int i = 0; i < Graph[maxDegree].size(); i++) {
+      saturationLevel[Graph[maxDegree][i]] += 1;
+    }
+
+    //Set the saturation level of the already completed node to -infinity so
+    //that it is not chosen and recolored
+    saturationLevel[maxDegree] = INT_MIN;
+
+    //Populate the todo list with the rest of the vertices that need to be colored
+    for(std::map< std::string, std::vector<std::string> >::iterator i = Graph.begin(); i != Graph.end(); i++) {
+      if(i->first != maxDegree) {
+        graphColors[i->first] = -1;
+        todo.push_back(i->first);
+      }
+    }
+
+    //Color all the remaining nodes in the todo list
+    while(!todo.empty()) {
+      int saturation = -1;
+      std::string saturationName = "";
+      std::vector<int> saturationColors;
+      //Find the vertex with the highest saturation level, since we keep the
+      //saturation levels along the way we can do this in a single pass
+      for(std::map<std::string,int>::iterator i = saturationLevel.begin(); i != saturationLevel.end(); i++) {
+        //Find the highest saturated node and keep its name and neighbors colors
+        if(i->second > saturation) {
+          saturation = i->second;
+          saturationName = i->first;
+
+          //Since we're in this loop it means we've found a new most saturated
+          //node, which means we need to clear the old list of neighbors colors
+          //and replace it with the new highest saturated nodes neighbors colors
+          //Since uncolored nodes are given a -1, we can add all neighbors and
+          //start the check for lowest available color at greater than 0
+          saturationColors.clear();
+          for(int j=0; j < Graph[i->first].size(); j++) {
+            saturationColors.push_back(graphColors[Graph[i->first][j]]);
+          }
+        }
+      }
+      if(saturationName == "") {
+        graphColors = std::map<std::string,int>();
+        return graphColors;
+      }
+
+      //We now know the most saturated node, so we remove it from the todo list
+      for(std::vector<std::string>::iterator itr = todo.begin(); itr != todo.end(); itr++) {
+        if((*itr) == saturationName) {
+          todo.erase(itr);
+          break;
+        }
+      }
+
+      //Find the lowest color that is not being used by any of the most saturated
+      //nodes neighbors, then color the most saturated node
+      int lowest_color = 0;
+      int done = 0;
+      while(!done) {
+        done = 1;
+        for(unsigned i=0; i < saturationColors.size(); i++) {
+          if(saturationColors[i] == lowest_color) {
+            lowest_color += 1;
+            done = 0;
+          }
+        }
+      }
+      graphColors[saturationName] = lowest_color;
+
+      //Since we have colored another node, that nodes neighbors have now
+      //become more saturated, so we increase each ones saturation level
+      //However we first check that that node has not already been colored
+      //(This check is only necessary for enormeous test cases, but is
+      //included here for robustness)
+      for(int i=0; i < Graph[saturationName].size(); i++) {
+        if(saturationLevel[Graph[saturationName][i]] != INT_MIN) {
+          saturationLevel[Graph[saturationName][i]] += 1;
+        }
+      }
+      saturationLevel[saturationName] = INT_MIN;
+    }
+    return graphColors;
+  }
+
+  std::map<std::string, std::vector<std::string>> createTilesConflictGraph(sym_lib::CSR *AdjMtx, int TileSize) {
+    std::map<std::string, std::vector<std::string>> conflictGraph;
+    int numOfTiles = (int)ceil(AdjMtx->m / TileSize);
+    for (int i = 0; i < numOfTiles; i++){
+      int iStart = i * TileSize;
+      int iEnd = std::min(iStart + TileSize, (int)AdjMtx->m);
+      int aSize = AdjMtx->p[iEnd] - AdjMtx->p[iStart];
+      int *a = new int[aSize];
+      for (int j = i+1; j < numOfTiles; j++){
+        int jStart = j * TileSize;
+        int jEnd = std::min(jStart + TileSize, (int)AdjMtx->m);
+        int bSize = AdjMtx->p[jEnd] - AdjMtx->p[jStart];
+        int *b = new int[bSize];
+        std::memcpy(a, AdjMtx->i + AdjMtx->p[iStart], aSize * sizeof(int));
+        std::memcpy(b, AdjMtx->i + AdjMtx->p[jStart], bSize * sizeof(int));
+        if (checkIfTwoArraysHasSameValue(a, b, aSize, bSize)){
+          std::string iStr = std::to_string(i);
+          std::string jStr = std::to_string(j);
+          if(conflictGraph.find(iStr) == conflictGraph.end()){
+            conflictGraph[iStr] = std::vector<std::string>();
+          }
+          if(conflictGraph.find(jStr) == conflictGraph.end()){
+            conflictGraph[jStr] = std::vector<std::string>();
+          }
+          conflictGraph[iStr].push_back(jStr);
+          conflictGraph[jStr].push_back(iStr);
+        }
+        delete[] b;
+      }
+      delete[] a;
+    }
+    return conflictGraph;
+  }
+
+  bool checkIfTwoArraysHasSameValue(int *A, int *B, int ASize, int BSize){
+    std::sort(A, A + ASize);
+    std::sort(B, B + BSize);
+    int i = 0;
+    int j = 0;
+    while(i < ASize && j < BSize){
+      if(A[i] == B[j]){
+        return true;
+      }
+      if(A[i] < B[j]){
+        i++;
+      } else{
+        j++;
+      }
+    }
+    return false;
   }
 
 };

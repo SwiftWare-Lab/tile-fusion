@@ -94,6 +94,8 @@ if [ $MODE == "GCNWithDifferentFusionLevels" ]; then
  echo "Experiment: GCNWithDifferentFusionLevels"
   sr=1
   header=1
+  tn=32
+  EDIM=8
   while read line; do
     for BCOL in {500,3000}; do
       for EDIM in {8,32,64}; do
@@ -104,6 +106,29 @@ if [ $MODE == "GCNWithDifferentFusionLevels" ]; then
             header=0
           else
             $BINPATH/gcn_demo -sm $DATA/$line -nt $THREADS -tn $tn -sr $sr -bc $BCOL -en $MODE -ed $EDIM -ip 100 >> ./build/logs/gcn_demo.csv
+          fi
+        done
+      done
+    done
+  done < $MATLIST
+fi
+
+if [ $MODE == "GCNMultiLayerAllFusedTunedForIP" ]; then
+ echo "Experiment: GCNMultiLayerAllFusedTunedForIP"
+  sr=1
+  header=1
+  tn=32
+  EDIM=8
+  while read line; do
+    for BCOL in {500,1000,3000}; do
+      for EDIM in {8,32,64,128}; do
+        for IP in {10,50,100,1000}; do
+          echo "for $line $BCOL $EDIM $IP"
+          if [ $header -eq 1 ]; then
+            $BINPATH/gcn_demo -sm $DATA/$line -nt $THREADS -tn $tn -ah -sr $sr -bc $BCOL -en $MODE -ed $EDIM -ip $IP > ./build/logs/gcn_demo.csv
+            header=0
+          else
+            $BINPATH/gcn_demo -sm $DATA/$line -nt $THREADS -tn $tn -sr $sr -bc $BCOL -en $MODE -ed $EDIM -ip $IP >> ./build/logs/gcn_demo.csv
           fi
         done
       done
