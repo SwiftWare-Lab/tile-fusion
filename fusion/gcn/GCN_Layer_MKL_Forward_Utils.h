@@ -346,11 +346,11 @@ void forwardForOneLayerFromCSCParallel(int M, int *Ap, int *Ai, double *Ax,
 void forwardForOneLayerTiled(int M, int *Ap, int *Ai, double *Ax,
                              int InputChannelDim, int OutputChannelDim,
                              int *Degrees, double *Features, double *Weight,
-                             double *Output, int TileSize) {
-  double *temp = new double[(TileSize + 2) * OutputChannelDim];
+                             double *Output, int TileSize, int** GeMMTiles, int MaxGeMMTileSize) {
+  double *temp = new double[MaxGeMMTileSize * OutputChannelDim];
   for (int i = 0; i < M; i += TileSize) {
-    int geMMTileStartLoc = std::max(i - 1, 0);
-    int geMMTileEndLoc = std::min(i + TileSize + 1, M);
+    int geMMTileStartLoc = GeMMTiles[0][i/TileSize];
+    int geMMTileEndLoc = GeMMTiles[1][i/TileSize];
     int geMMTileSize = geMMTileEndLoc - geMMTileStartLoc;
     cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, geMMTileSize,
                 OutputChannelDim, InputChannelDim, 1.,
@@ -374,19 +374,20 @@ void forwardForOneLayerTiled(int M, int *Ap, int *Ai, double *Ax,
 void forwardForOneLayerTiledParallel(int M, int *Ap, int *Ai, double *Ax,
                              int InputChannelDim, int OutputChannelDim,
                              int *Degrees, double *Features, double *Weight,
-                             double *Output, int TileSize, int NumThreads) {
+                             double *Output, int TileSize, int NumThreads, int** GeMMTiles, int MaxGeMMTileSize) {
+  double *temp = new double[NumThreads * MaxGeMMTileSize * OutputChannelDim];
 #pragma omp parallel num_threads(NumThreads)
   {
 #pragma omp parallel for
     for (int i = 0; i < M; i += TileSize) {
-      double *temp = new double[(TileSize + 2) * OutputChannelDim];
-      int geMMTileStartLoc = std::max(i - 1, 0);
-      int geMMTileEndLoc = std::min(i + TileSize + 1, M);
+      double *threadTemp = temp + omp_get_thread_num() * MaxGeMMTileSize * OutputChannelDim;
+      int geMMTileStartLoc = GeMMTiles[0][i/TileSize];
+      int geMMTileEndLoc = GeMMTiles[1][i/TileSize];
       int geMMTileSize = geMMTileEndLoc - geMMTileStartLoc;
       cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, geMMTileSize,
                   OutputChannelDim, InputChannelDim, 1.,
                   Features + geMMTileStartLoc * InputChannelDim,
-                  InputChannelDim, Weight, OutputChannelDim, 0., temp,
+                  InputChannelDim, Weight, OutputChannelDim, 0., threadTemp,
                   OutputChannelDim);
       for (int ii = 0; ii < TileSize; ii++) {
         if (i + ii > M)
@@ -395,13 +396,13 @@ void forwardForOneLayerTiledParallel(int M, int *Ap, int *Ai, double *Ax,
           int n = Ai[j];
           for (int k = 0; k < OutputChannelDim; k++) {
             Output[(i + ii) * OutputChannelDim + k] +=
-                Ax[j] * temp[(n - geMMTileStartLoc) * OutputChannelDim + k];
+                Ax[j] * threadTemp[(n - geMMTileStartLoc) * OutputChannelDim + k];
           }
         }
       }
-      delete[] temp;
     }
   }
+  delete[] temp;
 }
 // pick a column tile of adjacency matrix, perform gemm on the corresponding
 // feature row tile and weight matrix, spmm on the corresponding adjacency

@@ -266,7 +266,8 @@ protected:
   Timer analysis() override {
     Timer t;
     t.start();
-    FusedCompSet = Inspector->generateFusedScheduleForAllFused(InTensor->AdjacencyMatrix);
+    FusedCompSet =
+        Inspector->generateFusedScheduleForAllFused(InTensor->AdjacencyMatrix);
     t.stop();
     return t;
   }
@@ -401,10 +402,20 @@ public:
       : GCNIntraFusedUsingCSCSequential(In1, Stat1), TileSize(TileSize1) {}
 };
 
-// TODO: this one is only banded-specific for now. it should be made generic.
 class GCNIntraLayerTiledFused : public GCNIntraFusedUsingCSCSequential {
 protected:
   int TileSize;
+  InspectorForTiledFused *Inspector;
+  TiledFusedLayerSchedulingParameters *Sp;
+
+  Timer analysis() override {
+    Timer t;
+    t.start();
+    Sp = Inspector->generateGeMMTileForEachSpMMTile(
+        InTensor->AdjacencyMatrix, TileSize);
+    t.stop();
+    return t;
+  }
 
   Timer execute() override {
     Timer t;
@@ -416,20 +427,27 @@ protected:
         InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x,
         InTensor->FeatureMatrix->col, InTensor->EmbedDim, InTensor->Degrees,
         InTensor->FeatureMatrix->a, InTensor->Weight1,
-        OutTensor->FirstLayerOutput, TileSize);
+        OutTensor->FirstLayerOutput, TileSize, Sp->GeMMTileForEachSpMMTile, Sp->MaxGeMMTileSize);
     forwardForOneLayerTiled(
         InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->p,
         InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x,
         InTensor->EmbedDim, InTensor->EmbedDim, InTensor->Degrees,
         OutTensor->FirstLayerOutput, InTensor->Weight2,
-        OutTensor->SecondLayerOutput, TileSize);
+        OutTensor->SecondLayerOutput, TileSize, Sp->GeMMTileForEachSpMMTile, Sp->MaxGeMMTileSize);
     t.stop();
     return t;
   }
 
 public:
   GCNIntraLayerTiledFused(GnnTensorInputs *In1, Stats *Stat1, int TileSize1)
-      : GCNIntraFusedUsingCSCSequential(In1, Stat1), TileSize(TileSize1) {}
+      : GCNIntraFusedUsingCSCSequential(In1, Stat1), TileSize(TileSize1) {
+    Inspector = new InspectorForTiledFused();
+  }
+  ~GCNIntraLayerTiledFused() {
+    delete Inspector;
+    delete Sp->GeMMTileForEachSpMMTile[0];
+    delete Sp->GeMMTileForEachSpMMTile[1];
+  }
 };
 
 class GCNAllTiledFusedCSC : public GCNIntraFusedSequential {
