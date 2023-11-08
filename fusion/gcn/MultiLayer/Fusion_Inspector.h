@@ -140,6 +140,16 @@ private:
 struct TiledFusedLayerSchedulingParameters{
   int* GeMMTileForEachSpMMTile[2];
   int MaxGeMMTileSize;
+
+  TiledFusedLayerSchedulingParameters(){
+    MaxGeMMTileSize = 0;
+    GeMMTileForEachSpMMTile[0] = nullptr;
+    GeMMTileForEachSpMMTile[1] = nullptr;
+  }
+  ~TiledFusedLayerSchedulingParameters(){
+    delete[] GeMMTileForEachSpMMTile[0];
+    delete[] GeMMTileForEachSpMMTile[1];
+  }
 };
 class InspectorForTiledFused {
 public:
@@ -148,9 +158,9 @@ public:
     int numOfTiles = ceil(AdjMtx->m / TileSize);
     sp->GeMMTileForEachSpMMTile[0] = new int[numOfTiles];
     sp->GeMMTileForEachSpMMTile[1] = new int[numOfTiles];
-    int smallestIndex = 0;
-    int biggestIndex = AdjMtx->m;
     for (int i = 0; i < AdjMtx->m; i += TileSize) {
+      int smallestIndex = AdjMtx->m;
+      int biggestIndex = 0;
       for (int ii = 0; ii < TileSize; ii++) {
         if (i + ii >= AdjMtx->m) {
           break;

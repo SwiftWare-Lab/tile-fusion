@@ -378,17 +378,17 @@ void forwardForOneLayerTiledParallel(int M, int *Ap, int *Ai, double *Ax,
   double *temp = new double[NumThreads * MaxGeMMTileSize * OutputChannelDim];
 #pragma omp parallel num_threads(NumThreads)
   {
+    int threadId = omp_get_thread_num();
 #pragma omp parallel for
     for (int i = 0; i < M; i += TileSize) {
-      double *threadTemp = temp + omp_get_thread_num() * MaxGeMMTileSize * OutputChannelDim;
+      double *ttemp = temp + threadId * MaxGeMMTileSize * OutputChannelDim;
       int geMMTileStartLoc = GeMMTiles[0][i/TileSize];
       int geMMTileEndLoc = GeMMTiles[1][i/TileSize];
       int geMMTileSize = geMMTileEndLoc - geMMTileStartLoc;
       cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, geMMTileSize,
                   OutputChannelDim, InputChannelDim, 1.,
-                  Features + geMMTileStartLoc * InputChannelDim,
-                  InputChannelDim, Weight, OutputChannelDim, 0., threadTemp,
-                  OutputChannelDim);
+                  Features + geMMTileStartLoc * InputChannelDim, InputChannelDim,
+                  Weight, OutputChannelDim, 0., ttemp, OutputChannelDim);
       for (int ii = 0; ii < TileSize; ii++) {
         if (i + ii > M)
           break;
@@ -396,7 +396,7 @@ void forwardForOneLayerTiledParallel(int M, int *Ap, int *Ai, double *Ax,
           int n = Ai[j];
           for (int k = 0; k < OutputChannelDim; k++) {
             Output[(i + ii) * OutputChannelDim + k] +=
-                Ax[j] * threadTemp[(n - geMMTileStartLoc) * OutputChannelDim + k];
+                Ax[j] * ttemp[(n - geMMTileStartLoc) * OutputChannelDim + k];
           }
         }
       }

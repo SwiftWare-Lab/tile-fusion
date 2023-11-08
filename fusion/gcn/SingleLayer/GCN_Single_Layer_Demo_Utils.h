@@ -145,8 +145,7 @@ public:
     Inspector = new InspectorForTiledFused();
   }
   ~GCNSingleLayerTiledFused() {
-    delete Sp->GeMMTileForEachSpMMTile[0];
-    delete Sp->GeMMTileForEachSpMMTile[1];
+    delete Sp;
     delete Inspector;
   }
 };
@@ -185,11 +184,12 @@ protected:
 public:
   GCNSingleLayerTiledFusedParallel(GnnTensorInputs *In1, Stats *Stat1,
                                    int TileSize1)
-      : GCNSingleLayerFused(In1, Stat1), TileSize(TileSize1) {}
+      : GCNSingleLayerFused(In1, Stat1), TileSize(TileSize1) {
+    Inspector = new InspectorForTiledFused();
+  }
 
   ~GCNSingleLayerTiledFusedParallel() {
-    delete Sp->GeMMTileForEachSpMMTile[0];
-    delete Sp->GeMMTileForEachSpMMTile[1];
+    delete Sp;
     delete Inspector;
   }
 };
