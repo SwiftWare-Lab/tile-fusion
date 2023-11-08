@@ -75,7 +75,7 @@ if [ $MODE == "GCNSingleLayerCompare" ]; then
   sr=1
   while read line; do
     for BCOL in {500,1000,3000}; do
-      for ED in {8,32,64,128}; do
+      for ED in {4,8,32,64,128}; do
         for tn in {8,16,32,64,128,256,512,1024,2048,4096}; do
           echo "for $line $BCOL $ED $tn"
           if [ $header -eq 1 ]; then

@@ -357,7 +357,7 @@ void forwardForOneLayerTiled(int M, int *Ap, int *Ai, double *Ax,
                 Features + geMMTileStartLoc * InputChannelDim, InputChannelDim,
                 Weight, OutputChannelDim, 0., temp, OutputChannelDim);
     for (int ii = 0; ii < TileSize; ii++) {
-      if (i + ii > M)
+      if (i + ii >= M)
         break;
       for (int j = Ap[i + ii]; j < Ap[i + ii + 1]; j++) {
         int n = Ai[j];
@@ -394,7 +394,7 @@ void forwardForOneLayerTiledParallel(int M, int *Ap, int *Ai, double *Ax,
                   InputChannelDim, Weight, OutputChannelDim, 0., ttemp,
                   OutputChannelDim);
       for (int ii = 0; ii < TileSize; ii++) {
-        if (i + ii > M)
+        if (i + ii >= M)
           break;
         for (int j = Ap[i + ii]; j < Ap[i + ii + 1]; j++) {
           int n = Ai[j];

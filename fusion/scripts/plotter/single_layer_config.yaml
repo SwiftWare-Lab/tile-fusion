@@ -1,33 +1,33 @@
 experiment_name: "gcn_single_layer"
 implementations:
-#  - name: "GCN_SingleLayerFused"
-#    color: "yellow"
-#    tuned: False
+  - name: "GCN_SingleLayerFused"
+    color: "yellow"
+    tuned: False
   - name: "GCN_SingleLayerMKL"
     color: "green"
     tuned: False
-#  - name: "GCN_SingleLayerTiledFused"
-#    color: "blue"
-#    tuned: True
-#    tune_parameter: "NTile"
-#  - name: "SingleLayerTiledFusedParallel"
-#    color: "red"
-#    tuned: True
-#    tune_parameter: "NTile"
-#  - name: "GCN_SingleLayerFusedCSC"
-#    color: "orange"
-#    tuned: False
+  - name: "GCN_SingleLayerTiledFused"
+    color: "blue"
+    tuned: True
+    tune_parameter: "NTile"
+  - name: "GCN_SingleLayerTiledFusedParallel"
+    color: "red"
+    tuned: True
+    tune_parameter: "NTile"
+  - name: "GCN_SingleLayerFusedCSC"
+    color: "orange"
+    tuned: False
   - name: "GCN_SingleLayerTiledFusedCSCParallel"
     color: "purple"
     tuned: True
     tune_parameter: "NTile"
-#  - name: "GCN_SingleLayerTiledFusedCSC"
-#    color: "brown"
-#    tuned: True
-#    tune_parameter: "NTile"
-#  - name: "GCN_SingleLayerFusedParallel"
-#    color: "black"
-#    tuned: False
+  - name: "GCN_SingleLayerTiledFusedCSC"
+    color: "brown"
+    tuned: True
+    tune_parameter: "NTile"
+  - name: "GCN_SingleLayerFusedParallel"
+    color: "black"
+    tuned: False
 #  - name: "GCN_SingleLayerFusedCSCVectorized"
 #    color: "pink"
 #    tuned: False
@@ -36,6 +36,5 @@ implementations:
 #    tuned: True
 #    tune_parameter: "NTile"
 feature_sizes:
-  - 500
-  - 1000
+  - 100
 baseline: "GCN_SingleLayerMKL"
