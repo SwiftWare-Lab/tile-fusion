@@ -322,7 +322,7 @@ void forwardForOneLayerFromCSCParallel(int M, int *Ap, int *Ai, double *Ax,
 
 #pragma omp parallel num_threads(NumThreads)
   {
-#pragma omp parallel for
+#pragma omp for
     for (int i = 0; i < M; i++) {
       double cache[OutputChannelDim];
       std::memset(cache, 0, sizeof(double *) * OutputChannelDim);
@@ -382,7 +382,7 @@ void forwardForOneLayerTiledParallel(int M, int *Ap, int *Ai, double *Ax,
 #pragma omp parallel num_threads(NumThreads)
   {
     int threadId = omp_get_thread_num();
-#pragma omp parallel for
+#pragma omp for
     for (int i = 0; i < M; i += TileSize) {
       double *ttemp = temp + threadId * MaxGeMMTileSize * OutputChannelDim;
       int geMMTileStartLoc = GeMMLowerBounds[i / TileSize];
