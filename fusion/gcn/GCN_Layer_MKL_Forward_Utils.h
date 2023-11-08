@@ -295,9 +295,9 @@ void forwardForOneLayerFromCSC(int M, int *Ap, int *Ai, double *Ax,
 }
 
 void forwardForOneLayerFromCSC2(int M, int *Ap, int *Ai, double *Ax,
-                              int InputChannelDim, int OutputChannelDim,
-                              int *Degrees, double *Features, double *Weight,
-                              double *Output){
+                                int InputChannelDim, int OutputChannelDim,
+                                int *Degrees, double *Features, double *Weight,
+                                double *Output) {
   double cache[OutputChannelDim];
   for (int i = 0; i < M; i++) {
     std::memset(cache, 0, sizeof(double *) * OutputChannelDim);
@@ -311,7 +311,6 @@ void forwardForOneLayerFromCSC2(int M, int *Ap, int *Ai, double *Ax,
         Output[Ai[j] * OutputChannelDim + k] += Ax[j] * cache[k];
       }
     }
-
   }
 }
 
@@ -346,11 +345,12 @@ void forwardForOneLayerFromCSCParallel(int M, int *Ap, int *Ai, double *Ax,
 void forwardForOneLayerTiled(int M, int *Ap, int *Ai, double *Ax,
                              int InputChannelDim, int OutputChannelDim,
                              int *Degrees, double *Features, double *Weight,
-                             double *Output, int TileSize, int** GeMMTiles, int MaxGeMMTileSize) {
+                             double *Output, int TileSize, int *GeMMLowerBounds,
+                             int *GeMMUpperBounds, int MaxGeMMTileSize) {
   double *temp = new double[MaxGeMMTileSize * OutputChannelDim];
   for (int i = 0; i < M; i += TileSize) {
-    int geMMTileStartLoc = GeMMTiles[0][i/TileSize];
-    int geMMTileEndLoc = GeMMTiles[1][i/TileSize];
+    int geMMTileStartLoc = GeMMLowerBounds[i / TileSize];
+    int geMMTileEndLoc = GeMMUpperBounds[i / TileSize];
     int geMMTileSize = geMMTileEndLoc - geMMTileStartLoc;
     cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, geMMTileSize,
                 OutputChannelDim, InputChannelDim, 1.,
@@ -372,9 +372,12 @@ void forwardForOneLayerTiled(int M, int *Ap, int *Ai, double *Ax,
 }
 
 void forwardForOneLayerTiledParallel(int M, int *Ap, int *Ai, double *Ax,
-                             int InputChannelDim, int OutputChannelDim,
-                             int *Degrees, double *Features, double *Weight,
-                             double *Output, int TileSize, int NumThreads, int** GeMMTiles, int MaxGeMMTileSize) {
+                                     int InputChannelDim, int OutputChannelDim,
+                                     int *Degrees, double *Features,
+                                     double *Weight, double *Output,
+                                     int TileSize, int NumThreads,
+                                     int *GeMMLowerBounds, int *GeMMUpperBounds,
+                                     int MaxGeMMTileSize) {
   double *temp = new double[NumThreads * MaxGeMMTileSize * OutputChannelDim];
 #pragma omp parallel num_threads(NumThreads)
   {
@@ -382,13 +385,14 @@ void forwardForOneLayerTiledParallel(int M, int *Ap, int *Ai, double *Ax,
 #pragma omp parallel for
     for (int i = 0; i < M; i += TileSize) {
       double *ttemp = temp + threadId * MaxGeMMTileSize * OutputChannelDim;
-      int geMMTileStartLoc = GeMMTiles[0][i/TileSize];
-      int geMMTileEndLoc = GeMMTiles[1][i/TileSize];
+      int geMMTileStartLoc = GeMMLowerBounds[i / TileSize];
+      int geMMTileEndLoc = GeMMUpperBounds[i / TileSize];
       int geMMTileSize = geMMTileEndLoc - geMMTileStartLoc;
       cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, geMMTileSize,
                   OutputChannelDim, InputChannelDim, 1.,
-                  Features + geMMTileStartLoc * InputChannelDim, InputChannelDim,
-                  Weight, OutputChannelDim, 0., ttemp, OutputChannelDim);
+                  Features + geMMTileStartLoc * InputChannelDim,
+                  InputChannelDim, Weight, OutputChannelDim, 0., ttemp,
+                  OutputChannelDim);
       for (int ii = 0; ii < TileSize; ii++) {
         if (i + ii > M)
           break;
@@ -445,21 +449,21 @@ void forwardForOneLayerFromCSCTiled(int M, int *Ap, int *Ai, double *Ax,
   delete[] cache;
 }
 
-
 void forwardForOneLayerFromCSCTiledParallel(int M, int *Ap, int *Ai, double *Ax,
-                                            int InputChannelDim, int OutputChannelDim,
-                                            int *Degrees, double *Features,
-                                            double *Weight, double *Output,
-                                            int TileSize, int NumThreads) {
+                                            int InputChannelDim,
+                                            int OutputChannelDim, int *Degrees,
+                                            double *Features, double *Weight,
+                                            double *Output, int TileSize,
+                                            int NumThreads) {
   double lastTileSize = M % TileSize;
   int lastCompleteTileEnd = M - lastTileSize;
-  double* cache = new double[TileSize * OutputChannelDim * NumThreads];
+  double *cache = new double[TileSize * OutputChannelDim * NumThreads];
 #pragma omp parallel num_threads(NumThreads)
   {
     int threadId = omp_get_thread_num();
 #pragma omp for
-    for(int i = 0; i < lastCompleteTileEnd; i+=2*TileSize){
-      double* tcache = cache + threadId * TileSize * OutputChannelDim;
+    for (int i = 0; i < lastCompleteTileEnd; i += 2 * TileSize) {
+      double *tcache = cache + threadId * TileSize * OutputChannelDim;
       cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, TileSize,
                   OutputChannelDim, InputChannelDim, 1.,
                   Features + i * InputChannelDim, InputChannelDim, Weight,
@@ -476,10 +480,10 @@ void forwardForOneLayerFromCSCTiledParallel(int M, int *Ap, int *Ai, double *Ax,
   }
 #pragma omp parallel num_threads(NumThreads)
   {
-  int threadId = omp_get_thread_num();
+    int threadId = omp_get_thread_num();
 #pragma omp for
-    for(int i = TileSize; i < lastCompleteTileEnd; i+=2*TileSize){
-      double* tcache = cache + threadId * TileSize * OutputChannelDim;
+    for (int i = TileSize; i < lastCompleteTileEnd; i += 2 * TileSize) {
+      double *tcache = cache + threadId * TileSize * OutputChannelDim;
       cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, TileSize,
                   OutputChannelDim, InputChannelDim, 1.,
                   Features + i * InputChannelDim, InputChannelDim, Weight,
@@ -494,7 +498,7 @@ void forwardForOneLayerFromCSCTiledParallel(int M, int *Ap, int *Ai, double *Ax,
       }
     }
   }
-  double* tcache = cache + 0 * TileSize * OutputChannelDim;
+  double *tcache = cache + 0 * TileSize * OutputChannelDim;
   cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, lastTileSize,
               OutputChannelDim, InputChannelDim, 1.,
               Features + lastCompleteTileEnd * InputChannelDim, InputChannelDim,
@@ -638,27 +642,27 @@ void forwardForOneLayerFromCSCTiledVectorized(int M, int *Ap, int *Ai,
     for (int ii = 0; ii < TileSize; ii++) {
       int nnzNum = Ap[i + ii + 1] - Ap[i + ii];
       int unrollingEnd = Ap[i + ii + 1] - nnzNum % 3;
-      for (int j = Ap[i + ii]; j < unrollingEnd; j+=3) {
+      for (int j = Ap[i + ii]; j < unrollingEnd; j += 3) {
         __m256d axj1 = _mm256_set1_pd(Ax[j]);
-        __m256d axj2 = _mm256_set1_pd(Ax[j+1]);
-        __m256d axj3 = _mm256_set1_pd(Ax[j+2]);
+        __m256d axj2 = _mm256_set1_pd(Ax[j + 1]);
+        __m256d axj3 = _mm256_set1_pd(Ax[j + 2]);
         for (int k = 0; k < OutputChannelDim; k += 4) {
           __m256d cachek = _mm256_loadu_pd(cache + ii * OutputChannelDim + k);
           __m256d output1k =
               _mm256_loadu_pd(Output + Ai[j] * OutputChannelDim + k);
           __m256d output2k =
-              _mm256_loadu_pd(Output + Ai[j+1] * OutputChannelDim + k);
+              _mm256_loadu_pd(Output + Ai[j + 1] * OutputChannelDim + k);
           __m256d output3k =
-              _mm256_loadu_pd(Output + Ai[j+2] * OutputChannelDim + k);
+              _mm256_loadu_pd(Output + Ai[j + 2] * OutputChannelDim + k);
           __m256d result1 = _mm256_fmadd_pd(axj1, cachek, output1k);
           __m256d result2 = _mm256_fmadd_pd(axj2, cachek, output2k);
           __m256d result3 = _mm256_fmadd_pd(axj3, cachek, output3k);
           _mm256_storeu_pd(Output + Ai[j] * OutputChannelDim + k, result1);
-          _mm256_storeu_pd(Output + Ai[j+1] * OutputChannelDim + k, result2);
-          _mm256_storeu_pd(Output + Ai[j+2] * OutputChannelDim + k, result3);
+          _mm256_storeu_pd(Output + Ai[j + 1] * OutputChannelDim + k, result2);
+          _mm256_storeu_pd(Output + Ai[j + 2] * OutputChannelDim + k, result3);
         }
       }
-      for ( int j = unrollingEnd; j < Ap[i + ii + 1]; j++){
+      for (int j = unrollingEnd; j < Ap[i + ii + 1]; j++) {
         __m256d axj = _mm256_set1_pd(Ax[j]);
         for (int k = 0; k < OutputChannelDim; k += 4) {
           __m256d cachek = _mm256_loadu_pd(cache + ii * OutputChannelDim + k);
@@ -676,30 +680,30 @@ void forwardForOneLayerFromCSCTiledVectorized(int M, int *Ap, int *Ai,
               Features + lastCompleteTileEnd * InputChannelDim, InputChannelDim,
               Weight, OutputChannelDim, 0., cache, OutputChannelDim);
   for (int ii = 0; ii < lastTileSize; ii++) {
-    int nnzNum = Ap[lastCompleteTileEnd + ii + 1] - Ap[lastCompleteTileEnd + ii];
+    int nnzNum =
+        Ap[lastCompleteTileEnd + ii + 1] - Ap[lastCompleteTileEnd + ii];
     int unrollingEnd = Ap[lastCompleteTileEnd + ii + 1] - nnzNum % 3;
-    for (int j = Ap[lastCompleteTileEnd + ii];
-         j < unrollingEnd; j+=3) {
+    for (int j = Ap[lastCompleteTileEnd + ii]; j < unrollingEnd; j += 3) {
       __m256d axj1 = _mm256_set1_pd(Ax[j]);
-      __m256d axj2 = _mm256_set1_pd(Ax[j+1]);
-      __m256d axj3 = _mm256_set1_pd(Ax[j+2]);
+      __m256d axj2 = _mm256_set1_pd(Ax[j + 1]);
+      __m256d axj3 = _mm256_set1_pd(Ax[j + 2]);
       for (int k = 0; k < OutputChannelDim; k += 4) {
         __m256d cachek = _mm256_loadu_pd(cache + ii * OutputChannelDim + k);
         __m256d output1k =
             _mm256_loadu_pd(Output + Ai[j] * OutputChannelDim + k);
         __m256d output2k =
-            _mm256_loadu_pd(Output + Ai[j+1] * OutputChannelDim + k);
+            _mm256_loadu_pd(Output + Ai[j + 1] * OutputChannelDim + k);
         __m256d output3k =
-            _mm256_loadu_pd(Output + Ai[j+2] * OutputChannelDim + k);
+            _mm256_loadu_pd(Output + Ai[j + 2] * OutputChannelDim + k);
         __m256d result1 = _mm256_fmadd_pd(axj1, cachek, output1k);
         __m256d result2 = _mm256_fmadd_pd(axj2, cachek, output2k);
         __m256d result3 = _mm256_fmadd_pd(axj3, cachek, output3k);
         _mm256_storeu_pd(Output + Ai[j] * OutputChannelDim + k, result1);
-        _mm256_storeu_pd(Output + Ai[j+1] * OutputChannelDim + k, result2);
-        _mm256_storeu_pd(Output + Ai[j+2] * OutputChannelDim + k, result3);
+        _mm256_storeu_pd(Output + Ai[j + 1] * OutputChannelDim + k, result2);
+        _mm256_storeu_pd(Output + Ai[j + 2] * OutputChannelDim + k, result3);
       }
     }
-    for (int j = unrollingEnd; j < Ap[lastCompleteTileEnd+ii+1]; j++){
+    for (int j = unrollingEnd; j < Ap[lastCompleteTileEnd + ii + 1]; j++) {
       __m256d axj = _mm256_set1_pd(Ax[j]);
       for (int k = 0; k < OutputChannelDim; k += 4) {
         __m256d cachek = _mm256_loadu_pd(cache + ii * OutputChannelDim + k);

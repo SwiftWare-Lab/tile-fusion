@@ -138,26 +138,27 @@ private:
 };
 
 struct TiledFusedLayerSchedulingParameters{
-  int* GeMMTileForEachSpMMTile[2];
+  int* GeMMUpperBounds;
+  int* GeMMLowerBounds;
   int MaxGeMMTileSize;
 
   TiledFusedLayerSchedulingParameters(){
     MaxGeMMTileSize = 0;
-    GeMMTileForEachSpMMTile[0] = nullptr;
-    GeMMTileForEachSpMMTile[1] = nullptr;
+    GeMMUpperBounds = nullptr;
+    GeMMLowerBounds = nullptr;
   }
   ~TiledFusedLayerSchedulingParameters(){
-    delete[] GeMMTileForEachSpMMTile[0];
-    delete[] GeMMTileForEachSpMMTile[1];
+    delete[] GeMMUpperBounds;
+    delete[] GeMMLowerBounds;
   }
 };
 class InspectorForTiledFused {
 public:
   TiledFusedLayerSchedulingParameters* generateGeMMTileForEachSpMMTile(sym_lib::CSR *AdjMtx, int TileSize) {
     TiledFusedLayerSchedulingParameters* sp = new TiledFusedLayerSchedulingParameters();
-    int numOfTiles = ceil(AdjMtx->m / TileSize);
-    sp->GeMMTileForEachSpMMTile[0] = new int[numOfTiles];
-    sp->GeMMTileForEachSpMMTile[1] = new int[numOfTiles];
+    int numOfTiles = ceil((double )AdjMtx->m / TileSize);
+    sp->GeMMLowerBounds = new int[numOfTiles];
+    sp->GeMMUpperBounds = new int[numOfTiles];
     for (int i = 0; i < AdjMtx->m; i += TileSize) {
       int smallestIndex = AdjMtx->m;
       int biggestIndex = 0;
@@ -172,8 +173,8 @@ public:
           biggestIndex = AdjMtx->i[AdjMtx->p[i + ii + 1] - 1];
         }
       }
-      sp->GeMMTileForEachSpMMTile[0][i / TileSize] = smallestIndex;
-      sp->GeMMTileForEachSpMMTile[1][i / TileSize] = biggestIndex + 1;
+      sp->GeMMLowerBounds[i / TileSize] = smallestIndex;
+      sp->GeMMUpperBounds[i / TileSize] = biggestIndex + 1;
       if (biggestIndex - smallestIndex + 1 > sp->MaxGeMMTileSize) {
         sp->MaxGeMMTileSize = biggestIndex - smallestIndex + 1;
       }

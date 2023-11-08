@@ -133,8 +133,8 @@ protected:
         InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x,
         InTensor->FeatureMatrix->col, InTensor->EmbedDim, InTensor->Degrees,
         InTensor->FeatureMatrix->a, InTensor->Weight1,
-        OutTensor->FirstLayerOutput, TileSize, Sp->GeMMTileForEachSpMMTile,
-        Sp->MaxGeMMTileSize);
+        OutTensor->FirstLayerOutput, TileSize, Sp->GeMMLowerBounds,
+        Sp->GeMMUpperBounds, Sp->MaxGeMMTileSize);
     t.stop();
     return t;
   }
@@ -176,7 +176,7 @@ protected:
         InTensor->FeatureMatrix->col, InTensor->EmbedDim, InTensor->Degrees,
         InTensor->FeatureMatrix->a, InTensor->Weight1,
         OutTensor->FirstLayerOutput, TileSize, InTensor->NumThreads,
-        Sp->GeMMTileForEachSpMMTile, Sp->MaxGeMMTileSize);
+        Sp->GeMMLowerBounds, Sp->GeMMUpperBounds, Sp->MaxGeMMTileSize);
     t.stop();
     return t;
   }

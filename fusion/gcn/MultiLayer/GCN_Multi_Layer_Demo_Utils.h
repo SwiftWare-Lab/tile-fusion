@@ -411,8 +411,8 @@ protected:
   Timer analysis() override {
     Timer t;
     t.start();
-    Sp = Inspector->generateGeMMTileForEachSpMMTile(
-        InTensor->AdjacencyMatrix, TileSize);
+    Sp = Inspector->generateGeMMTileForEachSpMMTile(InTensor->AdjacencyMatrix,
+                                                    TileSize);
     t.stop();
     return t;
   }
@@ -427,13 +427,15 @@ protected:
         InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x,
         InTensor->FeatureMatrix->col, InTensor->EmbedDim, InTensor->Degrees,
         InTensor->FeatureMatrix->a, InTensor->Weight1,
-        OutTensor->FirstLayerOutput, TileSize, Sp->GeMMTileForEachSpMMTile, Sp->MaxGeMMTileSize);
+        OutTensor->FirstLayerOutput, TileSize, Sp->GeMMLowerBounds,
+        Sp->GeMMUpperBounds, Sp->MaxGeMMTileSize);
     forwardForOneLayerTiled(
         InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->p,
         InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x,
         InTensor->EmbedDim, InTensor->EmbedDim, InTensor->Degrees,
         OutTensor->FirstLayerOutput, InTensor->Weight2,
-        OutTensor->SecondLayerOutput, TileSize, Sp->GeMMTileForEachSpMMTile, Sp->MaxGeMMTileSize);
+        OutTensor->SecondLayerOutput, TileSize, Sp->GeMMLowerBounds,
+        Sp->GeMMUpperBounds, Sp->MaxGeMMTileSize);
     t.stop();
     return t;
   }
@@ -445,8 +447,7 @@ public:
   }
   ~GCNIntraLayerTiledFused() {
     delete Inspector;
-    delete Sp->GeMMTileForEachSpMMTile[0];
-    delete Sp->GeMMTileForEachSpMMTile[1];
+    delete Sp;
   }
 };
 
