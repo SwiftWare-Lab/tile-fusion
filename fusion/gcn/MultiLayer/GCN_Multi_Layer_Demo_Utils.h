@@ -451,6 +451,55 @@ public:
   }
 };
 
+class GCNIntraLayerTiledFusedParallel : public GCNIntraFusedUsingCSCSequential {
+protected:
+  int TileSize;
+  InspectorForTiledFused *Inspector;
+  TiledFusedLayerSchedulingParameters *Sp;
+
+  Timer analysis() override {
+    Timer t;
+    t.start();
+    Sp = Inspector->generateGeMMTileForEachSpMMTile(InTensor->AdjacencyMatrix,
+                                                    TileSize);
+    t.stop();
+    return t;
+  }
+
+  Timer execute() override {
+    Timer t;
+    mkl_set_num_threads(1);
+    OutTensor->reset();
+    t.start();
+    forwardForOneLayerTiledParallel(
+        InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->p,
+        InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x,
+        InTensor->FeatureMatrix->col, InTensor->EmbedDim, InTensor->Degrees,
+        InTensor->FeatureMatrix->a, InTensor->Weight1,
+        OutTensor->FirstLayerOutput, TileSize, InTensor->NumThreads, Sp->GeMMLowerBounds,
+        Sp->GeMMUpperBounds, Sp->MaxGeMMTileSize);
+    forwardForOneLayerTiledParallel(
+        InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->p,
+        InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x,
+        InTensor->EmbedDim, InTensor->EmbedDim, InTensor->Degrees,
+        OutTensor->FirstLayerOutput, InTensor->Weight2,
+        OutTensor->SecondLayerOutput, TileSize, InTensor->NumThreads, Sp->GeMMLowerBounds,
+        Sp->GeMMUpperBounds, Sp->MaxGeMMTileSize);
+    t.stop();
+    return t;
+  }
+
+public:
+  GCNIntraLayerTiledFusedParallel(GnnTensorInputs *In1, Stats *Stat1, int TileSize1)
+      : GCNIntraFusedUsingCSCSequential(In1, Stat1), TileSize(TileSize1) {
+    Inspector = new InspectorForTiledFused();
+  }
+  ~GCNIntraLayerTiledFusedParallel() {
+    delete Inspector;
+    delete Sp;
+  }
+};
+
 class GCNAllTiledFusedCSC : public GCNIntraFusedSequential {
 protected:
   int TileSize;

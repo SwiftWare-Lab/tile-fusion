@@ -36,5 +36,7 @@ implementations:
 #    tuned: True
 #    tune_parameter: "NTile"
 feature_sizes:
-  - 100
+  - 500
+  - 1000
+  - 3000
 baseline: "GCN_SingleLayerMKL"

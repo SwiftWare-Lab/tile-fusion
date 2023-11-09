@@ -85,7 +85,6 @@ int main(const int argc, const char *argv[]) {
    * Method that iterates over row tiles of Adjacency matrix and by doing the
    * corresponding GeMM for each tile, then doing SpMM for midway result,
    * calculates the results.
-   * BANDED SPECIFIC FOR NOW
    */
   stats = new swiftware::benchmark::Stats("GCN_IntraTiledFused_Demo", "GCN", 7,
                                           tp._matrix_name, numThread);
@@ -96,6 +95,19 @@ int main(const int argc, const char *argv[]) {
   auto gcnIntraTiledFusedStats = gcnIntraTiledFused->printStats();
   delete gcnIntraTiledFused;
   delete stats;
+
+
+  stats = new swiftware::benchmark::Stats("GCN_IntraTiledFusedParallel_Demo", "GCN", 7,
+                                          tp._matrix_name, numThread);
+  stats->OtherStats["PackingType"] = {Separated};
+  GCNIntraLayerTiledFusedParallel* gcnIntraLayerTiledFusedParallel =
+      new GCNIntraLayerTiledFusedParallel(inputs, stats, tileSize);
+  gcnIntraLayerTiledFusedParallel->run();
+  auto gcnIntraTiledFusedParallelStats =
+      gcnIntraLayerTiledFusedParallel->printStats();
+  delete gcnIntraLayerTiledFusedParallel;
+  delete stats;
+
 
 
   /* Method that iterates over columns of Adjacency matrix and by doing the
@@ -173,6 +185,7 @@ int main(const int argc, const char *argv[]) {
   std::cout << gcnParallelStat << spStat + tpStat << std::endl;
   std::cout << gcnIntraUnfusedMKLStat << spStat + tpStat << std::endl;
   std::cout << gcnIntraTiledFusedStats << spStat + tpStat << std::endl;
+  std::cout << gcnIntraTiledFusedParallelStats << spStat + tpStat << std::endl;
   std::cout << gcnIFCSStats << spStat + tpStat << std::endl;
   std::cout << gcnIntraTiledFusedCSCStats << spStat + tpStat << std::endl;
   std::cout << gcnAllFusedCSCStats << spStat + tpStat << std::endl;
