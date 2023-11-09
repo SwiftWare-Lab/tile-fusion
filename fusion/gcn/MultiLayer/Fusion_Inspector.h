@@ -51,7 +51,7 @@ class InspectorForAllTiledFusedCSC {
 protected:
 public:
   sym_lib::MultiDimensionalSet *
-  generateFusedScheduleForAllTiledFusedCSC(sym_lib::CSR *AdjMtx, int TileSize) {
+  generateFusedScheduleForAllTiledFusedCSC(sym_lib::CSC *AdjMtx, int TileSize) {
     sym_lib::MultiDimensionalSet *fusedCompSet =
         new sym_lib::MultiDimensionalSet();
     int numOfTiles = AdjMtx->m / TileSize;
@@ -81,7 +81,7 @@ public:
 
 private:
   void findRowsLastNonzeroTile(int NumOfNodes, int TileSize,
-                               const sym_lib::CSR *AdjMtx, int *RowsLastTile) {
+                               const sym_lib::CSC *AdjMtx, int *RowsLastTile) {
     for (int i = 0; i < NumOfNodes; i += TileSize) {
       for (int ii = 0; ii < TileSize; ++ii) {
         if (i + ii >= NumOfNodes) {
@@ -95,7 +95,7 @@ private:
   }
 
   void findLastTileNeededInFirstLoopForEachTileInSecondLoop(
-      int NumOfNodes, int NumOfTiles, int TileSize, const sym_lib::CSR *AdjMtx,
+      int NumOfNodes, int NumOfTiles, int TileSize, const sym_lib::CSC *AdjMtx,
       const int *RowsLastTile, int *TileLastNeededTile) {
     memset(TileLastNeededTile, 0, NumOfTiles * sizeof(int));
     for (int i = 0; i < NumOfNodes; i += TileSize) {

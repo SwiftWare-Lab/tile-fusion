@@ -99,7 +99,7 @@ if [ $MODE == "GCNWithDifferentFusionLevels" ]; then
   while read line; do
     for BCOL in {500,1000,3000}; do
       for EDIM in {8,32,64}; do
-        for tn in {16,32,64,128,256,512,1024,2048,4096}; do
+        for tn in {128,256,512,1024,2048,4096,8192,16384}; do
           echo "for $line $BCOL $EDIM $tn"
           if [ $header -eq 1 ]; then
             $BINPATH/gcn_demo -sm $DATA/$line -nt $THREADS -tn $tn -ah -sr $sr -bc $BCOL -en $MODE -ed $EDIM -ip 100 > ./build/logs/gcn_demo.csv

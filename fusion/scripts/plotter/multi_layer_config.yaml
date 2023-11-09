@@ -2,12 +2,32 @@ experiment_name: "gcn_multi_layer"
 implementations:
   - name: "GCN_AllFused_Demo"
     color: "green"
-    tuned: True
-    tune_parameter: "Iter Per Partition"
+    tuned: False
+#    tune_parameter: "Iter Per Partition"
   - name: "GCN_IntraFusedParallel_Demo"
     color: "blue"
     tuned: False
+  - name: "GCN_IntraUnfused_Demo"
+    color: "red"
+    tuned: False
+  - name: "GCN_IntraTiledFused_Demo"
+    color: "orange"
+    tuned: True
+    tune_parameter: "NTile"
+  - name: "GCN_IntraTiledFusedParallel_Demo"
+    color: "purple"
+    tuned: True
+    tune_parameter: "NTile"
+  - name: "GCN_IntraTiledFusedCSC_Demo"
+    color: "brown"
+    tuned: True
+    tune_parameter: "NTile"
+  - name: "GCN_AllTiledFusedCSC_Demo"
+    color: "black"
+    tuned: True
+    tune_parameter: "NTile"
 feature_sizes:
   - 500
-  - 1000
-baseline: "GCN_IntraFusedParallel_Demo"
+matrices:
+  - "amazon_reordered.mtx"
+baseline: "GCN_IntraUnfused_Demo"

@@ -203,8 +203,8 @@ protected:
     Timer t;
     t.start();
     forwardForOneLayerFromCSCTiled(
-        InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->p,
-        InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x,
+        InTensor->AdjacencyMatrixCSC->m, InTensor->AdjacencyMatrixCSC->p,
+        InTensor->AdjacencyMatrixCSC->i, InTensor->AdjacencyMatrixCSC->x,
         InTensor->FeatureMatrix->col, InTensor->EmbedDim, InTensor->Degrees,
         InTensor->FeatureMatrix->a, InTensor->Weight1,
         OutTensor->FirstLayerOutput, TileSize);
@@ -225,8 +225,8 @@ protected:
     Timer t;
     t.start();
     forwardForOneLayerFromCSC(
-        InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->p,
-        InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x,
+        InTensor->AdjacencyMatrixCSC->m, InTensor->AdjacencyMatrixCSC->p,
+        InTensor->AdjacencyMatrixCSC->i, InTensor->AdjacencyMatrixCSC->x,
         InTensor->FeatureMatrix->col, InTensor->EmbedDim, InTensor->Degrees,
         InTensor->FeatureMatrix->a, InTensor->Weight1,
         OutTensor->FirstLayerOutput);
@@ -249,8 +249,8 @@ protected:
     t.start();
 
     forwardForOneLayerFromCSCVectorized(
-        InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->p,
-        InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x,
+        InTensor->AdjacencyMatrixCSC->m, InTensor->AdjacencyMatrixCSC->p,
+        InTensor->AdjacencyMatrixCSC->i, InTensor->AdjacencyMatrixCSC->x,
         InTensor->FeatureMatrix->col, InTensor->EmbedDim, InTensor->Degrees,
         InTensor->FeatureMatrix->a, InTensor->Weight1,
         OutTensor->FirstLayerOutput, InTensor->NumThreads);
@@ -274,8 +274,8 @@ protected:
     Timer t;
     t.start();
     forwardForOneLayerFromCSCTiledVectorized(
-        InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->p,
-        InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x,
+        InTensor->AdjacencyMatrixCSC->m, InTensor->AdjacencyMatrixCSC->p,
+        InTensor->AdjacencyMatrixCSC->i, InTensor->AdjacencyMatrixCSC->x,
         InTensor->FeatureMatrix->col, InTensor->EmbedDim, InTensor->Degrees,
         InTensor->FeatureMatrix->a, InTensor->Weight1,
         OutTensor->FirstLayerOutput, TileSize);
@@ -309,8 +309,8 @@ protected:
     Timer t;
     t.start();
     forwardForOneLayerFromCSCTiledParallel(
-        InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->p,
-        InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x,
+        InTensor->AdjacencyMatrixCSC->m, InTensor->AdjacencyMatrixCSC->p,
+        InTensor->AdjacencyMatrixCSC->i, InTensor->AdjacencyMatrixCSC->x,
         InTensor->FeatureMatrix->col, InTensor->EmbedDim, InTensor->Degrees,
         InTensor->FeatureMatrix->a, InTensor->Weight1,
         OutTensor->FirstLayerOutput, TileSize, InTensor->NumThreads);

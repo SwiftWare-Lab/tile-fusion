@@ -43,7 +43,8 @@ int main(const int argc, const char *argv[]) {
   GnnTensorInputs *inputs = new GnnTensorInputs(
       layer1Weight, layer2Weight, features, aCSCFull, aCSCFull->m, hiddenDim,
       numOfSamples, numThread, 1, "GCN_Demo");
-
+  delete aCSC;
+  delete aCSCFull;
   /*
    * The method that iterate over rows of the adjacency matrix and by doing the
    * corresponding GeMV to each nonzero, calculates the output for each layer.
@@ -192,6 +193,4 @@ int main(const int argc, const char *argv[]) {
   std::cout << gcnAllFusedParallelStats << spStat + tpStat << std::endl;
 
   delete inputs;
-  delete aCSC;
-  delete aCSCFull;
 }

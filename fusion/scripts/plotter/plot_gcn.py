@@ -62,13 +62,13 @@ def plot_gcn(log_folder, log_file_name, config):
     log_file = os.path.join(log_folder, log_file_name)
     df_fusion = pd.read_csv(log_file)
     bcols = config['feature_sizes']
-    edims = df_fusion['EmbedDim'].unique()
     tuned_implementations = [impl['name'] for impl in config['implementations'] if impl['tuned']]
     tuned_implementations_base_param = {impl['name']: impl['tune_parameter'] for impl in config['implementations'] if impl['tuned']}
     # sort df_fusion based on 'NNZ'
     df_fusion = df_fusion.sort_values(by=['NNZ'])
     # mat_list = df_fusion['MatrixName'].unique()
-    mat_list = df_fusion['Matrix Name'].unique()
+    mat_list = config['matrices']
+    edims = [8]
     impls = list(map(lambda i: i['name'], config['implementations']))
     br = np.arange(len(mat_list) * 2, step=2)
     bar_width = 0.2
@@ -96,6 +96,7 @@ def plot_gcn(log_folder, log_file_name, config):
                 min_fused = np.array(seperated_list[0])
                 for x in seperated_list:
                     min_fused = np.minimum(min_fused, np.array(x))
+                print(bcol, edim ,impl, ": ", min_fused)
                 times[impl] = min_fused
             speedups = {}
             for impl in impls:

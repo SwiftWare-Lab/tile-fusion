@@ -39,6 +39,7 @@ struct GnnTensorInputs : public Inputs<double> {
   int *Degrees;
   sym_lib::Dense *FeatureMatrix;
   sym_lib::CSR *AdjacencyMatrix;
+  sym_lib::CSC *AdjacencyMatrixCSC;
   size_t EmbedDim;
   size_t NumOfNodes;
   size_t BatchSize;
@@ -128,6 +129,7 @@ struct GnnTensorInputs : public Inputs<double> {
         EmbedDim(EmbedDim), BatchSize(BatchSize) {
     this->CorrectSol = nullptr;
     this->AdjacencyMatrix = sym_lib::csc_to_csr(AdjMtxCSC);
+    this->AdjacencyMatrixCSC = sym_lib::copy_sparse(AdjMtxCSC);
     this->LayerMasks = generateLayerMasks();
     this->normalizeAdjacencyMatrix();
     for (auto mask : LayerMasks) {
@@ -141,6 +143,7 @@ struct GnnTensorInputs : public Inputs<double> {
     delete[] Weight2;
     delete FeatureMatrix;
     delete AdjacencyMatrix;
+    delete AdjacencyMatrixCSC;
     delete LayerMaskedMatrices[0];
     delete LayerMaskedMatrices[1];
     delete[] Degrees;
@@ -352,14 +355,14 @@ protected:
     OutTensor->reset();
     t.start();
     forwardForOneLayerFromCSC(
-        InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->p,
-        InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x,
+        InTensor->AdjacencyMatrixCSC->m, InTensor->AdjacencyMatrixCSC->p,
+        InTensor->AdjacencyMatrixCSC->i, InTensor->AdjacencyMatrixCSC->x,
         InTensor->FeatureMatrix->col, InTensor->EmbedDim, InTensor->Degrees,
         InTensor->FeatureMatrix->a, InTensor->Weight1,
         OutTensor->FirstLayerOutput);
     forwardForOneLayerFromCSC(
-        InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->p,
-        InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x,
+        InTensor->AdjacencyMatrixCSC->m, InTensor->AdjacencyMatrixCSC->p,
+        InTensor->AdjacencyMatrixCSC->i, InTensor->AdjacencyMatrixCSC->x,
         InTensor->EmbedDim, InTensor->EmbedDim, InTensor->Degrees,
         OutTensor->FirstLayerOutput, InTensor->Weight2,
         OutTensor->SecondLayerOutput);
@@ -382,14 +385,14 @@ protected:
     OutTensor->reset();
     t.start();
     forwardForOneLayerFromCSCTiled(
-        InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->p,
-        InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x,
+        InTensor->AdjacencyMatrixCSC->m, InTensor->AdjacencyMatrixCSC->p,
+        InTensor->AdjacencyMatrixCSC->i, InTensor->AdjacencyMatrixCSC->x,
         InTensor->FeatureMatrix->col, InTensor->EmbedDim, InTensor->Degrees,
         InTensor->FeatureMatrix->a, InTensor->Weight1,
         OutTensor->FirstLayerOutput, TileSize);
     forwardForOneLayerFromCSCTiled(
-        InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->p,
-        InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x,
+        InTensor->AdjacencyMatrixCSC->m, InTensor->AdjacencyMatrixCSC->p,
+        InTensor->AdjacencyMatrixCSC->i, InTensor->AdjacencyMatrixCSC->x,
         InTensor->EmbedDim, InTensor->EmbedDim, InTensor->Degrees,
         OutTensor->FirstLayerOutput, InTensor->Weight2,
         OutTensor->SecondLayerOutput, TileSize);
@@ -509,7 +512,7 @@ protected:
     Timer t;
     t.start();
     FusedCompSet = Inspector->generateFusedScheduleForAllTiledFusedCSC(
-        InTensor->AdjacencyMatrix, TileSize);
+        InTensor->AdjacencyMatrixCSC, TileSize);
     t.stop();
     return t;
   }
@@ -520,8 +523,8 @@ protected:
     OutTensor->reset();
     t.start();
     forwardForFusedLayersFromCSCTiled(
-        InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->p,
-        InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x,
+        InTensor->AdjacencyMatrixCSC->m, InTensor->AdjacencyMatrixCSC->p,
+        InTensor->AdjacencyMatrixCSC->i, InTensor->AdjacencyMatrixCSC->x,
         InTensor->FeatureMatrix->col, InTensor->EmbedDim, InTensor->EmbedDim,
         InTensor->Degrees, InTensor->FeatureMatrix->a, InTensor->Weight1,
         InTensor->Weight2, OutTensor->FirstLayerOutput,

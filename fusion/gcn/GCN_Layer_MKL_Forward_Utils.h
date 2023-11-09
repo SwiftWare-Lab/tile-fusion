@@ -388,11 +388,17 @@ void forwardForOneLayerTiledParallel(int M, int *Ap, int *Ai, double *Ax,
       int geMMTileStartLoc = GeMMLowerBounds[i / TileSize];
       int geMMTileEndLoc = GeMMUpperBounds[i / TileSize];
       int geMMTileSize = geMMTileEndLoc - geMMTileStartLoc;
+//      Timer tgemm;
+//      tgemm.start();
       cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, geMMTileSize,
                   OutputChannelDim, InputChannelDim, 1.,
                   Features + geMMTileStartLoc * InputChannelDim,
                   InputChannelDim, Weight, OutputChannelDim, 0., ttemp,
                   OutputChannelDim);
+//      tgemm.stop();
+//      std::cout << "GeMM Time: " << tgemm.printTimeCsv(0) << std::endl;
+//      Timer tspmm;
+//      tspmm.start();
       for (int ii = 0; ii < TileSize; ii++) {
         if (i + ii >= M)
           break;
@@ -404,6 +410,8 @@ void forwardForOneLayerTiledParallel(int M, int *Ap, int *Ai, double *Ax,
           }
         }
       }
+//      tspmm.stop();
+//      std::cout << "SpMM Time: " << tspmm.printTimeCsv(0) << std::endl;
     }
   }
   delete[] temp;
