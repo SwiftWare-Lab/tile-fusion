@@ -186,33 +186,66 @@ public:
 class InspectorForSingleLayerTiledFusedCSCParallel {
 public:
   sym_lib::MultiDimensionalSet *
-  generateFusedScheduleForSingleLayerTiledFusedCSCParallel(sym_lib::CSR *AdjMtx,
+  generateFusedScheduleForSingleLayerTiledFusedCSCParallel(sym_lib::CSC *AdjMtx,
                                                            int TileSize) {
+    int numOfTiles = (int)ceil((double)AdjMtx->m / TileSize);
     std::map<std::string, std::vector<std::string>> conflictGraph =
         createTilesConflictGraph(AdjMtx, TileSize);
     std::map<std::string, int> coloring = dsaturColoring(conflictGraph);
-    std::map<int, std::vector<std::string>> colorToTiles;
-    for (std::map<std::string, int>::iterator it = coloring.begin();
-         it != coloring.end(); ++it) {
-      if (colorToTiles.find(it->second) == colorToTiles.end()) {
-        colorToTiles[it->second] = std::vector<std::string>();
+    std::map<int, std::vector<int>> colorToTiles = getColorToTilesMap(coloring);
+    sym_lib::MultiDimensionalSet *fusedCompSet =
+        new sym_lib::MultiDimensionalSet();
+    fusedCompSet->n1_ = colorToTiles.rbegin()->first + 1;
+    fusedCompSet->ptr1_ = new int[fusedCompSet->n1_ + 1];
+    fusedCompSet->ptr1_[0] = 0;
+    fusedCompSet->id_ = new int[numOfTiles];
+    for (std::map<int, std::vector<int>>::iterator it = colorToTiles.begin();
+         it != colorToTiles.end(); ++it) {
+      fusedCompSet->ptr1_[it->first + 1] =
+          fusedCompSet->ptr1_[it->first] + it->second.size();
+      for (int i = 0; i < it->second.size(); i++) {
+        fusedCompSet->id_[fusedCompSet->ptr1_[it->first] + i] = it->second[i];
       }
-      colorToTiles[it->second].push_back(it->first);
     }
-    std::cout << "Num Of DSATUR Colors: " << std::endl;
+    fusedCompSet->type_ = new int[numOfTiles];
+    for (int i = 0; i < numOfTiles - 1; i++) {
+      fusedCompSet->type_[i] = TileSize;
+    }
+    if (AdjMtx->m % TileSize == 0) {
+      fusedCompSet->type_[numOfTiles - 1] = TileSize;
+    } else {
+      fusedCompSet->type_[numOfTiles - 1] = AdjMtx->m % TileSize;
+    }
+    return fusedCompSet;
+  }
+
+  int printColoring(std::map<std::string, int> &coloring,
+                    std::map<int, std::vector<int>> &colorToTiles) const {
     int maxNum = 0;
     for (std::map<std::string, int>::iterator it = coloring.begin();
          it != coloring.end(); ++it) {
       if (it->second > maxNum)
         maxNum = it->second;
     }
-    for (std::map<int, std::vector<std::string>>::iterator it =
-             colorToTiles.begin();
+    for (std::map<int, std::vector<int>>::iterator it = colorToTiles.begin();
          it != colorToTiles.end(); ++it) {
       std::cout << it->first << " : " << it->second.size() << std::endl;
     }
     std::cout << maxNum << std::endl;
-    greedyColoring(conflictGraph);
+    return maxNum;
+  }
+
+  std::map<int, std::vector<int>>
+  getColorToTilesMap(std::map<std::string, int> &coloring) const {
+    std::map<int, std::vector<int>> colorToTiles;
+    for (std::map<std::string, int>::iterator it = coloring.begin();
+         it != coloring.end(); ++it) {
+      if (colorToTiles.find(it->second) == colorToTiles.end()) {
+        colorToTiles[it->second] = std::vector<int>();
+      }
+      colorToTiles[it->second].push_back(std::stoi(it->first));
+    }
+    return colorToTiles;
   }
 
   void greedyColoring(std::map<std::string, std::vector<std::string>> Graph) {
@@ -246,7 +279,6 @@ public:
       if (result[i] > maxNum)
         maxNum = result[i];
     }
-    std::cout << "Num Of Greedy Colors: " << maxNum << std::endl;
   }
 
   std::map<std::string, int>
@@ -380,14 +412,18 @@ public:
   }
 
   std::map<std::string, std::vector<std::string>>
-  createTilesConflictGraph(sym_lib::CSR *AdjMtx, int TileSize) {
+  createTilesConflictGraph(sym_lib::CSC *AdjMtx, int TileSize) {
     std::map<std::string, std::vector<std::string>> conflictGraph;
-    int numOfTiles = (int)ceil(AdjMtx->m / TileSize);
+    int numOfTiles = (int)ceil((double)AdjMtx->m / TileSize);
     for (int i = 0; i < numOfTiles; i++) {
       int iStart = i * TileSize;
       int iEnd = std::min(iStart + TileSize, (int)AdjMtx->m);
       int aSize = AdjMtx->p[iEnd] - AdjMtx->p[iStart];
       int *a = new int[aSize];
+      std::string iStr = std::to_string(i);
+      if (conflictGraph.find(iStr) == conflictGraph.end()) {
+        conflictGraph[iStr] = std::vector<std::string>();
+      }
       for (int j = i + 1; j < numOfTiles; j++) {
         int jStart = j * TileSize;
         int jEnd = std::min(jStart + TileSize, (int)AdjMtx->m);
@@ -396,11 +432,7 @@ public:
         std::memcpy(a, AdjMtx->i + AdjMtx->p[iStart], aSize * sizeof(int));
         std::memcpy(b, AdjMtx->i + AdjMtx->p[jStart], bSize * sizeof(int));
         if (checkIfTwoArraysHasSameValue(a, b, aSize, bSize)) {
-          std::string iStr = std::to_string(i);
           std::string jStr = std::to_string(j);
-          if (conflictGraph.find(iStr) == conflictGraph.end()) {
-            conflictGraph[iStr] = std::vector<std::string>();
-          }
           if (conflictGraph.find(jStr) == conflictGraph.end()) {
             conflictGraph[jStr] = std::vector<std::string>();
           }

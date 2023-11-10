@@ -294,12 +294,14 @@ public:
 class GCNSingleLayerTiledFusedCSCParallel : public GCNSingleLayerFused {
 protected:
   int TileSize;
-  InspectorForSingleLayerTiledFusedCSCParallel Inspector;
+  sym_lib::MultiDimensionalSet *FusedCompSet;
+  InspectorForSingleLayerTiledFusedCSCParallel *Inspector;
   Timer analysis() override {
     Timer t;
     t.start();
-    //    Inspector.generateFusedScheduleForSingleLayerTiledFusedCSCParallel(InTensor->AdjacencyMatrix,
-    //    TileSize);
+    FusedCompSet =
+        Inspector->generateFusedScheduleForSingleLayerTiledFusedCSCParallel(
+            InTensor->AdjacencyMatrixCSC, TileSize);
     t.stop();
     return t;
   }
@@ -308,12 +310,14 @@ protected:
     mkl_set_num_threads(1);
     Timer t;
     t.start();
-    forwardForOneLayerFromCSCTiledParallel(
+    forwardForOneLayerFromCSCTiledParallelV2(
         InTensor->AdjacencyMatrixCSC->m, InTensor->AdjacencyMatrixCSC->p,
         InTensor->AdjacencyMatrixCSC->i, InTensor->AdjacencyMatrixCSC->x,
         InTensor->FeatureMatrix->col, InTensor->EmbedDim, InTensor->Degrees,
         InTensor->FeatureMatrix->a, InTensor->Weight1,
-        OutTensor->FirstLayerOutput, TileSize, InTensor->NumThreads);
+        OutTensor->FirstLayerOutput, TileSize, InTensor->NumThreads,
+        FusedCompSet->n1_, FusedCompSet->ptr1_, FusedCompSet->id_,
+        FusedCompSet->type_);
     t.stop();
     return t;
   }
@@ -321,6 +325,12 @@ protected:
 public:
   GCNSingleLayerTiledFusedCSCParallel(GnnTensorInputs *In1, Stats *Stat1,
                                       int TileSize1)
-      : GCNSingleLayerFused(In1, Stat1), TileSize(TileSize1) {}
+      : GCNSingleLayerFused(In1, Stat1), TileSize(TileSize1) {
+    Inspector = new InspectorForSingleLayerTiledFusedCSCParallel();
+  }
+  ~GCNSingleLayerTiledFusedCSCParallel() {
+    delete FusedCompSet;
+    delete Inspector;
+  }
 };
 #endif

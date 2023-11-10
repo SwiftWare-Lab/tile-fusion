@@ -28,6 +28,11 @@ implementations:
     tune_parameter: "NTile"
 feature_sizes:
   - 500
+  - 1000
+embed_dimensions:
+  - 8
+  - 32
+  - 64
 matrices:
   - "amazon_reordered.mtx"
 baseline: "GCN_IntraUnfused_Demo"

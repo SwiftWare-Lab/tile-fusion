@@ -68,7 +68,7 @@ def plot_gcn(log_folder, log_file_name, config):
     df_fusion = df_fusion.sort_values(by=['NNZ'])
     # mat_list = df_fusion['MatrixName'].unique()
     mat_list = config['matrices']
-    edims = [8]
+    edims = config['embed_dimensions']
     impls = list(map(lambda i: i['name'], config['implementations']))
     br = np.arange(len(mat_list) * 2, step=2)
     bar_width = 0.2

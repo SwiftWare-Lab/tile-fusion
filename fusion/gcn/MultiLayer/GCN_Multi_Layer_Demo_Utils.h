@@ -129,9 +129,9 @@ struct GnnTensorInputs : public Inputs<double> {
         EmbedDim(EmbedDim), BatchSize(BatchSize) {
     this->CorrectSol = nullptr;
     this->AdjacencyMatrix = sym_lib::csc_to_csr(AdjMtxCSC);
-    this->AdjacencyMatrixCSC = sym_lib::copy_sparse(AdjMtxCSC);
     this->LayerMasks = generateLayerMasks();
     this->normalizeAdjacencyMatrix();
+    this->AdjacencyMatrixCSC = sym_lib::csr_to_csc(this->AdjacencyMatrix);
     for (auto mask : LayerMasks) {
       LayerMaskedMatrices.emplace_back(
           this->generateMaskedMatrix(mask, this->AdjacencyMatrix));

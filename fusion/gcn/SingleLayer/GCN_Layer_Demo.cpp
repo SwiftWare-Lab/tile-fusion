@@ -137,16 +137,16 @@ int main(const int argc, const char *argv[]) {
    * calculates the output
    * BANDED-SPECIFIC FOR NOW
    */
-//  stats = new swiftware::benchmark::Stats("GCN_SingleLayerTiledFusedCSCParallel",
-//                                          "GCN", 7, tp._matrix_name, numThread);
-//  stats->OtherStats["PackingType"] = {Separated};
-//  GCNSingleLayerTiledFusedCSCParallel *gcnSingleLayerFusedCscParallel =
-//      new GCNSingleLayerTiledFusedCSCParallel(inputs, stats, tileSize);
-//  gcnSingleLayerFusedCscParallel->run();
-//  auto gcnSingleLayerFusedCscParallelStat =
-//      gcnSingleLayerFusedCscParallel->printStats();
-//  delete stats;
-//  delete gcnSingleLayerFusedCscParallel;
+  stats = new swiftware::benchmark::Stats("GCN_SingleLayerTiledFusedCSCParallel",
+                                          "GCN", 7, tp._matrix_name, numThread);
+  stats->OtherStats["PackingType"] = {Separated};
+  GCNSingleLayerTiledFusedCSCParallel *gcnSingleLayerFusedCscParallel =
+      new GCNSingleLayerTiledFusedCSCParallel(inputs, stats, tileSize);
+  gcnSingleLayerFusedCscParallel->run();
+  auto gcnSingleLayerFusedCscParallelStat =
+      gcnSingleLayerFusedCscParallel->printStats();
+  delete stats;
+  delete gcnSingleLayerFusedCscParallel;
 
   /*
    * Method that iterates over tiles of columns of Adjacency matrix and by doing
@@ -213,7 +213,7 @@ int main(const int argc, const char *argv[]) {
   std::cout << gcnSingleLayerTiledFusedParallelStat << spStat + tpStat
             << std::endl;
   std::cout << gcnSingleLayerFusedCscStat << spStat + tpStat << std::endl;
-//  std::cout << gcnSingleLayerFusedCscParallelStat << spStat + tpStat << std::endl;
+  std::cout << gcnSingleLayerFusedCscParallelStat << spStat + tpStat << std::endl;
   std::cout << gcnSingleLayerTiledFusedCscStat << spStat + tpStat << std::endl;
   std::cout << gcnSingleLayerFusedParallelStat << spStat + tpStat << std::endl;
 #ifdef __AVX2__
