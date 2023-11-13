@@ -333,4 +333,47 @@ public:
     delete Inspector;
   }
 };
+
+class GCNSingleLayerTiledFusedCSCCombined : public GCNSingleLayerFused {
+protected:
+  int TileSize;
+  sym_lib::MultiDimensionalSet *FusedCompSet;
+  InspectorForSingleLayerTiledFusedCSCCombined *Inspector;
+  Timer analysis() override {
+    Timer t;
+    t.start();
+    FusedCompSet =
+        Inspector->generateScheduleForSingleLayerTiledFusedCSCCombined(
+            InTensor->AdjacencyMatrixCSC, TileSize);
+    t.stop();
+    return t;
+  }
+  Timer execute() override {
+    OutTensor->reset();
+    mkl_set_num_threads(1);
+    Timer t;
+    t.start();
+    forwardForOneLayerFromCSCTiledParallelV2(
+        InTensor->AdjacencyMatrixCSC->m, InTensor->AdjacencyMatrixCSC->p,
+        InTensor->AdjacencyMatrixCSC->i, InTensor->AdjacencyMatrixCSC->x,
+        InTensor->FeatureMatrix->col, InTensor->EmbedDim, InTensor->Degrees,
+        InTensor->FeatureMatrix->a, InTensor->Weight1,
+        OutTensor->FirstLayerOutput, TileSize, InTensor->NumThreads,
+        FusedCompSet->n1_, FusedCompSet->ptr1_, FusedCompSet->id_,
+        FusedCompSet->type_);
+    t.stop();
+    return t;
+  }
+
+public:
+  GCNSingleLayerTiledFusedCSCCombined(GnnTensorInputs *In1, Stats *Stat1,
+                                      int TileSize1)
+      : GCNSingleLayerFused(In1, Stat1), TileSize(TileSize1) {
+    Inspector = new InspectorForSingleLayerTiledFusedCSCCombined();
+  }
+  ~GCNSingleLayerTiledFusedCSCCombined() {
+    delete FusedCompSet;
+    delete Inspector;
+  }
+};
 #endif

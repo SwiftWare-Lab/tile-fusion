@@ -388,17 +388,17 @@ void forwardForOneLayerTiledParallel(int M, int *Ap, int *Ai, double *Ax,
       int geMMTileStartLoc = GeMMLowerBounds[i / TileSize];
       int geMMTileEndLoc = GeMMUpperBounds[i / TileSize];
       int geMMTileSize = geMMTileEndLoc - geMMTileStartLoc;
-//      Timer tgemm;
-//      tgemm.start();
+      //      Timer tgemm;
+      //      tgemm.start();
       cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, geMMTileSize,
                   OutputChannelDim, InputChannelDim, 1.,
                   Features + geMMTileStartLoc * InputChannelDim,
                   InputChannelDim, Weight, OutputChannelDim, 0., ttemp,
                   OutputChannelDim);
-//      tgemm.stop();
-//      std::cout << "GeMM Time: " << tgemm.printTimeCsv(0) << std::endl;
-//      Timer tspmm;
-//      tspmm.start();
+      //      tgemm.stop();
+      //      std::cout << "GeMM Time: " << tgemm.printTimeCsv(0) << std::endl;
+      //      Timer tspmm;
+      //      tspmm.start();
       for (int ii = 0; ii < TileSize; ii++) {
         if (i + ii >= M)
           break;
@@ -410,8 +410,8 @@ void forwardForOneLayerTiledParallel(int M, int *Ap, int *Ai, double *Ax,
           }
         }
       }
-//      tspmm.stop();
-//      std::cout << "SpMM Time: " << tspmm.printTimeCsv(0) << std::endl;
+      //      tspmm.stop();
+      //      std::cout << "SpMM Time: " << tspmm.printTimeCsv(0) << std::endl;
     }
   }
   delete[] temp;
@@ -526,7 +526,7 @@ void forwardForOneLayerFromCSCTiledParallel(int M, int *Ap, int *Ai, double *Ax,
 void forwardForOneLayerFromCSCTiledParallelV2(
     int M, int *Ap, int *Ai, double *Ax, int InputChannelDim,
     int OutputChannelDim, int *Degrees, double *Features, double *Weight,
-    double *Output, int MaxTileSize,int NumThreads, int Levels, int *LevelPtr,
+    double *Output, int MaxTileSize, int NumThreads, int Levels, int *LevelPtr,
     int *Id, int *TileSizes) {
   double *cache = new double[MaxTileSize * OutputChannelDim * NumThreads];
   for (int l = 0; l < Levels; l++) {
@@ -556,11 +556,64 @@ void forwardForOneLayerFromCSCTiledParallelV2(
   }
   delete[] cache;
 }
+
+void forwardForOneLayerFromCSCTiledParallelCombined(
+    int M, int *Ap, int *Ai, double *Ax, int InputChannelDim,
+    int OutputChannelDim, int *Degrees, double *Features, double *Weight,
+    double *Output, int MaxTileSize, int NumThreads, int WorkloadsNum,
+    int AggregatedTilesNum, int *WorkloadPtr, int *Id, int *TilePtr) {
+  double *cache = new double[MaxTileSize * OutputChannelDim * NumThreads];
+  for (int l = 0; l < WorkloadsNum; l++) {
+#pragma omp parallel num_threads(NumThreads)
+    {
+      int threadId = omp_get_thread_num();
+#pragma omp for
+      for (int t = WorkloadPtr[l]; t < WorkloadPtr[l + 1]; t++) {
+        int id = Id[t];
+        int tileSize = TilePtr[id+1]-TilePtr[id];
+        int i = id * MaxTileSize;
+        double *tcache = cache + threadId * MaxTileSize * OutputChannelDim;
+        cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, tileSize,
+                    OutputChannelDim, InputChannelDim, 1.,
+                    Features + i * InputChannelDim, InputChannelDim, Weight,
+                    OutputChannelDim, 0., tcache, OutputChannelDim);
+        for (int ii = 0; ii < tileSize; ii++) {
+          for (int j = Ap[i + ii]; j < Ap[i + ii + 1]; j++) {
+            for (int k = 0; k < OutputChannelDim; k++) {
+              Output[Ai[j] * OutputChannelDim + k] +=
+                  Ax[j] * tcache[ii * OutputChannelDim + k];
+            }
+          }
+        }
+      }
+    }
+  }
+  mkl_set_num_threads(NumThreads);
+  for(int t = WorkloadPtr[WorkloadsNum]; t < WorkloadPtr[WorkloadsNum] + AggregatedTilesNum; t++){
+    int id = Id[t];
+    int tileSize = TilePtr[id+1]-TilePtr[id];
+    int i = id * MaxTileSize;
+    cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, tileSize,
+                OutputChannelDim, InputChannelDim, 1.,
+                Features + i * InputChannelDim, InputChannelDim, Weight,
+                OutputChannelDim, 0., cache, OutputChannelDim);
+    for (int ii = 0; ii < tileSize; ii++) {
+      for (int j = Ap[i + ii]; j < Ap[i + ii + 1]; j++) {
+        for (int k = 0; k < OutputChannelDim; k++) {
+          Output[Ai[j] * OutputChannelDim + k] +=
+              Ax[j] * cache[ii * OutputChannelDim + k];
+        }
+      }
+    }
+  }
+  delete[] cache;
+}
+
 // executer code for fused layers using csc format of the adjacency matrix
 
-// has three types of layers: 0 for first layer, 1 for second layer, 2 for last
-// tile of first layer, 3 for last tile of second layer(In case of different
-// tile sizes)
+// has three types of layers: 0 for first layer, 1 for second layer, 2 for
+// last tile of first layer, 3 for last tile of second layer(In case of
+// different tile sizes)
 void forwardForFusedLayersFromCSCTiled(
     int M, int *Ap, int *Ai, double *Ax, int InputChannelDim,
     int HiddenChannelDim, int OutputChannelDim, int *Degrees, double *Features,

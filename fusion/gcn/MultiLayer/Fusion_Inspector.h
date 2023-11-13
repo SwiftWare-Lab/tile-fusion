@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <climits>
 #include <cmath>
+#include <set>
 #ifndef SPARSE_FUSION_FUSIONINSPECTOR_H
 #define SPARSE_FUSION_FUSIONINSPECTOR_H
 
@@ -137,26 +138,28 @@ private:
   }
 };
 
-struct TiledFusedLayerSchedulingParameters{
-  int* GeMMUpperBounds;
-  int* GeMMLowerBounds;
+struct TiledFusedLayerSchedulingParameters {
+  int *GeMMUpperBounds;
+  int *GeMMLowerBounds;
   int MaxGeMMTileSize;
 
-  TiledFusedLayerSchedulingParameters(){
+  TiledFusedLayerSchedulingParameters() {
     MaxGeMMTileSize = 0;
     GeMMUpperBounds = nullptr;
     GeMMLowerBounds = nullptr;
   }
-  ~TiledFusedLayerSchedulingParameters(){
+  ~TiledFusedLayerSchedulingParameters() {
     delete[] GeMMUpperBounds;
     delete[] GeMMLowerBounds;
   }
 };
 class InspectorForTiledFused {
 public:
-  TiledFusedLayerSchedulingParameters* generateGeMMTileForEachSpMMTile(sym_lib::CSR *AdjMtx, int TileSize) {
-    TiledFusedLayerSchedulingParameters* sp = new TiledFusedLayerSchedulingParameters();
-    int numOfTiles = ceil((double )AdjMtx->m / TileSize);
+  TiledFusedLayerSchedulingParameters *
+  generateGeMMTileForEachSpMMTile(sym_lib::CSR *AdjMtx, int TileSize) {
+    TiledFusedLayerSchedulingParameters *sp =
+        new TiledFusedLayerSchedulingParameters();
+    int numOfTiles = ceil((double)AdjMtx->m / TileSize);
     sp->GeMMLowerBounds = new int[numOfTiles];
     sp->GeMMUpperBounds = new int[numOfTiles];
     for (int i = 0; i < AdjMtx->m; i += TileSize) {
@@ -219,6 +222,7 @@ public:
     return fusedCompSet;
   }
 
+protected:
   int printColoring(std::map<std::string, int> &coloring,
                     std::map<int, std::vector<int>> &colorToTiles) const {
     int maxNum = 0;
@@ -462,6 +466,113 @@ public:
       }
     }
     return false;
+  }
+};
+
+class InspectorForSingleLayerTiledFusedCSCCombined
+    : public InspectorForSingleLayerTiledFusedCSCParallel {
+
+public:
+  sym_lib::MultiDimensionalSet *
+  generateScheduleForSingleLayerTiledFusedCSCCombined(sym_lib::CSC *AdjMtx,
+                                                      int TileSize) {
+    int numOfTiles = (int)ceil((double)AdjMtx->m / TileSize);
+    std::map<std::string, std::vector<std::string>> conflictGraph =
+        createTilesConflictGraph(AdjMtx, TileSize);
+    std::map<std::string, int> coloring = dsaturColoring(conflictGraph);
+    std::map<int, std::vector<int>> colorToTiles = getColorToTilesMap(coloring);
+    return generateScheduleBasedOnConflictGraphColoring(colorToTiles, 10,
+                                                        TileSize, AdjMtx->m);
+  }
+
+private:
+
+  sym_lib::MultiDimensionalSet *  generateScheduleBasedOnConflictGraphColoring(
+      std::map<int, std::vector<int>> ColorToTiles, int WorkloadMinSize,
+      int TileSize, int NumOfNodes) {
+    std::vector<std::vector<int>> workloads;
+    std::set<int> standAloneTiles;
+    for (auto tileGroup : ColorToTiles) {
+      if (tileGroup.second.size() >= WorkloadMinSize) {
+        workloads.push_back(tileGroup.second);
+      } else {
+        standAloneTiles.insert(tileGroup.second.begin(),
+                               tileGroup.second.end());
+      }
+    }
+    std::map<int, int> standAloneTileToNewSize =
+        getNewStandAloneTilesMap(standAloneTiles);
+    std::map<int, int> tileToNewSize =
+        updateNewTilesMapWithWorkloadTiles(workloads, standAloneTileToNewSize);
+    int numOfNewTiles = tileToNewSize.size();
+    int *tilePtr = new int[numOfNewTiles + 1];
+    int maxTileSize = 0;
+    tilePtr[0] = 0;
+    int i = 0;
+    for (auto tile : tileToNewSize) {
+      int newTileSize = tile.second * TileSize;
+      tilePtr[i + 1] = tilePtr[i] + newTileSize;
+      if(newTileSize > maxTileSize){
+        maxTileSize = newTileSize;
+      }
+      i++;
+    }
+    tilePtr[numOfNewTiles] = NumOfNodes;
+    std::map<int, int> oldToNewIndex;
+    for (auto it = tileToNewSize.begin(); it != tileToNewSize.end(); it++) {
+      oldToNewIndex[it->first] = std::distance(tileToNewSize.begin(), it);
+    }
+    sym_lib::MultiDimensionalSet *fusedCompSet =
+        new sym_lib::MultiDimensionalSet();
+    fusedCompSet->n1_ = workloads.size();
+    fusedCompSet->ptr1_ = new int[fusedCompSet->n1_ + 1];
+    fusedCompSet->n2_ = standAloneTileToNewSize.size();
+    fusedCompSet->n3_ = maxTileSize;
+    fusedCompSet->id_ = new int[tileToNewSize.size()];
+    fusedCompSet->type_ = tilePtr;
+    fusedCompSet->ptr1_[0] = 0;
+    for (i = 0; i < workloads.size(); i++) {
+      fusedCompSet->ptr1_[i + 1] = fusedCompSet->ptr1_[i] + workloads[i].size();
+      for (int j = 0; j < workloads[i].size(); j++) {
+        fusedCompSet->id_[fusedCompSet->ptr1_[i] + j] =
+            oldToNewIndex[workloads[i][j]];
+      }
+    }
+    int standAloneTilesStart = fusedCompSet->ptr1_[fusedCompSet->n1_];
+    i = standAloneTilesStart;
+    for (auto saTile : standAloneTileToNewSize) {
+      fusedCompSet->id_[i] = oldToNewIndex[saTile.first];
+      i++;
+    }
+    return fusedCompSet;
+  }
+
+  std::map<int, int>
+  updateNewTilesMapWithWorkloadTiles(std::vector<std::vector<int>> Workloads,
+                                     std::map<int, int> StandAloneTileToNewSize) {
+    std::map<int, int> tileToNewSize(StandAloneTileToNewSize);
+    for (auto workload : Workloads) {
+      for (auto tile : workload) {
+        tileToNewSize[tile] = 1;
+      }
+    }
+    return tileToNewSize;
+  }
+
+  std::map<int, int>
+  getNewStandAloneTilesMap(std::set<int> StandAloneTiles) {
+    std::map<int, int> tileToNewSize;
+    tileToNewSize[*StandAloneTiles.begin()] = 1;
+    StandAloneTiles.erase(StandAloneTiles.begin());
+    for (auto tile : StandAloneTiles) {
+      auto lastNewTile = tileToNewSize.rbegin();
+      if (tile - lastNewTile->first == lastNewTile->second) {
+        lastNewTile->second++;
+      } else {
+        tileToNewSize[tile] = 1;
+      }
+    }
+    return tileToNewSize;
   }
 };
 
