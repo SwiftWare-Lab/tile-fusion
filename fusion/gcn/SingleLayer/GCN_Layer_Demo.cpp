@@ -152,7 +152,7 @@ int main(const int argc, const char *argv[]) {
                                           7, tp._matrix_name, numThread);
   stats->OtherStats["PackingType"] = {Separated};
   GCNSingleLayerTiledFusedCSCCombined *gcnSingleLayerTiledFusedCscCombined =
-      new GCNSingleLayerTiledFusedCSCCombined(inputs, stats, tileSize);
+      new GCNSingleLayerTiledFusedCSCCombined(inputs, stats, tileSize, 15);
   gcnSingleLayerTiledFusedCscCombined->run();
   auto gcnSingleLayerTiledFusedCSCCombinedStat =
       gcnSingleLayerTiledFusedCscCombined->printStats();

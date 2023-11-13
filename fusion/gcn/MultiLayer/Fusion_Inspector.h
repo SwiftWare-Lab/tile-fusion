@@ -475,13 +475,13 @@ class InspectorForSingleLayerTiledFusedCSCCombined
 public:
   sym_lib::MultiDimensionalSet *
   generateScheduleForSingleLayerTiledFusedCSCCombined(sym_lib::CSC *AdjMtx,
-                                                      int TileSize) {
+                                                      int TileSize, int WorkloadMinSize) {
     int numOfTiles = (int)ceil((double)AdjMtx->m / TileSize);
     std::map<std::string, std::vector<std::string>> conflictGraph =
         createTilesConflictGraph(AdjMtx, TileSize);
     std::map<std::string, int> coloring = dsaturColoring(conflictGraph);
     std::map<int, std::vector<int>> colorToTiles = getColorToTilesMap(coloring);
-    return generateScheduleBasedOnConflictGraphColoring(colorToTiles, 10,
+    return generateScheduleBasedOnConflictGraphColoring(colorToTiles, WorkloadMinSize,
                                                         TileSize, AdjMtx->m);
   }
 

@@ -337,6 +337,7 @@ public:
 class GCNSingleLayerTiledFusedCSCCombined : public GCNSingleLayerFused {
 protected:
   int TileSize;
+  int WorkloadMinSize;
   sym_lib::MultiDimensionalSet *FusedCompSet;
   InspectorForSingleLayerTiledFusedCSCCombined *Inspector;
   Timer analysis() override {
@@ -367,8 +368,8 @@ protected:
 
 public:
   GCNSingleLayerTiledFusedCSCCombined(GnnTensorInputs *In1, Stats *Stat1,
-                                      int TileSize1)
-      : GCNSingleLayerFused(In1, Stat1), TileSize(TileSize1) {
+                                      int TileSize1, int WorkloadMinSize1)
+      : GCNSingleLayerFused(In1, Stat1), TileSize(TileSize1), WorkloadMinSize(WorkloadMinSize1) {
     Inspector = new InspectorForSingleLayerTiledFusedCSCCombined();
   }
   ~GCNSingleLayerTiledFusedCSCCombined() {
