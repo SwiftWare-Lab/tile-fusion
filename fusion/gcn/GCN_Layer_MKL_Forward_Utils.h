@@ -560,9 +560,9 @@ void forwardForOneLayerFromCSCTiledParallelV2(
 void forwardForOneLayerFromCSCTiledParallelCombined(
     int M, int *Ap, int *Ai, double *Ax, int InputChannelDim,
     int OutputChannelDim, int *Degrees, double *Features, double *Weight,
-    double *Output, int MaxTileSize, int NumThreads, int WorkloadsNum,
+    double *Output, int MinTileSize, int MaxTileSize, int NumThreads, int WorkloadsNum,
     int AggregatedTilesNum, int *WorkloadPtr, int *Id, int *TilePtr) {
-  double *cache = new double[MaxTileSize * OutputChannelDim * NumThreads];
+  double *cache = new double[MinTileSize * OutputChannelDim * NumThreads];
   for (int l = 0; l < WorkloadsNum; l++) {
 #pragma omp parallel num_threads(NumThreads)
     {
@@ -571,8 +571,8 @@ void forwardForOneLayerFromCSCTiledParallelCombined(
       for (int t = WorkloadPtr[l]; t < WorkloadPtr[l + 1]; t++) {
         int id = Id[t];
         int tileSize = TilePtr[id+1]-TilePtr[id];
-        int i = id * MaxTileSize;
-        double *tcache = cache + threadId * MaxTileSize * OutputChannelDim;
+        int i = TilePtr[id];
+        double *tcache = cache + threadId * MinTileSize * OutputChannelDim;
         cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, tileSize,
                     OutputChannelDim, InputChannelDim, 1.,
                     Features + i * InputChannelDim, InputChannelDim, Weight,
@@ -588,11 +588,13 @@ void forwardForOneLayerFromCSCTiledParallelCombined(
       }
     }
   }
+  delete[] cache;
   mkl_set_num_threads(NumThreads);
+  cache = new double[MaxTileSize * OutputChannelDim];
   for(int t = WorkloadPtr[WorkloadsNum]; t < WorkloadPtr[WorkloadsNum] + AggregatedTilesNum; t++){
     int id = Id[t];
     int tileSize = TilePtr[id+1]-TilePtr[id];
-    int i = id * MaxTileSize;
+    int i = TilePtr[id];
     cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, tileSize,
                 OutputChannelDim, InputChannelDim, 1.,
                 Features + i * InputChannelDim, InputChannelDim, Weight,

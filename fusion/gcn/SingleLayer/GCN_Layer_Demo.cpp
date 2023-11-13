@@ -148,6 +148,17 @@ int main(const int argc, const char *argv[]) {
   delete stats;
   delete gcnSingleLayerFusedCscParallel;
 
+  stats = new swiftware::benchmark::Stats("GCN_SingleLayerTiledFusedCSCCombined", "GCN",
+                                          7, tp._matrix_name, numThread);
+  stats->OtherStats["PackingType"] = {Separated};
+  GCNSingleLayerTiledFusedCSCCombined *gcnSingleLayerTiledFusedCscCombined =
+      new GCNSingleLayerTiledFusedCSCCombined(inputs, stats, tileSize);
+  gcnSingleLayerTiledFusedCscCombined->run();
+  auto gcnSingleLayerTiledFusedCSCCombinedStat =
+      gcnSingleLayerTiledFusedCscCombined->printStats();
+  delete stats;
+  delete gcnSingleLayerTiledFusedCscCombined;
+
   /*
    * Method that iterates over tiles of columns of Adjacency matrix and by doing
    * corresponding GeMM to each tile, then doing SpMM for midway result,
@@ -216,6 +227,8 @@ int main(const int argc, const char *argv[]) {
   std::cout << gcnSingleLayerFusedCscParallelStat << spStat + tpStat << std::endl;
   std::cout << gcnSingleLayerTiledFusedCscStat << spStat + tpStat << std::endl;
   std::cout << gcnSingleLayerFusedParallelStat << spStat + tpStat << std::endl;
+  std::cout << gcnSingleLayerTiledFusedCSCCombinedStat << spStat + tpStat
+            << std::endl;
 #ifdef __AVX2__
 //  std::cout << gcnSingleLayerFusedCscVectorizedStat << spStat + tpStat
 //            << std::endl;

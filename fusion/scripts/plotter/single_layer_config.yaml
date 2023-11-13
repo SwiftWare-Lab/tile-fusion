@@ -1,8 +1,8 @@
 experiment_name: "gcn_single_layer"
 implementations:
-  - name: "GCN_SingleLayerFused"
-    color: "yellow"
-    tuned: False
+#  - name: "GCN_SingleLayerFused"
+#    color: "yellow"
+#    tuned: False
   - name: "GCN_SingleLayerMKL"
     color: "green"
     tuned: False
@@ -14,9 +14,9 @@ implementations:
     color: "red"
     tuned: True
     tune_parameter: "NTile"
-  - name: "GCN_SingleLayerFusedCSC"
-    color: "orange"
-    tuned: False
+#  - name: "GCN_SingleLayerFusedCSC"
+#    color: "orange"
+#    tuned: False
   - name: "GCN_SingleLayerTiledFusedCSCParallel"
     color: "purple"
     tuned: True
@@ -25,9 +25,9 @@ implementations:
     color: "brown"
     tuned: True
     tune_parameter: "NTile"
-  - name: "GCN_SingleLayerFusedParallel"
-    color: "black"
-    tuned: False
+#  - name: "GCN_SingleLayerFusedParallel"
+#    color: "black"
+#    tuned: False
 #  - name: "GCN_SingleLayerFusedCSCVectorized"
 #    color: "pink"
 #    tuned: False
@@ -39,4 +39,11 @@ feature_sizes:
   - 500
   - 1000
   - 3000
+embed_dimensions:
+  - 8
+  - 64
+  - 128
+matrices:
+  - "Cora_Ordered.mtx"
+  - "PubMed_Ordered.mtx"
 baseline: "GCN_SingleLayerMKL"
