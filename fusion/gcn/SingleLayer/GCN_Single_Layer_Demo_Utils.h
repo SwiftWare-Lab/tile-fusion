@@ -4,7 +4,7 @@
 
 #ifdef MKL
 #include "../GCN_Layer_MKL_Forward_Utils.h"
-#include "../MultiLayer/Fusion_Inspector.h"
+#include "../Inspection/Fusion_Inspector.h"
 #else
 #include "GCN_Layer_Forward_Utils.h"
 #endif
@@ -96,8 +96,8 @@ protected:
     t.start();
     forwardForOneLayerWithGeMMAndSpMM(
         InTensor->NumOfNodes, MKLAdj, InTensor->FeatureMatrix->a,
-        InTensor->FeatureMatrix->col, InTensor->Weight1->a, InTensor->Weight1->col,
-        OutTensor->FirstLayerOutput);
+        InTensor->FeatureMatrix->col, InTensor->Weight1->a,
+        InTensor->Weight1->col, OutTensor->FirstLayerOutput);
     t.stop();
     mkl_free(MKLAdj);
     return t;
@@ -120,7 +120,8 @@ protected:
         InTensor->NumOfNodes, InTensor->AdjacencyMatrixCSC->p,
         InTensor->AdjacencyMatrixCSC->i, InTensor->AdjacencyMatrixCSC->x,
         InTensor->FeatureMatrix->a, InTensor->FeatureMatrix->col,
-        InTensor->Weight1->a, InTensor->Weight1->col, OutTensor->FirstLayerOutput);
+        InTensor->Weight1->a, InTensor->Weight1->col,
+        OutTensor->FirstLayerOutput);
     t.stop();
     return t;
   }
@@ -318,12 +319,13 @@ protected:
   int TileSize;
   sym_lib::MultiDimensionalSet *FusedCompSet;
   InspectorForSingleLayerTiledFusedCSCParallel *Inspector;
+  std::map<int, std::vector<int>> ConflictGraphColoring;
   Timer analysis() override {
     Timer t;
     t.start();
     FusedCompSet =
         Inspector->generateFusedScheduleForSingleLayerTiledFusedCSCParallel(
-            InTensor->AdjacencyMatrixCSC, TileSize);
+            ConflictGraphColoring, InTensor->NumOfNodes, TileSize);
     t.stop();
     return t;
   }
@@ -346,8 +348,8 @@ protected:
 
 public:
   GCNSingleLayerTiledFusedCSCParallel(GnnTensorInputs *In1, Stats *Stat1,
-                                      int TileSize1)
-      : GCNSingleLayerFused(In1, Stat1), TileSize(TileSize1) {
+                                      int TileSize1, std::map<int, std::vector<int>>  ConflictGraphColoring1)
+      : GCNSingleLayerFused(In1, Stat1), TileSize(TileSize1), ConflictGraphColoring(ConflictGraphColoring1) {
     Inspector = new InspectorForSingleLayerTiledFusedCSCParallel();
   }
   ~GCNSingleLayerTiledFusedCSCParallel() {
@@ -360,14 +362,15 @@ class GCNSingleLayerTiledFusedCSCCombined : public GCNSingleLayerFused {
 protected:
   int TileSize;
   int WorkloadMinSize;
+  std::map<int, std::vector<int>> ConflictGraphColoring;
+
   sym_lib::MultiDimensionalSet *FusedCompSet;
   InspectorForSingleLayerTiledFusedCSCCombined *Inspector;
   Timer analysis() override {
     Timer t;
     t.start();
-    FusedCompSet =
-        Inspector->generateScheduleForSingleLayerTiledFusedCSCCombined(
-            InTensor->AdjacencyMatrixCSC, TileSize,WorkloadMinSize);
+    FusedCompSet = Inspector->generateScheduleBasedOnConflictGraphColoring(
+        ConflictGraphColoring, InTensor->NumOfNodes, TileSize, WorkloadMinSize);
     t.stop();
     return t;
   }
@@ -380,7 +383,7 @@ protected:
         InTensor->AdjacencyMatrixCSC->m, InTensor->AdjacencyMatrixCSC->p,
         InTensor->AdjacencyMatrixCSC->i, InTensor->AdjacencyMatrixCSC->x,
         InTensor->FeatureMatrix->col, InTensor->Weight1->col, InTensor->Degrees,
-        InTensor->FeatureMatrix->a, InTensor->Weight1->a  ,
+        InTensor->FeatureMatrix->a, InTensor->Weight1->a,
         OutTensor->FirstLayerOutput, TileSize, FusedCompSet->n3_,
         InTensor->NumThreads, FusedCompSet->n1_, FusedCompSet->n2_,
         FusedCompSet->ptr1_, FusedCompSet->id_, FusedCompSet->type_);
@@ -390,8 +393,8 @@ protected:
 
 public:
   GCNSingleLayerTiledFusedCSCCombined(GnnTensorInputs *In1, Stats *Stat1,
-                                      int TileSize1, int WorkloadMinSize1)
-      : GCNSingleLayerFused(In1, Stat1), TileSize(TileSize1),
+                                      int TileSize1, int WorkloadMinSize1, std::map<int, std::vector<int>>  ConflictGraphColoring1)
+      : GCNSingleLayerFused(In1, Stat1), TileSize(TileSize1), ConflictGraphColoring(ConflictGraphColoring1),
         WorkloadMinSize(WorkloadMinSize1) {
     Inspector = new InspectorForSingleLayerTiledFusedCSCCombined();
   }

@@ -6,7 +6,7 @@
 #else
 #include "../GCN_Layer_Forward_Utils.h"
 #endif
-#include "Fusion_Inspector.h"
+#include "../Inspection/Fusion_Inspector.h"
 #include "SWTensorBench.h"
 #include "aggregation/def.h"
 #include "aggregation/sparse_utilities.h"
@@ -178,6 +178,7 @@ protected:
     this->St->OtherStats["Number of First Layer Nodes"] = {
         double(InTensor->LayerMasks[0].size())};
     this->St->OtherStats["Number of Fused Nodes"] = {0.};
+    this->St->OtherStats["Min Workload Size"] = {10.};
   }
 
   bool verify(double &Error) override {
