@@ -58,12 +58,61 @@ def print_fusion_ratios(log_folder, log_file_name):
                 print(x, fused_x.iloc[i]['Number of Fused Nodes0'] / fused_x.iloc[i]['Number of Sampled Nodes0'])
 
 
+def plot_based_on_tile_size(log_folder, log_file_name, config):
+    log_file = os.path.join(log_folder, log_file_name)
+    df_fusion = pd.read_csv(log_file)
+    bcols = config['feature_sizes']
+    tuned_implementations = [impl['name'] for impl in config['implementations'] if impl['tuned']]
+    tuned_implementations_base_param = {impl['name']: impl['tune_parameter'] for impl in config['implementations'] if
+                                        impl['tuned']}
+    # sort df_fusion based on 'NNZ'
+    df_fusion = df_fusion.sort_values(by=['NNZ'])
+    # mat_list = df_fusion['MatrixName'].unique()
+    mat_list = config['matrices']
+    edims = config['embed_dimensions']
+    impls = list(map(lambda i: i['name'], config['implementations']))
+    tile_sizes = np.sort(df_fusion['NTile'].unique())
+    plt_x = np.arange(len(tile_sizes))
+    for bcol in bcols:
+        for edim in edims:
+            df_fusion_bcol = df_fusion[df_fusion['bCols'] == bcol]
+            df_fusion_bcol_edim = df_fusion_bcol[df_fusion_bcol['EmbedDim'] == edim]
+            for mat in mat_list:
+                times = {}
+                cur_mat = df_fusion_bcol_edim[df_fusion_bcol_edim['MatrixName'] == mat]
+                for ts in tile_sizes:
+                    cur_mat_ts = cur_mat[cur_mat['NTile'] == ts]
+                    for x in impls:
+                        try:
+                            if x in times:
+                                times[x].append(take_median(cur_mat_ts[cur_mat_ts['Implementation Name'] == x]))
+                            else:
+                                times[x] = [take_median(cur_mat_ts[cur_mat_ts['Implementation Name'] == x])]
+                        except IndexError as e:
+                            print("Error for Implementation: ", x)
+                fig, ax = plt.subplots(figsize=(15, 8))
+                ax.set_xlabel('tile_size', fontweight='bold', fontsize=15)
+                for x in impls:
+                    ax.scatter(plt_x, times[x], label=x)
+                    ax.plot(plt_x, times[x])
+                plt.xticks(plt_x, tile_sizes)
+                plot_folder = os.path.join(log_folder, mat[:-4])
+                if not os.path.exists(plot_folder):
+                    os.makedirs(plot_folder)
+                plot_path = os.path.join(plot_folder,
+                                         ''.join(log_file_name.split('.')[:-1]) + '_' + str(bcol) + '_' + str(
+                                             edim) + '.pdf')
+                ax.legend()
+                fig.savefig(plot_path)
+
+
 def plot_gcn(log_folder, log_file_name, config):
     log_file = os.path.join(log_folder, log_file_name)
     df_fusion = pd.read_csv(log_file)
     bcols = config['feature_sizes']
     tuned_implementations = [impl['name'] for impl in config['implementations'] if impl['tuned']]
-    tuned_implementations_base_param = {impl['name']: impl['tune_parameter'] for impl in config['implementations'] if impl['tuned']}
+    tuned_implementations_base_param = {impl['name']: impl['tune_parameter'] for impl in config['implementations'] if
+                                        impl['tuned']}
     # sort df_fusion based on 'NNZ'
     df_fusion = df_fusion.sort_values(by=['NNZ'])
     # mat_list = df_fusion['MatrixName'].unique()
@@ -96,7 +145,7 @@ def plot_gcn(log_folder, log_file_name, config):
                 min_fused = np.array(seperated_list[0])
                 for x in seperated_list:
                     min_fused = np.minimum(min_fused, np.array(x))
-                print(bcol, edim ,impl, ": ", min_fused)
+                print(bcol, edim, impl, ": ", min_fused)
                 times[impl] = min_fused
             speedups = {}
             for impl in impls:
@@ -131,6 +180,7 @@ def plot_gcn_from_logs_folder(logs_folder, config_file):
             if entry.name.endswith(".csv") and entry.is_file():
                 plot_gcn(logs_folder, entry.name, config)
                 # print_fusion_ratios(logs_folder, entry.name)
+                # plot_based_on_tile_size(logs_folder, entry.name, config)
 
 
 plot_gcn_from_logs_folder(sys.argv[1], sys.argv[2])
