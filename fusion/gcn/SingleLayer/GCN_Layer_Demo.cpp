@@ -16,7 +16,7 @@ int main(const int argc, const char *argv[]) {
   Stats *stats;
   parse_args(argc, argv, &sp, &tp);
   CSC *aCSC = get_matrix_from_parameter(&tp);
-  Dense *features = get_feature_matrix_from_parameter(&tp, aCSC->m);
+  Dense *features = get_dense_matrix_from_parameter(&tp, aCSC->m, tp._b_cols, tp._feature_matrix_path);
   CSC *aCSCFull = nullptr;
   if (aCSC->stype == -1 || aCSC->stype == 1) {
     aCSCFull = sym_lib::make_full(aCSC);
@@ -34,8 +34,8 @@ int main(const int argc, const char *argv[]) {
   int numClasses = 3;
   int numThread = sp._num_threads;
   int tileSize = sp.TileN;
-  double *layer1Weight = generateRandomDenseMatrix(features->col, embedDim);
-  double *layer2Weight = generateRandomDenseMatrix(embedDim, numClasses);
+  Dense *layer1Weight = get_dense_matrix_from_parameter(&tp, tp._b_cols, tp._embed_dim, tp._weight1_matrix_path);
+  Dense *layer2Weight = get_dense_matrix_from_parameter(&tp, tp._embed_dim, tp._embed_dim, tp._weight2_matrix_path);
 
   int numOfSamples = std::ceil(tp._sampling_ratio * tp._dim1);
   GnnTensorInputs *inputs = new GnnTensorInputs(
@@ -53,10 +53,10 @@ int main(const int argc, const char *argv[]) {
       new GCNSingleLayerFused(inputs, stats);
   gcnSingleLayerFused->run();
   inputs->CorrectSol =
-      new double[inputs->AdjacencyMatrix->m * inputs->EmbedDim];
+      new double[inputs->AdjacencyMatrix->m * inputs->Weight1->col];
   std::copy(gcnSingleLayerFused->OutTensor->FirstLayerOutput,
             gcnSingleLayerFused->OutTensor->FirstLayerOutput +
-                inputs->AdjacencyMatrix->m * inputs->EmbedDim,
+                inputs->AdjacencyMatrix->m * inputs->Weight1->col,
             inputs->CorrectSol);
   auto headerStat = gcnSingleLayerFused->printStatsHeader();
   auto gcnSequentialFusedLayerStat = gcnSingleLayerFused->printStats();
@@ -116,6 +116,18 @@ int main(const int argc, const char *argv[]) {
   delete stats;
   delete gcnSingleLayerMkl;
 
+
+  stats = new swiftware::benchmark::Stats("GCN_SingleLayerUnfusedCSC", "GCN", 7,
+                                          tp._matrix_name, numThread);
+  stats->OtherStats["PackingType"] = {Separated};
+  GCNSingleLayerUnfusedCSC *gcnSingleLayerUnfusedCsc =
+      new GCNSingleLayerUnfusedCSC(inputs, stats);
+  gcnSingleLayerUnfusedCsc->run();
+  auto gcnSingleLayerUnfusedCscStat = gcnSingleLayerUnfusedCsc->printStats();
+  delete stats;
+  delete gcnSingleLayerUnfusedCsc;
+
+
   /*
    * Method that iterates over columns of Adjacency matrix and by doing the
    * corresponding GeMV to each nonzero, calculates the partial products of that
@@ -152,7 +164,7 @@ int main(const int argc, const char *argv[]) {
                                           7, tp._matrix_name, numThread);
   stats->OtherStats["PackingType"] = {Separated};
   GCNSingleLayerTiledFusedCSCCombined *gcnSingleLayerTiledFusedCscCombined =
-      new GCNSingleLayerTiledFusedCSCCombined(inputs, stats, tileSize, 15);
+      new GCNSingleLayerTiledFusedCSCCombined(inputs, stats, tileSize, sp._min_workload_size);
   gcnSingleLayerTiledFusedCscCombined->run();
   auto gcnSingleLayerTiledFusedCSCCombinedStat =
       gcnSingleLayerTiledFusedCscCombined->printStats();
@@ -220,6 +232,7 @@ int main(const int argc, const char *argv[]) {
     std::cout << headerStat + spHeader + tpHeader << std::endl;
   std::cout << gcnSequentialFusedLayerStat << spStat + tpStat << std::endl;
   std::cout << gcnOneLayerMKLStat << spStat + tpStat << std::endl;
+  std::cout << gcnSingleLayerUnfusedCscStat << spStat + tpStat << std::endl;
   std::cout << gcnTiledFusedSingleLayerStat << spStat + tpStat << std::endl;
   std::cout << gcnSingleLayerTiledFusedParallelStat << spStat + tpStat
             << std::endl;

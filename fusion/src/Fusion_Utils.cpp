@@ -40,6 +40,15 @@ argparse::ArgumentParser* addArguments() {
   program->add_argument("-fm", "--feature-matrix-path")
       .help("Specify feature matrix when applicable.");
 
+  program->add_argument("-rm", "--result-matrix-path")
+      .help("Specify result matrix when Applicable");
+
+  program->add_argument("-w1", "--weight1-matrix-path")
+      .help("Specify weight matrix for layer 1 when applicable");
+
+  program->add_argument("-w2", "--weight2-matrix-path")
+      .help("Specify weight matrix for layer 1 when applicable");
+
   program->add_argument("-ah", "--add-header")
       .default_value(false)
       .implicit_value(true)
@@ -70,6 +79,10 @@ argparse::ArgumentParser* addArguments() {
   program->add_argument("-ed", "--embed-dim")
       .default_value(10)
       .help("Specify the embedding dimensions.")
+      .scan<'i', int>();
+  program->add_argument("-mw", "--min-workload-size")
+      .default_value(10)
+      .help("Specify the minimum workload size to run in parallel in GCNLayerTiledFusedCSCCombined")
       .scan<'i', int>();
 
   return program;
@@ -105,10 +118,28 @@ void parse_args(const int Argc, const char **Argv, ScheduleParameters *Sp,
   useLevelCoarsening = 4;
   Sp->_lbc_agg = 4;
   if (auto featMtxPath = program->present("-fm")) {
-    Tp->_feature_mode = "MTX";
+    Tp->_gnn_parameters_mode = "MTX";
     Tp->_feature_matrix_path = featMtxPath.value();
   } else {
-    Tp->_feature_mode = "Random";
+    Tp->_gnn_parameters_mode = "Random";
+  }
+  if (auto weightMtxPath = program->present("-w1")) {
+    Tp->_gnn_parameters_mode = "MTX";
+    Tp->_weight1_matrix_path = weightMtxPath.value();
+  } else {
+    Tp->_gnn_parameters_mode = "Random";
+  }
+  if (auto weightMtxPath = program->present("-w2")) {
+    Tp->_gnn_parameters_mode = "MTX";
+    Tp->_weight2_matrix_path = weightMtxPath.value();
+  } else {
+    Tp->_gnn_parameters_mode = "Random";
+  }
+  if (auto resultMtxPath = program->present("-rm")) {
+    Tp->_gnn_parameters_mode = "MTX";
+    Tp->_weight2_matrix_path = resultMtxPath.value();
+  } else {
+    Tp->_gnn_parameters_mode = "Random";
   }
   Tp->_sampling_ratio = program->get<float>("-sr");
   Tp->expariment_name = program->get("-en");
@@ -119,6 +150,7 @@ void parse_args(const int Argc, const char **Argv, ScheduleParameters *Sp,
 
   Tp->_b_cols = program->get<int>("-bc");
   Tp->_embed_dim = program->get<int>("-ed");
+  Sp->_min_workload_size = program->get<int>("-mw");
   if (auto iterPerPart = program->present<int>("-ip"))
     Sp->IterPerPartition = iterPerPart.value();
   if (auto tileN = program->present<int>("-tn"))
@@ -221,16 +253,15 @@ CSC *get_matrix_from_parameter(const TestParameters *TP) {
   return aCSC;
 }
 
-Dense *get_feature_matrix_from_parameter(const TestParameters *Tp,
-                                         int NumOfNodes) {
+Dense *get_dense_matrix_from_parameter(const TestParameters *Tp, int Rows, int Cols, std::string MtxPath) {
   Dense *featureMatrix = NULLPNTR;
-  if (Tp->_feature_mode == "Random") {
-    featureMatrix = random_dense_matrix(NumOfNodes, Tp->_b_cols);
+  if (Tp->_gnn_parameters_mode == "Random") {
+    featureMatrix = random_dense_matrix(Rows, Cols);
   } else {
     //  std::string fileExt = Tp->_feature_matrix_path.substr(
     //      Tp->_matrix_path.find_last_of(".") + 1);
     //  if (fileExt == "mtx") {
-    std::ifstream fin(Tp->_feature_matrix_path);
+    std::ifstream fin(MtxPath);
     sym_lib::read_mtx_array_real(fin, featureMatrix);
     //  } else{
     //   std::cout << "File extension is not supported" << std::endl;

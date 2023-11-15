@@ -24,7 +24,7 @@ protected:
     if (In->CorrectSol == nullptr)
       return true;
     double infNorm = 0;
-    for (int i = 0; i < InTensor->NumOfNodes * InTensor->EmbedDim; ++i) {
+    for (int i = 0; i < InTensor->NumOfNodes * InTensor->Weight1->col; ++i) {
       if (std::abs(OutTensor->FirstLayerOutput[i] - In->CorrectSol[i]) >
           infNorm) {
         infNorm = std::abs(OutTensor->FirstLayerOutput[i] - In->CorrectSol[i]);
@@ -45,8 +45,8 @@ protected:
     forwardForOneLayer(
         InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->p,
         InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x,
-        InTensor->FeatureMatrix->col, InTensor->EmbedDim, InTensor->Degrees,
-        InTensor->FeatureMatrix->a, InTensor->Weight1,
+        InTensor->FeatureMatrix->col, InTensor->Weight1->col, InTensor->Degrees,
+        InTensor->FeatureMatrix->a, InTensor->Weight1->a,
         OutTensor->FirstLayerOutput);
     t.stop();
     return t;
@@ -67,8 +67,8 @@ protected:
     forwardForOneLayerParallel(
         InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->p,
         InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x,
-        InTensor->FeatureMatrix->col, InTensor->EmbedDim, InTensor->Degrees,
-        InTensor->FeatureMatrix->a, InTensor->Weight1,
+        InTensor->FeatureMatrix->col, InTensor->Weight1->col, InTensor->Degrees,
+        InTensor->FeatureMatrix->a, InTensor->Weight1->a,
         OutTensor->FirstLayerOutput, InTensor->NumThreads);
     t.stop();
     return t;
@@ -96,7 +96,7 @@ protected:
     t.start();
     forwardForOneLayerWithGeMMAndSpMM(
         InTensor->NumOfNodes, MKLAdj, InTensor->FeatureMatrix->a,
-        InTensor->FeatureMatrix->col, InTensor->Weight1, InTensor->EmbedDim,
+        InTensor->FeatureMatrix->col, InTensor->Weight1->a, InTensor->Weight1->col,
         OutTensor->FirstLayerOutput);
     t.stop();
     mkl_free(MKLAdj);
@@ -105,6 +105,28 @@ protected:
 
 public:
   GCNSingleLayerMKL(GnnTensorInputs *In1, Stats *Stat1)
+      : GCNSingleLayerFused(In1, Stat1) {}
+};
+
+class GCNSingleLayerUnfusedCSC : public GCNSingleLayerFused {
+
+protected:
+  Timer execute() override {
+    OutTensor->reset();
+    mkl_set_num_threads(InTensor->NumThreads);
+    Timer t;
+    t.start();
+    forwardForOneLayerUnfusedCSC(
+        InTensor->NumOfNodes, InTensor->AdjacencyMatrixCSC->p,
+        InTensor->AdjacencyMatrixCSC->i, InTensor->AdjacencyMatrixCSC->x,
+        InTensor->FeatureMatrix->a, InTensor->FeatureMatrix->col,
+        InTensor->Weight1->a, InTensor->Weight1->col, OutTensor->FirstLayerOutput);
+    t.stop();
+    return t;
+  }
+
+public:
+  GCNSingleLayerUnfusedCSC(GnnTensorInputs *In1, Stats *Stat1)
       : GCNSingleLayerFused(In1, Stat1) {}
 };
 
@@ -131,8 +153,8 @@ protected:
     forwardForOneLayerTiled(
         InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->p,
         InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x,
-        InTensor->FeatureMatrix->col, InTensor->EmbedDim, InTensor->Degrees,
-        InTensor->FeatureMatrix->a, InTensor->Weight1,
+        InTensor->FeatureMatrix->col, InTensor->Weight1->col, InTensor->Degrees,
+        InTensor->FeatureMatrix->a, InTensor->Weight1->a,
         OutTensor->FirstLayerOutput, TileSize, Sp->GeMMLowerBounds,
         Sp->GeMMUpperBounds, Sp->MaxGeMMTileSize);
     t.stop();
@@ -173,8 +195,8 @@ protected:
     forwardForOneLayerTiledParallel(
         InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->p,
         InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x,
-        InTensor->FeatureMatrix->col, InTensor->EmbedDim, InTensor->Degrees,
-        InTensor->FeatureMatrix->a, InTensor->Weight1,
+        InTensor->FeatureMatrix->col, InTensor->Weight1->col, InTensor->Degrees,
+        InTensor->FeatureMatrix->a, InTensor->Weight1->a,
         OutTensor->FirstLayerOutput, TileSize, InTensor->NumThreads,
         Sp->GeMMLowerBounds, Sp->GeMMUpperBounds, Sp->MaxGeMMTileSize);
     t.stop();
@@ -205,8 +227,8 @@ protected:
     forwardForOneLayerFromCSCTiled(
         InTensor->AdjacencyMatrixCSC->m, InTensor->AdjacencyMatrixCSC->p,
         InTensor->AdjacencyMatrixCSC->i, InTensor->AdjacencyMatrixCSC->x,
-        InTensor->FeatureMatrix->col, InTensor->EmbedDim, InTensor->Degrees,
-        InTensor->FeatureMatrix->a, InTensor->Weight1,
+        InTensor->FeatureMatrix->col, InTensor->Weight1->col, InTensor->Degrees,
+        InTensor->FeatureMatrix->a, InTensor->Weight1->a,
         OutTensor->FirstLayerOutput, TileSize);
     t.stop();
     return t;
@@ -227,8 +249,8 @@ protected:
     forwardForOneLayerFromCSC(
         InTensor->AdjacencyMatrixCSC->m, InTensor->AdjacencyMatrixCSC->p,
         InTensor->AdjacencyMatrixCSC->i, InTensor->AdjacencyMatrixCSC->x,
-        InTensor->FeatureMatrix->col, InTensor->EmbedDim, InTensor->Degrees,
-        InTensor->FeatureMatrix->a, InTensor->Weight1,
+        InTensor->FeatureMatrix->col, InTensor->Weight1->col, InTensor->Degrees,
+        InTensor->FeatureMatrix->a, InTensor->Weight1->a,
         OutTensor->FirstLayerOutput);
     t.stop();
     return t;
@@ -251,8 +273,8 @@ protected:
     forwardForOneLayerFromCSCVectorized(
         InTensor->AdjacencyMatrixCSC->m, InTensor->AdjacencyMatrixCSC->p,
         InTensor->AdjacencyMatrixCSC->i, InTensor->AdjacencyMatrixCSC->x,
-        InTensor->FeatureMatrix->col, InTensor->EmbedDim, InTensor->Degrees,
-        InTensor->FeatureMatrix->a, InTensor->Weight1,
+        InTensor->FeatureMatrix->col, InTensor->Weight1->col, InTensor->Degrees,
+        InTensor->FeatureMatrix->a, InTensor->Weight1->a,
         OutTensor->FirstLayerOutput, InTensor->NumThreads);
 
     t.stop();
@@ -276,8 +298,8 @@ protected:
     forwardForOneLayerFromCSCTiledVectorized(
         InTensor->AdjacencyMatrixCSC->m, InTensor->AdjacencyMatrixCSC->p,
         InTensor->AdjacencyMatrixCSC->i, InTensor->AdjacencyMatrixCSC->x,
-        InTensor->FeatureMatrix->col, InTensor->EmbedDim, InTensor->Degrees,
-        InTensor->FeatureMatrix->a, InTensor->Weight1,
+        InTensor->FeatureMatrix->col, InTensor->Weight1->col, InTensor->Degrees,
+        InTensor->FeatureMatrix->a, InTensor->Weight1->a,
         OutTensor->FirstLayerOutput, TileSize);
     t.stop();
     return t;
@@ -313,8 +335,8 @@ protected:
     forwardForOneLayerFromCSCTiledParallelV2(
         InTensor->AdjacencyMatrixCSC->m, InTensor->AdjacencyMatrixCSC->p,
         InTensor->AdjacencyMatrixCSC->i, InTensor->AdjacencyMatrixCSC->x,
-        InTensor->FeatureMatrix->col, InTensor->EmbedDim, InTensor->Degrees,
-        InTensor->FeatureMatrix->a, InTensor->Weight1,
+        InTensor->FeatureMatrix->col, InTensor->Weight1->col, InTensor->Degrees,
+        InTensor->FeatureMatrix->a, InTensor->Weight1->a,
         OutTensor->FirstLayerOutput, TileSize, InTensor->NumThreads,
         FusedCompSet->n1_, FusedCompSet->ptr1_, FusedCompSet->id_,
         FusedCompSet->type_);
@@ -345,7 +367,7 @@ protected:
     t.start();
     FusedCompSet =
         Inspector->generateScheduleForSingleLayerTiledFusedCSCCombined(
-            InTensor->AdjacencyMatrixCSC, TileSize);
+            InTensor->AdjacencyMatrixCSC, TileSize,WorkloadMinSize);
     t.stop();
     return t;
   }
@@ -357,11 +379,11 @@ protected:
     forwardForOneLayerFromCSCTiledParallelCombined(
         InTensor->AdjacencyMatrixCSC->m, InTensor->AdjacencyMatrixCSC->p,
         InTensor->AdjacencyMatrixCSC->i, InTensor->AdjacencyMatrixCSC->x,
-        InTensor->FeatureMatrix->col, InTensor->EmbedDim, InTensor->Degrees,
-        InTensor->FeatureMatrix->a, InTensor->Weight1,
-        OutTensor->FirstLayerOutput, TileSize, FusedCompSet->n3_, InTensor->NumThreads,
-        FusedCompSet->n1_, FusedCompSet->n2_, FusedCompSet->ptr1_, FusedCompSet->id_,
-        FusedCompSet->type_);
+        InTensor->FeatureMatrix->col, InTensor->Weight1->col, InTensor->Degrees,
+        InTensor->FeatureMatrix->a, InTensor->Weight1->a  ,
+        OutTensor->FirstLayerOutput, TileSize, FusedCompSet->n3_,
+        InTensor->NumThreads, FusedCompSet->n1_, FusedCompSet->n2_,
+        FusedCompSet->ptr1_, FusedCompSet->id_, FusedCompSet->type_);
     t.stop();
     return t;
   }
@@ -369,7 +391,8 @@ protected:
 public:
   GCNSingleLayerTiledFusedCSCCombined(GnnTensorInputs *In1, Stats *Stat1,
                                       int TileSize1, int WorkloadMinSize1)
-      : GCNSingleLayerFused(In1, Stat1), TileSize(TileSize1), WorkloadMinSize(WorkloadMinSize1) {
+      : GCNSingleLayerFused(In1, Stat1), TileSize(TileSize1),
+        WorkloadMinSize(WorkloadMinSize1) {
     Inspector = new InspectorForSingleLayerTiledFusedCSCCombined();
   }
   ~GCNSingleLayerTiledFusedCSCCombined() {

@@ -274,6 +274,25 @@ void forwardForOneLayerWithGeMMAndSpMM(int NumOfNodes,
   delete[] temp;
 }
 
+void forwardForOneLayerUnfusedCSC(int NumOfNodes,
+                                  int *Ap, int *Ai, double *Ax,
+                                  double *Features, int FeatDim,
+                                  double *Weight, int OutDim,
+                                  double *Output){
+  double *temp = new double[NumOfNodes * OutDim]{};
+  cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, NumOfNodes, OutDim,
+              FeatDim, 1., Features, FeatDim, Weight, OutDim, 0., temp, OutDim);
+  for (int i = 0; i < NumOfNodes; i++) {
+    for (int j = Ap[i]; j < Ap[i + 1]; j++) {
+      int n = Ai[j];
+      for (int k = 0; k < OutDim; k++) {
+        Output[n * OutDim + k] += Ax[j] * temp[i * OutDim + k];
+      }
+    }
+  }
+  delete[] temp;
+}
+
 void forwardForOneLayerFromCSC(int M, int *Ap, int *Ai, double *Ax,
                                int InputChannelDim, int OutputChannelDim,
                                int *Degrees, double *Features, double *Weight,

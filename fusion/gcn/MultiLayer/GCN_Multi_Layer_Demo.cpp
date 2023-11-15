@@ -19,7 +19,7 @@ int main(const int argc, const char *argv[]) {
   Stats *stats;
   parse_args(argc, argv, &sp, &tp);
   CSC *aCSC = get_matrix_from_parameter(&tp);
-  Dense *features = get_feature_matrix_from_parameter(&tp, aCSC->m);
+  Dense *features = get_dense_matrix_from_parameter(&tp, aCSC->m, tp._b_cols, tp._feature_matrix_path);
   CSC *aCSCFull = nullptr;
   if (aCSC->stype == -1 || aCSC->stype == 1) {
     aCSCFull = sym_lib::make_full(aCSC);
@@ -36,8 +36,8 @@ int main(const int argc, const char *argv[]) {
   int hiddenDim = tp._embed_dim;
   int numThread = sp._num_threads;
   int tileSize = sp.TileN;
-  double *layer1Weight = generateRandomDenseMatrix(features->col, hiddenDim);
-  double *layer2Weight = generateRandomDenseMatrix(hiddenDim, hiddenDim);
+  Dense *layer1Weight = get_dense_matrix_from_parameter(&tp, tp._b_cols, tp._embed_dim, tp._feature_matrix_path);
+  Dense *layer2Weight = get_dense_matrix_from_parameter(&tp, tp._embed_dim, tp._embed_dim, tp._feature_matrix_path);
 
   int numOfSamples = std::ceil(tp._sampling_ratio * tp._dim1);
   GnnTensorInputs *inputs = new GnnTensorInputs(
@@ -55,10 +55,10 @@ int main(const int argc, const char *argv[]) {
   GCNIntraFusedSequential *gcnGnn = new GCNIntraFusedSequential(inputs, stats);
   gcnGnn->run();
   inputs->CorrectSol =
-      new double[inputs->AdjacencyMatrix->m * inputs->EmbedDim];
+      new double[inputs->AdjacencyMatrix->m * inputs->Weight2->row];
   std::copy(gcnGnn->OutTensor->SecondLayerOutput,
             gcnGnn->OutTensor->SecondLayerOutput +
-                inputs->AdjacencyMatrix->m * inputs->EmbedDim,
+                inputs->AdjacencyMatrix->m * inputs->Weight2->row,
             inputs->CorrectSol);
   auto headerStat = gcnGnn->printStatsHeader();
   auto gcnStat = gcnGnn->printStats();

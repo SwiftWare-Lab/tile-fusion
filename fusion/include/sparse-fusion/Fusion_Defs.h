@@ -20,7 +20,9 @@ std::string get_ordering_string(SYM_ORDERING symOrdering);
  */
 struct ScheduleParameters {
   int _lbc_agg, _lbc_initial_cut, _num_w_partition,
-      IterPerPartition; // aggregation params
+      IterPerPartition;   // aggregation params
+  int _min_workload_size; // min workload size to run in parallel for
+                          // tiledFusedCSCCombined
   int _num_threads;
   int TileM{}, TileN{}, TileK{};
   SeedPartType SeedPartitioningParallelism{};
@@ -44,15 +46,18 @@ struct ScheduleParameters {
  */
 struct TestParameters {
   SYM_ORDERING _order_method; // type of reordering
-  std::string _matrix_name{}, _matrix_path{}, _feature_matrix_path{};
+  std::string _matrix_name{}, _matrix_path{}, _feature_matrix_path{},
+      _weight1_matrix_path{}, _weight2_matrix_path{}, _result_matrix_path{};
   float _sampling_ratio{};
   std::string expariment_name{};
-  std::string _mode{};         //"Random" or "MTX"
-  std::string _feature_mode{}; // "Random" or "MTX"
+  std::string _mode{};                //"Random" or "MTX"
+  std::string _gnn_parameters_mode{}; // "Random" or "MTX": defines whether read
+                                      // gnn parameter matrices(features,
+                                      // weights) from file or generate randomly.
   std::string _algorithm_choice{};
   double _density{}, _dim1{}, _dim2{}, _nnz{}; // for random mode
   bool print_header{};
-  int _b_cols{}; // in gnn experiments bcols is regarded as feature dimension
+  int _b_cols{};    // in gnn experiments bcols is regarded as feature dimension
   int _embed_dim{}; // embed_dim only is used in gnn experiments and is regarded
                     // as hidden dimension
   TestParameters() { _mode = "Random"; }
