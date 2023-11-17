@@ -347,12 +347,63 @@ protected:
   }
 
 public:
-  GCNSingleLayerTiledFusedCSCParallel(GnnTensorInputs *In1, Stats *Stat1,
-                                      int TileSize1, std::map<int, std::vector<int>>  ConflictGraphColoring1)
-      : GCNSingleLayerFused(In1, Stat1), TileSize(TileSize1), ConflictGraphColoring(ConflictGraphColoring1) {
+  GCNSingleLayerTiledFusedCSCParallel(
+      GnnTensorInputs *In1, Stats *Stat1, int TileSize1,
+      std::map<int, std::vector<int>> ConflictGraphColoring1)
+      : GCNSingleLayerFused(In1, Stat1), TileSize(TileSize1),
+        ConflictGraphColoring(ConflictGraphColoring1) {
     Inspector = new InspectorForSingleLayerTiledFusedCSCParallel();
   }
   ~GCNSingleLayerTiledFusedCSCParallel() {
+    delete FusedCompSet;
+    delete Inspector;
+  }
+};
+
+class GCNSingleLayerTiledFusedCSCParallelWithKTiling
+    : public GCNSingleLayerFused {
+protected:
+  int TileSize;
+  sym_lib::MultiDimensionalSet *FusedCompSet;
+  InspectorForSingleLayerTiledFusedCSCParallelWithKTiling *Inspector;
+  std::map<int, std::vector<int>> ConflictGraphColoring;
+  int KTileSize;
+
+  Timer analysis() override {
+    Timer t;
+    t.start();
+    FusedCompSet = Inspector->generateScheduleBasedOnConflictGraphColoring(
+        ConflictGraphColoring, InTensor->NumOfNodes, TileSize,
+        InTensor->Weight1->col, 4);
+    t.stop();
+    return t;
+  }
+  Timer execute() override {
+    OutTensor->reset();
+    mkl_set_num_threads(1);
+    Timer t;
+    t.start();
+    forwardForOneLayerFromCSCTiledParallelWithKTiling(
+        InTensor->AdjacencyMatrixCSC->m, InTensor->AdjacencyMatrixCSC->p,
+        InTensor->AdjacencyMatrixCSC->i, InTensor->AdjacencyMatrixCSC->x,
+        InTensor->FeatureMatrix->col, InTensor->Weight1->col, InTensor->Degrees,
+        InTensor->FeatureMatrix->a, InTensor->Weight1->a,
+        OutTensor->FirstLayerOutput, TileSize, InTensor->NumThreads,
+        FusedCompSet->n1_, FusedCompSet->ptr1_, FusedCompSet->id_,
+        FusedCompSet->type_, FusedCompSet->ptr2_, 4);
+    t.stop();
+    return t;
+  }
+
+public:
+  GCNSingleLayerTiledFusedCSCParallelWithKTiling(
+      GnnTensorInputs *In1, Stats *Stat1, int TileSize1,
+      std::map<int, std::vector<int>> ConflictGraphColoring1, int KTileSize1)
+      : GCNSingleLayerFused(In1, Stat1), TileSize(TileSize1),
+        ConflictGraphColoring(ConflictGraphColoring1), KTileSize(KTileSize1) {
+    Inspector = new InspectorForSingleLayerTiledFusedCSCParallelWithKTiling();
+  }
+  ~GCNSingleLayerTiledFusedCSCParallelWithKTiling() {
     delete FusedCompSet;
     delete Inspector;
   }
@@ -369,8 +420,10 @@ protected:
   Timer analysis() override {
     Timer t;
     t.start();
-    FusedCompSet = Inspector->generateScheduleBasedOnConflictGraphColoring(
-        ConflictGraphColoring, InTensor->NumOfNodes, TileSize, WorkloadMinSize);
+    FusedCompSet =
+    Inspector->generateScheduleBasedOnConflictGraphColoring(
+        ConflictGraphColoring, InTensor->NumOfNodes, TileSize,
+        WorkloadMinSize);
     t.stop();
     return t;
   }
@@ -392,13 +445,65 @@ protected:
   }
 
 public:
-  GCNSingleLayerTiledFusedCSCCombined(GnnTensorInputs *In1, Stats *Stat1,
-                                      int TileSize1, int WorkloadMinSize1, std::map<int, std::vector<int>>  ConflictGraphColoring1)
-      : GCNSingleLayerFused(In1, Stat1), TileSize(TileSize1), ConflictGraphColoring(ConflictGraphColoring1),
+  GCNSingleLayerTiledFusedCSCCombined(
+      GnnTensorInputs *In1, Stats *Stat1, int TileSize1, int WorkloadMinSize1,
+      std::map<int, std::vector<int>> ConflictGraphColoring1)
+      : GCNSingleLayerFused(In1, Stat1), TileSize(TileSize1),
+        ConflictGraphColoring(ConflictGraphColoring1),
         WorkloadMinSize(WorkloadMinSize1) {
     Inspector = new InspectorForSingleLayerTiledFusedCSCCombined();
   }
   ~GCNSingleLayerTiledFusedCSCCombined() {
+    delete FusedCompSet;
+    delete Inspector;
+  }
+};
+
+class GCNSingleLayerTiledFusedCSCCombinedWithKTiling : public GCNSingleLayerFused {
+protected:
+  int TileSize;
+  int WorkloadMinSize;
+  int KTileSize;
+  std::map<int, std::vector<int>> ConflictGraphColoring;
+
+  sym_lib::MultiDimensionalSet *FusedCompSet;
+  InspectorForSingleLayerTiledFusedCSCCombinedWithKTiling *Inspector;
+  Timer analysis() override {
+    Timer t;
+    t.start();
+    FusedCompSet = Inspector->generateScheduleBasedOnConflictGraphColoring(
+        ConflictGraphColoring, InTensor->NumOfNodes, TileSize, WorkloadMinSize,
+        InTensor->Weight1->col, 4);
+    t.stop();
+    return t;
+  }
+  Timer execute() override {
+    OutTensor->reset();
+    mkl_set_num_threads(1);
+    Timer t;
+    t.start();
+    forwardForOneLayerFromCSCTiledParallelCombinedWithKTiling(
+        InTensor->AdjacencyMatrixCSC->m, InTensor->AdjacencyMatrixCSC->p,
+        InTensor->AdjacencyMatrixCSC->i, InTensor->AdjacencyMatrixCSC->x,
+        InTensor->FeatureMatrix->col, InTensor->Weight1->col, InTensor->Degrees,
+        InTensor->FeatureMatrix->a, InTensor->Weight1->a,
+        OutTensor->FirstLayerOutput, TileSize, FusedCompSet->n3_,
+        InTensor->NumThreads, FusedCompSet->n1_, FusedCompSet->n2_,
+        FusedCompSet->ptr1_, FusedCompSet->id_, FusedCompSet->type_, 4);
+    t.stop();
+    return t;
+  }
+
+public:
+  GCNSingleLayerTiledFusedCSCCombinedWithKTiling(
+      GnnTensorInputs *In1, Stats *Stat1, int TileSize1, int WorkloadMinSize1,
+      std::map<int, std::vector<int>> ConflictGraphColoring1, int KTileSize1)
+      : GCNSingleLayerFused(In1, Stat1), TileSize(TileSize1),
+        ConflictGraphColoring(ConflictGraphColoring1),
+        WorkloadMinSize(WorkloadMinSize1), KTileSize(KTileSize1) {
+    Inspector = new InspectorForSingleLayerTiledFusedCSCCombinedWithKTiling();
+  }
+  ~GCNSingleLayerTiledFusedCSCCombinedWithKTiling() {
     delete FusedCompSet;
     delete Inspector;
   }

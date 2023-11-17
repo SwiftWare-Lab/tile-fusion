@@ -237,11 +237,55 @@ protected:
   }
 };
 
+class InspectorForSingleLayerTiledFusedCSCParallelWithKTiling
+    : public InspectorForSingleLayerTiledFusedCSCParallel {
+public:
+  sym_lib::MultiDimensionalSet *generateScheduleBasedOnConflictGraphColoring(
+      std::map<int, std::vector<int>> ColorToTiles, int NumOfNodes,
+      int TileSize, int OutputSize, int KTileSize) {
+    int numOfTiles = (int)ceil((double)NumOfNodes / TileSize);
+    int numOfKTiles = OutputSize / KTileSize;
+    std::cout << numOfKTiles << std::endl;
+    sym_lib::MultiDimensionalSet *fusedCompSet =
+        new sym_lib::MultiDimensionalSet();
+    fusedCompSet->n1_ = ColorToTiles.rbegin()->first + 1;
+    fusedCompSet->ptr1_ = new int[fusedCompSet->n1_ + 1];
+    fusedCompSet->ptr1_[0] = 0;
+    fusedCompSet->ptr2_ = new int[numOfTiles * numOfKTiles];
+    fusedCompSet->id_ = new int[numOfTiles * numOfKTiles];
+    for (std::map<int, std::vector<int>>::iterator it = ColorToTiles.begin();
+         it != ColorToTiles.end(); ++it) {
+      fusedCompSet->ptr1_[it->first + 1] =
+          fusedCompSet->ptr1_[it->first] + it->second.size() * numOfKTiles;
+      for (int i = 0; i < it->second.size(); i++) {
+        for (int j = 0; j < numOfKTiles; j++) {
+          fusedCompSet
+              ->id_[fusedCompSet->ptr1_[it->first] + i * numOfKTiles + j] =
+              it->second[i];
+          fusedCompSet
+              ->ptr2_[fusedCompSet->ptr1_[it->first] + i * numOfKTiles + j] =
+              j * KTileSize;
+        }
+      }
+    }
+    fusedCompSet->type_ = new int[numOfTiles];
+    for (int i = 0; i < numOfTiles - 1; i++) {
+      fusedCompSet->type_[i] = TileSize;
+    }
+    if (NumOfNodes % TileSize == 0) {
+      fusedCompSet->type_[numOfTiles - 1] = TileSize;
+    } else {
+      fusedCompSet->type_[numOfTiles - 1] = NumOfNodes % TileSize;
+    }
+    return fusedCompSet;
+  }
+};
+
 class InspectorForSingleLayerTiledFusedCSCCombined
     : public InspectorForSingleLayerTiledFusedCSCParallel {
 
 public:
-  sym_lib::MultiDimensionalSet *generateScheduleBasedOnConflictGraphColoring(
+  virtual sym_lib::MultiDimensionalSet *generateScheduleBasedOnConflictGraphColoring(
       std::map<int, std::vector<int>> ColorToTiles, int NumOfNodes,
       int TileSize, int WorkloadMinSize) {
     std::vector<std::vector<int>> workloads;
@@ -301,7 +345,7 @@ public:
     return fusedCompSet;
   }
 
-private:
+protected:
   std::map<int, int> updateNewTilesMapWithWorkloadTiles(
       std::vector<std::vector<int>> Workloads,
       std::map<int, int> StandAloneTileToNewSize) {
@@ -327,6 +371,73 @@ private:
       }
     }
     return tileToNewSize;
+  }
+};
+
+class InspectorForSingleLayerTiledFusedCSCCombinedWithKTiling
+    : public InspectorForSingleLayerTiledFusedCSCCombined {
+public:
+  sym_lib::MultiDimensionalSet *generateScheduleBasedOnConflictGraphColoring(
+    std::map<int, std::vector<int>> ColorToTiles, int NumOfNodes,
+    int TileSize, int WorkloadMinSize, int OutputSize, int KTileSize) {
+    std::vector<std::vector<int>> workloads;
+    std::set<int> standAloneTiles;
+    int numOfKTiles = OutputSize/KTileSize;
+    for (auto tileGroup : ColorToTiles) {
+      if (tileGroup.second.size() >= WorkloadMinSize) {
+        workloads.push_back(tileGroup.second);
+      } else {
+        standAloneTiles.insert(tileGroup.second.begin(),
+                               tileGroup.second.end());
+      }
+    }
+    std::map<int, int> standAloneTileToNewSize =
+        getNewStandAloneTilesMap(standAloneTiles);
+    std::map<int, int> tileToNewSize =
+        updateNewTilesMapWithWorkloadTiles(workloads, standAloneTileToNewSize);
+    int numOfNewTiles = tileToNewSize.size();
+    int *tilePtr = new int[numOfNewTiles + 1];
+    int maxTileSize = 0;
+    tilePtr[0] = 0;
+    int i = 0;
+    for (auto tile : tileToNewSize) {
+      int newTileSize = tile.second * TileSize;
+      tilePtr[i + 1] = tilePtr[i] + newTileSize;
+      if (newTileSize > maxTileSize) {
+        maxTileSize = newTileSize;
+      }
+      i++;
+    }
+    tilePtr[numOfNewTiles] = NumOfNodes;
+    std::map<int, int> oldToNewIndex;
+    for (auto it = tileToNewSize.begin(); it != tileToNewSize.end(); it++) {
+      oldToNewIndex[it->first] = std::distance(tileToNewSize.begin(), it);
+    }
+    sym_lib::MultiDimensionalSet *fusedCompSet =
+        new sym_lib::MultiDimensionalSet();
+    fusedCompSet->n1_ = workloads.size();
+    fusedCompSet->ptr1_ = new int[fusedCompSet->n1_ + 1];
+    fusedCompSet->n2_ = standAloneTileToNewSize.size();
+    fusedCompSet->n3_ = maxTileSize;
+    fusedCompSet->id_ = new int[tileToNewSize.size()*numOfKTiles];
+    fusedCompSet->type_ = tilePtr;
+    fusedCompSet->ptr1_[0] = 0;
+    for (i = 0; i < workloads.size(); i++) {
+      fusedCompSet->ptr1_[i + 1] = fusedCompSet->ptr1_[i] + workloads[i].size()*numOfKTiles;
+      for (int j = 0; j < workloads[i].size(); j++) {
+        for (int k = 0; k < numOfKTiles; k++) {
+          fusedCompSet->id_[fusedCompSet->ptr1_[i] + j * numOfKTiles + k] =
+              oldToNewIndex[workloads[i][j]];
+        }
+      }
+    }
+    int standAloneTilesStart = fusedCompSet->ptr1_[fusedCompSet->n1_];
+    i = standAloneTilesStart;
+    for (auto saTile : standAloneTileToNewSize) {
+      fusedCompSet->id_[i] = oldToNewIndex[saTile.first];
+      i++;
+    }
+    return fusedCompSet;
   }
 };
 

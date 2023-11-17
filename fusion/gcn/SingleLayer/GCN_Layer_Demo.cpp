@@ -153,18 +153,33 @@ int main(const int argc, const char *argv[]) {
    */
   DsaturColoring *dsaturColoring = new DsaturColoring();
   std::map<int, std::vector<int>> colorToTiles =
-      dsaturColoring->generateGraphColoringForConflictGraphOf(aCSCFull, tileSize);
+      dsaturColoring->generateGraphColoringForConflictGraphOf(aCSCFull,
+                                                              tileSize);
   stats =
       new swiftware::benchmark::Stats("GCN_SingleLayerTiledFusedCSCParallel",
                                       "GCN", 7, tp._matrix_name, numThread);
   stats->OtherStats["PackingType"] = {Separated};
   GCNSingleLayerTiledFusedCSCParallel *gcnSingleLayerFusedCscParallel =
-      new GCNSingleLayerTiledFusedCSCParallel(inputs, stats, tileSize, colorToTiles);
+      new GCNSingleLayerTiledFusedCSCParallel(inputs, stats, tileSize,
+                                              colorToTiles);
   gcnSingleLayerFusedCscParallel->run();
   auto gcnSingleLayerFusedCscParallelStat =
       gcnSingleLayerFusedCscParallel->printStats();
   delete stats;
   delete gcnSingleLayerFusedCscParallel;
+
+  stats =
+      new swiftware::benchmark::Stats("GCN_SingleLayerTiledFusedCSCParallelWithKTiling",
+                                      "GCN", 7, tp._matrix_name, numThread);
+  stats->OtherStats["PackingType"] = {Separated};
+  GCNSingleLayerTiledFusedCSCParallelWithKTiling *gcnSingleLayerFusedCscParallelWithKTiling =
+      new GCNSingleLayerTiledFusedCSCParallelWithKTiling(inputs, stats, tileSize,
+                                              colorToTiles, 4);
+  gcnSingleLayerFusedCscParallelWithKTiling->run();
+  auto gcnSingleLayerFusedCscParallelWithKTilingStat =
+      gcnSingleLayerFusedCscParallelWithKTiling->printStats();
+  delete stats;
+  delete gcnSingleLayerFusedCscParallelWithKTiling;
 
   auto csvInfo = sp.print_csv(true);
   std::string spHeader = std::get<0>(csvInfo);
@@ -178,7 +193,7 @@ int main(const int argc, const char *argv[]) {
     std::cout << headerStat + spHeader + tpHeader << std::endl;
 
   int minWorkloads[8] = {4, 6, 8, 10, 12, 14, 16, 18};
-  for(int minWorkload: minWorkloads){
+  for (int minWorkload : minWorkloads) {
     stats =
         new swiftware::benchmark::Stats("GCN_SingleLayerTiledFusedCSCCombined",
                                         "GCN", 7, tp._matrix_name, numThread);
@@ -195,8 +210,25 @@ int main(const int argc, const char *argv[]) {
 
     std::cout << gcnSingleLayerTiledFusedCSCCombinedStat << spStat + tpStat
               << std::endl;
-  }
 
+    stats = new swiftware::benchmark::Stats(
+        "GCN_SingleLayerTiledFusedCSCCombinedWithKTiling", "GCN", 7,
+        tp._matrix_name, numThread);
+    stats->OtherStats["PackingType"] = {Separated};
+    GCNSingleLayerTiledFusedCSCCombinedWithKTiling
+        *gcnSingleLayerTiledFusedCscCombinedWithKTiling =
+            new GCNSingleLayerTiledFusedCSCCombinedWithKTiling(
+                inputs, stats, tileSize, minWorkload, colorToTiles, 4);
+    gcnSingleLayerTiledFusedCscCombinedWithKTiling->run();
+    stats->OtherStats["Min Workload Size"] = {double(minWorkload)};
+    auto gcnSingleLayerTiledFusedCSCCombinedWithKTilingStat =
+        gcnSingleLayerTiledFusedCscCombinedWithKTiling->printStats();
+    delete stats;
+    delete gcnSingleLayerTiledFusedCscCombinedWithKTiling;
+
+    std::cout << gcnSingleLayerTiledFusedCSCCombinedWithKTilingStat
+              << spStat + tpStat << std::endl;
+  }
 
   /*
    * Method that iterates over tiles of columns of Adjacency matrix and by doing
@@ -260,6 +292,8 @@ int main(const int argc, const char *argv[]) {
             << std::endl;
   std::cout << gcnSingleLayerFusedCscStat << spStat + tpStat << std::endl;
   std::cout << gcnSingleLayerFusedCscParallelStat << spStat + tpStat
+            << std::endl;
+  std::cout << gcnSingleLayerFusedCscParallelWithKTilingStat << spStat + tpStat
             << std::endl;
   std::cout << gcnSingleLayerTiledFusedCscStat << spStat + tpStat << std::endl;
   std::cout << gcnSingleLayerFusedParallelStat << spStat + tpStat << std::endl;
