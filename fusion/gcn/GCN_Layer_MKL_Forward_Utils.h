@@ -267,8 +267,8 @@ void forwardForOneLayerWithGeMMAndSpMM(int NumOfNodes,
   double *temp = new double[NumOfNodes * OutDim]{};
   matrix_descr d;
   d.type = SPARSE_MATRIX_TYPE_GENERAL;
-  cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, NumOfNodes, OutDim,
-              FeatDim, 1., Features, FeatDim, Weight, OutDim, 0., temp, OutDim);
+  cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasTrans, NumOfNodes, OutDim,
+              FeatDim, 1., Features, FeatDim, Weight, FeatDim, 0., temp, OutDim);
   mkl_sparse_d_mm(SPARSE_OPERATION_NON_TRANSPOSE, 1, AdjMatrix, d,
                   SPARSE_LAYOUT_ROW_MAJOR, temp, OutDim, OutDim, 0, Output,
                   OutDim);
@@ -279,8 +279,8 @@ void forwardForOneLayerUnfusedCSC(int NumOfNodes, int *Ap, int *Ai, double *Ax,
                                   double *Features, int FeatDim, double *Weight,
                                   int OutDim, double *Output) {
   double *temp = new double[NumOfNodes * OutDim]{};
-  cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, NumOfNodes, OutDim,
-              FeatDim, 1., Features, FeatDim, Weight, OutDim, 0., temp, OutDim);
+  cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasTrans, NumOfNodes, OutDim,
+              FeatDim, 1., Features, FeatDim, Weight, FeatDim, 0., temp, OutDim);
   for (int i = 0; i < NumOfNodes; i++) {
     for (int j = Ap[i]; j < Ap[i + 1]; j++) {
       int n = Ai[j];
