@@ -245,7 +245,6 @@ public:
       int TileSize, int OutputSize, int KTileSize) {
     int numOfTiles = (int)ceil((double)NumOfNodes / TileSize);
     int numOfKTiles = OutputSize / KTileSize;
-    std::cout << numOfKTiles << std::endl;
     sym_lib::MultiDimensionalSet *fusedCompSet =
         new sym_lib::MultiDimensionalSet();
     fusedCompSet->n1_ = ColorToTiles.rbegin()->first + 1;
