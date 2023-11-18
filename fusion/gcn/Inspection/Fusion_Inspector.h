@@ -255,16 +255,9 @@ public:
     for (std::map<int, std::vector<int>>::iterator it = ColorToTiles.begin();
          it != ColorToTiles.end(); ++it) {
       fusedCompSet->ptr1_[it->first + 1] =
-          fusedCompSet->ptr1_[it->first] + it->second.size() * numOfKTiles;
+          fusedCompSet->ptr1_[it->first] + it->second.size();
       for (int i = 0; i < it->second.size(); i++) {
-        for (int j = 0; j < numOfKTiles; j++) {
-          fusedCompSet
-              ->id_[fusedCompSet->ptr1_[it->first] + i * numOfKTiles + j] =
-              it->second[i];
-          fusedCompSet
-              ->ptr2_[fusedCompSet->ptr1_[it->first] + i * numOfKTiles + j] =
-              j * KTileSize;
-        }
+        fusedCompSet->id_[fusedCompSet->ptr1_[it->first] + i] = it->second[i];
       }
     }
     fusedCompSet->type_ = new int[numOfTiles];

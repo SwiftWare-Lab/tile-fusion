@@ -374,7 +374,7 @@ protected:
     t.start();
     FusedCompSet = Inspector->generateScheduleBasedOnConflictGraphColoring(
         ConflictGraphColoring, InTensor->NumOfNodes, TileSize,
-        InTensor->Weight1->col, 4);
+        InTensor->Weight1->col, KTileSize);
     t.stop();
     return t;
   }
@@ -383,14 +383,14 @@ protected:
     mkl_set_num_threads(1);
     Timer t;
     t.start();
-    forwardForOneLayerFromCSCTiledParallelWithKTiling(
+    forwardForOneLayerFromCSCTiledParallelWithKTilingV2(
         InTensor->AdjacencyMatrixCSC->m, InTensor->AdjacencyMatrixCSC->p,
         InTensor->AdjacencyMatrixCSC->i, InTensor->AdjacencyMatrixCSC->x,
         InTensor->FeatureMatrix->col, InTensor->Weight1->col, InTensor->Degrees,
         InTensor->FeatureMatrix->a, InTensor->Weight1->a,
         OutTensor->FirstLayerOutput, TileSize, InTensor->NumThreads,
         FusedCompSet->n1_, FusedCompSet->ptr1_, FusedCompSet->id_,
-        FusedCompSet->type_, FusedCompSet->ptr2_, 4);
+        FusedCompSet->type_, KTileSize);
     t.stop();
     return t;
   }
@@ -473,7 +473,7 @@ protected:
     t.start();
     FusedCompSet = Inspector->generateScheduleBasedOnConflictGraphColoring(
         ConflictGraphColoring, InTensor->NumOfNodes, TileSize, WorkloadMinSize,
-        InTensor->Weight1->col, 4);
+        InTensor->Weight1->col, KTileSize);
     t.stop();
     return t;
   }
@@ -489,7 +489,7 @@ protected:
         InTensor->FeatureMatrix->a, InTensor->Weight1->a,
         OutTensor->FirstLayerOutput, TileSize, FusedCompSet->n3_,
         InTensor->NumThreads, FusedCompSet->n1_, FusedCompSet->n2_,
-        FusedCompSet->ptr1_, FusedCompSet->id_, FusedCompSet->type_, 4);
+        FusedCompSet->ptr1_, FusedCompSet->id_, FusedCompSet->type_, KTileSize);
     t.stop();
     return t;
   }

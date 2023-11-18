@@ -151,10 +151,12 @@ int main(const int argc, const char *argv[]) {
    * calculates the output
    * BANDED-SPECIFIC FOR NOW
    */
-  DsaturColoring *dsaturColoring = new DsaturColoring();
+  DsaturColoringForConflictGraph *dsaturColoring = new DsaturColoringForConflictGraph();
+  DsaturColoringForConflictGraphWithKTiling *dsaturColoringWithKTiling = new DsaturColoringForConflictGraphWithKTiling();
   std::map<int, std::vector<int>> colorToTiles =
       dsaturColoring->generateGraphColoringForConflictGraphOf(aCSCFull,
                                                               tileSize);
+  std::map<int, std::vector<int>> colorToTilesForKTiling = dsaturColoringWithKTiling->generateGraphColoringForConflictGraphOf(aCSCFull, tileSize, inputs->Weight1->col, 4);
   stats =
       new swiftware::benchmark::Stats("GCN_SingleLayerTiledFusedCSCParallel",
                                       "GCN", 7, tp._matrix_name, numThread);
@@ -174,7 +176,7 @@ int main(const int argc, const char *argv[]) {
   stats->OtherStats["PackingType"] = {Separated};
   GCNSingleLayerTiledFusedCSCParallelWithKTiling *gcnSingleLayerFusedCscParallelWithKTiling =
       new GCNSingleLayerTiledFusedCSCParallelWithKTiling(inputs, stats, tileSize,
-                                              colorToTiles, 4);
+                                                         colorToTilesForKTiling, 4);
   gcnSingleLayerFusedCscParallelWithKTiling->run();
   auto gcnSingleLayerFusedCscParallelWithKTilingStat =
       gcnSingleLayerFusedCscParallelWithKTiling->printStats();
