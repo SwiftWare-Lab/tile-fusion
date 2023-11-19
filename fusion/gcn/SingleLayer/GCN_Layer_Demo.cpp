@@ -200,7 +200,7 @@ int main(const int argc, const char *argv[]) {
   GCNSingleLayerTiledFusedCSCParallelWithKTiling
       *gcnSingleLayerFusedCscParallelWithKTiling =
           new GCNSingleLayerTiledFusedCSCParallelWithKTiling(
-              inputs, stats, tileSize, colorToTilesForKTiling, kTileSize);
+              inputs, stats, tileSize, colorToTiles, kTileSize);
   gcnSingleLayerFusedCscParallelWithKTiling->run();
   auto gcnSingleLayerFusedCscParallelWithKTilingStat =
       gcnSingleLayerFusedCscParallelWithKTiling->printStats();
