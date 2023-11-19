@@ -577,7 +577,7 @@ void forwardForOneLayerFromCSCTiledParallelV2(
   delete[] cache;
 }
 
-void forwardForOneLayerFromCSCTiledParallelWithKTiling(
+void forwardForOneLayerFromCSCTiledParallelWithKTilingInWaveFronts(
     int M, int *Ap, int *Ai, double *Ax, int InputChannelDim,
     int OutputChannelDim, int *Degrees, double *Features, double *Weight,
     double *Output, int MaxTileSize, int NumThreads, int Levels, int *LevelPtr,
@@ -615,11 +615,51 @@ void forwardForOneLayerFromCSCTiledParallelWithKTiling(
   delete[] cache;
 }
 
-void forwardForOneLayerFromCSCTiledParallelWithKTilingV2(
+void forwardForOneLayerFromCSCTiledParallelWithKTiling(
     int M, int *Ap, int *Ai, double *Ax, int InputChannelDim,
     int OutputChannelDim, int *Degrees, double *Features, double *Weight,
     double *Output, int MaxTileSize, int NumThreads, int Levels, int *LevelPtr,
-    int *Id, int *TileSizes, int KTileSize) {  // Assumption is that KTileSize is dividable by KTileSize
+    int *Id, int *TileSizes,
+    int KTileSize) { // Assumption is that KTileSize is dividable by KTileSize
+  double *cache = new double[MaxTileSize * KTileSize * NumThreads];
+
+  for (int l = 0; l < Levels; l++) {
+#pragma omp parallel num_threads(NumThreads)
+    {
+      int threadId = omp_get_thread_num();
+#pragma omp for
+      for (int t = LevelPtr[l]; t < LevelPtr[l + 1]; t++) {
+        int id = Id[t];
+        int tileSize = TileSizes[id];
+        int i = id * MaxTileSize;
+        double *tcache = cache + threadId * MaxTileSize * KTileSize;
+        for (int k = 0; k < OutputChannelDim; k += KTileSize) {
+          cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasTrans, tileSize,
+                      KTileSize, InputChannelDim, 1.,
+                      Features + i * InputChannelDim, InputChannelDim,
+                      Weight + k * InputChannelDim, InputChannelDim, 0., tcache,
+                      KTileSize);
+          for (int ii = 0; ii < tileSize; ii++) {
+            for (int j = Ap[i + ii]; j < Ap[i + ii + 1]; j++) {
+              for (int kk = 0; kk < KTileSize; kk++) {
+                Output[Ai[j] * OutputChannelDim + k + kk] +=
+                    Ax[j] * tcache[ii * KTileSize + kk];
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  delete[] cache;
+}
+
+void forwardForOneLayerFromCSCTiledParallelWithSchedulingForKTiling(
+    int M, int *Ap, int *Ai, double *Ax, int InputChannelDim,
+    int OutputChannelDim, int *Degrees, double *Features, double *Weight,
+    double *Output, int MaxTileSize, int NumThreads, int Levels, int *LevelPtr,
+    int *Id, int *TileSizes,
+    int KTileSize) { // Assumption is that KTileSize is dividable by KTileSize
   double *cache = new double[MaxTileSize * KTileSize * NumThreads];
   int numOfKTiles = OutputChannelDim / KTileSize;
   for (int l = 0; l < Levels; l++) {
@@ -969,6 +1009,87 @@ void forwardForOneLayerFromCSCTiledVectorized(int M, int *Ap, int *Ai,
     }
   }
 }
+
+void forwardForOneLayerFromCSCTiledParallelCombinedVectorized(
+    int M, int *Ap, int *Ai, double *Ax, int InputChannelDim,
+    int OutputChannelDim, int *Degrees, double *Features, double *Weight,
+    double *Output, int MinTileSize, int MaxTileSize, int NumThreads,
+    int WorkloadsNum, int AggregatedTilesNum, int *WorkloadPtr, int *Id,
+    int *TilePtr) {
+  double *cache = new double[MinTileSize * OutputChannelDim * NumThreads];
+  for (int l = 0; l < WorkloadsNum; l++) {
+#pragma omp parallel num_threads(NumThreads)
+    {
+      int threadId = omp_get_thread_num();
+#pragma omp for
+      for (int t = WorkloadPtr[l]; t < WorkloadPtr[l + 1]; t++) {
+        int id = Id[t];
+        int tileSize = TilePtr[id + 1] - TilePtr[id];
+        int i = TilePtr[id];
+        double *tcache = cache + threadId * MinTileSize * OutputChannelDim;
+        cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasTrans, tileSize,
+                    OutputChannelDim, InputChannelDim, 1.,
+                    Features + i * InputChannelDim, InputChannelDim, Weight,
+                    InputChannelDim, 0., tcache, OutputChannelDim);
+        for (int ii = 0; ii < tileSize; ii++) {
+          for (int j = Ap[i + ii]; j < Ap[i + ii + 1]; j++) {
+            for (int k = 0; k < OutputChannelDim; k++) {
+              Output[Ai[j] * OutputChannelDim + k] +=
+                  Ax[j] * tcache[ii * OutputChannelDim + k];
+            }
+          }
+        }
+      }
+    }
+  }
+  delete[] cache;
+  mkl_set_num_threads(NumThreads);
+  cache = new double[MaxTileSize * OutputChannelDim];
+  for (int t = WorkloadPtr[WorkloadsNum];
+       t < WorkloadPtr[WorkloadsNum] + AggregatedTilesNum; t++) {
+    int id = Id[t];
+    int tileSize = TilePtr[id + 1] - TilePtr[id];
+    int i = TilePtr[id];
+    cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasTrans, tileSize,
+                OutputChannelDim, InputChannelDim, 1.,
+                Features + i * InputChannelDim, InputChannelDim, Weight,
+                InputChannelDim, 0., cache, OutputChannelDim);
+    for (int ii = 0; ii < tileSize; ii++) {
+      int nnzNum =
+          Ap[i + ii + 1] - Ap[i + ii];
+      int unrollingEnd = Ap[i + ii + 1] - nnzNum % 3;
+      for (int j = Ap[i + ii]; j < unrollingEnd; j+=3) {
+        __m256d axV1 = _mm256_set1_pd(Ax[j]);
+        __m256d axV2 = _mm256_set1_pd(Ax[j+1]);
+        __m256d axV3 = _mm256_set1_pd(Ax[j+2]);
+        for (int k = 0; k < OutputChannelDim; k+=4) {
+          __m256d outV1 = _mm256_loadu_pd(Output + (Ai[j]*OutputChannelDim + k));
+          __m256d outV2 = _mm256_loadu_pd(Output + (Ai[j+1]*OutputChannelDim + k));
+          __m256d outV3 = _mm256_loadu_pd(Output + (Ai[j+2]*OutputChannelDim + k));
+          __m256d cacheV = _mm256_loadu_pd(cache + (ii*OutputChannelDim) + k);
+          outV1 = _mm256_fmadd_pd(axV1, cacheV, outV1);
+          outV2 = _mm256_fmadd_pd(axV2, cacheV, outV2);
+          outV3 = _mm256_fmadd_pd(axV3, cacheV, outV3);
+          _mm256_storeu_pd(Output + (Ai[j]*OutputChannelDim + k), outV1);
+          _mm256_storeu_pd(Output + (Ai[j]*OutputChannelDim + k), outV2);
+          _mm256_storeu_pd(Output + (Ai[j]*OutputChannelDim + k), outV3);
+        }
+      }
+      for (int j = unrollingEnd; j < Ap[i + ii + 1]; j++) {
+        __m256d axj = _mm256_set1_pd(Ax[j]);
+        for (int k = 0; k < OutputChannelDim; k += 4) {
+          __m256d cachek = _mm256_loadu_pd(cache + ii * OutputChannelDim + k);
+          __m256d outputk =
+              _mm256_loadu_pd(Output + Ai[j] * OutputChannelDim + k);
+          outputk = _mm256_fmadd_pd(axj, cachek, outputk);
+          _mm256_storeu_pd(Output + Ai[j] * OutputChannelDim + k, outputk);
+        }
+      }
+    }
+  }
+  delete[] cache;
+}
+
 #endif
 
 #endif // SPARSE_FUSION_GCN_LAYER_MKL_DEMO_H
