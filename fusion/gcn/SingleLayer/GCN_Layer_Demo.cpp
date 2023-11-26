@@ -38,7 +38,7 @@ int main(const int argc, const char *argv[]) {
   int tileSize = sp.TileN;
   int kTileSize = 8;
   Dense *layer1Weight = get_dense_matrix_from_parameter(
-      &tp, tp._b_cols, tp._embed_dim, tp._weight1_matrix_path);
+      &tp, tp._embed_dim, tp._b_cols, tp._weight1_matrix_path);
   Dense *layer2Weight = get_dense_matrix_from_parameter(
       &tp, tp._embed_dim, tp._embed_dim, tp._weight2_matrix_path);
 
@@ -150,11 +150,8 @@ int main(const int argc, const char *argv[]) {
   //  delete stats;
   //  delete gcnSingleLayerFusedCsc;
 
-  /* Method that iterates over tiles of columns of Adjacency matrix in
-   * parallel(First the odd tiles and after that the even tiles) and by doing
-   * the corresponding GEMM to each tile, then doing SpMM for midway result,
-   * calculates the output
-   * BANDED-SPECIFIC FOR NOW
+  /* generating conflict graph once per tile size
+   * this is not calculated in inspection time for now.
    */
   DsaturColoringForConflictGraph *dsaturColoring =
       new DsaturColoringForConflictGraph();
@@ -165,7 +162,14 @@ int main(const int argc, const char *argv[]) {
                                                               tileSize);
   std::map<int, std::vector<int>> colorToTilesForKTiling =
       dsaturColoringWithKTiling->generateGraphColoringForConflictGraphOf(
-          aCSCFull, tileSize, inputs->Weight1->col, kTileSize);
+          aCSCFull, tileSize, inputs->Weight1->row, kTileSize);
+
+  /*
+   * Method that iterates over tiles of columns of Adjacency matrix in
+   * parallel(using scheduling based on conflict graph coloring) and by doing
+   * the corresponding GeMM to each tile, then doing SpMM on midway result,
+   * calculates the output
+   */
   stats =
       new swiftware::benchmark::Stats("GCN_SingleLayerTiledFusedCSCParallel",
                                       "GCN", 7, tp._matrix_name, numThread);
@@ -179,6 +183,14 @@ int main(const int argc, const char *argv[]) {
   delete stats;
   delete gcnSingleLayerFusedCscParallel;
 
+  /*
+   * Method that iterates over tiles of columns of Adjacency matrix in
+   * parallel(using scheduling based on conflict graph coloring) and by doing
+   * the corresponding GeMMs to each tile, then doing SpMM on midway result,
+   * calculates the output
+   * This method also divides weight matrix to kTiles. kTiles in this method
+   * are considered in the conflict graph.
+   */
   stats = new swiftware::benchmark::Stats(
       "GCN_SingleLayerTiledFusedCSCParallelWithSchedulingKTiling", "GCN", 7,
       tp._matrix_name, numThread);
@@ -193,6 +205,14 @@ int main(const int argc, const char *argv[]) {
   delete stats;
   delete gcnSingleLayerFusedCscParallelWithSchedulingKTiling;
 
+  /*
+   * Method that iterates over tiles of columns of Adjacency matrix in
+   * parallel(using scheduling based on conflict graph coloring) and by doing
+   * the corresponding GeMMs to each tile, then doing SpMM on midway result,
+   * calculates the output
+   * This method also divides weight matrix to kTiles. kTiles in this method
+   * are considered in executer only.
+   */
   stats = new swiftware::benchmark::Stats(
       "GCN_SingleLayerTiledFusedCSCParallelWithKTiling", "GCN", 7,
       tp._matrix_name, numThread);
@@ -207,19 +227,21 @@ int main(const int argc, const char *argv[]) {
   delete stats;
   delete gcnSingleLayerFusedCscParallelWithKTiling;
 
-  auto csvInfo = sp.print_csv(true);
-  std::string spHeader = std::get<0>(csvInfo);
-  std::string spStat = std::get<1>(csvInfo);
-
-  auto tpCsv = tp.print_csv(true);
-  std::string tpHeader = std::get<0>(tpCsv);
-  std::string tpStat = std::get<1>(tpCsv);
-
-  if (tp.print_header)
-    std::cout << headerStat + spHeader + tpHeader << std::endl;
-
   int minWorkloads[8] = {4, 6, 8, 10, 12, 14, 16, 18};
+
+  // tuning of min workload size is done here so that conflict graph is once
+  // computed per tile size
+  std::vector<std::string> combinedStats;
   for (int minWorkload : minWorkloads) {
+    /*
+     * Method that iterates over tiles of columns of Adjacency matrix in
+     * parallel(using scheduling based on conflict graph coloring) and by doing
+     * the corresponding GeMM to each tile, then doing SpMM on midway result,
+     * calculates the output.
+     * some tiles are ran in parallel region and some are ran in sequential region,
+     * The inspector prunes tiles that are in smaller workloads and merges them
+     * so that new big tiles are ran in sequential region but with parallelized GeMMs.
+     */
     stats =
         new swiftware::benchmark::Stats("GCN_SingleLayerTiledFusedCSCCombined",
                                         "GCN", 7, tp._matrix_name, numThread);
@@ -229,14 +251,21 @@ int main(const int argc, const char *argv[]) {
                                                 minWorkload, colorToTiles);
     gcnSingleLayerTiledFusedCscCombined->run();
     stats->OtherStats["Min Workload Size"] = {double(minWorkload)};
-    auto gcnSingleLayerTiledFusedCSCCombinedStat =
-        gcnSingleLayerTiledFusedCscCombined->printStats();
+    combinedStats.push_back(gcnSingleLayerTiledFusedCscCombined->printStats());
     delete stats;
     delete gcnSingleLayerTiledFusedCscCombined;
 
-    std::cout << gcnSingleLayerTiledFusedCSCCombinedStat << spStat + tpStat
-              << std::endl;
 #ifdef __AVX2__
+    /*
+     * Method that iterates over tiles of columns of Adjacency matrix in
+     * parallel(using scheduling based on conflict graph coloring) and by doing
+     * the corresponding GeMM to each tile, then doing SpMM on midway result,
+     * calculates the output.
+     * some tiles are ran in parallel region and some are ran in sequential region,
+     * The inspector prunes tiles that are in smaller workloads and merges them
+     * so that new big tiles are ran in sequential region but with parallelized GeMMs.
+     * This implementation also includes unrolling and vectorization.
+     */
     stats = new swiftware::benchmark::Stats(
         "GCN_SingleLayerTiledFusedCSCCombinedVectorized", "GCN", 7,
         tp._matrix_name, numThread);
@@ -247,13 +276,10 @@ int main(const int argc, const char *argv[]) {
                 inputs, stats, tileSize, minWorkload, colorToTiles);
     gcnSingleLayerTiledFusedCscCombinedVectorized->run();
     stats->OtherStats["Min Workload Size"] = {double(minWorkload)};
-    auto gcnSingleLayerTiledFusedCSCCombinedVectorizedStat =
-        gcnSingleLayerTiledFusedCscCombinedVectorized->printStats();
+    combinedStats.push_back(
+        gcnSingleLayerTiledFusedCscCombinedVectorized->printStats());
     delete stats;
     delete gcnSingleLayerTiledFusedCscCombinedVectorized;
-
-    std::cout << gcnSingleLayerTiledFusedCSCCombinedVectorizedStat
-              << spStat + tpStat << std::endl;
 
 #endif
     stats = new swiftware::benchmark::Stats(
@@ -266,13 +292,10 @@ int main(const int argc, const char *argv[]) {
                 inputs, stats, tileSize, minWorkload, colorToTiles, kTileSize);
     gcnSingleLayerTiledFusedCscCombinedWithKTiling->run();
     stats->OtherStats["Min Workload Size"] = {double(minWorkload)};
-    auto gcnSingleLayerTiledFusedCSCCombinedWithKTilingStat =
-        gcnSingleLayerTiledFusedCscCombinedWithKTiling->printStats();
+    combinedStats.push_back(
+        gcnSingleLayerTiledFusedCscCombinedWithKTiling->printStats());
     delete stats;
     delete gcnSingleLayerTiledFusedCscCombinedWithKTiling;
-
-    std::cout << gcnSingleLayerTiledFusedCSCCombinedWithKTilingStat
-              << spStat + tpStat << std::endl;
   }
 
   /*
@@ -330,6 +353,17 @@ int main(const int argc, const char *argv[]) {
 //  delete gcnSingleLayerTiledFusedCscVectorized;
 #endif
 
+  auto csvInfo = sp.print_csv(true);
+  std::string spHeader = std::get<0>(csvInfo);
+  std::string spStat = std::get<1>(csvInfo);
+
+  auto tpCsv = tp.print_csv(true);
+  std::string tpHeader = std::get<0>(tpCsv);
+  std::string tpStat = std::get<1>(tpCsv);
+
+  if (tp.print_header)
+    std::cout << headerStat + spHeader + tpHeader << std::endl;
+
   std::cout << gcnOneLayerMKLStat << spStat + tpStat << std::endl;
   std::cout << gcnSingleLayerUnfusedCscStat << spStat + tpStat << std::endl;
   //  std::cout << gcnTiledFusedSingleLayerStat << spStat + tpStat << std::endl;
@@ -345,6 +379,9 @@ int main(const int argc, const char *argv[]) {
   //  std::cout << gcnSingleLayerTiledFusedCscStat << spStat + tpStat <<
   //  std::endl; std::cout << gcnSingleLayerFusedParallelStat << spStat + tpStat
   //  << std::endl;
+  for (auto stat : combinedStats) {
+    std::cout << stat << spStat + tpStat << std::endl;
+  }
 
 #ifdef __AVX2__
 //  std::cout << gcnSingleLayerFusedCscVectorizedStat << spStat + tpStat

@@ -15,6 +15,9 @@
 
 #endif // SPARSE_FUSION_GRAPHCOLORING_H
 
+// this class creates conflict graph of computations from column-wise tiled CSC
+// matrix. Then it uses greedy algorithm for graph coloring with DSatur
+// heuristic.
 class DsaturColoringForConflictGraph {
 
 public:
@@ -22,7 +25,7 @@ public:
   generateGraphColoringForConflictGraphOf(sym_lib::CSC *AdjMtx, int TileSize) {
     std::map<std::string, std::vector<std::string>> conflictGraph =
         createTilesConflictGraph(AdjMtx, TileSize);
-    std::map<std::string, int> coloring = dsaturColoring(conflictGraph);
+    std::map<std::string, int> coloring = dsaturColoring(conflictGraph); // tile to color
     std::map<int, std::vector<int>> colorToTiles = getColorToTilesMap(coloring);
     return colorToTiles;
   }
@@ -223,15 +226,20 @@ protected:
     }
     return false;
   }
-
 };
 
-class DsaturColoringForConflictGraphWithKTiling : public DsaturColoringForConflictGraph{
+// This class creates conflict graph with considering kTiles in result of GeMM.
+// Since multiplying to different kTiles are stored in different places
+// conflicts of computations nodes are different from not having kTiling.
+class DsaturColoringForConflictGraphWithKTiling
+    : public DsaturColoringForConflictGraph {
 public:
   std::map<int, std::vector<int>>
-  generateGraphColoringForConflictGraphOf(sym_lib::CSC *AdjMtx, int TileSize, int OutputSize, int KTileSize) {
+  generateGraphColoringForConflictGraphOf(sym_lib::CSC *AdjMtx, int TileSize,
+                                          int OutputSize, int KTileSize) {
     std::map<std::string, std::vector<std::string>> conflictGraph =
-        createTilesConflictGraphWithKTiling(AdjMtx, TileSize, OutputSize, KTileSize);
+        createTilesConflictGraphWithKTiling(AdjMtx, TileSize, OutputSize,
+                                            KTileSize);
     std::map<std::string, int> coloring = dsaturColoring(conflictGraph);
     std::map<int, std::vector<int>> colorToTiles = getColorToTilesMap(coloring);
     return colorToTiles;
@@ -239,21 +247,22 @@ public:
 
 protected:
   std::map<std::string, std::vector<std::string>>
-  createTilesConflictGraphWithKTiling(sym_lib::CSC *AdjMtx, int TileSize, int OutputSize, int KTileSize) {
+  createTilesConflictGraphWithKTiling(sym_lib::CSC *AdjMtx, int TileSize,
+                                      int OutputSize, int KTileSize) {
     std::map<std::string, std::vector<std::string>> conflictGraph;
     int numOfTiles = (int)ceil((double)AdjMtx->m / TileSize);
-    int numOfKTiles = OutputSize/ KTileSize;
+    int numOfKTiles = OutputSize / KTileSize;
     for (int i = 0; i < numOfTiles; i++) {
       int iStart = i * TileSize;
       int iEnd = std::min(iStart + TileSize, (int)AdjMtx->m);
       int aSize = AdjMtx->p[iEnd] - AdjMtx->p[iStart];
       int *a = new int[aSize];
-      std::string iStr = std::to_string(i*numOfKTiles);
+      std::string iStr = std::to_string(i * numOfKTiles);
       if (conflictGraph.find(iStr) == conflictGraph.end()) {
         conflictGraph[iStr] = std::vector<std::string>();
       }
-      for (int k = 1; k < numOfKTiles; k++){
-        std::string ikStr = std::to_string(i*numOfKTiles+k);
+      for (int k = 1; k < numOfKTiles; k++) {
+        std::string ikStr = std::to_string(i * numOfKTiles + k);
         if (conflictGraph.find(ikStr) == conflictGraph.end()) {
           conflictGraph[ikStr] = std::vector<std::string>();
         }
@@ -266,15 +275,15 @@ protected:
         std::memcpy(a, AdjMtx->i + AdjMtx->p[iStart], aSize * sizeof(int));
         std::memcpy(b, AdjMtx->i + AdjMtx->p[jStart], bSize * sizeof(int));
         if (checkIfTwoArraysHasSameValue(a, b, aSize, bSize)) {
-          std::string jStr = std::to_string(j*numOfKTiles);
+          std::string jStr = std::to_string(j * numOfKTiles);
           if (conflictGraph.find(jStr) == conflictGraph.end()) {
             conflictGraph[jStr] = std::vector<std::string>();
           }
           conflictGraph[iStr].push_back(jStr);
           conflictGraph[jStr].push_back(iStr);
-          for (int k = 1; k < numOfKTiles; k++){
-            std::string ikStr = std::to_string(i*numOfKTiles+k);
-            std::string jkStr = std::to_string(j*numOfKTiles+k);
+          for (int k = 1; k < numOfKTiles; k++) {
+            std::string ikStr = std::to_string(i * numOfKTiles + k);
+            std::string jkStr = std::to_string(j * numOfKTiles + k);
             if (conflictGraph.find(jkStr) == conflictGraph.end()) {
               conflictGraph[jkStr] = std::vector<std::string>();
             }
@@ -288,5 +297,4 @@ protected:
     }
     return conflictGraph;
   }
-
 };

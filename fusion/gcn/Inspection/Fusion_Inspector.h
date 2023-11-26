@@ -14,6 +14,9 @@
 #define SPARSE_FUSION_FUSIONINSPECTOR_H
 
 using namespace swiftware::benchmark;
+
+// inter-layer fusion scheduler from sparse fusion on SpMM-SpMM
+// each layer is fused(SpMM of GeMVs)
 class InspectorForAllFused {
 protected:
   sym_lib::ScheduleParameters Sp;
@@ -48,6 +51,8 @@ public:
   }
 };
 
+// inter-layer fusion scheduler for tiledFusedCSC where each layer use
+// parallelized GeMMs
 class InspectorForAllTiledFusedCSC {
 protected:
 public:
@@ -153,6 +158,10 @@ struct TiledFusedLayerSchedulingParameters {
     delete[] GeMMLowerBounds;
   }
 };
+
+// intra-layer fusion scheduler for tiledFusedParallel where for each
+// row-wised tile in CSR matrix, range of GeMM that should be computed is
+// recognized and is given in the schedule dataset
 class InspectorForTiledFused {
 public:
   TiledFusedLayerSchedulingParameters *
@@ -186,6 +195,8 @@ public:
   }
 };
 
+// intera-layer fusion scheduler for tiledFusedCSCParallel that uses coloring of
+// conflict graph to generate create wave fronts.
 class InspectorForSingleLayerTiledFusedCSCParallel {
 public:
   sym_lib::MultiDimensionalSet *
@@ -237,6 +248,10 @@ protected:
   }
 };
 
+// Intera-layer fusion scheduler for tiledFusedCSCParallel that uses coloring of
+// conflict graph to generate create wave fronts. This class implements kTiling
+// on the ordinary conflict graph and generates new copies from each computation
+// in the same wavefront to have kTiles.
 class InspectorForSingleLayerTiledFusedCSCParallelWithKTiling
     : public InspectorForSingleLayerTiledFusedCSCParallel {
 public:
@@ -273,27 +288,39 @@ public:
   }
 };
 
+// Intera-layer fusion scheduler for tiledFusedCSC where create wavefronts based
+// on conflict graph of CSC matrix. for wavefronts with less than a specific
+// amount of nodes, it merges the computation nodes(tiles) and run the new nodes
+// using parallelized GeMMs.
+// n1_: number of parallel workloads
+// n2_: number of sequential region tiles (with parallel GeMMs)
+// n3_: max tile size in the sequential region tiles
+// ptr1_: 0->n1_ + 1: start and end of each workload
+// id_: 0->ptr[n1_ + 1]: parallel region tiles
+// id_: ptr[n1_ + 1]->ptr[n1_ + 1]+n2_: sequential region tiles
+// type_: pointer array to start and end of each tile
 class InspectorForSingleLayerTiledFusedCSCCombined
     : public InspectorForSingleLayerTiledFusedCSCParallel {
 
 public:
-  virtual sym_lib::MultiDimensionalSet *generateScheduleBasedOnConflictGraphColoring(
+  virtual sym_lib::MultiDimensionalSet *
+  generateScheduleBasedOnConflictGraphColoring(
       std::map<int, std::vector<int>> ColorToTiles, int NumOfNodes,
       int TileSize, int WorkloadMinSize) {
     std::vector<std::vector<int>> workloads;
-    std::set<int> standAloneTiles;
+    std::set<int> sequentialRegionTiles;
     for (auto tileGroup : ColorToTiles) {
       if (tileGroup.second.size() >= WorkloadMinSize) {
         workloads.push_back(tileGroup.second);
       } else {
-        standAloneTiles.insert(tileGroup.second.begin(),
+        sequentialRegionTiles.insert(tileGroup.second.begin(),
                                tileGroup.second.end());
       }
     }
-    std::map<int, int> standAloneTileToNewSize =
-        getNewStandAloneTilesMap(standAloneTiles);
+    std::map<int, int> sequentialRegionTileToNewSize =
+        getNewSequentialRegionTilesMap(sequentialRegionTiles);
     std::map<int, int> tileToNewSize =
-        updateNewTilesMapWithWorkloadTiles(workloads, standAloneTileToNewSize);
+        updateNewTilesMapWithWorkloadTiles(workloads, sequentialRegionTileToNewSize);
     int numOfNewTiles = tileToNewSize.size();
     int *tilePtr = new int[numOfNewTiles + 1];
     int maxTileSize = 0;
@@ -316,7 +343,7 @@ public:
         new sym_lib::MultiDimensionalSet();
     fusedCompSet->n1_ = workloads.size();
     fusedCompSet->ptr1_ = new int[fusedCompSet->n1_ + 1];
-    fusedCompSet->n2_ = standAloneTileToNewSize.size();
+    fusedCompSet->n2_ = sequentialRegionTileToNewSize.size();
     fusedCompSet->n3_ = maxTileSize;
     fusedCompSet->id_ = new int[tileToNewSize.size()];
     fusedCompSet->type_ = tilePtr;
@@ -330,7 +357,7 @@ public:
     }
     int standAloneTilesStart = fusedCompSet->ptr1_[fusedCompSet->n1_];
     i = standAloneTilesStart;
-    for (auto saTile : standAloneTileToNewSize) {
+    for (auto saTile : sequentialRegionTileToNewSize) {
       fusedCompSet->id_[i] = oldToNewIndex[saTile.first];
       i++;
     }
@@ -350,7 +377,8 @@ protected:
     return tileToNewSize;
   }
 
-  std::map<int, int> getNewStandAloneTilesMap(std::set<int> StandAloneTiles) {
+  std::map<int, int>
+  getNewSequentialRegionTilesMap(std::set<int> StandAloneTiles) {
     std::map<int, int> tileToNewSize;
     tileToNewSize[*StandAloneTiles.begin()] = 1;
     StandAloneTiles.erase(StandAloneTiles.begin());
@@ -370,11 +398,11 @@ class InspectorForSingleLayerTiledFusedCSCCombinedWithKTiling
     : public InspectorForSingleLayerTiledFusedCSCCombined {
 public:
   sym_lib::MultiDimensionalSet *generateScheduleBasedOnConflictGraphColoring(
-    std::map<int, std::vector<int>> ColorToTiles, int NumOfNodes,
-    int TileSize, int WorkloadMinSize, int OutputSize, int KTileSize) {
+      std::map<int, std::vector<int>> ColorToTiles, int NumOfNodes,
+      int TileSize, int WorkloadMinSize, int OutputSize, int KTileSize) {
     std::vector<std::vector<int>> workloads;
     std::set<int> standAloneTiles;
-    int numOfKTiles = OutputSize/KTileSize;
+    int numOfKTiles = OutputSize / KTileSize;
     for (auto tileGroup : ColorToTiles) {
       if (tileGroup.second.size() >= WorkloadMinSize) {
         workloads.push_back(tileGroup.second);
@@ -384,7 +412,7 @@ public:
       }
     }
     std::map<int, int> standAloneTileToNewSize =
-        getNewStandAloneTilesMap(standAloneTiles);
+        getNewSequentialRegionTilesMap(standAloneTiles);
     std::map<int, int> tileToNewSize =
         updateNewTilesMapWithWorkloadTiles(workloads, standAloneTileToNewSize);
     int numOfNewTiles = tileToNewSize.size();
@@ -411,11 +439,12 @@ public:
     fusedCompSet->ptr1_ = new int[fusedCompSet->n1_ + 1];
     fusedCompSet->n2_ = standAloneTileToNewSize.size();
     fusedCompSet->n3_ = maxTileSize;
-    fusedCompSet->id_ = new int[tileToNewSize.size()*numOfKTiles];
+    fusedCompSet->id_ = new int[tileToNewSize.size() * numOfKTiles];
     fusedCompSet->type_ = tilePtr;
     fusedCompSet->ptr1_[0] = 0;
     for (i = 0; i < workloads.size(); i++) {
-      fusedCompSet->ptr1_[i + 1] = fusedCompSet->ptr1_[i] + workloads[i].size()*numOfKTiles;
+      fusedCompSet->ptr1_[i + 1] =
+          fusedCompSet->ptr1_[i] + workloads[i].size() * numOfKTiles;
       for (int j = 0; j < workloads[i].size(); j++) {
         for (int k = 0; k < numOfKTiles; k++) {
           fusedCompSet->id_[fusedCompSet->ptr1_[i] + j * numOfKTiles + k] =
