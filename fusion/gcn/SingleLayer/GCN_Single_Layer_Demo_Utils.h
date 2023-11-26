@@ -45,7 +45,7 @@ protected:
     forwardForOneLayer(
         InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->p,
         InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x,
-        InTensor->FeatureMatrix->col, InTensor->Weight1->col, InTensor->Degrees,
+        InTensor->FeatureMatrix->col, InTensor->Weight1->row, InTensor->Degrees,
         InTensor->FeatureMatrix->a, InTensor->Weight1->a,
         OutTensor->FirstLayerOutput);
     t.stop();
@@ -67,7 +67,7 @@ protected:
     forwardForOneLayerParallel(
         InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->p,
         InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x,
-        InTensor->FeatureMatrix->col, InTensor->Weight1->col, InTensor->Degrees,
+        InTensor->FeatureMatrix->col, InTensor->Weight1->row, InTensor->Degrees,
         InTensor->FeatureMatrix->a, InTensor->Weight1->a,
         OutTensor->FirstLayerOutput, InTensor->NumThreads);
     t.stop();

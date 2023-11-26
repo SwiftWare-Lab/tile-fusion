@@ -48,9 +48,9 @@ void forwardForOneLayerParallel(int M, int *Ap, int *Ai, double *Ax,
       for (int j = Ap[i]; j < Ap[i + 1]; j++) {
         int n = Ai[j];
         cblas_dgemv(
-            CblasRowMajor, CblasTrans, InputChannelDim, OutputChannelDim,
+            CblasRowMajor, CblasNoTrans, OutputChannelDim, InputChannelDim,
             Ax[j], // alpha
-            Weight, OutputChannelDim, Features + (n * InputChannelDim), 1,
+            Weight, InputChannelDim, Features + (n * InputChannelDim), 1,
             1., // beta
             messages, 1);
       }
@@ -76,10 +76,10 @@ void forwardForFusedLayersParallel(
             double *messages = HiddenOutput + HiddenChannelDim * i;
             for (int j = Ap[i]; j < Ap[i + 1]; j++) {
               int n = Ai[j];
-              cblas_dgemv(CblasRowMajor, CblasTrans, InputChannelDim,
-                          HiddenChannelDim,
+              cblas_dgemv(CblasRowMajor, CblasNoTrans, HiddenChannelDim,
+                          InputChannelDim,
                           Ax[j], // alpha
-                          Layer1Weight, HiddenChannelDim,
+                          Layer1Weight, InputChannelDim,
                           Features + (n * InputChannelDim), 1, 1., // beta
                           messages, 1);
             }
@@ -87,10 +87,10 @@ void forwardForFusedLayersParallel(
             double *messages = Output + OutputChannelDim * i;
             for (int j = Ap[i]; j < Ap[i + 1]; j++) {
               int n = Ai[j];
-              cblas_dgemv(CblasRowMajor, CblasTrans, HiddenChannelDim,
-                          OutputChannelDim,
+              cblas_dgemv(CblasRowMajor, CblasNoTrans, OutputChannelDim,
+                          HiddenChannelDim,
                           Ax[j], // alpha
-                          Layer2Weight, OutputChannelDim,
+                          Layer2Weight, HiddenChannelDim,
                           HiddenOutput + (n * HiddenChannelDim), 1, 1., // beta
                           messages, 1);
             }
@@ -301,9 +301,9 @@ void forwardForOneLayerFromCSC(int M, int *Ap, int *Ai, double *Ax,
   double cache[OutputChannelDim];
   for (int i = 0; i < M; i++) {
     std::memset(cache, 0, sizeof(double *) * OutputChannelDim);
-    cblas_dgemv(CblasRowMajor, CblasTrans, InputChannelDim, OutputChannelDim,
+    cblas_dgemv(CblasRowMajor, CblasNoTrans, OutputChannelDim, InputChannelDim,
                 1, // alpha
-                Weight, OutputChannelDim, Features + (i * InputChannelDim), 1,
+                Weight, InputChannelDim, Features + (i * InputChannelDim), 1,
                 1., // beta
                 cache, 1);
     for (int j = Ap[i]; j < Ap[i + 1]; j++) {
@@ -321,9 +321,9 @@ void forwardForOneLayerFromCSC2(int M, int *Ap, int *Ai, double *Ax,
   double cache[OutputChannelDim];
   for (int i = 0; i < M; i++) {
     std::memset(cache, 0, sizeof(double *) * OutputChannelDim);
-    cblas_dgemv(CblasRowMajor, CblasTrans, InputChannelDim, OutputChannelDim,
+    cblas_dgemv(CblasRowMajor, CblasNoTrans, OutputChannelDim, InputChannelDim,
                 1, // alpha
-                Weight, OutputChannelDim, Features + (i * InputChannelDim), 1,
+                Weight, InputChannelDim, Features + (i * InputChannelDim), 1,
                 1., // beta
                 cache, 1);
     for (int j = Ap[i]; j < Ap[i + 1]; j++) {
@@ -346,9 +346,9 @@ void forwardForOneLayerFromCSCParallel(int M, int *Ap, int *Ai, double *Ax,
     for (int i = 0; i < M; i++) {
       double cache[OutputChannelDim];
       std::memset(cache, 0, sizeof(double *) * OutputChannelDim);
-      cblas_dgemv(CblasRowMajor, CblasTrans, InputChannelDim, OutputChannelDim,
+      cblas_dgemv(CblasRowMajor, CblasNoTrans, OutputChannelDim, InputChannelDim,
                   1, // alpha
-                  Weight, OutputChannelDim, Features + (i * InputChannelDim), 1,
+                  Weight, InputChannelDim, Features + (i * InputChannelDim), 1,
                   1., // beta
                   cache, 1);
       for (int j = Ap[i]; j < Ap[i + 1]; j++) {
@@ -372,10 +372,10 @@ void forwardForOneLayerTiled(int M, int *Ap, int *Ai, double *Ax,
     int geMMTileStartLoc = GeMMLowerBounds[i / TileSize];
     int geMMTileEndLoc = GeMMUpperBounds[i / TileSize];
     int geMMTileSize = geMMTileEndLoc - geMMTileStartLoc;
-    cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, geMMTileSize,
+    cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasTrans, geMMTileSize,
                 OutputChannelDim, InputChannelDim, 1.,
                 Features + geMMTileStartLoc * InputChannelDim, InputChannelDim,
-                Weight, OutputChannelDim, 0., temp, OutputChannelDim);
+                Weight, InputChannelDim, 0., temp, OutputChannelDim);
     for (int ii = 0; ii < TileSize; ii++) {
       if (i + ii >= M)
         break;
@@ -410,7 +410,7 @@ void forwardForOneLayerTiledParallel(int M, int *Ap, int *Ai, double *Ax,
       int geMMTileSize = geMMTileEndLoc - geMMTileStartLoc;
       //      Timer tgemm;
       //      tgemm.start();
-      cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, geMMTileSize,
+      cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasTrans, geMMTileSize,
                   OutputChannelDim, InputChannelDim, 1.,
                   Features + geMMTileStartLoc * InputChannelDim,
                   InputChannelDim, Weight, OutputChannelDim, 0., ttemp,
@@ -448,10 +448,10 @@ void forwardForOneLayerFromCSCTiled(int M, int *Ap, int *Ai, double *Ax,
   int lastTileSize = M % TileSize;
   int lastCompleteTileEnd = M - lastTileSize;
   for (int i = 0; i < lastCompleteTileEnd; i += TileSize) {
-    cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, TileSize,
+    cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasTrans, TileSize,
                 OutputChannelDim, InputChannelDim, 1.,
                 Features + i * InputChannelDim, InputChannelDim, Weight,
-                OutputChannelDim, 0., cache, OutputChannelDim);
+                InputChannelDim, 0., cache, OutputChannelDim);
     for (int ii = 0; ii < TileSize; ii++) {
       for (int j = Ap[i + ii]; j < Ap[i + ii + 1]; j++) {
         for (int k = 0; k < OutputChannelDim; k++) {
@@ -461,10 +461,10 @@ void forwardForOneLayerFromCSCTiled(int M, int *Ap, int *Ai, double *Ax,
       }
     }
   }
-  cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, lastTileSize,
+  cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasTrans, lastTileSize,
               OutputChannelDim, InputChannelDim, 1.,
               Features + lastCompleteTileEnd * InputChannelDim, InputChannelDim,
-              Weight, OutputChannelDim, 0., cache, OutputChannelDim);
+              Weight, InputChannelDim, 0., cache, OutputChannelDim);
   for (int ii = 0; ii < lastTileSize; ii++) {
     for (int j = Ap[lastCompleteTileEnd + ii];
          j < Ap[lastCompleteTileEnd + ii + 1]; j++) {
@@ -492,10 +492,10 @@ void forwardForOneLayerFromCSCTiledParallel(int M, int *Ap, int *Ai, double *Ax,
 #pragma omp for
     for (int i = 0; i < lastCompleteTileEnd; i += 2 * TileSize) {
       double *tcache = cache + threadId * TileSize * OutputChannelDim;
-      cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, TileSize,
+      cblas_dgemm(CblasRowMajor, CblasTrans, CblasNoTrans, TileSize,
                   OutputChannelDim, InputChannelDim, 1.,
                   Features + i * InputChannelDim, InputChannelDim, Weight,
-                  OutputChannelDim, 0., tcache, OutputChannelDim);
+                  InputChannelDim, 0., tcache, OutputChannelDim);
       for (int ii = 0; ii < TileSize; ii++) {
         for (int j = Ap[i + ii]; j < Ap[i + ii + 1]; j++) {
           for (int k = 0; k < OutputChannelDim; k++) {
@@ -512,10 +512,10 @@ void forwardForOneLayerFromCSCTiledParallel(int M, int *Ap, int *Ai, double *Ax,
 #pragma omp for
     for (int i = TileSize; i < lastCompleteTileEnd; i += 2 * TileSize) {
       double *tcache = cache + threadId * TileSize * OutputChannelDim;
-      cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, TileSize,
+      cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasTrans, TileSize,
                   OutputChannelDim, InputChannelDim, 1.,
                   Features + i * InputChannelDim, InputChannelDim, Weight,
-                  OutputChannelDim, 0., tcache, OutputChannelDim);
+                  InputChannelDim, 0., tcache, OutputChannelDim);
       for (int ii = 0; ii < TileSize; ii++) {
         for (int j = Ap[i + ii]; j < Ap[i + ii + 1]; j++) {
           for (int k = 0; k < OutputChannelDim; k++) {
@@ -527,10 +527,10 @@ void forwardForOneLayerFromCSCTiledParallel(int M, int *Ap, int *Ai, double *Ax,
     }
   }
   double *tcache = cache + 0 * TileSize * OutputChannelDim;
-  cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, lastTileSize,
+  cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasTrans, lastTileSize,
               OutputChannelDim, InputChannelDim, 1.,
               Features + lastCompleteTileEnd * InputChannelDim, InputChannelDim,
-              Weight, OutputChannelDim, 0., tcache, OutputChannelDim);
+              Weight, InputChannelDim, 0., tcache, OutputChannelDim);
   for (int ii = 0; ii < lastTileSize; ii++) {
     for (int j = Ap[lastCompleteTileEnd + ii];
          j < Ap[lastCompleteTileEnd + ii + 1]; j++) {
@@ -826,10 +826,10 @@ void forwardForFusedLayersFromCSCTiled(
     int i = Partition[it];
     int t = Type[it];
     if (t == 0) {
-      cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, TileSize,
+      cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasTrans, TileSize,
                   HiddenChannelDim, InputChannelDim, 1.,
                   Features + i * InputChannelDim, InputChannelDim, Weight1,
-                  HiddenChannelDim, 0., cache1, HiddenChannelDim);
+                  InputChannelDim, 0., cache1, HiddenChannelDim);
       for (int ii = 0; ii < TileSize; ii++) {
         for (int j = Ap[i + ii]; j < Ap[i + ii + 1]; j++) {
           for (int k = 0; k < HiddenChannelDim; k++) {
@@ -839,10 +839,10 @@ void forwardForFusedLayersFromCSCTiled(
         }
       }
     } else if (t == 2) {
-      cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, lastTileSize,
+      cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasTrans, lastTileSize,
                   HiddenChannelDim, InputChannelDim, 1.,
                   Features + lastCompleteTileEnd * InputChannelDim,
-                  InputChannelDim, Weight1, HiddenChannelDim, 0., cache1,
+                  InputChannelDim, Weight1, InputChannelDim, 0., cache1,
                   HiddenChannelDim);
       for (int ii = 0; ii < lastTileSize; ii++) {
         for (int j = Ap[lastCompleteTileEnd + ii];
@@ -854,10 +854,10 @@ void forwardForFusedLayersFromCSCTiled(
         }
       }
     } else if (t == 1) {
-      cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, TileSize,
+      cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasTrans, TileSize,
                   OutputChannelDim, HiddenChannelDim, 1.,
                   FirstLayerOutput + i * HiddenChannelDim, HiddenChannelDim,
-                  Weight2, OutputChannelDim, 0., cache2, OutputChannelDim);
+                  Weight2, HiddenChannelDim, 0., cache2, OutputChannelDim);
       for (int ii = 0; ii < TileSize; ii++) {
         for (int j = Ap[i + ii]; j < Ap[i + ii + 1]; j++) {
           for (int k = 0; k < OutputChannelDim; k++) {
@@ -867,10 +867,10 @@ void forwardForFusedLayersFromCSCTiled(
         }
       }
     } else if (t == 3) {
-      cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, lastTileSize,
+      cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasTrans, lastTileSize,
                   OutputChannelDim, HiddenChannelDim, 1.,
                   FirstLayerOutput + lastCompleteTileEnd * HiddenChannelDim,
-                  HiddenChannelDim, Weight2, OutputChannelDim, 0., cache2,
+                  HiddenChannelDim, Weight2, HiddenChannelDim, 0., cache2,
                   OutputChannelDim);
       for (int ii = 0; ii < lastTileSize; ii++) {
         for (int j = Ap[lastCompleteTileEnd + ii];
@@ -899,9 +899,9 @@ void forwardForOneLayerFromCSCVectorized(int M, int *Ap, int *Ai, double *Ax,
     for (int i = 0; i < M; i++) {
       double cache[OutputChannelDim];
       std::memset(cache, 0, sizeof(double *) * OutputChannelDim);
-      cblas_dgemv(CblasRowMajor, CblasTrans, InputChannelDim, OutputChannelDim,
+      cblas_dgemv(CblasRowMajor, CblasNoTrans, OutputChannelDim, InputChannelDim,
                   1, // alpha
-                  Weight, OutputChannelDim, Features + (i * InputChannelDim), 1,
+                  Weight, InputChannelDim, Features + (i * InputChannelDim), 1,
                   1., // beta
                   cache, 1);
       for (int j = Ap[i]; j < Ap[i + 1]; j++) {
@@ -929,10 +929,10 @@ void forwardForOneLayerFromCSCTiledVectorized(int M, int *Ap, int *Ai,
   int lastCompleteTileEnd = M - lastTileSize;
   for (int i = 0; i < lastCompleteTileEnd; i += TileSize) {
     std::memset(cache, 0, sizeof(double *) * TileSize * OutputChannelDim);
-    cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, TileSize,
+    cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasTrans, TileSize,
                 OutputChannelDim, InputChannelDim, 1.,
                 Features + i * InputChannelDim, InputChannelDim, Weight,
-                OutputChannelDim, 0., cache, OutputChannelDim);
+                InputChannelDim, 0., cache, OutputChannelDim);
     for (int ii = 0; ii < TileSize; ii++) {
       int nnzNum = Ap[i + ii + 1] - Ap[i + ii];
       int unrollingEnd = Ap[i + ii + 1] - nnzNum % 3;
@@ -969,10 +969,10 @@ void forwardForOneLayerFromCSCTiledVectorized(int M, int *Ap, int *Ai,
     }
   }
   std::memset(cache, 0, sizeof(double *) * TileSize * OutputChannelDim);
-  cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, lastTileSize,
+  cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasTrans, lastTileSize,
               OutputChannelDim, InputChannelDim, 1.,
               Features + lastCompleteTileEnd * InputChannelDim, InputChannelDim,
-              Weight, OutputChannelDim, 0., cache, OutputChannelDim);
+              Weight, InputChannelDim, 0., cache, OutputChannelDim);
   for (int ii = 0; ii < lastTileSize; ii++) {
     int nnzNum =
         Ap[lastCompleteTileEnd + ii + 1] - Ap[lastCompleteTileEnd + ii];
