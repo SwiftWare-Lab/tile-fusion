@@ -86,6 +86,14 @@ First you need to create matrices using this script
 python scripts/gen_matrix_folder.py -sl 1000 5000 10000 100000 -f ./data/banded -b 3
 ```
 
+### experiment on torch-geometric Graph Adjacency Matrices
+
+First you need to download matrices using this script
+
+```bash
+python scripts/dl_pyg_graphs.py data/pyg-graphs
+```
+
 Make sure you have mkl installed and setup its environment variables.
 Then run the code using:
 
