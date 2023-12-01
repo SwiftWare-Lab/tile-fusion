@@ -2,8 +2,8 @@
 // Created by Kazem on 2023-05-07.
 //
 
-#include <iostream>
 #include "sparse-fusion/MultiDimensionalSet.h"
+#include <iostream>
 
 namespace sym_lib {
 
@@ -216,15 +216,39 @@ namespace sym_lib {
  }
 
  void MultiDimensionalSet::print_3d() {
+  int fused_counter = 0;
+  int counter = 0;
   for (int i = 0; i < n1_; ++i) {
    for (int j = ptr1_[i]; j < ptr1_[i + 1]; ++j) {
     for (int k = ptr2_[j]; k < ptr2_[j + 1]; ++k) {
+      if (i == 0 && type_[k] == 1){
+       fused_counter += 1;
+      }
+      if(type_[k] == 1)
+        counter += 1;
      std::cout << "(" << id_[k] << "," << (type_? type_[k]:0)<< "),";
     }
     std::cout<<"; ";
    }
    std::cout << "\n";
   }
+  std:: cout << "number of second loop iterations: " << counter << std::endl;
+  std:: cout << "number of second loop fused iterations: " << fused_counter << std::endl;
+  std:: cout << "fused ratio: " << double(fused_counter)/counter << std::endl;
+ }
+
+ int MultiDimensionalSet::getNumberOfFusedNodes(CSR* L2Matrix) {
+   int fusedCounter = 0;
+   for (int i = 0; i < n1_; ++i) {
+     for (int j = ptr1_[i]; j < ptr1_[i + 1]; ++j) {
+       for (int k = ptr2_[j]; k < ptr2_[j + 1]; ++k) {
+         if (i == 0 && type_[k] == 1 && L2Matrix->p[i]!=L2Matrix->p[i+1]){
+           fusedCounter += 1;
+         }
+       }
+     }
+   }
+   return fusedCounter;
  }
 
  int *MultiDimensionalSet::build_node_to_level(){

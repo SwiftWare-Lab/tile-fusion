@@ -26,7 +26,6 @@ if(TARGET MKL::MKL)
             swbench::swbench
             OpenMP::OpenMP_CXX
             )
-
 endif()
 
 add_executable(dag_decomp
@@ -52,16 +51,6 @@ target_link_libraries(fusion_profiler
         fusion
         swbench::swbench
         )
-
-
-add_executable(gcn_demo
-        GNN_GCN_Demo.cpp
-)
-
-target_link_libraries(gcn_demo
-        fusion
-        swbench::swbench
-)
 
 
 #target_compile_options(dag_decomp PRIVATE

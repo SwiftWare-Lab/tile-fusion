@@ -1,7 +1,7 @@
 #!/bin/bash
 
 BASELINE="SpMM_SpMM_Demo_UnFusedParallel"
-UFDB=./data
+UFDB="./data/ss-graphs/"
 BCOL=4
 
 THRD=40
@@ -38,11 +38,13 @@ done
 BINFILE="spmm_spmm_fusion"
 if [ $BASELINE = "SpMM_SpMM_MKL" ]; then
   BINFILE="fused_vs_mkl"
+else
+  BINFILE="gcn_demo"
 fi
 
 
 
-#export MKL_DIR=$MKLROOT
+export MKL_DIR=$MKLROOT
 
 which cmake
 which gcc
@@ -56,6 +58,7 @@ mkdir build
 cd build
 #make clean
 #rm -rf *.txt
+echo $MKL_DIR
 cmake -DCMAKE_PREFIX_PATH="$MKL_DIR/lib/intel64;$MKL_DIR/include;$MKL_DIR/../compiler/lib/intel64;_deps/openblas-build/lib/;/home/m/mmehride/kazem/programs/metis-5.1.0/libmetis;/home/m/mmehride/kazem/programs/metis-5.1.0/include/;"  -DCMAKE_BUILD_TYPE=Release ..
 make -j 40
 
@@ -69,7 +72,7 @@ MATLIST=$UFDB/mat_list.txt
 
 mkdir $LOGS
 
-MODE=3
+MODE=4
 # performing the experiments
 if [ $DOWNLOAD -eq 1 ]; then
     python3 $SCRIPTPATH/dl_matrix.py $UFDB $MATLIST
