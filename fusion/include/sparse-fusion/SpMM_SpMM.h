@@ -132,6 +132,17 @@ void spmmCsrSpmmCscFused(int M, int N, int K, int L,
                          const int *Partition, const int *ParType,
                          int NThreads);
 
+
+void spmmCsrSpmmCscFusedAffine(int M, int N, int K, int L,
+                               const int *Ap, const int *Ai, const double *Ax,
+                               const int *Bp, const int *Bi,const double *Bx,
+                               const double *Cx,
+                               double *Dx,
+                               double *ACx,
+                               int LevelNo, const int *LevelPtr, const int *ParPtr,
+                               const int *Partition, const int *ParType,
+                               int NThreads);
+
 } // namespace sparse
 } // namespace swiftware
 #endif // SPARSE_FUSION_SPMM_SPMM_H

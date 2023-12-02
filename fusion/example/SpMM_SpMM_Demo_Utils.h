@@ -879,7 +879,7 @@ class SpMMCSRSpMMCSCFusedAtomic : public SpMMSpMMUnFused {
         OutTensor->reset();
         Timer t;
         t.start();
-        swiftware::sparse::spmmCsrSpmmCscFused(InTensor->M, InTensor->N,
+        swiftware::sparse::spmmCsrSpmmCscFusedAffine(InTensor->M, InTensor->N,
                                                InTensor->K, InTensor->L,
                                                InTensor->ACsr->p,
                                                InTensor->ACsr->i,
@@ -912,6 +912,58 @@ class SpMMCSRSpMMCSCFusedAtomic : public SpMMSpMMUnFused {
     }
 };
 
+
+
+class SpMMCSRSpMMCSCFusedAtomicInterleaved : public SpMMSpMMUnFused {
+  protected:
+    sym_lib::MultiDimensionalSet *FusedCompSet;
+    sym_lib::ScheduleParameters Sp;
+    sym_lib::SparsityProfileInfo SpInfo;
+    Timer analysis() override {
+        Timer t;
+        t.start();
+
+        t.stop();
+        return t;
+    }
+
+    Timer execute() override {
+        //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+        //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
+        OutTensor->reset();
+        Timer t;
+        t.start();
+        swiftware::sparse::spmmCsrSpmmCscFusedAffine(InTensor->M, InTensor->N,
+                                               InTensor->K, InTensor->L,
+                                               InTensor->ACsr->p,
+                                               InTensor->ACsr->i,
+                                               InTensor->ACsr->x,
+                                               InTensor->B->p,
+                                               InTensor->B->i,
+                                               InTensor->B->x,
+                                               InTensor->Cx,
+                                               OutTensor->Dx,
+                                               OutTensor->ACx, FusedCompSet->n1_,
+                                               FusedCompSet->ptr1_,
+                                               FusedCompSet->ptr2_, FusedCompSet->id_,
+                                               FusedCompSet->type_,
+                                               InTensor->NumThreads);
+
+        t.stop();
+        return t;
+    }
+  public:
+    SpMMCSRSpMMCSCFusedAtomicInterleaved(TensorInputs<double> *In1, Stats *Stat1,
+                              sym_lib::ScheduleParameters SpIn)
+        : SpMMSpMMUnFused(In1, Stat1), Sp(SpIn){
+    }
+
+    ~SpMMCSRSpMMCSCFusedAtomicInterleaved(){
+    }
+    sym_lib::SparsityProfileInfo getSpInfo(){
+        return SpInfo;
+    }
+};
 
 
 #endif // SPARSE_FUSION_SPMM_SPMM_DEMO_UTILS_H

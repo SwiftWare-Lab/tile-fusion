@@ -189,6 +189,17 @@ int main(const int argc, const char *argv[]){
   delete fusedCSCSepParallel;
   delete stats;
 
+
+  stats = new swiftware::benchmark::Stats("SpMM_SpMM_CSC_Interleaved_FusedParallel","SpMM", 7,tp._matrix_name,numThread);
+  stats->OtherStats["PackingType"] = {Separated};
+  auto *fusedCSCInterleavedParallel = new SpMMCSRSpMMCSCFusedAtomicInterleaved(inSpMM, stats, sp);
+  fusedCSCInterleavedParallel->run();
+  //fusedParallel->OutTensor->printDx();
+  auto fusedCSCInterleavedParallelStat = fusedCSCInterleavedParallel->printStats();
+  delete fusedCSCInterleavedParallel;
+  delete stats;
+
+
   stats = new swiftware::benchmark::Stats("SpMM_SpMM_Profiler","SpMM", 7,tp._matrix_name,numThread);
   auto *fusionProfiler = new SpMMSpMMFusionProfiler(inSpMM, stats, sp);
   fusionProfiler->run();
@@ -223,8 +234,9 @@ int main(const int argc, const char *argv[]){
   //std::cout<<fusedTiledParallelMixedStat<<spStat+tpStat+profStatMixed<<std::endl;
   std::cout<<fusedParallelOutStat<<spStat+tpStat+profStat<<std::endl;
   std::cout<<fusedParallelMixedStat<<spStat+tpStat+profStat<<std::endl;
-  std::cout<<fusedCSCParallelSepStat<<spStat+tpStat+profStat<<std::endl;
   std::cout<<fusedParallelSepStat<<spStat+tpStat+profStat;
+  std::cout<<fusedCSCParallelSepStat<<spStat+tpStat+profStat<<std::endl;
+  std::cout<<fusedCSCInterleavedParallelStat<<spStat+tpStat+profStat<<std::endl;
 
 //  sp._num_w_partition = 2;
 //  //print_csc(1,"",A_csc);
