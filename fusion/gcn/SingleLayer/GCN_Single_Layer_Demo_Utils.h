@@ -262,6 +262,30 @@ public:
       : GCNSingleLayerFused(In1, Stat1) {}
 };
 
+class GCNSingleLayerTiledFusedCSCParallelAtomic : public GCNSingleLayerFused {
+protected:
+  int TileSize;
+  Timer execute() override {
+    OutTensor->reset();
+    mkl_set_num_threads(1);
+    Timer t;
+    t.start();
+    forwardForOneLayerFromCSCTiledParallel(
+        InTensor->AdjacencyMatrixCSC->m, InTensor->AdjacencyMatrixCSC->p,
+        InTensor->AdjacencyMatrixCSC->i, InTensor->AdjacencyMatrixCSC->x,
+        InTensor->FeatureMatrix->col, InTensor->Weight1->row, InTensor->Degrees,
+        InTensor->FeatureMatrix->a, InTensor->Weight1->a,
+        OutTensor->FirstLayerOutput, TileSize, InTensor->NumThreads);
+    t.stop();
+    return t;
+  }
+public:
+  GCNSingleLayerTiledFusedCSCParallelAtomic(
+      GnnTensorInputs *In1, Stats *Stat1, int TileSize1)
+      : GCNSingleLayerFused(In1, Stat1), TileSize(TileSize1)
+         {}
+};
+
 class GCNSingleLayerTiledFusedCSCParallel : public GCNSingleLayerFused {
 protected:
   int TileSize;

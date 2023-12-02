@@ -22,9 +22,9 @@ class DsaturColoringForConflictGraph {
 
 public:
   std::map<int, std::vector<int>>
-  generateGraphColoringForConflictGraphOf(sym_lib::CSC *AdjMtx, int TileSize) {
+  generateGraphColoringForConflictGraphOf(int ColumnsNum, int* IndPtr, int* Indices, int TileSize) {
     std::map<std::string, std::vector<std::string>> conflictGraph =
-        createTilesConflictGraph(AdjMtx, TileSize);
+        createTilesConflictGraph(ColumnsNum, IndPtr, Indices, TileSize);
     std::map<std::string, int> coloring = dsaturColoring(conflictGraph); // tile to color
     std::map<int, std::vector<int>> colorToTiles = getColorToTilesMap(coloring);
     return colorToTiles;
@@ -175,13 +175,13 @@ protected:
   }
 
   std::map<std::string, std::vector<std::string>>
-  createTilesConflictGraph(sym_lib::CSC *AdjMtx, int TileSize) {
+  createTilesConflictGraph(int ColumnsNum, int* IndPtr, int* Indices, int TileSize) {
     std::map<std::string, std::vector<std::string>> conflictGraph;
-    int numOfTiles = (int)ceil((double)AdjMtx->m / TileSize);
+    int numOfTiles = (int)ceil((double)ColumnsNum / TileSize);
     for (int i = 0; i < numOfTiles; i++) {
       int iStart = i * TileSize;
-      int iEnd = std::min(iStart + TileSize, (int)AdjMtx->m);
-      int aSize = AdjMtx->p[iEnd] - AdjMtx->p[iStart];
+      int iEnd = std::min(iStart + TileSize, ColumnsNum);
+      int aSize = IndPtr[iEnd] - IndPtr[iStart];
       int *a = new int[aSize];
       std::string iStr = std::to_string(i);
       if (conflictGraph.find(iStr) == conflictGraph.end()) {
@@ -189,11 +189,11 @@ protected:
       }
       for (int j = i + 1; j < numOfTiles; j++) {
         int jStart = j * TileSize;
-        int jEnd = std::min(jStart + TileSize, (int)AdjMtx->m);
-        int bSize = AdjMtx->p[jEnd] - AdjMtx->p[jStart];
+        int jEnd = std::min(jStart + TileSize, ColumnsNum);
+        int bSize = IndPtr[jEnd] - IndPtr[jStart];
         int *b = new int[bSize];
-        std::memcpy(a, AdjMtx->i + AdjMtx->p[iStart], aSize * sizeof(int));
-        std::memcpy(b, AdjMtx->i + AdjMtx->p[jStart], bSize * sizeof(int));
+        std::memcpy(a, Indices + IndPtr[iStart], aSize * sizeof(int));
+        std::memcpy(b, Indices + IndPtr[jStart], bSize * sizeof(int));
         if (checkIfTwoArraysHasSameValue(a, b, aSize, bSize)) {
           std::string jStr = std::to_string(j);
           if (conflictGraph.find(jStr) == conflictGraph.end()) {
