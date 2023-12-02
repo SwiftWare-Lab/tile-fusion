@@ -27,7 +27,8 @@ struct ScheduleParameters {
   int TileM{}, TileN{}, TileK{};
   SeedPartType SeedPartitioningParallelism{};
 
-  ScheduleParameters() : _lbc_agg(2), _lbc_initial_cut(2), _num_threads(20) {
+  ScheduleParameters() : _lbc_agg(2), _lbc_initial_cut(2), _num_threads(1),
+  TileK(1), TileM(1), TileN(1), IterPerPartition(1), _min_workload_size(1){
     _num_w_partition = _num_threads;
   }
 

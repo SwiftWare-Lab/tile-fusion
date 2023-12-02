@@ -269,11 +269,12 @@ void spmmCsrSpmmCscFused(int M, int N, int K, int L,
               }
             }
           } else {
-            for (int k = Bp[i]; k < Bp[i + 1]; k++) {
-              int bij = Bi[k] * N;
+            for (int k = Bp[i]; k < Bp[i + 1]; k++) { // for each column of B
+
               for (int kk = 0; kk < N; ++kk) {
+                int bij = Bi[k] * N;
 #pragma omp atomic
-                Dx[i * N + kk] += Bx[k] * ACx[bij + kk];
+                Dx[bij + kk] += Bx[k] * ACx[i*N + kk];
               }
             }
           }
