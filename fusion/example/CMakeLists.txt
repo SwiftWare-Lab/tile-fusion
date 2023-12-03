@@ -2,6 +2,7 @@
 include_directories(
         ${SYM_AGG}/include
         ${SYM_FUS}/include
+        ${SYM_FUS}/gcn
 )
 
 project(examples)

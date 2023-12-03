@@ -8,6 +8,7 @@
 #include "aggregation/sparse_utilities.h"
 #include "sparse-fusion/Fusion_Utils.h"
 #include "sparse-fusion/SparseFusion.h"
+#include "Inspection/GraphColoring.h"
 #include <fstream>
 
 using namespace sym_lib;
@@ -197,6 +198,26 @@ int main(const int argc, const char *argv[]){
   //fusedParallel->OutTensor->printDx();
   auto fusedCSCInterleavedParallelStat = fusedCSCInterleavedParallel->printStats();
   delete fusedCSCInterleavedParallel;
+  delete stats;
+
+  /// Coloring test
+  int tileSize = sp.TileM;
+  DsaturColoringForConflictGraph *dsaturColoring =
+      new DsaturColoringForConflictGraph();
+  DsaturColoringForConflictGraphWithKTiling *dsaturColoringWithKTiling =
+      new DsaturColoringForConflictGraphWithKTiling();
+  std::map<int, std::vector<int>> colorToTiles =
+      dsaturColoring->generateGraphColoringForConflictGraphOf(aCSCFull,
+                                                              tileSize);
+
+  stats = new swiftware::benchmark::Stats("SpMM_SpMM_CSC_Interleaved_FusedParallel","SpMM", 7,tp._matrix_name,numThread);
+  stats->OtherStats["PackingType"] = {Separated};
+  auto *fusedCSCInterleavedColoringParallel = new SpMMCSRSpMMCSCFusedColoring(inSpMM, stats, sp, tileSize,
+                                                                               colorToTiles);
+  fusedCSCInterleavedColoringParallel->run();
+  //fusedParallel->OutTensor->printDx();
+  auto fusedCSCInterleavedColoringParallelStat = fusedCSCInterleavedColoringParallel->printStats();
+  delete fusedCSCInterleavedColoringParallel;
   delete stats;
 
 

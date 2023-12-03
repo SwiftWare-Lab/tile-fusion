@@ -315,6 +315,47 @@ void spmmCsrSpmmCscFusedAffine(int M, int N, int K, int L,
 }
 
 
+void spmmCsrSpmmCscFusedColored(int M, int N, int K, int L,
+                                const int *Ap, const int *Ai, const double *Ax,
+                                const int *Bp, const int *Bi,const double *Bx,
+                                const double *Cx,
+                                double *Dx,
+                                double *ACx,
+                                int LevelNo, const int *LevelPtr,
+                                const int *Id, const int *TileSizes,
+                                int NThreads) {
+    pw_init_instruments;
+    for (int i1 = 0; i1 < LevelNo; ++i1) {
+#pragma omp parallel num_threads(NThreads)
+      {
+        pw_start_instruments_loop(omp_get_thread_num());
+#pragma omp  for
+        for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; ++j1) {
+          int id = Id[j1];
+          int tileSize = TileSizes[j1];
+          int tileBegin = 0; // TODO: this should be where the tile starts
+          for(int i = tileBegin; i < tileBegin + tileSize; ++i) {
+          // first SpMM
+          for (int j = Ap[i]; j < Ap[i + 1]; j++) {
+            int aij = Ai[j] * N;
+            for (int kk = 0; kk < N; ++kk) {
+              ACx[i * N + kk] += Ax[j] * Cx[aij + kk];
+            }
+          }
+          // second SpMM CSC
+          for (int k = Bp[i]; k < Bp[i + 1]; k++) { // for each column of B
+              for (int kk = 0; kk < N; ++kk) {
+                int bij = Bi[k] * N;
+                Dx[bij + kk] += Bx[k] * ACx[i * N + kk];
+              }
+            }
+          }
+        }
+        pw_stop_instruments_loop(omp_get_thread_num());
+      }
+    }
+}
+
 void spmmCsrSpmmCsrTiledFused(int M, int N, int K, int L,
                               const int *Ap, const int *Ai, const double *Ax,
                               const int *Bp, const int *Bi,const double *Bx,
