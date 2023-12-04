@@ -38,9 +38,6 @@ done
 BINFILE="spmm_spmm_fusion"
 if [ $BASELINE = "SpMM_SpMM_MKL" ]; then
   BINFILE="fused_vs_mkl"
-else
-  BINFILE="gcn_demo"
-fi
 
 
 

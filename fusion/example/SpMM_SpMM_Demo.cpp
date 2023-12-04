@@ -209,6 +209,9 @@ int main(const int argc, const char *argv[]){
   std::map<int, std::vector<int>> colorToTiles =
       dsaturColoring->generateGraphColoringForConflictGraphOf(aCSCFull,
                                                               tileSize);
+//  for (auto ct: colorToTiles){
+//    std::cout << ct.first << std::endl;
+//  }
 
   stats = new swiftware::benchmark::Stats("SpMM_SpMM_CSC_Interleaved_FusedParallel","SpMM", 7,tp._matrix_name,numThread);
   stats->OtherStats["PackingType"] = {Separated};
