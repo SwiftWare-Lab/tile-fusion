@@ -1,0 +1,34 @@
+experiment_name: "spmm_spmm"
+implementations:
+#  - name: "SpMM_SpMM_CSC_Interleaved_Atomic_FusedParallel"
+#    color: "green"
+#    tuned: True
+#    tune_parameter: "Iter Per Partition"
+#  - name: "SpMM_SpMM_CSC_Separated_FusedParallel"
+#    color: "blue"
+#    tuned: True
+#    tune_parameter: "Iter Per Partition"
+  - name: "SpMM_SpMM_CSC_Interleaved_Coloring_FusedParallel"
+    color: "red"
+    tuned: True
+    tune_parameter: "MTile"
+  - name: "SpMM_SpMM_Demo_UnFusedParallel"
+    color: "orange"
+    tuned: False
+#  - name: "SpMM_SpMM_Separated_FusedParallel"
+#    color: "purple"
+#    tuned: True
+#    tune_parameter: "Iter Per Partition"
+#  - name: "SpMM_SpMM_Mixed_FusedParallel"
+#    color: "brown"
+#    tuned: True
+#    tune_parameter: "Iter Per Partition"
+  - name: "SpMM_SpMM_FusedParallel"
+    color: "gray"
+    tuned: True
+    tune_parameter: "Iter Per Partition"
+feature_sizes:
+  - 64
+matrices:
+  - "tri-banded-10000.mtx"
+baseline: "SpMM_SpMM_Demo_UnFusedParallel"
