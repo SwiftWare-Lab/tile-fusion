@@ -191,7 +191,7 @@ int main(const int argc, const char *argv[]){
   delete stats;
 
 
-  stats = new swiftware::benchmark::Stats("SpMM_SpMM_CSC_Interleaved_FusedParallel","SpMM", 7,tp._matrix_name,numThread);
+  stats = new swiftware::benchmark::Stats("SpMM_SpMM_CSC_Interleaved_Atomic_FusedParallel","SpMM", 7,tp._matrix_name,numThread);
   stats->OtherStats["PackingType"] = {Separated};
   auto *fusedCSCInterleavedParallel = new SpMMCSRSpMMCSCFusedAtomicInterleaved(inSpMM, stats, sp);
   fusedCSCInterleavedParallel->run();
@@ -213,7 +213,7 @@ int main(const int argc, const char *argv[]){
 //    std::cout << ct.first << std::endl;
 //  }
 
-  stats = new swiftware::benchmark::Stats("SpMM_SpMM_CSC_Interleaved_FusedParallel","SpMM", 7,tp._matrix_name,numThread);
+  stats = new swiftware::benchmark::Stats("SpMM_SpMM_CSC_Interleaved_Coloring_FusedParallel","SpMM", 7,tp._matrix_name,numThread);
   stats->OtherStats["PackingType"] = {Separated};
   auto *fusedCSCInterleavedColoringParallel = new SpMMCSRSpMMCSCFusedColoring(inSpMM, stats, sp, tileSize,
                                                                                colorToTiles);
@@ -258,9 +258,10 @@ int main(const int argc, const char *argv[]){
   //std::cout<<fusedTiledParallelMixedStat<<spStat+tpStat+profStatMixed<<std::endl;
   std::cout<<fusedParallelOutStat<<spStat+tpStat+profStat<<std::endl;
   std::cout<<fusedParallelMixedStat<<spStat+tpStat+profStat<<std::endl;
-  std::cout<<fusedParallelSepStat<<spStat+tpStat+profStat;
+  std::cout<<fusedParallelSepStat<<spStat+tpStat+profStat<<std::endl;
   std::cout<<fusedCSCParallelSepStat<<spStat+tpStat+profStat<<std::endl;
   std::cout<<fusedCSCInterleavedParallelStat<<spStat+tpStat+profStat<<std::endl;
+  std::cout<<fusedCSCInterleavedColoringParallelStat << spStat+tpStat+profStat<<std::endl;
 
 //  sp._num_w_partition = 2;
 //  //print_csc(1,"",A_csc);
