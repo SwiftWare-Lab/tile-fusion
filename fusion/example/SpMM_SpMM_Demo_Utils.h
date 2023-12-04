@@ -1005,7 +1005,7 @@ class SpMMCSRSpMMCSCFusedColoring : public SpMMSpMMUnFused {
                                                      OutTensor->Dx,
                                                      OutTensor->ACx, FusedCompSet->n1_,
                                                      FusedCompSet->ptr1_, FusedCompSet->id_,
-                                                     FusedCompSet->type_,
+                                                     FusedCompSet->type_, Sp.TileM,
                                                      InTensor->NumThreads);
 
         t.stop();
@@ -1015,7 +1015,7 @@ class SpMMCSRSpMMCSCFusedColoring : public SpMMSpMMUnFused {
     SpMMCSRSpMMCSCFusedColoring(TensorInputs<double> *In1, Stats *Stat1,
                               sym_lib::ScheduleParameters SpIn, int TileSize1,
                                 std::map<int, std::vector<int>> ConflictGraphColoring1)
-        : SpMMSpMMUnFused(In1, Stat1), Sp(SpIn){
+        : SpMMSpMMUnFused(In1, Stat1), Sp(SpIn), TileSize(TileSize1){
         Inspector = new InspectorForSingleLayerTiledFusedCSCParallel();
     }
 

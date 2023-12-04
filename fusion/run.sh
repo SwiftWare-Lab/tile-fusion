@@ -68,7 +68,7 @@ cd ..
 BINPATH=./build/example/
 LOGS=./build/logs/
 SCRIPTPATH=./scripts/
-MATLIST=$UFDB/mat_list.txt
+MATLIST=$UFDB/mat_list.tx+t
 
 mkdir $LOGS
 

@@ -81,7 +81,7 @@ int main(const int argc, const char *argv[]){
   delete unfusedOutParallel;
   delete stats;
 
-  sp.TileM = std::min(sp.IterPerPartition, inSpMM->M);
+  //sp.TileM = std::min(sp.IterPerPartition, inSpMM->M);
 
   stats = new swiftware::benchmark::Stats("SpMM_SpMM_Demo_CTiled_UnFusedParallel", "SpMM", 7, tp._matrix_name, numThread);
   stats->OtherStats["PackingType"] = {Interleaved};

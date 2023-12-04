@@ -323,6 +323,7 @@ void spmmCsrSpmmCscFusedColored(int M, int N, int K, int L,
                                 double *ACx,
                                 int LevelNo, const int *LevelPtr,
                                 const int *Id, const int *TileSizes,
+                                int MaxTileSize,
                                 int NThreads) {
     pw_init_instruments;
     for (int i1 = 0; i1 < LevelNo; ++i1) {
@@ -333,20 +334,21 @@ void spmmCsrSpmmCscFusedColored(int M, int N, int K, int L,
         for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; ++j1) {
           int id = Id[j1];
           int tileSize = TileSizes[j1];
-          int tileBegin = 0; // TODO: this should be where the tile starts
-          for(int i = tileBegin; i < tileBegin + tileSize; ++i) {
+          int i = id * MaxTileSize;
+          for(int ii = 0; ii <  tileSize; ++ii) {
+          auto ipii = i + ii;
           // first SpMM
-          for (int j = Ap[i]; j < Ap[i + 1]; j++) {
+          for (int j = Ap[ipii]; j < Ap[ipii + 1]; j++) {
             int aij = Ai[j] * N;
             for (int kk = 0; kk < N; ++kk) {
-              ACx[i * N + kk] += Ax[j] * Cx[aij + kk];
+              ACx[ipii * N + kk] += Ax[j] * Cx[aij + kk];
             }
           }
           // second SpMM CSC
-          for (int k = Bp[i]; k < Bp[i + 1]; k++) { // for each column of B
+          for (int k = Bp[ipii]; k < Bp[ipii + 1]; k++) { // for each column of B
               for (int kk = 0; kk < N; ++kk) {
                 int bij = Bi[k] * N;
-                Dx[bij + kk] += Bx[k] * ACx[i * N + kk];
+                Dx[bij + kk] += Bx[k] * ACx[ipii * N + kk];
               }
             }
           }
