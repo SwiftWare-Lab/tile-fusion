@@ -333,7 +333,7 @@ void spmmCsrSpmmCscFusedColored(int M, int N, int K, int L,
 #pragma omp  for
         for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; ++j1) {
           int id = Id[j1];
-          int tileSize = TileSizes[j1];
+          int tileSize = TileSizes[id];
           int i = id * MaxTileSize;
           for(int ii = 0; ii <  tileSize; ++ii) {
           auto ipii = i + ii;

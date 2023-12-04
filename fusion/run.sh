@@ -38,7 +38,7 @@ done
 BINFILE="spmm_spmm_fusion"
 if [ $BASELINE = "SpMM_SpMM_MKL" ]; then
   BINFILE="fused_vs_mkl"
-
+fi
 
 
 export MKL_DIR=$MKLROOT
@@ -65,11 +65,11 @@ cd ..
 BINPATH=./build/example/
 LOGS=./build/logs/
 SCRIPTPATH=./scripts/
-MATLIST=$UFDB/mat_list.tx+t
+MATLIST=$UFDB/mat_list.txt
 
 mkdir $LOGS
 
-MODE=4
+MODE=3
 # performing the experiments
 if [ $DOWNLOAD -eq 1 ]; then
     python3 $SCRIPTPATH/dl_matrix.py $UFDB $MATLIST
@@ -92,5 +92,3 @@ bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE $THRD $MATLIST $BCOL >
 #  bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE $THRD $MATLIST 128 > $LOGS/spmv_spmv_128.csv
 #  bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE $THRD $MATLIST 256 > $LOGS/spmv_spmv_256.csv
 #fi
-
-
