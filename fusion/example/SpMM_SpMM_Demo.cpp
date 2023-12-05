@@ -310,6 +310,8 @@ int main(const int argc, const char *argv[]){
   delete bCSC;
   delete alCSC;
   delete inSpMM;
+  delete dsaturColoring;
+  delete dsaturColoringWithKTiling;
 
   return 0;
 }

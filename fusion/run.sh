@@ -4,7 +4,7 @@ BASELINE="SpMM_SpMM_Demo_UnFusedParallel"
 UFDB="./data/ss-graphs/"
 BCOL=4
 
-THRD=40
+THRD=20
 DOWNLOAD=0
 while getopts ":b:t:dc:m:" arg; do
 
@@ -82,7 +82,7 @@ export MKL_DYNAMIC=FALSE;
 export OMP_DYNAMIC=FALSE;
 #export MKL_VERBOSE=1
 
-bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE $THRD $MATLIST $BCOL > $LOGS/spmv_spmv_$BCOL.csv
+bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE $THRD $MATLIST $BCOL
   # plotting
 #  python3 $SCRIPTPATH/plot.py $LOGS $BASELINE
 #else

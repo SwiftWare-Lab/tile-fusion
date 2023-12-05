@@ -139,8 +139,6 @@ void spmmCsrSpmmCscFusedAffine(int M, int N, int K, int L,
                                const double *Cx,
                                double *Dx,
                                double *ACx,
-                               int LevelNo, const int *LevelPtr, const int *ParPtr,
-                               const int *Partition, const int *ParType,
                                int NThreads);
 
 void spmmCsrSpmmCscFusedColored(int M, int N, int K, int L,
