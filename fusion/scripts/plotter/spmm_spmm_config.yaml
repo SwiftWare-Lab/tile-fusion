@@ -30,5 +30,5 @@ implementations:
 feature_sizes:
   - 64
 matrices:
-  - "tri-banded-10000.mtx"
+  - "pubmed_ordered.mtx"
 baseline: "SpMM_SpMM_Demo_UnFusedParallel"

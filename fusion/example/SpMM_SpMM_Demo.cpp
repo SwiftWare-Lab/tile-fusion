@@ -202,6 +202,7 @@ int main(const int argc, const char *argv[]){
 
   /// Coloring test
   int tileSize = sp.TileM;
+  int kTileSize = sp.TileN;
   DsaturColoringForConflictGraph *dsaturColoring =
       new DsaturColoringForConflictGraph();
   DsaturColoringForConflictGraphWithKTiling *dsaturColoringWithKTiling =
@@ -209,6 +210,8 @@ int main(const int argc, const char *argv[]){
   std::map<int, std::vector<int>> colorToTiles =
       dsaturColoring->generateGraphColoringForConflictGraphOf(aCSCFull,
                                                               tileSize);
+  std::map<int, std::vector<int>> colorToTilesForKTiling =
+      dsaturColoringWithKTiling->generateGraphColoringForConflictGraphOf(aCSCFull, tileSize, inSpMM->N, kTileSize);
 //  for (auto ct: colorToTiles){
 //    std::cout << ct.first << std::endl;
 //  }
@@ -222,6 +225,17 @@ int main(const int argc, const char *argv[]){
   auto fusedCSCInterleavedColoringParallelStat = fusedCSCInterleavedColoringParallel->printStats();
   delete fusedCSCInterleavedColoringParallel;
   delete stats;
+
+  stats = new swiftware::benchmark::Stats("SpMM_SpMM_CSC_Interleaved_Coloring_FusedParallel_KTiling","SpMM", 7,tp._matrix_name,numThread);
+  stats->OtherStats["PackingType"] = {Separated};
+  auto *fusedCSCInterleavedColoringParallelKTiling = new SpMMCSRSpMMCSCFusedColoringWithKTiling(inSpMM, stats, sp,
+                                                                              colorToTilesForKTiling);
+  fusedCSCInterleavedColoringParallelKTiling->run();
+  //fusedParallel->OutTensor->printDx();
+  auto fusedCSCInterleavedColoringParallelKTilingStat = fusedCSCInterleavedColoringParallelKTiling->printStats();
+  delete fusedCSCInterleavedColoringParallelKTiling;
+  delete stats;
+
 
 
   stats = new swiftware::benchmark::Stats("SpMM_SpMM_Profiler","SpMM", 7,tp._matrix_name,numThread);
@@ -262,6 +276,7 @@ int main(const int argc, const char *argv[]){
   std::cout<<fusedCSCParallelSepStat<<spStat+tpStat+profStat<<std::endl;
   std::cout<<fusedCSCInterleavedParallelStat<<spStat+tpStat+profStat<<std::endl;
   std::cout<<fusedCSCInterleavedColoringParallelStat << spStat+tpStat+profStat<<std::endl;
+  std::cout<<fusedCSCInterleavedColoringParallelKTilingStat << spStat+tpStat+profStat<<std::endl;
 
 //  sp._num_w_partition = 2;
 //  //print_csc(1,"",A_csc);
