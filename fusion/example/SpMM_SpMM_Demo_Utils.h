@@ -101,7 +101,9 @@ class SpMMSpMMUnFused : public SWTensorBench<double> {
 protected:
   TensorInputs<double> *InTensor;
 
-  void setup() override {}
+  void setup() override {
+    this->St->OtherStats["NTile"] = {4};
+  }
 
   void preExecute() override {}
 
@@ -906,6 +908,8 @@ protected:
   sym_lib::ScheduleParameters Sp;
   sym_lib::SparsityProfileInfo SpInfo;
   InspectorForSingleLayerTiledFusedCSCParallelWithKTiling *Inspector;
+  int TileSize;
+  int KTileSize;
   std::map<int, std::vector<int>> ConflictGraphColoring;
   Timer analysis() override {
     Timer t;
@@ -913,7 +917,7 @@ protected:
 
     FusedCompSet =
         Inspector->generateScheduleBasedOnConflictGraphColoring(
-            ConflictGraphColoring, InTensor->M, Sp.TileM, InTensor->N, Sp.TileN);
+            ConflictGraphColoring, InTensor->M, TileSize, InTensor->N, KTileSize);
 
     t.stop();
     return t;
@@ -930,7 +934,7 @@ protected:
         InTensor->ACsr->i, InTensor->ACsr->x, InTensor->B->p, InTensor->B->i,
         InTensor->B->x, InTensor->Cx, OutTensor->Dx, OutTensor->ACx,
         FusedCompSet->n1_, FusedCompSet->ptr1_, FusedCompSet->id_,
-        FusedCompSet->type_, Sp.TileM, Sp.TileN, InTensor->NumThreads);
+        FusedCompSet->type_, TileSize, KTileSize, InTensor->NumThreads);
 
     t.stop();
     return t;
@@ -938,9 +942,10 @@ protected:
 
 public:
   SpMMCSRSpMMCSCFusedColoringWithKTiling(
-      TensorInputs<double> *In1, Stats *Stat1, sym_lib::ScheduleParameters SpIn,
-      std::map<int, std::vector<int>> ConflictGraphColoring1)
-      : SpMMSpMMUnFused(In1, Stat1), Sp(SpIn), ConflictGraphColoring(ConflictGraphColoring1){
+      TensorInputs<double> *In1, Stats *Stat1, sym_lib::ScheduleParameters SpIn, int TileSize1,
+      std::map<int, std::vector<int>> ConflictGraphColoring1, int KTileSize1)
+      : SpMMSpMMUnFused(In1, Stat1), Sp(SpIn), ConflictGraphColoring(ConflictGraphColoring1),
+    TileSize(TileSize1), KTileSize(KTileSize1){
     Inspector = new InspectorForSingleLayerTiledFusedCSCParallelWithKTiling();
   }
 

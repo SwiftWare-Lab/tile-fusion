@@ -49,5 +49,5 @@ module load gcc
 if [ $TEST -eq 1 ]; then
   bash run.sh -b $BASE_LINE -m $UFDB -c 8
 else
-  bash run.sh -b $BASE_LINE -t 40 -m $UFDB -c $BCOL
+  bash run.sh -b $BASE_LINE -t 20 -m $UFDB -c $BCOL
 fi

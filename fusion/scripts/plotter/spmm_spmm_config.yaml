@@ -12,6 +12,10 @@ implementations:
     color: "red"
     tuned: True
     tune_parameter: "MTile"
+  - name: "SpMM_SpMM_CSC_Interleaved_Coloring_FusedParallel_KTiling"
+    color: "red"
+    tuned: True
+    tune_parameter: "MTile"
   - name: "SpMM_SpMM_Demo_UnFusedParallel"
     color: "orange"
     tuned: False
@@ -31,4 +35,6 @@ feature_sizes:
   - 64
 matrices:
   - "pubmed_ordered.mtx"
+  - "cora_ordered.mtx"
+  - "cora_full_ordered.mtx"
 baseline: "SpMM_SpMM_Demo_UnFusedParallel"

@@ -170,7 +170,7 @@ def plot_gcn_from_logs_folder(logs_folder, config_file):
             print(entry.name, "-----------------------------------------------")
             # if entry is csv file
             if entry.name.endswith(".csv") and entry.is_file():
-                plot_based_on_tile_size(logs_folder, entry.name, config)
+                plot_gcn(logs_folder, entry.name, config)
                 # print_fusion_ratios(logs_folder, entry.name)
                 # plot_based_on_tile_size(logs_folder, entry.name, config)
 

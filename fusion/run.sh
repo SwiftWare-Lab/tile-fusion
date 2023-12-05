@@ -41,8 +41,6 @@ if [ $BASELINE = "SpMM_SpMM_MKL" ]; then
 fi
 
 
-export MKL_DIR=$MKLROOT
-
 which cmake
 which gcc
 which g++
