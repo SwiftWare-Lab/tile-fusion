@@ -11,7 +11,14 @@ implementations:
   - name: "SpMM_SpMM_CSC_Interleaved_Coloring_FusedParallel"
     color: "red"
     tuned: True
-    tune_parameter: "MTile"
+    tune_parameters:
+    - "MTile"
+  - name: "SpMM_SpMM_CSC_Interleaved_Coloring_FusedParallel_KTiling"
+    color: "red"
+    tuned: True
+    tune_parameters:
+      - "MTile"
+      - "NTile0"
   - name: "SpMM_SpMM_CSC_Interleaved_Coloring_FusedParallel_KTiling"
     color: "red"
     tuned: True
@@ -30,7 +37,8 @@ implementations:
   - name: "SpMM_SpMM_FusedParallel"
     color: "gray"
     tuned: True
-    tune_parameter: "Iter Per Partition"
+    tune_parameters:
+    - "Iter Per Partition"
 feature_sizes:
   - 64
 matrices:

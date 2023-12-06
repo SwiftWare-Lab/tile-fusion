@@ -357,7 +357,7 @@ void spmmCsrSpmmCscFusedColored(int M, int N, int K, int L,
 }
 
 
-void spmmCsrSpmmCscFusedColoredKTiled(int M, int N, int K, int L,
+void spmmCsrSpmmCscFusedColoredWithScheduledKTiles(int M, int N, int K, int L,
                                 const int *Ap, const int *Ai, const double *Ax,
                                 const int *Bp, const int *Bi,const double *Bx,
                                 const double *Cx,
@@ -380,6 +380,51 @@ void spmmCsrSpmmCscFusedColoredKTiled(int M, int N, int K, int L,
           int tileSize = TileSizes[tile];
           int i = tile * MaxTileSize;
           int k = (id % numOfKTiles) * KTileSize;
+          for(int ii = 0; ii <  tileSize; ++ii) {
+            auto ipii = i + ii;
+            // first SpMM
+            for (int j = Ap[ipii]; j < Ap[ipii + 1]; j++) {
+              int aij = Ai[j] * N;
+              for (int kk = 0; kk < KTileSize; ++kk) {
+                ACx[ipii * N + kk + k] += Ax[j] * Cx[aij + kk + k];
+              }
+            }
+            // second SpMM CSC
+            for (int j = Bp[ipii]; j < Bp[ipii + 1]; j++) { // for each column of B
+              for (int kk = 0; kk < KTileSize; ++kk) {
+                int bij = Bi[j] * N;
+                Dx[bij + kk + k] += Bx[j] * ACx[ipii * N + kk + k];
+              }
+            }
+          }
+        }
+        pw_stop_instruments_loop(omp_get_thread_num());
+      }
+    }
+}
+
+void spmmCsrSpmmCscFusedColoredWithReplicatedKTiles(int M, int N, int K, int L,
+                                                        const int *Ap, const int *Ai, const double *Ax,
+                                                        const int *Bp, const int *Bi,const double *Bx,
+                                                        const double *Cx,
+                                                        double *Dx,
+                                                        double *ACx,
+                                                        int LevelNo, const int *LevelPtr,
+                                                        const int *Id, const int *TileSizes,
+                                                        int MaxTileSize, int KTileSize,
+                                                        int NThreads) {
+    int numOfKTiles = N / KTileSize;
+    pw_init_instruments;
+    for (int i1 = 0; i1 < LevelNo; ++i1) {
+#pragma omp parallel num_threads(NThreads)
+      {
+        pw_start_instruments_loop(omp_get_thread_num());
+#pragma omp  for
+        for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; ++j1) {
+          int id = Id[j1];
+          int tileSize = TileSizes[id];
+          int i = id * MaxTileSize;
+          int k = (j1 % numOfKTiles) * KTileSize;
           for(int ii = 0; ii <  tileSize; ++ii) {
             auto ipii = i + ii;
             // first SpMM

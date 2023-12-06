@@ -206,7 +206,7 @@ int main(const int argc, const char *argv[]){
       new DsaturColoringForConflictGraph();
   DsaturColoringForConflictGraphWithKTiling *dsaturColoringWithKTiling =
       new DsaturColoringForConflictGraphWithKTiling();
-  std::vector<int> ktileSizes = {4,8,16,32};
+
 
   std::map<int, std::vector<int>> colorToTiles =
       dsaturColoring->generateGraphColoringForConflictGraphOf(aCSCFull,
@@ -224,20 +224,39 @@ int main(const int argc, const char *argv[]){
   auto fusedCSCInterleavedColoringParallelStat = fusedCSCInterleavedColoringParallel->printStats();
   delete fusedCSCInterleavedColoringParallel;
   delete stats;
-std::vector<std::string> kTilingStats;
-  for(auto kTileSize: ktileSizes){
+
+
+  std::vector<std::string> scheduledKTilingStats;
+  std::vector<std::string> replicatedKTilingStats;
+  for(int i = 2; pow(2,i) < inSpMM->N; i++){
+    int kTileSize = pow(2,i);
+    std::cout << kTileSize << std::endl;
     std::map<int, std::vector<int>> colorToTilesForKTiling =
         dsaturColoringWithKTiling->generateGraphColoringForConflictGraphOf(aCSCFull, tileSize, inSpMM->N, kTileSize);
-    stats = new swiftware::benchmark::Stats("SpMM_SpMM_CSC_Interleaved_Coloring_FusedParallel_KTiling","SpMM", 7,tp._matrix_name,numThread);
+    stats = new swiftware::benchmark::Stats("SpMM_SpMM_CSC_Interleaved_Coloring_FusedParallel_ScheduledKTiling","SpMM", 7,tp._matrix_name,numThread);
     stats->OtherStats["PackingType"] = {Separated};
     stats->OtherStats["NTile"] = {(double)kTileSize};
-    auto *fusedCSCInterleavedColoringParallelKTiling = new SpMMCSRSpMMCSCFusedColoringWithKTiling(inSpMM, stats, sp, tileSize,
+    auto *fusedCSCInterleavedColoringParallelScheduledKTiling = new SpMMCSRSpMMCSCFusedColoringWithScheduledKTiling(inSpMM, stats, sp, tileSize,
                                                                                                   colorToTilesForKTiling, kTileSize);
+    fusedCSCInterleavedColoringParallelScheduledKTiling->run();
+    //fusedParallel->OutTensor->printDx();
+    scheduledKTilingStats.push_back(
+        fusedCSCInterleavedColoringParallelScheduledKTiling->printStats());
+    delete fusedCSCInterleavedColoringParallelScheduledKTiling;
+    delete stats;
+
+    stats = new swiftware::benchmark::Stats("SpMM_SpMM_CSC_Interleaved_Coloring_FusedParallel_ReplicatedKTiling","SpMM", 7,tp._matrix_name,numThread);
+    stats->OtherStats["PackingType"] = {Separated};
+    stats->OtherStats["NTile"] = {(double)kTileSize};
+    auto *fusedCSCInterleavedColoringParallelKTiling = new SpMMCSRSpMMCSCFusedColoringWithReplicatedKTiling(inSpMM, stats, sp, tileSize,
+                                                                                                           colorToTiles, kTileSize);
     fusedCSCInterleavedColoringParallelKTiling->run();
     //fusedParallel->OutTensor->printDx();
-    kTilingStats.push_back(fusedCSCInterleavedColoringParallelKTiling->printStats());
+    replicatedKTilingStats.push_back(fusedCSCInterleavedColoringParallelKTiling->printStats());
     delete fusedCSCInterleavedColoringParallelKTiling;
     delete stats;
+
+
   }
 
 
@@ -280,7 +299,10 @@ std::vector<std::string> kTilingStats;
   std::cout<<fusedCSCParallelSepStat<<spStat+tpStat+profStat<<std::endl;
   std::cout<<fusedCSCInterleavedParallelStat<<spStat+tpStat+profStat<<std::endl;
   std::cout<<fusedCSCInterleavedColoringParallelStat << spStat+tpStat+profStat<<std::endl;
-  for (auto stat: kTilingStats){
+  for (auto stat: scheduledKTilingStats){
+    std::cout<<stat<<spStat+tpStat+profStat<<std::endl;
+  }
+  for (auto stat: replicatedKTilingStats){
     std::cout<<stat<<spStat+tpStat+profStat<<std::endl;
   }
 

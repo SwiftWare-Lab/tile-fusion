@@ -902,12 +902,12 @@ public:
   sym_lib::SparsityProfileInfo getSpInfo() { return SpInfo; }
 };
 
-class SpMMCSRSpMMCSCFusedColoringWithKTiling : public SpMMSpMMUnFused {
+class SpMMCSRSpMMCSCFusedColoringWithScheduledKTiling : public SpMMSpMMUnFused {
 protected:
   sym_lib::MultiDimensionalSet *FusedCompSet;
   sym_lib::ScheduleParameters Sp;
   sym_lib::SparsityProfileInfo SpInfo;
-  InspectorForSingleLayerTiledFusedCSCParallelWithKTiling *Inspector;
+  InspectorForSingleLayerTiledFusedCSCParallelWithSchedulingKTiles *Inspector;
   int TileSize;
   int KTileSize;
   std::map<int, std::vector<int>> ConflictGraphColoring;
@@ -929,7 +929,7 @@ protected:
     OutTensor->reset();
     Timer t;
     t.start();
-    swiftware::sparse::spmmCsrSpmmCscFusedColoredKTiled(
+    swiftware::sparse::spmmCsrSpmmCscFusedColoredWithScheduledKTiles(
         InTensor->M, InTensor->N, InTensor->K, InTensor->L, InTensor->ACsr->p,
         InTensor->ACsr->i, InTensor->ACsr->x, InTensor->B->p, InTensor->B->i,
         InTensor->B->x, InTensor->Cx, OutTensor->Dx, OutTensor->ACx,
@@ -941,15 +941,68 @@ protected:
   }
 
 public:
-  SpMMCSRSpMMCSCFusedColoringWithKTiling(
+  SpMMCSRSpMMCSCFusedColoringWithScheduledKTiling(
       TensorInputs<double> *In1, Stats *Stat1, sym_lib::ScheduleParameters SpIn, int TileSize1,
       std::map<int, std::vector<int>> ConflictGraphColoring1, int KTileSize1)
       : SpMMSpMMUnFused(In1, Stat1), Sp(SpIn), ConflictGraphColoring(ConflictGraphColoring1),
     TileSize(TileSize1), KTileSize(KTileSize1){
-    Inspector = new InspectorForSingleLayerTiledFusedCSCParallelWithKTiling();
+    Inspector = new InspectorForSingleLayerTiledFusedCSCParallelWithSchedulingKTiles();
   }
 
-  ~SpMMCSRSpMMCSCFusedColoringWithKTiling() { delete FusedCompSet; }
+  ~SpMMCSRSpMMCSCFusedColoringWithScheduledKTiling() { delete FusedCompSet; }
   sym_lib::SparsityProfileInfo getSpInfo() { return SpInfo; }
 };
+
+class SpMMCSRSpMMCSCFusedColoringWithReplicatedKTiling
+    : public SpMMSpMMUnFused {
+protected:
+  sym_lib::MultiDimensionalSet *FusedCompSet;
+  sym_lib::ScheduleParameters Sp;
+  sym_lib::SparsityProfileInfo SpInfo;
+  InspectorForSingleLayerTiledFusedCSCParallelWithReplicatedKTiles *Inspector;
+  int TileSize;
+  int KTileSize;
+  std::map<int, std::vector<int>> ConflictGraphColoring;
+  Timer analysis() override {
+    Timer t;
+    t.start();
+
+    FusedCompSet =
+        Inspector->generateScheduleBasedOnConflictGraphColoring(
+            ConflictGraphColoring, InTensor->M, TileSize, InTensor->N, KTileSize);
+
+    t.stop();
+    return t;
+  }
+
+  Timer execute() override {
+    //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
+    OutTensor->reset();
+    Timer t;
+    t.start();
+    swiftware::sparse::spmmCsrSpmmCscFusedColoredWithReplicatedKTiles(
+        InTensor->M, InTensor->N, InTensor->K, InTensor->L, InTensor->ACsr->p,
+        InTensor->ACsr->i, InTensor->ACsr->x, InTensor->B->p, InTensor->B->i,
+        InTensor->B->x, InTensor->Cx, OutTensor->Dx, OutTensor->ACx,
+        FusedCompSet->n1_, FusedCompSet->ptr1_, FusedCompSet->id_,
+        FusedCompSet->type_, TileSize, KTileSize, InTensor->NumThreads);
+
+    t.stop();
+    return t;
+  }
+
+public:
+  SpMMCSRSpMMCSCFusedColoringWithReplicatedKTiling(
+      TensorInputs<double> *In1, Stats *Stat1, sym_lib::ScheduleParameters SpIn, int TileSize1,
+      std::map<int, std::vector<int>> ConflictGraphColoring1, int KTileSize1)
+      : SpMMSpMMUnFused(In1, Stat1), Sp(SpIn), ConflictGraphColoring(ConflictGraphColoring1),
+        TileSize(TileSize1), KTileSize(KTileSize1){
+    Inspector = new InspectorForSingleLayerTiledFusedCSCParallelWithReplicatedKTiles();
+  }
+
+  ~SpMMCSRSpMMCSCFusedColoringWithReplicatedKTiling() { delete FusedCompSet; }
+  sym_lib::SparsityProfileInfo getSpInfo() { return SpInfo; }
+};
+
 #endif // SPARSE_FUSION_SPMM_SPMM_DEMO_UTILS_H

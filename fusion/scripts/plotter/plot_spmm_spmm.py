@@ -23,19 +23,24 @@ def take_median(df, **kwargs):
     return np.median(time_array)
 
 
-def get_fused_info(matr_list, df, base_column, implementation_name, params=None):
+def get_fused_info(matr_list, df, tuned_parameters, implementation_name, params=None):
     if params is None:  # TODO: these params are hardcoded for now
-        # params = [40, 400, 4000, 8000, 10000]
-        # params = [4, 8, 40, 100, 1000]
-        params = df[base_column].unique()
+        params = [[x] for x in df[tuned_parameters[0]].unique()]
+        for tuned_parameter in tuned_parameters[1:]:
+            # params = [40, 400, 4000, 8000, 10000]
+            # params = [4, 8, 40, 100, 1000]
+            params = [x + [y] for x in  params for y in df[tuned_parameter].unique()]
+
         # params = [10, 20, 50, 100, 200]
-    seperated_list = [[] for i in range(params.shape[0])]
+    seperated_list = [[] for i in range(len(params))]
     for matr in matr_list:
         cur_matr = df[df['MatrixName'] == matr]
-        fused = cur_matr[cur_matr['Implementation Name'] == implementation_name]
         for i in range(len(params)):
+            fused = cur_matr[cur_matr['Implementation Name'] == implementation_name]
             try:
-                seperated_list[i].append(take_median(fused[fused[base_column] == params[i]]))
+                for j in range(len(tuned_parameters)):
+                    fused = fused[fused[tuned_parameters[j]] == params[i][j]]
+                seperated_list[i].append(take_median(fused))
             except IndexError as e:
                 print("Error for Tuned implementation: ", implementation_name)
     return seperated_list
@@ -114,6 +119,8 @@ def plot_gcn(log_folder, log_file_name, config):
     # mat_list = df_fusion['MatrixName'].unique()
     mat_list = config['matrices']
     impls = list(map(lambda i: i['name'], config['implementations']))
+    tuned_implementations_base_param = {impl['name']: impl['tune_parameters'] for impl in config['implementations'] if
+                                        impl['tuned']}
     br = np.arange(len(mat_list) * 2, step=2)
     bar_width = 0.2
     for bcol in bcols:
@@ -133,7 +140,7 @@ def plot_gcn(log_folder, log_file_name, config):
                         print("Error for Not Tuned Implementation: ", x)
         for impl in tuned_implementations:
             seperated_list = get_fused_info(mat_list, df_fusion_bcol,
-                                            base_column=tuned_implementations_base_param[impl],
+                                            tuned_parameters=tuned_implementations_base_param[impl],
                                             implementation_name=impl)
             min_fused = np.array(seperated_list[0])
             for x in seperated_list:
@@ -157,7 +164,8 @@ def plot_gcn(log_folder, log_file_name, config):
         ax.set_xlabel('matrices', fontweight='bold', fontsize=15)
         ax.set_ylabel('speed_up', fontweight='bold', fontsize=15)
         ax.set_xticks([r + 1 * bar_width for r in range(0, len(mat_list) * 2, 2)],
-                      mat_list)
+                      mat_list, rotation='vertical')
+        fig.subplots_adjust(bottom=0.2)
         plot_path = os.path.join(log_folder, ''.join(log_file_name.split('.')[:-1]) + '_' + str(bcol) + '.pdf')
         ax.legend()
         fig.savefig(plot_path)
