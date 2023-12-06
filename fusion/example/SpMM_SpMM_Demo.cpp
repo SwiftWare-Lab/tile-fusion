@@ -230,7 +230,6 @@ int main(const int argc, const char *argv[]){
   std::vector<std::string> replicatedKTilingStats;
   for(int i = 2; pow(2,i) < inSpMM->N; i++){
     int kTileSize = pow(2,i);
-    std::cout << kTileSize << std::endl;
     std::map<int, std::vector<int>> colorToTilesForKTiling =
         dsaturColoringWithKTiling->generateGraphColoringForConflictGraphOf(aCSCFull, tileSize, inSpMM->N, kTileSize);
     stats = new swiftware::benchmark::Stats("SpMM_SpMM_CSC_Interleaved_Coloring_FusedParallel_ScheduledKTiling","SpMM", 7,tp._matrix_name,numThread);
