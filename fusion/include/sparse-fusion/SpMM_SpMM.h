@@ -167,7 +167,7 @@ void spmmCsrSpmmCscFusedColoredWithScheduledKTiles(int M, int N, int K, int L,
                                 double *Dx,
                                 double *ACx,
                                 int LevelNo, const int *LevelPtr,
-                                const int *Id, const int *TileSizes, int TileSize,
+                                const int *Id, int TileSize,
                                 int KTileSize, int NThreads);
 
 void spmmCsrSpmmCscFusedColoredWithReplicatedKTiles(int M, int N, int K, int L,
