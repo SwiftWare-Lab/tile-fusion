@@ -319,6 +319,69 @@ public:
   ~SpMMSpMMFusedInterLayer() { delete FusedCompSet; }
 };
 
+class SpMMSpMMFusedInterLayerKTiled : public SpMMSpMMUnFused {
+protected:
+  sym_lib::MultiDimensionalSet *FusedCompSet;
+  sym_lib::ScheduleParameters Sp;
+  int KTileSize;
+  Timer analysis() override {
+    Timer t;
+    t.start();
+    // sym_lib::ScheduleParameters sp;
+    // sp._num_threads = InTensor->NumThreads;
+    //  create the fused set
+
+    Sp._num_w_partition = std::max<int>(InTensor->ACsr->m / Sp.IterPerPartition,
+                                        2 * Sp._num_threads);
+    auto *sf01 = new sym_lib::SparseFusion(&Sp, 2);
+    auto *mvDAG = sym_lib::diagonal(InTensor->ACsr->m, 1.0);
+    auto *tmpCSCCSR = new sym_lib::CSC(InTensor->BCsr->m, InTensor->BCsr->n,
+                                       InTensor->BCsr->nnz, InTensor->BCsr->p,
+                                       InTensor->BCsr->i, InTensor->BCsr->x);
+    auto *Di = InTensor->BCsr;
+    // sym_lib::print_csc(1, "Di", 6, Di->p, Di->i, Di->x);
+    sf01->fuse(0, mvDAG, tmpCSCCSR);
+
+    // sf01->print_final_list();
+    sf01->fuse(1, mvDAG, tmpCSCCSR);
+    // sf01->print_final_list();
+    auto pt = St->OtherStats["PackingType"];
+    FusedCompSet = sf01->getFusedCompressed((int)pt[0]);
+    // FusedCompSet->print_3d();
+    delete sf01;
+    delete mvDAG;
+    delete tmpCSCCSR;
+
+    t.stop();
+    return t;
+  }
+
+  Timer execute() override {
+    //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
+    OutTensor->reset();
+    Timer t;
+    t.start();
+    swiftware::sparse::spmmCsrSpmmCsrFusedKTiled(
+        InTensor->M, InTensor->N, InTensor->K, InTensor->L, InTensor->ACsr->p,
+        InTensor->ACsr->i, InTensor->ACsr->x, InTensor->BCsr->p,
+        InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Cx, OutTensor->Dx,
+        OutTensor->ACx, KTileSize, FusedCompSet->n1_, FusedCompSet->ptr1_,
+        FusedCompSet->ptr2_, FusedCompSet->id_, FusedCompSet->type_,
+        InTensor->NumThreads);
+
+    t.stop();
+    return t;
+  }
+
+public:
+  SpMMSpMMFusedInterLayerKTiled(TensorInputs<double> *In1, Stats *Stat1,
+                          sym_lib::ScheduleParameters SpIn, int KTileSize1)
+      : SpMMSpMMUnFused(In1, Stat1), Sp(SpIn), KTileSize(KTileSize1) {}
+
+  ~SpMMSpMMFusedInterLayerKTiled() { delete FusedCompSet; }
+};
+
 class SpMMSpMMFusedInterLayerRedundant : public SpMMSpMMUnFused {
 protected:
   sym_lib::MultiDimensionalSet *FusedCompSet;

@@ -228,6 +228,7 @@ int main(const int argc, const char *argv[]){
 
   std::vector<std::string> scheduledKTilingStats;
   std::vector<std::string> replicatedKTilingStats;
+  std::vector<std::string> fusedKTiledStats;
   for(int i = 2; pow(2,i) < inSpMM->N; i++){
     int kTileSize = pow(2,i);
     std::map<int, std::vector<int>> colorToTilesForKTiling =
@@ -255,6 +256,14 @@ int main(const int argc, const char *argv[]){
     delete fusedCSCInterleavedColoringParallelKTiling;
     delete stats;
 
+    stats = new swiftware::benchmark::Stats("SpMM_SpMM_FusedParallel_KTiled","SpMM", 7,tp._matrix_name,numThread);
+    stats->OtherStats["PackingType"] = {Interleaved};
+    auto *fusedParallelKTiled = new SpMMSpMMFusedInterLayerKTiled(inSpMM, stats, sp, kTileSize);
+    fusedParallelKTiled->run();
+    //fusedParallel->OutTensor->printDx();
+    fusedKTiledStats.push_back(fusedParallelKTiled->printStats());
+    delete fusedParallelKTiled;
+    delete stats;
 
   }
 
@@ -302,6 +311,9 @@ int main(const int argc, const char *argv[]){
     std::cout<<stat<<spStat+tpStat+profStat<<std::endl;
   }
   for (auto stat: replicatedKTilingStats){
+    std::cout<<stat<<spStat+tpStat+profStat<<std::endl;
+  }
+  for (auto stat: fusedKTiledStats){
     std::cout<<stat<<spStat+tpStat+profStat<<std::endl;
   }
 
