@@ -159,10 +159,10 @@ int main(const int argc, const char *argv[]) {
       new DsaturColoringForConflictGraphWithKTiling();
   std::map<int, std::vector<int>> colorToTiles =
       dsaturColoring->generateGraphColoringForConflictGraphOf(aCSCFull,
-                                                              tileSize);
+                                                              tileSize, false);
   std::map<int, std::vector<int>> colorToTilesForKTiling =
       dsaturColoringWithKTiling->generateGraphColoringForConflictGraphOf(
-          aCSCFull, tileSize, inputs->Weight1->row, kTileSize);
+          aCSCFull, tileSize, inputs->Weight1->row, kTileSize, false);
 
   /*
    * Method that iterates over tiles of columns of Adjacency matrix in
