@@ -22,9 +22,9 @@ class DsaturColoringForConflictGraph {
 
 public:
   std::map<int, std::vector<int>>
-  generateGraphColoringForConflictGraphOf(sym_lib::CSC *AdjMtx, int TileSize) {
+  generateGraphColoringForConflictGraphOf(sym_lib::CSC *AdjMtx, int TileSize, bool DeleteLastTile) {
     std::map<std::string, std::vector<std::string>> conflictGraph =
-        createTilesConflictGraph(AdjMtx, TileSize);
+        createTilesConflictGraph(AdjMtx, TileSize, DeleteLastTile);
     std::map<std::string, int> coloring = dsaturColoring(conflictGraph); // tile to color
     std::map<int, std::vector<int>> colorToTiles = getColorToTilesMap(coloring);
     return colorToTiles;
@@ -175,9 +175,13 @@ protected:
   }
 
   std::map<std::string, std::vector<std::string>>
-  createTilesConflictGraph(sym_lib::CSC *AdjMtx, int TileSize) {
+  createTilesConflictGraph(sym_lib::CSC *AdjMtx, int TileSize, bool DeleteIncompleteTile) {
     std::map<std::string, std::vector<std::string>> conflictGraph;
-    int numOfTiles = (int)ceil((double)AdjMtx->m / TileSize);
+    int numOfTiles;
+    if (DeleteIncompleteTile)
+      numOfTiles = AdjMtx->m / TileSize;
+    else
+      numOfTiles = (int)ceil((double)AdjMtx->m / TileSize);
     for (int i = 0; i < numOfTiles; i++) {
       int iStart = i * TileSize;
       int iEnd = std::min(iStart + TileSize, (int)AdjMtx->m);
@@ -236,10 +240,10 @@ class DsaturColoringForConflictGraphWithKTiling
 public:
   std::map<int, std::vector<int>>
   generateGraphColoringForConflictGraphOf(sym_lib::CSC *AdjMtx, int TileSize,
-                                          int OutputSize, int KTileSize) {
+                                          int OutputSize, int KTileSize, bool DeleteIncompleteTile) {
     std::map<std::string, std::vector<std::string>> conflictGraph =
         createTilesConflictGraphWithKTiling(AdjMtx, TileSize, OutputSize,
-                                            KTileSize);
+                                            KTileSize, DeleteIncompleteTile);
     std::map<std::string, int> coloring = dsaturColoring(conflictGraph);
     std::map<int, std::vector<int>> colorToTiles = getColorToTilesMap(coloring);
     return colorToTiles;
@@ -248,9 +252,13 @@ public:
 protected:
   std::map<std::string, std::vector<std::string>>
   createTilesConflictGraphWithKTiling(sym_lib::CSC *AdjMtx, int TileSize,
-                                      int OutputSize, int KTileSize) {
+                                      int OutputSize, int KTileSize, bool DeleteIncompleteTile) {
     std::map<std::string, std::vector<std::string>> conflictGraph;
-    int numOfTiles = (int)ceil((double)AdjMtx->m / TileSize);
+    int numOfTiles;
+    if(DeleteIncompleteTile)
+      numOfTiles = AdjMtx->m/TileSize;
+    else
+      numOfTiles = (int)ceil((double)AdjMtx->m / TileSize);
     int numOfKTiles = OutputSize / KTileSize;
     for (int i = 0; i < numOfTiles; i++) {
       int iStart = i * TileSize;

@@ -241,6 +241,51 @@ void spmmCsrSpmmCsrFused(int M, int N, int K, int L,
   }
 }
 
+/// D = B*A*C
+void spmmCsrSpmmCsrFusedKTiled(int M, int N, int K, int L,
+                         const int *Ap, const int *Ai, const double *Ax,
+                         const int *Bp, const int *Bi,const double *Bx,
+                         const double *Cx,
+                         double *Dx,
+                         double *ACx, int KTileSize,
+                         int LevelNo, const int *LevelPtr, const int *ParPtr,
+                         const int *Partition, const int *ParType,
+                         int NThreads) {
+  pw_init_instruments;
+  for (int i1 = 0; i1 < LevelNo; ++i1) {
+#pragma omp parallel num_threads(NThreads)
+    {
+      pw_start_instruments_loop(omp_get_thread_num());
+#pragma omp  for
+      for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; ++j1) {
+        for (int k1 = ParPtr[j1]; k1 < ParPtr[j1 + 1]; ++k1) {
+          int i = Partition[k1];
+          int t = ParType[k1];
+          if (t == 0) {
+            for (int k = 0; k < N; k += KTileSize) {
+              for (int j = Ap[i]; j < Ap[i + 1]; j++) {
+                int aij = Ai[j] * N;
+                for (int kk = 0; kk < KTileSize; ++kk) {
+                  ACx[i * N + kk + k] += Ax[j] * Cx[aij + kk + k];
+                }
+              }
+            }
+          } else {
+            for (int k = 0; k < N; k += KTileSize) {
+              for (int j = Bp[i]; j < Bp[i + 1]; j++) {
+                int bij = Bi[j] * N;
+                for (int kk = 0; kk < KTileSize; ++kk) {
+                  Dx[i * N + kk + k] += Bx[j] * ACx[bij + kk + k];
+                }
+              }
+            }
+          }
+        }
+      }
+      pw_stop_instruments_loop(omp_get_thread_num());
+    }
+  }
+}
 
 void spmmCsrSpmmCscFused(int M, int N, int K, int L,
                          const int *Ap, const int *Ai, const double *Ax,
@@ -320,20 +365,19 @@ void spmmCsrSpmmCscFusedColored(int M, int N, int K, int L,
                                 double *Dx,
                                 double *ACx,
                                 int LevelNo, const int *LevelPtr,
-                                const int *Id, const int *TileSizes,
-                                int MaxTileSize,
-                                int NThreads) {
+                                const int *Id,
+                                int TileSize, int NThreads) {
+    int lastTileSize = M% TileSize;
     pw_init_instruments;
     for (int i1 = 0; i1 < LevelNo; ++i1) {
 #pragma omp parallel num_threads(NThreads)
       {
         pw_start_instruments_loop(omp_get_thread_num());
-#pragma omp  for
+#pragma omp for
         for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; ++j1) {
           int id = Id[j1];
-          int tileSize = TileSizes[id];
-          int i = id * MaxTileSize;
-          for(int ii = 0; ii <  tileSize; ++ii) {
+          int i = id * TileSize;
+          for (int ii = 0; ii < TileSize; ++ii) {
           auto ipii = i + ii;
           // first SpMM
           for (int j = Ap[ipii]; j < Ap[ipii + 1]; j++) {
@@ -343,17 +387,38 @@ void spmmCsrSpmmCscFusedColored(int M, int N, int K, int L,
             }
           }
           // second SpMM CSC
-          for (int k = Bp[ipii]; k < Bp[ipii + 1]; k++) { // for each column of B
-              for (int kk = 0; kk < N; ++kk) {
-                int bij = Bi[k] * N;
-                Dx[bij + kk] += Bx[k] * ACx[ipii * N + kk];
-              }
+          for (int k = Bp[ipii]; k < Bp[ipii + 1];
+               k++) { // for each column of B
+            for (int kk = 0; kk < N; ++kk) {
+              int bij = Bi[k] * N;
+              Dx[bij + kk] += Bx[k] * ACx[ipii * N + kk];
             }
+          }
           }
         }
         pw_stop_instruments_loop(omp_get_thread_num());
       }
     }
+    int i = M-lastTileSize;
+    for (int ii = 0; ii < lastTileSize; ++ii) {
+      auto ipii = i + ii;
+      // first SpMM
+      for (int j = Ap[ipii]; j < Ap[ipii + 1]; j++) {
+        int aij = Ai[j] * N;
+        for (int kk = 0; kk < N; ++kk) {
+          ACx[ipii * N + kk] += Ax[j] * Cx[aij + kk];
+        }
+      }
+      // second SpMM CSC
+      for (int k = Bp[ipii]; k < Bp[ipii + 1];
+           k++) { // for each column of B
+        for (int kk = 0; kk < N; ++kk) {
+          int bij = Bi[k] * N;
+          Dx[bij + kk] += Bx[k] * ACx[ipii * N + kk];
+        }
+      }
+    }
+
 }
 
 
@@ -365,9 +430,10 @@ void spmmCsrSpmmCscFusedColoredWithScheduledKTiles(int M, int N, int K, int L,
                                 double *ACx,
                                 int LevelNo, const int *LevelPtr,
                                 const int *Id, const int *TileSizes,
-                                int MaxTileSize, int KTileSize,
+                                int TileSize, int KTileSize,
                                 int NThreads) {
     int numOfKTiles = N / KTileSize;
+    int lastTileSize = M % TileSize;
     pw_init_instruments;
     for (int i1 = 0; i1 < LevelNo; ++i1) {
 #pragma omp parallel num_threads(NThreads)
@@ -377,10 +443,9 @@ void spmmCsrSpmmCscFusedColoredWithScheduledKTiles(int M, int N, int K, int L,
         for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; ++j1) {
           int id = Id[j1];
           int tile = (id/numOfKTiles);
-          int tileSize = TileSizes[tile];
-          int i = tile * MaxTileSize;
+          int i = tile * TileSize;
           int k = (id % numOfKTiles) * KTileSize;
-          for(int ii = 0; ii <  tileSize; ++ii) {
+          for(int ii = 0; ii <  TileSize; ++ii) {
             auto ipii = i + ii;
             // first SpMM
             for (int j = Ap[ipii]; j < Ap[ipii + 1]; j++) {
@@ -399,6 +464,25 @@ void spmmCsrSpmmCscFusedColoredWithScheduledKTiles(int M, int N, int K, int L,
           }
         }
         pw_stop_instruments_loop(omp_get_thread_num());
+      }
+    }
+    int i = M-lastTileSize;
+    for (int ii = 0; ii < lastTileSize; ++ii) {
+      auto ipii = i + ii;
+      // first SpMM
+      for (int j = Ap[ipii]; j < Ap[ipii + 1]; j++) {
+        int aij = Ai[j] * N;
+        for (int kk = 0; kk < N; ++kk) {
+          ACx[ipii * N + kk] += Ax[j] * Cx[aij + kk];
+        }
+      }
+      // second SpMM CSC
+      for (int k = Bp[ipii]; k < Bp[ipii + 1];
+           k++) { // for each column of B
+        for (int kk = 0; kk < N; ++kk) {
+          int bij = Bi[k] * N;
+          Dx[bij + kk] += Bx[k] * ACx[ipii * N + kk];
+        }
       }
     }
 }
@@ -411,9 +495,10 @@ void spmmCsrSpmmCscFusedColoredWithReplicatedKTiles(int M, int N, int K, int L,
                                                         double *ACx,
                                                         int LevelNo, const int *LevelPtr,
                                                         const int *Id, const int *TileSizes,
-                                                        int MaxTileSize, int KTileSize,
+                                                        int TileSize, int KTileSize,
                                                         int NThreads) {
     int numOfKTiles = N / KTileSize;
+    int lastTileSize = M% TileSize;
     pw_init_instruments;
     for (int i1 = 0; i1 < LevelNo; ++i1) {
 #pragma omp parallel num_threads(NThreads)
@@ -422,10 +507,9 @@ void spmmCsrSpmmCscFusedColoredWithReplicatedKTiles(int M, int N, int K, int L,
 #pragma omp  for
         for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; ++j1) {
           int id = Id[j1];
-          int tileSize = TileSizes[id];
-          int i = id * MaxTileSize;
+          int i = id * TileSize;
           int k = (j1 % numOfKTiles) * KTileSize;
-          for(int ii = 0; ii <  tileSize; ++ii) {
+          for(int ii = 0; ii <  TileSize; ++ii) {
             auto ipii = i + ii;
             // first SpMM
             for (int j = Ap[ipii]; j < Ap[ipii + 1]; j++) {
@@ -444,6 +528,25 @@ void spmmCsrSpmmCscFusedColoredWithReplicatedKTiles(int M, int N, int K, int L,
           }
         }
         pw_stop_instruments_loop(omp_get_thread_num());
+      }
+    }
+    int i = M-lastTileSize;
+    for (int ii = 0; ii < lastTileSize; ++ii) {
+      auto ipii = i + ii;
+      // first SpMM
+      for (int j = Ap[ipii]; j < Ap[ipii + 1]; j++) {
+        int aij = Ai[j] * N;
+        for (int kk = 0; kk < N; ++kk) {
+          ACx[ipii * N + kk] += Ax[j] * Cx[aij + kk];
+        }
+      }
+      // second SpMM CSC
+      for (int k = Bp[ipii]; k < Bp[ipii + 1];
+           k++) { // for each column of B
+        for (int kk = 0; kk < N; ++kk) {
+          int bij = Bi[k] * N;
+          Dx[bij + kk] += Bx[k] * ACx[ipii * N + kk];
+        }
       }
     }
 }

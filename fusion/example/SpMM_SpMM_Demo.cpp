@@ -210,7 +210,7 @@ int main(const int argc, const char *argv[]){
 
   std::map<int, std::vector<int>> colorToTiles =
       dsaturColoring->generateGraphColoringForConflictGraphOf(aCSCFull,
-                                                              tileSize);
+                                                              tileSize, true);
 //  for (auto ct: colorToTiles){
 //    std::cout << ct.first << std::endl;
 //  }
@@ -231,7 +231,7 @@ int main(const int argc, const char *argv[]){
   for(int i = 2; pow(2,i) < inSpMM->N; i++){
     int kTileSize = pow(2,i);
     std::map<int, std::vector<int>> colorToTilesForKTiling =
-        dsaturColoringWithKTiling->generateGraphColoringForConflictGraphOf(aCSCFull, tileSize, inSpMM->N, kTileSize);
+        dsaturColoringWithKTiling->generateGraphColoringForConflictGraphOf(aCSCFull, tileSize, inSpMM->N, kTileSize, true);
     stats = new swiftware::benchmark::Stats("SpMM_SpMM_CSC_Interleaved_Coloring_FusedParallel_ScheduledKTiling","SpMM", 7,tp._matrix_name,numThread);
     stats->OtherStats["PackingType"] = {Separated};
     stats->OtherStats["NTile"] = {(double)kTileSize};

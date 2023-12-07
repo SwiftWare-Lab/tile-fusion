@@ -883,7 +883,7 @@ protected:
         InTensor->ACsr->i, InTensor->ACsr->x, InTensor->B->p, InTensor->B->i,
         InTensor->B->x, InTensor->Cx, OutTensor->Dx, OutTensor->ACx,
         FusedCompSet->n1_, FusedCompSet->ptr1_, FusedCompSet->id_,
-        FusedCompSet->type_, Sp.TileM, InTensor->NumThreads);
+        Sp.TileM, InTensor->NumThreads);
 
     t.stop();
     return t;
