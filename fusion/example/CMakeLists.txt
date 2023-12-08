@@ -16,7 +16,7 @@ if(TARGET MKL::MKL)
     add_definitions(-DMKL)
     message(STATUS "${MKL_IMPORTED_TARGETS}")
     add_executable(fused_vs_mkl
-            Fused_vs_MKL_Demo.cpp
+            SpMM_SpMM_MKL_Demo.cpp
             )
     target_include_directories(fused_vs_mkl PRIVATE
             $<TARGET_PROPERTY:MKL::MKL,INTERFACE_INCLUDE_DIRECTORIES>
