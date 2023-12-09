@@ -15,35 +15,36 @@ endif()
 if(TARGET MKL::MKL)
     add_definitions(-DMKL)
     message(STATUS "${MKL_IMPORTED_TARGETS}")
-    add_executable(fused_vs_mkl
-            SpMM_SpMM_MKL_Demo.cpp
-            )
-    target_include_directories(fused_vs_mkl PRIVATE
+    add_executable(spmm_spmm_fusion
+            SpMM_SpMM_Demo.cpp
+    )
+    target_include_directories(spmm_spmm_fusion PRIVATE
             $<TARGET_PROPERTY:MKL::MKL,INTERFACE_INCLUDE_DIRECTORIES>
-            )
-    target_link_libraries(fused_vs_mkl PRIVATE
+    )
+    target_link_libraries(spmm_spmm_fusion
             fusion
-            $<LINK_ONLY:MKL::MKL>
             swbench::swbench
+            $<LINK_ONLY:MKL::MKL>
             OpenMP::OpenMP_CXX
-            )
-endif()
-
-add_executable(dag_decomp
-        dag_decomposition_demo.cpp
-        )
-target_link_libraries(dag_decomp
-        fusion
-        )
-
+    )
+else()
 add_executable(spmm_spmm_fusion
         SpMM_SpMM_Demo.cpp
         )
+
 target_link_libraries(spmm_spmm_fusion
         fusion
         swbench::swbench
         OpenMP::OpenMP_CXX
-        )
+)
+endif()
+
+add_executable(dag_decomp
+        dag_decomposition_demo.cpp
+)
+target_link_libraries(dag_decomp
+        fusion
+)
 
 add_executable(fusion_profiler
         Fusion_Profiler.cpp

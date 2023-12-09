@@ -317,7 +317,18 @@ int main(const int argc, const char *argv[]){
   for (auto stat: fusedKTiledStats){
     std::cout<<stat<<spStat+tpStat+profStat<<std::endl;
   }
+#ifdef MKL
 
+  stats = new swiftware::benchmark::Stats("SpMM_SpMM_MKL", "SpMM", 7, tp._matrix_name, numThread);
+  stats->OtherStats["PackingType"] = {Separated};
+  auto *mklImpl = new SpMMSpMMMKL(inSpMM, stats);
+  mklImpl->run();
+  auto mklImplStat = mklImpl->printStats();
+  delete mklImpl;
+  delete stats;
+
+  std::cout<<mklImplStat<<spStat+tpStat+profStat<<std::endl;
+#endif
 //  sp._num_w_partition = 2;
 //  //print_csc(1,"",A_csc);
 //  auto *sf01 = new SparseFusion(&sp, 2);
