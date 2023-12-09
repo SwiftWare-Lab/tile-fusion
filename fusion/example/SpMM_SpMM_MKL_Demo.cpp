@@ -111,9 +111,9 @@ int main(const int argc, const char *argv[]){
         dsaturColoringWithKTiling->generateGraphColoringForConflictGraphOf(aCSCFull, tileSize, inSpMM->N, kTileSize, true);
     stats = new swiftware::benchmark::Stats("SpMM_SpMM_CSC_Interleaved_Coloring_FusedParallel_ScheduledKTiling","SpMM", 7,tp._matrix_name,numThread);
     stats->OtherStats["PackingType"] = {Separated};
-    stats->OtherStats["NTile"] = {(double)kTileSize};
     auto *fusedCSCInterleavedColoringParallelScheduledKTiling = new SpMMCSRSpMMCSCFusedColoringWithScheduledKTiling(inSpMM, stats, sp, tileSize,
                                                                                                                     colorToTilesForKTiling, kTileSize);
+    stats->OtherStats["NTile"] = {(double)kTileSize};
     fusedCSCInterleavedColoringParallelScheduledKTiling->run();
     //fusedParallel->OutTensor->printDx();
     scheduledKTilingStats.push_back(
@@ -126,6 +126,7 @@ int main(const int argc, const char *argv[]){
     auto *fusedCSCInterleavedColoringParallelKTiling = new SpMMCSRSpMMCSCFusedColoringWithReplicatedKTiling(inSpMM, stats, sp, tileSize,
                                                                                                             colorToTiles, kTileSize);
     fusedCSCInterleavedColoringParallelKTiling->run();
+    stats->OtherStats["NTile"] = {(double)kTileSize};
     //fusedParallel->OutTensor->printDx();
     replicatedKTilingStats.push_back(fusedCSCInterleavedColoringParallelKTiling->printStats());
     delete fusedCSCInterleavedColoringParallelKTiling;
@@ -133,8 +134,8 @@ int main(const int argc, const char *argv[]){
 
     stats = new swiftware::benchmark::Stats("SpMM_SpMM_FusedParallel_KTiled","SpMM", 7,tp._matrix_name,numThread);
     stats->OtherStats["PackingType"] = {Interleaved};
-    stats->OtherStats["NTile"] = {(double)kTileSize};
     auto *fusedParallelKTiled = new SpMMSpMMFusedInterLayerKTiled(inSpMM, stats, sp, kTileSize);
+    stats->OtherStats["NTile"] = {(double)kTileSize};
     fusedParallelKTiled->run();
     //fusedParallel->OutTensor->printDx();
     fusedKTiledStats.push_back(fusedParallelKTiled->printStats());
