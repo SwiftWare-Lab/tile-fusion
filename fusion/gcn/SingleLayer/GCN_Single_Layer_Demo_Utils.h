@@ -6,7 +6,7 @@
 #include "../GCN_Layer_MKL_Forward_Utils.h"
 #include "../Inspection/Fusion_Inspector.h"
 #else
-#include "GCN_Layer_Forward_Utils.h"
+#include "../GCN_Layer_Forward_Utils.h"
 #endif
 #include "../MultiLayer/GCN_Multi_Layer_Demo_Utils.h"
 #include "SWTensorBench.h"

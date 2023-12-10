@@ -1,17 +1,13 @@
 #!/bin/bash
 
-BASELINE="SpMM_SpMM_Demo_UnFusedParallel"
 UFDB="./data/ss-graphs/"
 BCOL=4
 
 THRD=20
 DOWNLOAD=0
-while getopts ":b:t:dc:m:" arg; do
+while getopts ":t:dc:m:" arg; do
 
   case "${arg}" in
-    b)
-      BASELINE=$OPTARG
-      ;;
     c)
       BCOL=$OPTARG
       ;;
@@ -25,8 +21,6 @@ while getopts ":b:t:dc:m:" arg; do
       DOWNLOAD=1
       ;;
     *) echo "Usage:
-    -b BASELINE=SpMM_SpMM_Demo_UnFusedParallel        Choose a baseline to compare with Fused SpMM SpMM(Current base lines: SpMM_SpMM_Demo_UnFusedParallel,SpMM_SpMM_MKL)
-
     -c BCOL=4                                         num of the columns of the dense matrix
     -t THRD=40                                        num of threads
     -m UFDB=./data                                    path of matrices data
@@ -36,9 +30,6 @@ while getopts ":b:t:dc:m:" arg; do
   esac
 done
 BINFILE="spmm_spmm_fusion"
-if [ $BASELINE = "SpMM_SpMM_MKL" ]; then
-  BINFILE="fused_vs_mkl"
-fi
 
 
 which cmake
