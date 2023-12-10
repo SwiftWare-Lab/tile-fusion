@@ -27,6 +27,18 @@ if(TARGET MKL::MKL)
             $<LINK_ONLY:MKL::MKL>
             OpenMP::OpenMP_CXX
     )
+
+    add_executable(fusion_profiler
+            Fusion_Profiler.cpp
+    )
+    target_include_directories(fusion_profiler PRIVATE
+            $<TARGET_PROPERTY:MKL::MKL,INTERFACE_INCLUDE_DIRECTORIES>
+    )
+    target_link_libraries(fusion_profiler
+            fusion
+            $<LINK_ONLY:MKL::MKL>
+            swbench::swbench
+    )
 else()
 add_executable(spmm_spmm_fusion
         SpMM_SpMM_Demo.cpp
@@ -37,6 +49,14 @@ target_link_libraries(spmm_spmm_fusion
         swbench::swbench
         OpenMP::OpenMP_CXX
 )
+
+add_executable(fusion_profiler
+        Fusion_Profiler.cpp
+)
+target_link_libraries(fusion_profiler
+        fusion
+        swbench::swbench
+)
 endif()
 
 add_executable(dag_decomp
@@ -45,14 +65,6 @@ add_executable(dag_decomp
 target_link_libraries(dag_decomp
         fusion
 )
-
-add_executable(fusion_profiler
-        Fusion_Profiler.cpp
-        )
-target_link_libraries(fusion_profiler
-        fusion
-        swbench::swbench
-        )
 
 
 #target_compile_options(dag_decomp PRIVATE
