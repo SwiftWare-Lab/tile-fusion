@@ -63,6 +63,15 @@ void spmmCsrSpmmCsrFused(int M, int N, int K,
                          int LevelNo, const int *LevelPtr, const int *ParPtr,
                          const int *Partition, const int *ParType,
                          int NThreads);
+void spmmCsrSpmmCsrFusedKTiled(int M, int N, int K, int L,
+                               const int *Ap, const int *Ai, const double *Ax,
+                               const int *Bp, const int *Bi,const double *Bx,
+                               const double *Cx,
+                               double *Dx,
+                               double *ACx, int KTileSize,
+                               int LevelNo, const int *LevelPtr, const int *ParPtr,
+                               const int *Partition, const int *ParType,
+                               int NThreads);
 void spmmCsrSpmmCsrInnerProductFused(int M, int N, int K,
                          int L,
                          const int *Ap, const int *Ai, const double *Ax,
@@ -120,6 +129,56 @@ void spmmCsrSpmmCsrTiledFusedRedundantGeneral(int M, int N, int K, int L,
                                               int LevelNo, const int *LevelPtr, const int *ParPtr,
                                               const int *Partition, const int *ParType, const int*MixPtr,
                                               int NThreads, int MTile, int NTile, double *Ws);
+
+
+void spmmCsrSpmmCscFused(int M, int N, int K, int L,
+                         const int *Ap, const int *Ai, const double *Ax,
+                         const int *Bp, const int *Bi,const double *Bx,
+                         const double *Cx,
+                         double *Dx,
+                         double *ACx,
+                         int LevelNo, const int *LevelPtr, const int *ParPtr,
+                         const int *Partition, const int *ParType,
+                         int NThreads);
+
+
+void spmmCsrSpmmCscFusedAffine(int M, int N, int K, int L,
+                               const int *Ap, const int *Ai, const double *Ax,
+                               const int *Bp, const int *Bi,const double *Bx,
+                               const double *Cx,
+                               double *Dx,
+                               double *ACx,
+                               int NThreads);
+
+void spmmCsrSpmmCscFusedColored(int M, int N, int K, int L,
+                                const int *Ap, const int *Ai, const double *Ax,
+                                const int *Bp, const int *Bi,const double *Bx,
+                                const double *Cx,
+                                double *Dx,
+                                double *ACx,
+                                int LevelNo, const int *LevelPtr,
+                                const int *Id, int TileSize,
+                                int NThreads);
+
+void spmmCsrSpmmCscFusedColoredWithScheduledKTiles(int M, int N, int K, int L,
+                                const int *Ap, const int *Ai, const double *Ax,
+                                const int *Bp, const int *Bi,const double *Bx,
+                                const double *Cx,
+                                double *Dx,
+                                double *ACx,
+                                int LevelNo, const int *LevelPtr,
+                                const int *Id, int TileSize,
+                                int KTileSize, int NThreads);
+
+void spmmCsrSpmmCscFusedColoredWithReplicatedKTiles(int M, int N, int K, int L,
+                                                   const int *Ap, const int *Ai, const double *Ax,
+                                                   const int *Bp, const int *Bi,const double *Bx,
+                                                   const double *Cx,
+                                                   double *Dx,
+                                                   double *ACx,
+                                                   int LevelNo, const int *LevelPtr,
+                                                   const int *Id, const int *TileSizes, int TileSize,
+                                                   int KTileSize, int NThreads);
 
 } // namespace sparse
 } // namespace swiftware

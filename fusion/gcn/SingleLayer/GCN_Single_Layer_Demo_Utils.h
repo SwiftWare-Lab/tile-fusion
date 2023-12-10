@@ -6,7 +6,7 @@
 #include "../GCN_Layer_MKL_Forward_Utils.h"
 #include "../Inspection/Fusion_Inspector.h"
 #else
-#include "GCN_Layer_Forward_Utils.h"
+#include "../GCN_Layer_Forward_Utils.h"
 #endif
 #include "../MultiLayer/GCN_Multi_Layer_Demo_Utils.h"
 #include "SWTensorBench.h"
@@ -361,7 +361,7 @@ class GCNSingleLayerTiledFusedCSCParallelWithSchedulingKTiling
 protected:
   int TileSize;
   sym_lib::MultiDimensionalSet *FusedCompSet;
-  InspectorForSingleLayerTiledFusedCSCParallelWithKTiling *Inspector;
+  InspectorForSingleLayerTiledFusedCSCParallelWithSchedulingKTiles *Inspector;
   std::map<int, std::vector<int>> ConflictGraphColoring;
   int KTileSize;
 
@@ -397,7 +397,7 @@ public:
       std::map<int, std::vector<int>> ConflictGraphColoring1, int KTileSize1)
       : GCNSingleLayerFused(In1, Stat1), TileSize(TileSize1),
         ConflictGraphColoring(ConflictGraphColoring1), KTileSize(KTileSize1) {
-    Inspector = new InspectorForSingleLayerTiledFusedCSCParallelWithKTiling();
+    Inspector = new InspectorForSingleLayerTiledFusedCSCParallelWithSchedulingKTiles();
   }
   ~GCNSingleLayerTiledFusedCSCParallelWithSchedulingKTiling() {
     delete FusedCompSet;

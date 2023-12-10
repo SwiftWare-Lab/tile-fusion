@@ -1,17 +1,13 @@
 #!/bin/bash
 
-BASELINE="SpMM_SpMM_Demo_UnFusedParallel"
 UFDB="./data/ss-graphs/"
 BCOL=4
 
-THRD=40
+THRD=20
 DOWNLOAD=0
-while getopts ":b:t:dc:m:" arg; do
+while getopts ":t:dc:m:" arg; do
 
   case "${arg}" in
-    b)
-      BASELINE=$OPTARG
-      ;;
     c)
       BCOL=$OPTARG
       ;;
@@ -25,8 +21,6 @@ while getopts ":b:t:dc:m:" arg; do
       DOWNLOAD=1
       ;;
     *) echo "Usage:
-    -b BASELINE=SpMM_SpMM_Demo_UnFusedParallel        Choose a baseline to compare with Fused SpMM SpMM(Current base lines: SpMM_SpMM_Demo_UnFusedParallel,SpMM_SpMM_MKL)
-
     -c BCOL=4                                         num of the columns of the dense matrix
     -t THRD=40                                        num of threads
     -m UFDB=./data                                    path of matrices data
@@ -36,15 +30,7 @@ while getopts ":b:t:dc:m:" arg; do
   esac
 done
 BINFILE="spmm_spmm_fusion"
-if [ $BASELINE = "SpMM_SpMM_MKL" ]; then
-  BINFILE="fused_vs_mkl"
-else
-  BINFILE="gcn_demo"
-fi
 
-
-
-export MKL_DIR=$MKLROOT
 
 which cmake
 which gcc
@@ -72,7 +58,7 @@ MATLIST=$UFDB/mat_list.txt
 
 mkdir $LOGS
 
-MODE=4
+MODE=3
 # performing the experiments
 if [ $DOWNLOAD -eq 1 ]; then
     python3 $SCRIPTPATH/dl_matrix.py $UFDB $MATLIST
@@ -85,7 +71,7 @@ export MKL_DYNAMIC=FALSE;
 export OMP_DYNAMIC=FALSE;
 #export MKL_VERBOSE=1
 
-bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE $THRD $MATLIST $BCOL > $LOGS/spmv_spmv_$BCOL.csv
+bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE $THRD $MATLIST $BCOL
   # plotting
 #  python3 $SCRIPTPATH/plot.py $LOGS $BASELINE
 #else
@@ -95,5 +81,3 @@ bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE $THRD $MATLIST $BCOL >
 #  bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE $THRD $MATLIST 128 > $LOGS/spmv_spmv_128.csv
 #  bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE $THRD $MATLIST 256 > $LOGS/spmv_spmv_256.csv
 #fi
-
-

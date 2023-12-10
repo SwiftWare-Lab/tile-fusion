@@ -12,16 +12,12 @@
 #SBATCH -t 11:59:00
 #SBATCH --constraint=cascade
 
-BASE_LINE="SpMM_SpMM_Demo_UnFusedParallel"
-UFDB=$SCRATCH/UFDB/graphs/
+UFDB=$SCRATCH/data/graphs/
 #UFDB=$HOME/UFDB/banded/
 
 BCOL=32
-while getopts ":b:lm:c:" arg; do
+while getopts ":lm:c:" arg; do
   case "${arg}" in
-    b)
-      BASE_LINE=$OPTARG
-      ;;
     l)
       TEST=1
       ;;
@@ -32,7 +28,6 @@ while getopts ":b:lm:c:" arg; do
       BCOL=$OPTARG
       ;;
     *) echo "Usage:
-    -b BASELINE=SpMM_SpMM_Demo_UnFusedParallel        Choose a baseline to compare with Fused SpMM SpMM(Current base lines: SpMM_SpMM_Demo_UnFusedParallel,SpMM_SpMM_MKL)
     -l TEST=FALSE                                     Set if you want to run the script for one b_col
     -m UFDB=$SCRATCH/UFDB/AM/                        path of matrices data"
       exit 0
@@ -47,7 +42,7 @@ module load cmake
 module load gcc
 
 if [ $TEST -eq 1 ]; then
-  bash run.sh -b $BASE_LINE -m $UFDB -c 8
+  bash run.sh -m $UFDB -c 8
 else
-  bash run.sh -b $BASE_LINE -t 40 -m $UFDB -c BCOL
+  bash run.sh -t 20 -m $UFDB -c $BCOL
 fi
