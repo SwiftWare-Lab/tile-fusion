@@ -2,10 +2,10 @@
 
 UFDB="./data/ss-graphs/"
 BCOL=4
-
+EXP="spmm_spmm"
 THRD=20
 DOWNLOAD=0
-while getopts ":t:dc:m:" arg; do
+while getopts ":t:dc:m:e:" arg; do
 
   case "${arg}" in
     c)
@@ -20,6 +20,9 @@ while getopts ":t:dc:m:" arg; do
     d)
       DOWNLOAD=1
       ;;
+    e)
+      EXP=$OPTARG
+      ;;
     *) echo "Usage:
     -c BCOL=4                                         num of the columns of the dense matrix
     -t THRD=40                                        num of threads
@@ -29,7 +32,16 @@ while getopts ":t:dc:m:" arg; do
       exit 0
   esac
 done
-BINFILE="spmm_spmm_fusion"
+if [ $EXP == "spmm_spmm" ]; then
+  BINFILE="spmm_spmm_fusion"
+  BINPATH=./build/example/
+elif [ $EXP == "spmv_spmv" ]; then
+  BINPATH=./build/spmv-spmv/
+  BINFILE="spmv_spmv_demo"
+else
+  echo "Wrong experiment name"
+  exit 0
+fi
 
 
 which cmake
@@ -37,7 +49,7 @@ which gcc
 which g++
 which gdb
 which make
-
+export MKL_DIR=$MKLROOT
 #### Build
 mkdir build
 # shellcheck disable=SC2164
@@ -51,7 +63,7 @@ make -j 40
 
 cd ..
 
-BINPATH=./build/example/
+#BINPATH=./build/example/
 LOGS=./build/logs/
 SCRIPTPATH=./scripts/
 MATLIST=$UFDB/mat_list.txt

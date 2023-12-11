@@ -2,9 +2,10 @@
 // Created by salehm32 on 08/12/23.
 //
 
-#include "aggregation/def.h"
+#include "../gcn/Inspection/GraphColoring.h"
 #include "SWTensorBench.h"
 #include "SpMV_SpMV_Demo_Utils.h"
+#include "aggregation/def.h"
 #include "aggregation/sparse_utilities.h"
 #include "sparse-fusion/Fusion_Utils.h"
 #include "sparse-fusion/SparseFusion.h"
@@ -47,18 +48,58 @@ int main(const int argc, const char *argv[]) {
   auto *inSpMM = new TensorInputs<double>(aCSCFull->m,  tp._b_cols, aCSCFull->n,
                                           bCSC->m, aCSCFull, bCSC,
                                           numThread, numTrial, expName);
-  stats = new swiftware::benchmark::Stats("SpMV_SpMV_Sequential", "SpMV", 7, tp._matrix_name, numThread);
+  stats = new swiftware::benchmark::Stats("SpMV_SpMV_UnFusedSequential", "SpMV", 7, tp._matrix_name, numThread);
   stats->OtherStats["PackingType"] = {Interleaved};
-  auto *unfused = new SpMVSpMVSequential(inSpMM, stats);
+  auto *unfused = new SpMVSpMVUnFusedSequential(inSpMM, stats);
   unfused->run();
-  //unfused->OutTensor->printDx();
   inSpMM->CorrectSol = std::copy(unfused->OutTensor->Dx, unfused->OutTensor->Dx + unfused->OutTensor->M, inSpMM->CorrectMul);
   inSpMM->IsSolProvided = true;
-//  unfused->OutTensor->printDx();
   auto headerStat = unfused->printStatsHeader();
   auto baselineStat = unfused->printStats();
   delete unfused;
   delete stats;
+
+  stats = new swiftware::benchmark::Stats("SpMV_SpMV_UnFusedParallel", "SpMV", 7, tp._matrix_name, numThread);
+  stats->OtherStats["PackingType"] = {Interleaved};
+  auto *spmvParallel = new SpMVSpMVUnFusedParallel(inSpMM, stats);
+  spmvParallel->run();
+  auto spMVParallelStat = spmvParallel->printStats();
+  delete spmvParallel;
+  delete stats;
+
+  stats = new swiftware::benchmark::Stats("SpMV_SpMV_FusedParallel", "SpMV", 7, tp._matrix_name, numThread);
+  stats->OtherStats["PackingType"] = {Interleaved};
+  auto *spmvFused = new SpMVSpMVFused(inSpMM, stats, sp);
+  spmvFused->run();
+  auto spMVFusedStat = spmvFused->printStats();
+  delete spmvFused;
+  delete stats;
+
+  stats = new swiftware::benchmark::Stats("SpMV_SpMV_FusedParallel_Separated", "SpMV", 7, tp._matrix_name, numThread);
+  auto *spmvFusedSeparated = new SpMVSpMVFusedParallelSeparated(inSpMM, stats, sp);
+  spmvFusedSeparated->run();
+  auto spMVFusedSeparatedStat = spmvFusedSeparated->printStats();
+  delete spmvFusedSeparated;
+  delete stats;
+
+
+  int tileSize = sp.TileM;
+  DsaturColoringForConflictGraph *dsaturColoring =
+      new DsaturColoringForConflictGraph();
+
+
+  std::map<int, std::vector<int>> colorToTiles =
+      dsaturColoring->generateGraphColoringForConflictGraphOf(aCSCFull,
+                                                              tileSize, true);
+
+  stats = new swiftware::benchmark::Stats("SpMV_SpMV_CSC_Interleaved_Coloring_FusedParallel","SpMM", 7,tp._matrix_name,numThread);
+  auto *fusedCSCInterleavedColoringParallel = new SpMVCSRSpMVCSCFusedColoring(inSpMM, stats, sp, tileSize,
+                                                                              colorToTiles);
+  fusedCSCInterleavedColoringParallel->run();
+  auto fusedCSCInterleavedColoringParallelStat = fusedCSCInterleavedColoringParallel->printStats();
+  delete fusedCSCInterleavedColoringParallel;
+  delete stats;
+
 
   auto csvInfo = sp.print_csv(true);
   std::string spHeader = std::get<0>(csvInfo);
@@ -71,5 +112,25 @@ int main(const int argc, const char *argv[]) {
   if(tp.print_header)
     std::cout<<headerStat+spHeader+tpHeader<<std::endl;
   std::cout<<baselineStat<<spStat+tpStat<<std::endl;
+  std::cout << spMVParallelStat<<spStat+tpStat<<std::endl;
+  std::cout << spMVFusedStat<<spStat+tpStat<<std::endl;
+  std::cout << spMVFusedSeparatedStat<<spStat+tpStat<<std::endl;
+  std::cout << fusedCSCInterleavedColoringParallelStat<<spStat+tpStat<<std::endl;
+#ifdef MKL
+  stats = new swiftware::benchmark::Stats("SpMV_SpMV_UnFusedMKL", "SpMV", 7, tp._matrix_name, numThread);
+  auto spmvMKL = new SpMVSpMVMkl(inSpMM, stats);
+  spmvMKL->run();
+  auto spMVKLStat = spmvMKL->printStats();
+  delete spmvMKL;
+  delete stats;
 
+  std::cout << spMVKLStat<<spStat+tpStat<<std::endl;
+#endif //MKL
+
+  delete inSpMM;
+  delete aCSC;
+  delete aCSCFull;
+  delete bCSC;
+  delete dsaturColoring;
+  return 0;
 }

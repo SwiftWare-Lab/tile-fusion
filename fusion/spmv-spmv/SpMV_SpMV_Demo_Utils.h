@@ -4,10 +4,13 @@
 
 #ifndef SPARSE_FUSION_SPMV_SPMV_MKL_DEMO_UTILS_H
 #define SPARSE_FUSION_SPMV_SPMV_MKL_DEMO_UTILS_H
+#include "../gcn/Inspection/Fusion_Inspector.h"
 #include "SWTensorBench.h"
 #include "SpMV_SpMV.h"
 #include "aggregation/sparse_io.h"
 #include "aggregation/sparse_utilities.h"
+#include "sparse-fusion/Fusion_Defs.h"
+#include "sparse-fusion/SparseFusion.h"
 
 using namespace swiftware::benchmark;
 
@@ -20,8 +23,7 @@ template <typename T> void printDense(int M, int N, T *X) {
   }
 }
 
-template<typename T>
-struct TensorInputs : public Inputs<T>{
+template <typename T> struct TensorInputs : public Inputs<T> {
   int M, K, L;
   sym_lib::CSC *A, *B;
   sym_lib::CSR *ACsr, *BCsr;
@@ -30,9 +32,10 @@ struct TensorInputs : public Inputs<T>{
   T *CorrectMul;
   bool IsSolProvided;
 
-  TensorInputs(int M1, int N1, int K1, int L1,
-               sym_lib::CSC *A1, sym_lib::CSC *B1,
-               int NumThreads1, int NumTrial1, std::string ExpN):Inputs<T>(NumTrial1, NumThreads1, ExpN){
+  TensorInputs(int M1, int N1, int K1, int L1, sym_lib::CSC *A1,
+               sym_lib::CSC *B1, int NumThreads1, int NumTrial1,
+               std::string ExpN)
+      : Inputs<T>(NumTrial1, NumThreads1, ExpN) {
     M = M1;
     K = K1;
     L = L1;
@@ -42,7 +45,7 @@ struct TensorInputs : public Inputs<T>{
     BCsr = sym_lib::csc_to_csr(B);
     Cx = new double[K]();
     // randomly initialize the input
-    for(int i=0; i<K; ++i){
+    for (int i = 0; i < K; ++i) {
       Cx[i] = 1.0; //(double)rand()/RAND_MAX;
     }
     CorrectMul = new double[L](); // the correct solution
@@ -50,7 +53,7 @@ struct TensorInputs : public Inputs<T>{
     Inputs<T>::Threshold = 1e-6;
   }
 
-  ~TensorInputs(){
+  ~TensorInputs() {
     delete[] Cx;
     delete[] CorrectMul;
     delete A;
@@ -88,11 +91,12 @@ template <typename T> struct TensorOutputs : public Outputs<T> {
   }
 };
 
-class SpMVSpMVSequential: public SWTensorBench<double> {
+class SpMVSpMVUnFusedSequential : public SWTensorBench<double> {
+protected:
   TensorInputs<double> *InTensor;
 
   void setup() override {
-    this->St->OtherStats["NTile"] = {4};
+    St->OtherStats["PackingType"] = {sym_lib::Separated};
   }
 
   void preExecute() override {}
@@ -103,12 +107,12 @@ class SpMVSpMVSequential: public SWTensorBench<double> {
     OutTensor->reset();
     Timer t;
     t.start();
-    spMVCsrSequential(
-        InTensor->M, InTensor->K, InTensor->ACsr->p,
-        InTensor->ACsr->i, InTensor->ACsr->x, InTensor->Cx, OutTensor->ACx);
-    spMVCsrSequential(
-        InTensor->L, InTensor->M, InTensor->BCsr->p,
-        InTensor->BCsr->i, InTensor->BCsr->x, OutTensor->ACx, OutTensor->Dx);
+    spMVCsrSequential(InTensor->M, InTensor->K, InTensor->ACsr->p,
+                      InTensor->ACsr->i, InTensor->ACsr->x, InTensor->Cx,
+                      OutTensor->ACx);
+    spMVCsrSequential(InTensor->L, InTensor->M, InTensor->BCsr->p,
+                      InTensor->BCsr->i, InTensor->BCsr->x, OutTensor->ACx,
+                      OutTensor->Dx);
     t.stop();
     return t;
   }
@@ -134,13 +138,221 @@ class SpMVSpMVSequential: public SWTensorBench<double> {
 
 public:
   TensorOutputs<double> *OutTensor;
-  SpMVSpMVSequential(TensorInputs<double> *In1, Stats *Stat1)
+  SpMVSpMVUnFusedSequential(TensorInputs<double> *In1, Stats *Stat1)
       : SWTensorBench<double>(In1, Stat1) {
     OutTensor = new TensorOutputs<double>(In1->M, In1->L);
     InTensor = In1;
   }
 
-  ~SpMVSpMVSequential() { delete OutTensor; }
+  ~SpMVSpMVUnFusedSequential() { delete OutTensor; }
 };
 
+class SpMVSpMVUnFusedParallel : public SpMVSpMVUnFusedSequential {
+protected:
+  Timer execute() override {
+    //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
+    OutTensor->reset();
+    Timer t;
+    t.start();
+    spMVCsrParallel(InTensor->M, InTensor->K, InTensor->ACsr->p,
+                    InTensor->ACsr->i, InTensor->ACsr->x, InTensor->Cx,
+                    OutTensor->ACx, InTensor->NumThreads);
+    spMVCsrParallel(InTensor->L, InTensor->M, InTensor->BCsr->p,
+                    InTensor->BCsr->i, InTensor->BCsr->x, OutTensor->ACx,
+                    OutTensor->Dx, InTensor->NumThreads);
+    t.stop();
+    return t;
+  }
+
+public:
+  SpMVSpMVUnFusedParallel(TensorInputs<double> *In1, Stats *Stat1)
+      : SpMVSpMVUnFusedSequential(In1, Stat1) {}
+};
+
+class SpMVSpMVFused : public SpMVSpMVUnFusedSequential {
+protected:
+  sym_lib::MultiDimensionalSet *FusedCompSet;
+  sym_lib::ScheduleParameters Sp;
+  Timer analysis() override {
+    Timer t;
+    t.start();
+    // sym_lib::ScheduleParameters sp;
+    // sp._num_threads = InTensor->NumThreads;
+    //  create the fused set
+
+    Sp._num_w_partition = std::max<int>(InTensor->ACsr->m / Sp.IterPerPartition,
+                                        2 * Sp._num_threads);
+    auto *sf01 = new sym_lib::SparseFusion(&Sp, 2);
+    auto *mvDAG = sym_lib::diagonal(InTensor->ACsr->m, 1.0);
+    auto *tmpCSCCSR = new sym_lib::CSC(InTensor->BCsr->m, InTensor->BCsr->n,
+                                       InTensor->BCsr->nnz, InTensor->BCsr->p,
+                                       InTensor->BCsr->i, InTensor->BCsr->x);
+    auto *Di = InTensor->BCsr;
+    // sym_lib::print_csc(1, "Di", 6, Di->p, Di->i, Di->x);
+    sf01->fuse(0, mvDAG, tmpCSCCSR);
+
+    // sf01->print_final_list();
+    sf01->fuse(1, mvDAG, tmpCSCCSR);
+    // sf01->print_final_list();
+    auto pt = St->OtherStats["PackingType"];
+    FusedCompSet = sf01->getFusedCompressed((int)pt[0]);
+    // FusedCompSet->print_3d();
+    delete sf01;
+    delete mvDAG;
+    delete tmpCSCCSR;
+
+    t.stop();
+    return t;
+  }
+
+  Timer execute() override {
+    //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
+    OutTensor->reset();
+    Timer t;
+    t.start();
+    spMVCsrSpMCsrFused(InTensor->M, InTensor->K, InTensor->L, InTensor->ACsr->p,
+                       InTensor->ACsr->i, InTensor->ACsr->x, InTensor->BCsr->p,
+                       InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Cx,
+                       OutTensor->Dx, OutTensor->ACx, FusedCompSet->n1_,
+                       FusedCompSet->ptr1_, FusedCompSet->ptr2_,
+                       FusedCompSet->id_, FusedCompSet->type_,
+                       InTensor->NumThreads);
+
+    t.stop();
+    return t;
+  }
+
+public:
+  SpMVSpMVFused(TensorInputs<double> *In1, Stats *Stat1,
+                sym_lib::ScheduleParameters SpIn)
+      : SpMVSpMVUnFusedSequential(In1, Stat1), Sp(SpIn) {}
+
+  ~SpMVSpMVFused() { delete FusedCompSet; }
+};
+
+class SpMVSpMVFusedParallelSeparated : public SpMVSpMVFused {
+protected:
+  Timer execute() override {
+    OutTensor->reset();
+    Timer t;
+    t.start();
+    spMVCsrSpMVCsrSeparatedFused(
+        InTensor->M, InTensor->K, InTensor->L, InTensor->ACsr->p,
+        InTensor->ACsr->i, InTensor->ACsr->x, InTensor->BCsr->p,
+        InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Cx, OutTensor->Dx,
+        OutTensor->ACx, FusedCompSet->n1_, FusedCompSet->ptr1_,
+        FusedCompSet->ptr2_, FusedCompSet->id_, FusedCompSet->type_,
+        FusedCompSet->ker_begin_, InTensor->NumThreads);
+    t.stop();
+    return t;
+  }
+public:
+  SpMVSpMVFusedParallelSeparated(TensorInputs<double> *In1, Stats *Stat1,
+                                 sym_lib::ScheduleParameters SpIn)
+      : SpMVSpMVFused(In1, Stat1, SpIn) {}
+};
+
+class SpMVCSRSpMVCSCFusedColoring : public SpMVSpMVUnFusedSequential {
+protected:
+  sym_lib::MultiDimensionalSet *FusedCompSet;
+  sym_lib::ScheduleParameters Sp;
+  sym_lib::SparsityProfileInfo SpInfo;
+  InspectorForSingleLayerTiledFusedCSCParallel *Inspector;
+  std::map<int, std::vector<int>> ConflictGraphColoring;
+  int TileSize;
+  Timer analysis() override {
+    Timer t;
+    t.start();
+
+    FusedCompSet =
+        Inspector->generateFusedScheduleForSingleLayerTiledFusedCSCParallel(
+            ConflictGraphColoring, InTensor->M, TileSize);
+
+    t.stop();
+    return t;
+  }
+
+  Timer execute() override {
+    //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
+    OutTensor->reset();
+    Timer t;
+    t.start();
+    spMVCsrSpMVCscFusedColored(
+        InTensor->M, InTensor->K, InTensor->L, InTensor->ACsr->p,
+        InTensor->ACsr->i, InTensor->ACsr->x, InTensor->B->p, InTensor->B->i,
+        InTensor->B->x, InTensor->Cx, OutTensor->Dx, OutTensor->ACx,
+        FusedCompSet->n1_, FusedCompSet->ptr1_, FusedCompSet->id_, Sp.TileM,
+        InTensor->NumThreads);
+
+    t.stop();
+    return t;
+  }
+
+public:
+  SpMVCSRSpMVCSCFusedColoring(
+      TensorInputs<double> *In1, Stats *Stat1, sym_lib::ScheduleParameters SpIn,
+      int TileSize1, std::map<int, std::vector<int>> ConflictGraphColoring1)
+      : SpMVSpMVUnFusedSequential(In1, Stat1), Sp(SpIn), TileSize(TileSize1),
+        ConflictGraphColoring(ConflictGraphColoring1) {
+    Inspector = new InspectorForSingleLayerTiledFusedCSCParallel();
+  }
+
+  ~SpMVCSRSpMVCSCFusedColoring() { delete FusedCompSet; }
+  sym_lib::SparsityProfileInfo getSpInfo() { return SpInfo; }
+};
+
+#ifdef MKL
+
+#include <mkl.h>
+class SpMVSpMVMkl : public SpMVSpMVUnFusedSequential {
+protected:
+  sparse_matrix_t A;
+  sparse_matrix_t B;
+  MKL_INT *LLI_A;
+  MKL_INT *LLI_B;
+  matrix_descr d;
+  Timer execute() override {
+    Timer t;
+    t.start();
+    mkl_sparse_d_mv(SPARSE_OPERATION_NON_TRANSPOSE, 1, this->A, this->d,
+                    this->InTensor->Cx, 0, this->OutTensor->ACx);
+    mkl_sparse_d_mv(SPARSE_OPERATION_NON_TRANSPOSE, 1, this->B, this->d,
+                    this->OutTensor->ACx, 0, this->OutTensor->Dx);
+    t.stop();
+    return t;
+  }
+
+public:
+  SpMVSpMVMkl(TensorInputs<double> *In1, Stats *Stat1)
+      : SpMVSpMVUnFusedSequential(In1, Stat1) {
+    d.type = SPARSE_MATRIX_TYPE_GENERAL;
+
+    LLI_A = new MKL_INT[this->InTensor->M + 1]();
+    for (int l = 0; l < this->InTensor->M + 1; ++l) {
+      LLI_A[l] = this->InTensor->ACsr->p[l];
+    }
+
+    LLI_B = new MKL_INT[this->InTensor->L + 1]();
+    for (int l = 0; l < this->InTensor->L + 1; ++l) {
+      LLI_B[l] = this->InTensor->BCsr->p[l];
+    }
+
+    mkl_sparse_d_create_csr(&A, SPARSE_INDEX_BASE_ZERO, this->InTensor->M,
+                            this->InTensor->K, LLI_A, LLI_A + 1,
+                            this->InTensor->ACsr->i, this->InTensor->ACsr->x);
+    mkl_sparse_d_create_csr(&B, SPARSE_INDEX_BASE_ZERO, this->InTensor->L,
+                            this->InTensor->M, LLI_B, LLI_B + 1,
+                            this->InTensor->BCsr->i, this->InTensor->BCsr->x);
+    mkl_set_num_threads(this->InTensor->NumThreads);
+  }
+
+  ~SpMVSpMVMkl() {
+    mkl_free(A);
+    mkl_free(B);
+  }
+};
+#endif // MKL
 #endif // SPARSE_FUSION_SPMV_SPMV_MKL_DEMO_UTILS_H
