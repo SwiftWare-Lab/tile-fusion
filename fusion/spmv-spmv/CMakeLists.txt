@@ -3,7 +3,7 @@ include_directories(
         ${SYM_FUS}/include
 )
 
-project(examples)
+project(spmv)
 
 if(NOT TARGET MKL::MKL)
     set(MKL_INTERFACE "lp64")
@@ -13,13 +13,13 @@ endif()
 if(TARGET MKL::MKL)
     add_definitions(-DMKL)
     message(STATUS "${MKL_IMPORTED_TARGETS}")
-    add_executable(fused_vs_mkl
-            Fused_vs_MKL_Demo.cpp
+    add_executable(spmv_spmv_demo
+            SpMV_SpMV_Demo.cpp
     )
-    target_include_directories(fused_vs_mkl PRIVATE
+    target_include_directories(spmv_spmv_demo PRIVATE
             $<TARGET_PROPERTY:MKL::MKL,INTERFACE_INCLUDE_DIRECTORIES>
     )
-    target_link_libraries(fused_vs_mkl PRIVATE
+    target_link_libraries(spmv_spmv_demo PRIVATE
             fusion
             $<LINK_ONLY:MKL::MKL>
             swbench::swbench
