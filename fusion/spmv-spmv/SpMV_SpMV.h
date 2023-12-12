@@ -146,6 +146,7 @@ void spMVCsrSpMVCscFusedColoredWithReduction(int M, int K, int L, const int *Ap,
       Dx[j] += tempResults[i1*L + j];
     }
   }
+  delete[] tempResults;
   int i = M - lastTileSize;
   for (int ii = 0; ii < lastTileSize; ++ii) {
     auto ipii = i + ii;
