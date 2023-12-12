@@ -380,9 +380,10 @@ protected:
   std::map<int, int>
   getNewSequentialRegionTilesMap(std::set<int> StandAloneTiles) {
     std::map<int, int> tileToNewSize;
-    tileToNewSize[*StandAloneTiles.begin()] = 1;
-    StandAloneTiles.erase(StandAloneTiles.begin());
     for (auto tile : StandAloneTiles) {
+      if (tileToNewSize.empty()){
+        tileToNewSize[tile] = 1;
+      }
       auto lastNewTile = tileToNewSize.rbegin();
       if (tile - lastNewTile->first == lastNewTile->second) {
         lastNewTile->second++;

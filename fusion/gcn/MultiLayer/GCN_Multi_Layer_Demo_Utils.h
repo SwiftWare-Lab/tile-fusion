@@ -226,7 +226,7 @@ public:
   GnnTensorOutputs *OutTensor;
   GCNIntraFusedSequential(GnnTensorInputs *In1, Stats *Stat1)
       : SWTensorBench<double>(In1, Stat1) {
-    OutTensor = new GnnTensorOutputs(In1->Weight2->row, In1->NumOfNodes);
+    OutTensor = new GnnTensorOutputs(In1->Weight1->row, In1->NumOfNodes);
     InTensor = In1;
   }
 
