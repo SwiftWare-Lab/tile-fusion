@@ -4,6 +4,8 @@
 
 #include <torch/torch.h>
 #include "Backend_Utils.h"
+#include "../gcn/Inspection/GraphColoring.h"
+#include "../gcn/Inspection/Fusion_Inspector.h"
 #include <mkl.h>
 #include <omp.h>
 
@@ -79,7 +81,10 @@ void forwardForTiledFusedCSCGCN(torch::Tensor X, torch::Tensor Adj,
       NumThreads, NumWorkloads, NumAggregatedTiles, WorkloadPtr.data_ptr<int>(), Ids.data_ptr<int>(), TilePtr.data_ptr<int>());
 }
 
-void createScheduleFor(torch::Tensor Adj){
+void createScheduleFor(torch::Tensor Adj, int TileSize, int MinWorkloadSize){
+  DsaturColoringForConflictGraph dsaturColoring;
+  dsaturColoring.generateGraphColoringForConflictGraphOf(Adj.size(0),Adj.ccol_indices().data_ptr<int>(), Adj.row_indices().data_ptr<int>(), TileSize);
+  InspectorForSingleLayerTiledFusedCSCCombined inspector;
 
 }
 
