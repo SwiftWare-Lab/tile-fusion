@@ -1089,7 +1089,7 @@ protected:
     mkl_sparse_d_mm(SPARSE_OPERATION_NON_TRANSPOSE, 1, this->B, this->d,
                     SPARSE_LAYOUT_ROW_MAJOR, this->OutTensor->ACx,
                     this->InTensor->N, this->InTensor->N, 0,
-                    this->OutTensor->Out, this->InTensor->N);
+                    this->OutTensor->Dx, this->InTensor->N);
     t.stop();
     return t;
   }
