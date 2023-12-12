@@ -304,6 +304,56 @@ public:
   sym_lib::SparsityProfileInfo getSpInfo() { return SpInfo; }
 };
 
+class SpMVCSRSpMVCSCFusedColoringWithReduction : public SpMVSpMVUnFusedSequential {
+protected:
+  sym_lib::MultiDimensionalSet *FusedCompSet;
+  sym_lib::ScheduleParameters Sp;
+  sym_lib::SparsityProfileInfo SpInfo;
+  InspectorForSingleLayerTiledFusedCSCParallel *Inspector;
+  std::map<int, std::vector<int>> ConflictGraphColoring;
+  int TileSize;
+  Timer analysis() override {
+    Timer t;
+    t.start();
+
+    FusedCompSet =
+        Inspector->generateFusedScheduleForSingleLayerTiledFusedCSCParallel(
+            ConflictGraphColoring, InTensor->M, TileSize);
+
+    t.stop();
+    return t;
+  }
+
+  Timer execute() override {
+    //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
+    OutTensor->reset();
+    Timer t;
+    t.start();
+    spMVCsrSpMVCscFusedColoredWithReduction(
+        InTensor->M, InTensor->K, InTensor->L, InTensor->ACsr->p,
+        InTensor->ACsr->i, InTensor->ACsr->x, InTensor->B->p, InTensor->B->i,
+        InTensor->B->x, InTensor->Cx, OutTensor->Dx, OutTensor->ACx,
+        FusedCompSet->n1_, FusedCompSet->ptr1_, FusedCompSet->id_, Sp.TileM,
+        InTensor->NumThreads);
+
+    t.stop();
+    return t;
+  }
+
+public:
+  SpMVCSRSpMVCSCFusedColoringWithReduction(
+      TensorInputs<double> *In1, Stats *Stat1, sym_lib::ScheduleParameters SpIn,
+      int TileSize1, std::map<int, std::vector<int>> ConflictGraphColoring1)
+      : SpMVSpMVUnFusedSequential(In1, Stat1), Sp(SpIn), TileSize(TileSize1),
+        ConflictGraphColoring(ConflictGraphColoring1) {
+    Inspector = new InspectorForSingleLayerTiledFusedCSCParallel();
+  }
+
+  ~SpMVCSRSpMVCSCFusedColoringWithReduction() { delete FusedCompSet; }
+  sym_lib::SparsityProfileInfo getSpInfo() { return SpInfo; }
+};
+
 #ifdef MKL
 
 #include <mkl.h>

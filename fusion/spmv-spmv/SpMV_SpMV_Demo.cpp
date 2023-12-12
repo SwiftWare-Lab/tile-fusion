@@ -100,6 +100,13 @@ int main(const int argc, const char *argv[]) {
   delete fusedCSCInterleavedColoringParallel;
   delete stats;
 
+  stats = new swiftware::benchmark::Stats("SpMV_SpMV_CSC_Interleaved_ColoringReduction_FusedParallel","SpMM", 7,tp._matrix_name,numThread);
+  auto *fusedCSCInterleavedColoringReductionParallel = new SpMVCSRSpMVCSCFusedColoringWithReduction(inSpMM, stats, sp, tileSize,
+                                                                              colorToTiles);
+  fusedCSCInterleavedColoringReductionParallel->run();
+  auto fusedCSCInterleavedColoringReductionParallelStat = fusedCSCInterleavedColoringReductionParallel->printStats();
+  delete fusedCSCInterleavedColoringReductionParallel;
+  delete stats;
 
   auto csvInfo = sp.print_csv(true);
   std::string spHeader = std::get<0>(csvInfo);
@@ -116,6 +123,7 @@ int main(const int argc, const char *argv[]) {
   std::cout << spMVFusedStat<<spStat+tpStat<<std::endl;
   std::cout << spMVFusedSeparatedStat<<spStat+tpStat<<std::endl;
   std::cout << fusedCSCInterleavedColoringParallelStat<<spStat+tpStat<<std::endl;
+  std::cout << fusedCSCInterleavedColoringReductionParallelStat<<spStat+tpStat<<std::endl;
 #ifdef MKL
   stats = new swiftware::benchmark::Stats("SpMV_SpMV_UnFusedMKL", "SpMV", 7, tp._matrix_name, numThread);
   auto spmvMKL = new SpMVSpMVMkl(inSpMM, stats);

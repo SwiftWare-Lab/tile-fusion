@@ -110,6 +110,57 @@ void spMVCsrSpMVCscFusedColored(int M, int K, int L, const int *Ap,
   }
 }
 
+void spMVCsrSpMVCscFusedColoredWithReduction(int M, int K, int L, const int *Ap,
+                                const int *Ai, const double *Ax, const int *Bp,
+                                const int *Bi, const double *Bx,
+                                const double *Cx, double *Dx, double *ACx,
+                                int LevelNo, const int *LevelPtr, const int *Id,
+                                int TileSize, int NThreads) {
+  int lastTileSize = M % TileSize;
+  double *tempResults = new double[LevelNo*L];
+#pragma omp parallel num_threads(NThreads)
+  {
+#pragma omp for
+  for (int i1 = 0; i1 < LevelNo; ++i1) {
+      for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; ++j1) {
+        int id = Id[j1];
+        int i = id * TileSize;
+        for (int ii = 0; ii < TileSize; ++ii) {
+          auto ipii = i + ii;
+          // first SpMV
+          for (int j = Ap[ipii]; j < Ap[ipii + 1]; j++) {
+            ACx[ipii] += Ax[j] * Cx[Ai[j]];
+          }
+          // second SpMV CSC
+          for (int k = Bp[ipii]; k < Bp[ipii + 1];
+               k++) { // for each column of B
+            int bij = Bi[k];
+            tempResults[i1*L + Bi[k]] += Bx[k] * ACx[ipii];
+          }
+        }
+      }
+    }
+  }
+  for (int i1 = 0; i1 < LevelNo; ++i1) {
+    for(int j = 0; j < L; j++){
+      Dx[j] += tempResults[i1*L + j];
+    }
+  }
+  int i = M - lastTileSize;
+  for (int ii = 0; ii < lastTileSize; ++ii) {
+    auto ipii = i + ii;
+    // first SpMV
+    for (int j = Ap[ipii]; j < Ap[ipii + 1]; j++) {
+      ACx[ipii] += Ax[j] * Cx[Ai[j]];
+    }
+    // second SpMV CSC
+    for (int k = Bp[ipii]; k < Bp[ipii + 1]; k++) { // for each column of B
+      int bij = Bi[k];
+      Dx[Bi[k]] += Bx[k] * ACx[ipii];
+    }
+  }
+}
+
 void spMVCsrSpMVCsrSeparatedFused(int M, int K, int L, const int *Ap,
                                   const int *Ai, const double *Ax,
                                   const int *Bp, const int *Bi,
