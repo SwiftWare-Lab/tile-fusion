@@ -82,14 +82,15 @@ void spMVCsrSpMVCscFusedColored(int M, int K, int L, const int *Ap,
         for (int ii = 0; ii < TileSize; ++ii) {
           auto ipii = i + ii;
           // first SpMV
+          double ACxi = 0;
           for (int j = Ap[ipii]; j < Ap[ipii + 1]; j++) {
-            ACx[ipii] += Ax[j] * Cx[Ai[j]];
+            ACxi += Ax[j] * Cx[Ai[j]];
           }
           // second SpMV CSC
           for (int k = Bp[ipii]; k < Bp[ipii + 1];
                k++) { // for each column of B
             int bij = Bi[k];
-            Dx[Bi[k]] += Bx[k] * ACx[ipii];
+            Dx[Bi[k]] += Bx[k] * ACxi;
           }
         }
       }
