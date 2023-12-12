@@ -1114,23 +1114,22 @@ void spmmCsrSpmmCscFusedColored(int M, int N, int K, int L, const int *Ap,
                                 const double *Cx, double *Dx, double *ACx,
                                 int LevelNo, const int *LevelPtr, const int *Id,
                                 int TileSize, int NThreads) {
-  int lastTileSize = M % TileSize;
-  double *aCxi = new double[NThreads * TileSize * N];
-  pw_init_instruments;
-  for (int i1 = 0; i1 < LevelNo; ++i1) {
+    int lastTileSize = M% TileSize;
+    double* aCxi = new double[NThreads * TileSize * N];
+    pw_init_instruments;
+    for (int i1 = 0; i1 < LevelNo; ++i1) {
 #pragma omp parallel num_threads(NThreads)
-    {
-      pw_start_instruments_loop(omp_get_thread_num());
-      int threadId = omp_get_thread_num();
+      {
+        pw_start_instruments_loop(omp_get_thread_num());
+        int threadId = omp_get_thread_num();
 #pragma omp for
-      for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; ++j1) {
-        int id = Id[j1];
-        int i = id * TileSize;
-        memset(aCxi + threadId * TileSize * N, 0.,
-               sizeof(double) * N * TileSize);
-        for (int ii = 0; ii < TileSize; ++ii) {
+        for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; ++j1) {
+          int id = Id[j1];
+          int i = id * TileSize;
+          memset(aCxi + threadId*TileSize*N, 0.,sizeof (double) *N*TileSize);
+          for (int ii = 0; ii < TileSize; ++ii) {
           auto ipii = i + ii;
-          double *tAcxi = aCxi + threadId * N * TileSize + ii * N;
+          double* tAcxi = aCxi + threadId*N*TileSize + ii*N;
           // first SpMM
           for (int j = Ap[ipii]; j < Ap[ipii + 1]; j++) {
             int aij = Ai[j] * N;
@@ -1146,30 +1145,32 @@ void spmmCsrSpmmCscFusedColored(int M, int N, int K, int L, const int *Ap,
               Dx[bij + kk] += Bx[k] * tAcxi[kk];
             }
           }
+          }
+        }
+        pw_stop_instruments_loop(omp_get_thread_num());
+      }
+    }
+    delete[] aCxi;
+    int i = M-lastTileSize;
+    for (int ii = 0; ii < lastTileSize; ++ii) {
+      auto ipii = i + ii;
+      // first SpMM
+      for (int j = Ap[ipii]; j < Ap[ipii + 1]; j++) {
+        int aij = Ai[j] * N;
+        for (int kk = 0; kk < N; ++kk) {
+          ACx[ipii * N + kk] += Ax[j] * Cx[aij + kk];
         }
       }
-      pw_stop_instruments_loop(omp_get_thread_num());
-    }
-  }
-  delete[] aCxi;
-  int i = M - lastTileSize;
-  for (int ii = 0; ii < lastTileSize; ++ii) {
-    auto ipii = i + ii;
-    // first SpMM
-    for (int j = Ap[ipii]; j < Ap[ipii + 1]; j++) {
-      int aij = Ai[j] * N;
-      for (int kk = 0; kk < N; ++kk) {
-        ACx[ipii * N + kk] += Ax[j] * Cx[aij + kk];
+      // second SpMM CSC
+      for (int k = Bp[ipii]; k < Bp[ipii + 1];
+           k++) { // for each column of B
+        for (int kk = 0; kk < N; ++kk) {
+          int bij = Bi[k] * N;
+          Dx[bij + kk] += Bx[k] * ACx[ipii * N + kk];
+        }
       }
     }
-    // second SpMM CSC
-    for (int k = Bp[ipii]; k < Bp[ipii + 1]; k++) { // for each column of B
-      for (int kk = 0; kk < N; ++kk) {
-        int bij = Bi[k] * N;
-        Dx[bij + kk] += Bx[k] * ACx[ipii * N + kk];
-      }
-    }
-  }
+
 }
 
 void spmmCsrSpmmCscFusedColoredWithScheduledKTiles(
