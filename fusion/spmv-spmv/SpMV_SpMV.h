@@ -74,38 +74,37 @@ void spMVCsrSpMCsrFusedRegisterReuseBanded(
 #pragma omp parallel num_threads(NThreads)
     {
 #pragma omp for
-      for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; ++j1) {
+      for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; j1+=3) {
         for (int k1 = ParPtr[j1]; k1 < ParPtr[j1 + 1]; ++k1) {
           int i = Partition[k1];
-          int t = ParType[k1];
-          if (t == 0) {
-            for (int j = Ap[i]; j < Ap[i + 1]; j++) {
-              ACx[i] += Ax[j] * Cx[Ai[j]];
-            }
+          for (int j = Ap[i]; j < Ap[i + 1]; j++) {
+            ACx[i] += Ax[j] * Cx[Ai[j]];
           }
-          else if (t == 1) {
-            double temp = 0;
-            int i2 = Partition[k1+1];
-            for (int j = Ap[i]; j < Ap[i + 1]; j++) {
-              temp += Ax[j] * Cx[Ai[j]];
-            }
-            for (int k = Bp[i2]; k < Bp[i2 + 1] - 1; k++) {
-              Dx[i2] += Bx[k] * ACx[Bi[k]];
-            }
-            Dx[i2] += Bx[Bp[i2 + 1] - 1] * temp;
-            ACx[i] = temp;
-            k1++;
-          } else {
-            for (int k = Bp[i]; k < Bp[i + 1]; k++) {
-              Dx[i] += Bx[k] * ACx[Bi[k]];
-            }
+        }
+        for (int k1 = ParPtr[j1 + 1]; k1 < ParPtr[j1 + 2]; ++k1) {
+          double temp = 0;
+          int i = Partition[k1];
+          int i2 = Partition[k1 + 1];
+          for (int j = Ap[i]; j < Ap[i + 1]; j++) {
+            temp += Ax[j] * Cx[Ai[j]];
+          }
+          for (int k = Bp[i2]; k < Bp[i2 + 1] - 1; k++) {
+            Dx[i2] += Bx[k] * ACx[Bi[k]];
+          }
+          Dx[i2] += Bx[Bp[i2 + 1] - 1] * temp;
+          ACx[i] = temp;
+          k1++;
+        }
+        for (int k1 = ParPtr[j1 + 2]; k1 < ParPtr[j1 + 3]; ++k1) {
+          int i = Partition[k1];
+          for (int k = Bp[i]; k < Bp[i + 1]; k++) {
+            Dx[i] += Bx[k] * ACx[Bi[k]];
           }
         }
       }
     }
   }
 }
-
 
 void spMVCsrSpMVCscFusedColored(int M, int K, int L, const int *Ap,
                                 const int *Ai, const double *Ax, const int *Bp,
@@ -235,6 +234,53 @@ void spMVCsrSpMVCsrSeparatedFused(int M, int K, int L, const int *Ap,
           }
         } // end loop 2
       }
+    }
+  }
+}
+
+void spmvCsrSpmvCsrTiledFusedRedundantBanded(
+    int M, int K, int L, const int *Ap, const int *Ai, const double *Ax,
+    const int *Bp, const int *Bi, const double *Bx, const double *Cx,
+    double *Dx, double *ACx, int LevelNo, const int *LevelPtr,
+    const int *ParPtr, const int *Partition, const int *ParType,
+    const int *MixPtr, int NThreads, int MTile, double *Ws) {
+  int numKer = 2;
+  int mBound = M - M % MTile;
+  auto *cxBufAll = Ws; // new double[MTile * NThreads]();
+  // First level benefits from Fusion
+  int iBoundBeg = LevelPtr[0], iBoundEnd = LevelPtr[1];
+#pragma omp parallel num_threads(NThreads)
+  {
+#pragma omp for
+    for (int j1 = iBoundBeg; j1 < iBoundEnd; ++j1) {
+      auto *cxBuf = cxBufAll + omp_get_thread_num() * 2 * MTile;
+
+      int kBegin = ParPtr[j1], kEnd = MixPtr[j1 * numKer];
+      int ii = Partition[kBegin]; // first iteration of tile
+      int mTileLoc = kEnd - kBegin;
+      // if(ii >= mBound) continue;
+      //  first loop, for every k-tile
+      for (int i = 0; i < mTileLoc; ++i) {
+        int iipi = ii + i;
+        for (int j = Ap[iipi]; j < Ap[iipi + 1]; ++j) {
+          int aij = Ai[j];
+          cxBuf[i] += Ax[j] * Cx[aij];
+        }
+      }
+      // second loop
+      int kEndL2 = MixPtr[j1 * numKer + 1];
+      for (int k1 = kEnd; k1 < kEndL2; k1++) { // i-loop
+        int i = Partition[k1];
+        for (int j = Bp[i]; j < Bp[i + 1]; j++) {
+          int bij = Bi[j] - ii;
+          //            assert(bij < mTileLoc + 1 && bij >= 0); // stays within
+          //            the tile i
+          int inkk = i;
+          Dx[inkk] += Bx[j] * cxBuf[bij];
+          // cxBuf[bij + k] = 0;
+        }
+      }
+      std::fill_n(cxBuf, mTileLoc, 0.0);
     }
   }
 }
