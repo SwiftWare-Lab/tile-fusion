@@ -75,6 +75,14 @@ int main(const int argc, const char *argv[]) {
   delete spmvFused;
   delete stats;
 
+  stats = new swiftware::benchmark::Stats("SpMV_SpMV_FusedParallel_RegisterReuse_BandedSpecific", "SpMV", 7, tp._matrix_name, numThread);
+  stats->OtherStats["PackingType"] = {Interleaved};
+  auto *spmvFusedRR = new SpMVSpMVFusedInterleaved(inSpMM, stats, sp);
+  spmvFusedRR->run();
+  auto spMVFusedRRStat = spmvFusedRR->printStats();
+  delete spmvFusedRR;
+  delete stats;
+
   stats = new swiftware::benchmark::Stats("SpMV_SpMV_FusedParallel_Separated", "SpMV", 7, tp._matrix_name, numThread);
   auto *spmvFusedSeparated = new SpMVSpMVFusedParallelSeparated(inSpMM, stats, sp);
   spmvFusedSeparated->run();
@@ -121,6 +129,7 @@ int main(const int argc, const char *argv[]) {
   std::cout<<baselineStat<<spStat+tpStat<<std::endl;
   std::cout << spMVParallelStat<<spStat+tpStat<<std::endl;
   std::cout << spMVFusedStat<<spStat+tpStat<<std::endl;
+  std::cout << spMVFusedRRStat<<spStat+tpStat<<std::endl;
   std::cout << spMVFusedSeparatedStat<<spStat+tpStat<<std::endl;
   std::cout << fusedCSCInterleavedColoringParallelStat<<spStat+tpStat<<std::endl;
   std::cout << fusedCSCInterleavedColoringReductionParallelStat<<spStat+tpStat<<std::endl;

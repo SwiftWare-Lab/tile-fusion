@@ -232,6 +232,90 @@ public:
   ~SpMVSpMVFused() { delete FusedCompSet; }
 };
 
+class SpMVSpMVFusedInterleaved : public SpMVSpMVUnFusedSequential {
+protected:
+  sym_lib::MultiDimensionalSet *FusedCompSet;
+  sym_lib::ScheduleParameters Sp;
+  Timer analysis() override {
+    Timer t;
+    t.start();
+    // sym_lib::ScheduleParameters sp;
+    // sp._num_threads = InTensor->NumThreads;
+    //  create the fused set
+    FusedCompSet = new sym_lib::MultiDimensionalSet();
+    FusedCompSet->n1_ = 2;
+    FusedCompSet->ptr1_ = new int[3];
+    FusedCompSet->ptr1_[0] = 0;
+    FusedCompSet->ptr1_[1] = InTensor->NumThreads;
+    FusedCompSet->ptr1_[2] = InTensor->NumThreads*2;
+    FusedCompSet->ptr2_ = new int[InTensor->NumThreads * 2 + 1];
+    FusedCompSet->ptr2_[0] = 0;
+    FusedCompSet->id_ = new int[InTensor->M * 2];
+    FusedCompSet->type_ = new int[InTensor->M * 2];
+    int iterPerPartition = InTensor->M / InTensor->NumThreads;
+    int idCtr = 0;
+    FusedCompSet->id_[0] = 0;
+    FusedCompSet->type_[0] = 0;
+    for (int i = 0; i < InTensor->M; i += iterPerPartition) {
+      for (int ii = 0; ii < iterPerPartition; ii++) {
+        if ((i == 0 && ii > 0) || (i > 0 && ii > 1)) {
+          FusedCompSet->id_[idCtr] = i + ii;
+          FusedCompSet->type_[idCtr] = 1;
+          idCtr++;
+          FusedCompSet->id_[idCtr] = i + ii - 1;
+          FusedCompSet->type_[idCtr] = 2;
+          idCtr++;
+        } else {
+          FusedCompSet->id_[idCtr] = i + ii;
+          FusedCompSet->type_[idCtr] = 0;
+          idCtr++;
+        }
+      }
+      FusedCompSet->ptr2_[i/iterPerPartition + 1] = idCtr;
+    }
+    for (int i = iterPerPartition; i < InTensor->M; i+=iterPerPartition){
+      FusedCompSet->id_[idCtr] = i-1;
+      FusedCompSet->type_[idCtr] = 2;
+      idCtr++;
+      FusedCompSet->id_[idCtr] = i;
+      FusedCompSet->type_[idCtr] = 2;
+      idCtr++;
+      FusedCompSet->ptr2_[InTensor->NumThreads + i/iterPerPartition] = idCtr;
+    }
+    FusedCompSet->id_[idCtr] = InTensor->M-1;
+    FusedCompSet->type_[idCtr] = 2;
+    FusedCompSet->ptr2_[InTensor->NumThreads*2]  = idCtr+1;
+    t.stop();
+    return t;
+  }
+
+  Timer execute() override {
+    //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
+    OutTensor->reset();
+    Timer t;
+    t.start();
+    spMVCsrSpMCsrFusedRegisterReuseBanded(InTensor->M, InTensor->K, InTensor->L, InTensor->ACsr->p,
+                       InTensor->ACsr->i, InTensor->ACsr->x, InTensor->BCsr->p,
+                       InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Cx,
+                       OutTensor->Dx, OutTensor->ACx, FusedCompSet->n1_,
+                       FusedCompSet->ptr1_, FusedCompSet->ptr2_,
+                       FusedCompSet->id_, FusedCompSet->type_,
+                       InTensor->NumThreads);
+
+    t.stop();
+    return t;
+  }
+
+public:
+  SpMVSpMVFusedInterleaved(TensorInputs<double> *In1, Stats *Stat1,
+                           sym_lib::ScheduleParameters SpIn)
+      : SpMVSpMVUnFusedSequential(In1, Stat1), Sp(SpIn) {
+  }
+
+  ~SpMVSpMVFusedInterleaved() { delete FusedCompSet; }
+};
+
 class SpMVSpMVFusedParallelSeparated : public SpMVSpMVFused {
 protected:
   Timer execute() override {
@@ -248,6 +332,7 @@ protected:
     t.stop();
     return t;
   }
+
 public:
   SpMVSpMVFusedParallelSeparated(TensorInputs<double> *In1, Stats *Stat1,
                                  sym_lib::ScheduleParameters SpIn)
@@ -304,7 +389,8 @@ public:
   sym_lib::SparsityProfileInfo getSpInfo() { return SpInfo; }
 };
 
-class SpMVCSRSpMVCSCFusedColoringWithReduction : public SpMVSpMVUnFusedSequential {
+class SpMVCSRSpMVCSCFusedColoringWithReduction
+    : public SpMVSpMVUnFusedSequential {
 protected:
   sym_lib::MultiDimensionalSet *FusedCompSet;
   sym_lib::ScheduleParameters Sp;

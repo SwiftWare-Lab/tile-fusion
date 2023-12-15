@@ -65,6 +65,48 @@ void spMVCsrSpMCsrFused(int M, int K, int L, const int *Ap, const int *Ai,
   }
 }
 
+void spMVCsrSpMCsrFusedRegisterReuseBanded(
+    int M, int K, int L, const int *Ap, const int *Ai, const double *Ax,
+    const int *Bp, const int *Bi, const double *Bx, const double *Cx,
+    double *Dx, double *ACx, int LevelNo, const int *LevelPtr,
+    const int *ParPtr, const int *Partition, const int *ParType, int NThreads) {
+  for (int i1 = 0; i1 < LevelNo; ++i1) {
+#pragma omp parallel num_threads(NThreads)
+    {
+#pragma omp for
+      for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; ++j1) {
+        for (int k1 = ParPtr[j1]; k1 < ParPtr[j1 + 1]; ++k1) {
+          int i = Partition[k1];
+          int t = ParType[k1];
+          if (t == 0) {
+            for (int j = Ap[i]; j < Ap[i + 1]; j++) {
+              ACx[i] += Ax[j] * Cx[Ai[j]];
+            }
+          }
+          else if (t == 1) {
+            double temp = 0;
+            int i2 = Partition[k1+1];
+            for (int j = Ap[i]; j < Ap[i + 1]; j++) {
+              temp += Ax[j] * Cx[Ai[j]];
+            }
+            for (int k = Bp[i2]; k < Bp[i2 + 1] - 1; k++) {
+              Dx[i2] += Bx[k] * ACx[Bi[k]];
+            }
+            Dx[i2] += Bx[Bp[i2 + 1] - 1] * temp;
+            ACx[i] = temp;
+            k1++;
+          } else {
+            for (int k = Bp[i]; k < Bp[i + 1]; k++) {
+              Dx[i] += Bx[k] * ACx[Bi[k]];
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+
 void spMVCsrSpMVCscFusedColored(int M, int K, int L, const int *Ap,
                                 const int *Ai, const double *Ax, const int *Bp,
                                 const int *Bi, const double *Bx,
@@ -111,18 +153,17 @@ void spMVCsrSpMVCscFusedColored(int M, int K, int L, const int *Ap,
   }
 }
 
-void spMVCsrSpMVCscFusedColoredWithReduction(int M, int K, int L, const int *Ap,
-                                const int *Ai, const double *Ax, const int *Bp,
-                                const int *Bi, const double *Bx,
-                                const double *Cx, double *Dx, double *ACx,
-                                int LevelNo, const int *LevelPtr, const int *Id,
-                                int TileSize, int NThreads) {
+void spMVCsrSpMVCscFusedColoredWithReduction(
+    int M, int K, int L, const int *Ap, const int *Ai, const double *Ax,
+    const int *Bp, const int *Bi, const double *Bx, const double *Cx,
+    double *Dx, double *ACx, int LevelNo, const int *LevelPtr, const int *Id,
+    int TileSize, int NThreads) {
   int lastTileSize = M % TileSize;
-  double *tempResults = new double[LevelNo*L];
+  double *tempResults = new double[LevelNo * L];
 #pragma omp parallel num_threads(NThreads)
   {
 #pragma omp for
-  for (int i1 = 0; i1 < LevelNo; ++i1) {
+    for (int i1 = 0; i1 < LevelNo; ++i1) {
       for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; ++j1) {
         int id = Id[j1];
         int i = id * TileSize;
@@ -136,15 +177,15 @@ void spMVCsrSpMVCscFusedColoredWithReduction(int M, int K, int L, const int *Ap,
           for (int k = Bp[ipii]; k < Bp[ipii + 1];
                k++) { // for each column of B
             int bij = Bi[k];
-            tempResults[i1*L + Bi[k]] += Bx[k] * ACx[ipii];
+            tempResults[i1 * L + Bi[k]] += Bx[k] * ACx[ipii];
           }
         }
       }
     }
   }
   for (int i1 = 0; i1 < LevelNo; ++i1) {
-    for(int j = 0; j < L; j++){
-      Dx[j] += tempResults[i1*L + j];
+    for (int j = 0; j < L; j++) {
+      Dx[j] += tempResults[i1 * L + j];
     }
   }
   delete[] tempResults;
