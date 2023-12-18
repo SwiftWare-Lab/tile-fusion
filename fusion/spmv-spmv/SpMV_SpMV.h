@@ -246,20 +246,18 @@ void spmvCsrSpmvCsrTiledFusedRedundantBanded(
     const int *MixPtr, int NThreads, int MTile, double *Ws) {
   int numKer = 2;
   int mBound = M - M % MTile;
-  auto *cxBufAll = Ws; // new double[MTile * NThreads]();
+  auto *cxBufAll = Ws; // new double[(MTile+2) * NThreads]();
   // First level benefits from Fusion
   int iBoundBeg = LevelPtr[0], iBoundEnd = LevelPtr[1];
 #pragma omp parallel num_threads(NThreads)
   {
 #pragma omp for
     for (int j1 = iBoundBeg; j1 < iBoundEnd; ++j1) {
-      auto *cxBuf = cxBufAll + omp_get_thread_num() * 2 * MTile;
-
+      auto *cxBuf = cxBufAll + omp_get_thread_num() * (MTile + 2);
       int kBegin = ParPtr[j1], kEnd = MixPtr[j1 * numKer];
       int ii = Partition[kBegin]; // first iteration of tile
       int mTileLoc = kEnd - kBegin;
       // if(ii >= mBound) continue;
-      //  first loop, for every k-tile
       for (int i = 0; i < mTileLoc; ++i) {
         int iipi = ii + i;
         for (int j = Ap[iipi]; j < Ap[iipi + 1]; ++j) {
@@ -281,6 +279,71 @@ void spmvCsrSpmvCsrTiledFusedRedundantBanded(
         }
       }
       std::fill_n(cxBuf, mTileLoc, 0.0);
+    }
+  }
+}
+
+
+void spmvCsrSpmvCsrTiledFusedRedundantBandedV2(
+    int M, int K, int L, const int *Ap, const int *Ai, const double *Ax,
+    const int *Bp, const int *Bi, const double *Bx, const double *Cx,
+    double *Dx, int NThreads, int MTile, double *Ws) {
+  auto *cxBufAll = Ws; // new double[(MTile+2) * NThreads]();
+  // First level benefits from Fusion
+#pragma omp parallel num_threads(NThreads)
+  {
+#pragma omp for
+    for (int i = 0; i < M; i+=MTile) {
+      auto *cxBuf = cxBufAll + omp_get_thread_num() * (MTile + 2);
+      int l1Begin = std::max(i-1, 0), l1End = std::min(i + MTile + 1, M);
+      int l2Begin = i, l2End = std::min(i + MTile, M);
+      int mTileLoc = l1End - l1Begin;
+      // if(ii >= mBound) continue;
+      for (int ii = l1Begin; ii < l1End; ++ii) {
+        for (int j = Ap[ii]; j < Ap[ii + 1]; ++j) {
+          cxBuf[ii - l1Begin] += Ax[j] * Cx[Ai[j]];
+        }
+      }
+      // second loop
+      for (int ii = l2Begin; ii < l2End; ii++) { // i-loop
+        for (int j = Bp[ii]; j < Bp[ii + 1]; j++) {
+          int bij = Bi[j] - l1Begin;
+          Dx[ii] += Bx[j] * cxBuf[bij];
+        }
+      }
+      std::fill_n(cxBuf, mTileLoc, 0.0);
+    }
+  }
+}
+
+void spmvCsrSpmvCsrTiledFusedRedundantGeneral(
+    int M, int K, int L, const int *Ap, const int *Ai, const double *Ax,
+    const int *Bp, const int *Bi, const double *Bx, const double *Cx,
+    double *Dx, int NThreads, int MTile, double *Ws, int *L1TileLowBounds, int *L1TileHighBounds, int MaxL1TileSize) {
+  auto *cxBufAll = Ws; // new double[MaxL1TileSize * NThreads]();
+  // First level benefits from Fusion
+#pragma omp parallel num_threads(NThreads)
+  {
+#pragma omp for
+    for (int i = 0; i < M; i+=MTile) {
+      auto *cxBuf = cxBufAll + omp_get_thread_num() * MaxL1TileSize;
+      int l1Begin = L1TileLowBounds[i/MTile], l1End = L1TileHighBounds[i/MTile];
+      int l2Begin = i, l2End = std::min(i + MTile, M);
+      int mTileLoc = l1End - l1Begin;
+      // if(ii >= mBound) continue;
+      for (int ii = l1Begin; ii < l1End; ++ii) {
+        for (int j = Ap[ii]; j < Ap[ii + 1]; ++j) {
+          cxBuf[ii - l1Begin] += Ax[j] * Cx[Ai[j]];
+        }
+      }
+      // second loop
+      for (int ii = l2Begin; ii < l2End; ii++) { // i-loop
+        for (int j = Bp[ii]; j < Bp[ii + 1]; j++) {
+          int bij = Bi[j] - l1Begin;
+          Dx[ii] += Bx[j] * cxBuf[bij];
+        }
+      }
+      std::fill_n(cxBuf, MaxL1TileSize, 0.0);
     }
   }
 }

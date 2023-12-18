@@ -246,8 +246,8 @@ protected:
     FusedCompSet->n1_ = 2;
     FusedCompSet->ptr1_ = new int[3];
     FusedCompSet->ptr1_[0] = 0;
-    FusedCompSet->ptr1_[1] = InTensor->NumThreads*3;
-    FusedCompSet->ptr1_[2] = InTensor->NumThreads*2*3;
+    FusedCompSet->ptr1_[1] = InTensor->NumThreads * 3;
+    FusedCompSet->ptr1_[2] = InTensor->NumThreads * 2 * 3;
     FusedCompSet->ptr2_ = new int[InTensor->NumThreads * 6 + 1];
     FusedCompSet->ptr2_[0] = 0;
     FusedCompSet->id_ = new int[InTensor->M * 2];
@@ -261,28 +261,31 @@ protected:
           idCtr++;
           FusedCompSet->id_[idCtr] = i + ii - 1;
           idCtr++;
-          FusedCompSet->ptr2_[(i/iterPerPartition)*3 + 2] = idCtr;
+          FusedCompSet->ptr2_[(i / iterPerPartition) * 3 + 2] = idCtr;
         } else {
           FusedCompSet->id_[idCtr] = i + ii;
           idCtr++;
-          FusedCompSet->ptr2_[(i/iterPerPartition)*3 + 1] = idCtr;
+          FusedCompSet->ptr2_[(i / iterPerPartition) * 3 + 1] = idCtr;
         }
       }
-      FusedCompSet->ptr2_[(i/iterPerPartition)*3 + 3] = idCtr;
+      FusedCompSet->ptr2_[(i / iterPerPartition) * 3 + 3] = idCtr;
     }
-    for (int i = iterPerPartition; i < InTensor->M; i+=iterPerPartition){
-      FusedCompSet->ptr2_[InTensor->NumThreads*3 + (i/iterPerPartition - 1)*3 + 1] = idCtr;
-      FusedCompSet->ptr2_[InTensor->NumThreads*3 + (i/iterPerPartition - 1)*3 + 2] = idCtr;
-      FusedCompSet->id_[idCtr] = i-1;
+    for (int i = iterPerPartition; i < InTensor->M; i += iterPerPartition) {
+      FusedCompSet->ptr2_[InTensor->NumThreads * 3 +
+                          (i / iterPerPartition - 1) * 3 + 1] = idCtr;
+      FusedCompSet->ptr2_[InTensor->NumThreads * 3 +
+                          (i / iterPerPartition - 1) * 3 + 2] = idCtr;
+      FusedCompSet->id_[idCtr] = i - 1;
       idCtr++;
       FusedCompSet->id_[idCtr] = i;
       idCtr++;
-      FusedCompSet->ptr2_[InTensor->NumThreads*3 + (i/iterPerPartition - 1)*3 + 3] = idCtr;
+      FusedCompSet->ptr2_[InTensor->NumThreads * 3 +
+                          (i / iterPerPartition - 1) * 3 + 3] = idCtr;
     }
-    FusedCompSet->ptr2_[((InTensor->NumThreads*2)-1)*3 + 1]  = idCtr;
-    FusedCompSet->ptr2_[((InTensor->NumThreads*2)-1)*3 + 2]  = idCtr;
-    FusedCompSet->id_[idCtr] = InTensor->M-1;
-    FusedCompSet->ptr2_[((InTensor->NumThreads*2)-1)*3 + 3]  = idCtr+1;
+    FusedCompSet->ptr2_[((InTensor->NumThreads * 2) - 1) * 3 + 1] = idCtr;
+    FusedCompSet->ptr2_[((InTensor->NumThreads * 2) - 1) * 3 + 2] = idCtr;
+    FusedCompSet->id_[idCtr] = InTensor->M - 1;
+    FusedCompSet->ptr2_[((InTensor->NumThreads * 2) - 1) * 3 + 3] = idCtr + 1;
     t.stop();
     return t;
   }
@@ -293,13 +296,13 @@ protected:
     OutTensor->reset();
     Timer t;
     t.start();
-    spMVCsrSpMCsrFusedRegisterReuseBanded(InTensor->M, InTensor->K, InTensor->L, InTensor->ACsr->p,
-                       InTensor->ACsr->i, InTensor->ACsr->x, InTensor->BCsr->p,
-                       InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Cx,
-                       OutTensor->Dx, OutTensor->ACx, FusedCompSet->n1_,
-                       FusedCompSet->ptr1_, FusedCompSet->ptr2_,
-                       FusedCompSet->id_, FusedCompSet->type_,
-                       InTensor->NumThreads);
+    spMVCsrSpMCsrFusedRegisterReuseBanded(
+        InTensor->M, InTensor->K, InTensor->L, InTensor->ACsr->p,
+        InTensor->ACsr->i, InTensor->ACsr->x, InTensor->BCsr->p,
+        InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Cx, OutTensor->Dx,
+        OutTensor->ACx, FusedCompSet->n1_, FusedCompSet->ptr1_,
+        FusedCompSet->ptr2_, FusedCompSet->id_, FusedCompSet->type_,
+        InTensor->NumThreads);
 
     t.stop();
     return t;
@@ -308,8 +311,7 @@ protected:
 public:
   SpMVSpMVFusedInterleaved(TensorInputs<double> *In1, Stats *Stat1,
                            sym_lib::ScheduleParameters SpIn)
-      : SpMVSpMVUnFusedSequential(In1, Stat1), Sp(SpIn) {
-  }
+      : SpMVSpMVUnFusedSequential(In1, Stat1), Sp(SpIn) {}
 
   ~SpMVSpMVFusedInterleaved() { delete FusedCompSet; }
 };
@@ -440,50 +442,51 @@ public:
 
 class SpMVSpMVFusedTiledTri : public SpMVSpMVFused {
 
-  void buildBandedFusedSchedule(
-      std::vector<std::vector<sym_lib::FusedNode *>> &FusedSchedule,
-      int BandWidth) {
-    // one h-level
-    FusedSchedule.resize(1);
-    int hintTotLoops = 2, loopId = 0;
-    int n = InTensor->ACsr->m;
-    // create a list of consecutive integers to n
-    std::vector<int> seqNode(n);
-    for (int i = 0; i < n; ++i) {
-      seqNode[i] = i;
-    }
-    int nParts = Sp._num_w_partition;
-    // FusedSchedule[0].resize(nParts);
-    int i = 0, j = 0;
-    int halfBand = (BandWidth - 1) / 2;
-    for (i = 0, j = 0; i < n; i += Sp.IterPerPartition, j++) {
-      // iterations of first spmm
-      int begin = std::max(0, i - BandWidth + 1),
-          end = std::min(i + Sp.IterPerPartition + halfBand, n),
-          nIters = end - begin;
-      auto *curFn = new sym_lib::FusedNode(hintTotLoops, loopId, nIters,
-                                           seqNode.data() + begin, j);
-      // iterations of second spmm
-      if (i + Sp.IterPerPartition > n)
-        break;
-      curFn->_list[1].resize(Sp.IterPerPartition);
-      for (int k = i, kk = 0; k < i + Sp.IterPerPartition; ++k, ++kk) {
-        curFn->_list[1][kk] = k;
-      }
-      FusedSchedule[0].emplace_back(curFn);
-    }
-    if (i < n) {
-      int begin = std::max(0, i - BandWidth + 1), end = n, nIters = end - begin;
-      auto *curFn = new sym_lib::FusedNode(hintTotLoops, loopId, nIters,
-                                           seqNode.data() + begin, j);
-
-      curFn->_list[1].resize(n - i);
-      for (int k = i, kk = 0; k < n; ++k, ++kk) {
-        curFn->_list[1][kk] = k;
-      }
-      FusedSchedule[0].emplace_back(curFn);
-    }
-  }
+  //  void buildBandedFusedSchedule(
+  //      std::vector<std::vector<sym_lib::FusedNode *>> &FusedSchedule,
+  //      int BandWidth) {
+  //    // one h-level
+  //    FusedSchedule.resize(1);
+  //    int hintTotLoops = 2, loopId = 0;
+  //    int n = InTensor->ACsr->m;
+  //    // create a list of consecutive integers to n
+  //    std::vector<int> seqNode(n);
+  //    for (int i = 0; i < n; ++i) {
+  //      seqNode[i] = i;
+  //    }
+  //    int nParts = Sp._num_w_partition;
+  //    // FusedSchedule[0].resize(nParts);
+  //    int i = 0, j = 0;
+  //    int halfBand = (BandWidth - 1) / 2;
+  //    for (i = 0, j = 0; i < n; i += Sp.IterPerPartition, j++) {
+  //      // iterations of first spmm
+  //      int begin = std::max(0, i - BandWidth + 1),
+  //          end = std::min(i + Sp.IterPerPartition + halfBand, n),
+  //          nIters = end - begin;
+  //      auto *curFn = new sym_lib::FusedNode(hintTotLoops, loopId, nIters,
+  //                                           seqNode.data() + begin, j);
+  //      // iterations of second spmm
+  //      if (i + Sp.IterPerPartition > n)
+  //        break;
+  //      curFn->_list[1].resize(Sp.IterPerPartition);
+  //      for (int k = i, kk = 0; k < i + Sp.IterPerPartition; ++k, ++kk) {
+  //        curFn->_list[1][kk] = k;
+  //      }
+  //      FusedSchedule[0].emplace_back(curFn);
+  //    }
+  //    if (i < n) {
+  //      int begin = std::max(0, i - BandWidth + 1), end = n, nIters = end -
+  //      begin; auto *curFn = new sym_lib::FusedNode(hintTotLoops, loopId,
+  //      nIters,
+  //                                           seqNode.data() + begin, j);
+  //
+  //      curFn->_list[1].resize(n - i);
+  //      for (int k = i, kk = 0; k < n; ++k, ++kk) {
+  //        curFn->_list[1][kk] = k;
+  //      }
+  //      FusedSchedule[0].emplace_back(curFn);
+  //    }
+  //  }
 
   Timer analysis() override {
     Timer t;
@@ -492,15 +495,15 @@ class SpMVSpMVFusedTiledTri : public SpMVSpMVFused {
     // sp._num_threads = InTensor->NumThreads;
     //  create the fused set
 
-    int numParts = std::max<int>(InTensor->ACsr->m / Sp.IterPerPartition,
-                                 2 * Sp._num_threads);
-    Sp._num_w_partition = numParts;
-    std::vector<std::vector<sym_lib::FusedNode *>> fusedSchedule;
-    int band = 2 * (InTensor->ACsr->p[1] - InTensor->ACsr->p[0] - 1) + 1;
-    buildBandedFusedSchedule(fusedSchedule, band);
-    auto pt = St->OtherStats["PackingType"];
-    FusedCompSet = new sym_lib::MultiDimensionalSet(fusedSchedule, (int)pt[0]);
-    // FusedCompSet->print_3d();
+    //    int numParts = std::max<int>(InTensor->ACsr->m / Sp.IterPerPartition,
+    //                                 2 * Sp._num_threads);
+    //    Sp._num_w_partition = numParts;
+    //    std::vector<std::vector<sym_lib::FusedNode *>> fusedSchedule;
+    //    int band = 2 * (InTensor->ACsr->p[1] - InTensor->ACsr->p[0] - 1) + 1;
+    //    buildBandedFusedSchedule(fusedSchedule, band);
+    //    auto pt = St->OtherStats["PackingType"];
+        FusedCompSet = new sym_lib::MultiDimensionalSet();
+    //    // FusedCompSet->print_3d();
 
     t.stop();
     return t;
@@ -508,17 +511,15 @@ class SpMVSpMVFusedTiledTri : public SpMVSpMVFused {
   Timer execute() override {
     //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
     //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
-    auto *ws = new double[InTensor->NumThreads * 2 * Sp.TileM]();
+    auto *ws = new double[InTensor->NumThreads * (Sp.TileM + 2)]();
     OutTensor->reset();
     Timer t;
     t.start();
-    spmvCsrSpmvCsrTiledFusedRedundantBanded(
+    spmvCsrSpmvCsrTiledFusedRedundantBandedV2(
         InTensor->M, InTensor->K, InTensor->L, InTensor->ACsr->p,
         InTensor->ACsr->i, InTensor->ACsr->x, InTensor->BCsr->p,
         InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Cx, OutTensor->Dx,
-        OutTensor->ACx, FusedCompSet->n1_, FusedCompSet->ptr1_,
-        FusedCompSet->ptr2_, FusedCompSet->id_, FusedCompSet->type_,
-        FusedCompSet->ker_begin_, InTensor->NumThreads, Sp.TileM, ws);
+        InTensor->NumThreads, Sp.TileM, ws);
 
     t.stop();
     delete[] ws;
@@ -530,6 +531,68 @@ public:
                         sym_lib::ScheduleParameters SpIn)
       : SpMVSpMVFused(In1, Stat1, SpIn) {}
   ~SpMVSpMVFusedTiledTri() {}
+};
+
+class SpMVSpMVFusedTiledRedundant : public SpMVSpMVFused {
+
+  Timer analysis() override {
+    Timer t;
+    t.start();
+    int mTilesNum = std::ceil((double)InTensor->ACsr->m / Sp.TileM);
+    FusedCompSet = new sym_lib::MultiDimensionalSet();
+    FusedCompSet->ptr1_ = new int[mTilesNum];
+    FusedCompSet->ptr2_ = new int[mTilesNum];
+    int maxL1TileSize = 0;
+    for (int i = 0; i < InTensor->ACsr->m; i += Sp.TileM) {
+      FusedCompSet->ptr1_[i / Sp.TileM] = InTensor->ACsr->m;
+      FusedCompSet->ptr2_[i / Sp.TileM] = 0;
+      for (int ii = 0; ii < Sp.TileM; ++ii) {
+        if (i + ii < InTensor->ACsr->m) {
+          int lowBound = InTensor->ACsr->i[InTensor->ACsr->p[i + ii]];
+          int highBound = InTensor->ACsr->i[InTensor->ACsr->p[i + ii + 1] - 1] + 1;
+          if (lowBound < FusedCompSet->ptr1_[i / Sp.TileM]) {
+            FusedCompSet->ptr1_[i / Sp.TileM] = lowBound;
+          }
+          if (highBound > FusedCompSet->ptr2_[i / Sp.TileM]) {
+            FusedCompSet->ptr2_[i / Sp.TileM] = highBound;
+          }
+        }
+      }
+      if (FusedCompSet->ptr2_[i / Sp.TileM] -
+              FusedCompSet->ptr1_[i / Sp.TileM] >
+          maxL1TileSize) {
+        maxL1TileSize = FusedCompSet->ptr2_[i / Sp.TileM] -
+                        FusedCompSet->ptr1_[i / Sp.TileM];
+      }
+    }
+    FusedCompSet->n1_ = maxL1TileSize;
+    t.stop();
+    return t;
+  }
+  Timer execute() override {
+    //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
+    auto *ws = new double[InTensor->NumThreads * FusedCompSet->n1_]();
+    OutTensor->reset();
+    Timer t;
+    t.start();
+    spmvCsrSpmvCsrTiledFusedRedundantGeneral(
+        InTensor->M, InTensor->K, InTensor->L, InTensor->ACsr->p,
+        InTensor->ACsr->i, InTensor->ACsr->x, InTensor->BCsr->p,
+        InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Cx, OutTensor->Dx,
+        InTensor->NumThreads, Sp.TileM, ws, FusedCompSet->ptr1_,
+        FusedCompSet->ptr2_, FusedCompSet->n1_);
+
+    t.stop();
+    delete[] ws;
+    return t;
+  }
+
+public:
+  SpMVSpMVFusedTiledRedundant(TensorInputs<double> *In1, Stats *Stat1,
+                        sym_lib::ScheduleParameters SpIn)
+      : SpMVSpMVFused(In1, Stat1, SpIn) {}
+  ~SpMVSpMVFusedTiledRedundant() {}
 };
 
 #ifdef MKL
