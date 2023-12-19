@@ -243,7 +243,7 @@ void spmvCsrSpmvCsrTiledFusedRedundantBanded(
     const int *Bp, const int *Bi, const double *Bx, const double *Cx,
     double *Dx, double *ACx, int LevelNo, const int *LevelPtr,
     const int *ParPtr, const int *Partition, const int *ParType,
-    const int *MixPtr, int NThreads, int MTile, double *Ws) {
+    const int *MixPtr, int NThreads, int MTile, double *Ws, int L1MarginSize) {
   int numKer = 2;
   int mBound = M - M % MTile;
   auto *cxBufAll = Ws; // new double[(MTile+2) * NThreads]();
@@ -253,7 +253,7 @@ void spmvCsrSpmvCsrTiledFusedRedundantBanded(
   {
 #pragma omp for
     for (int j1 = iBoundBeg; j1 < iBoundEnd; ++j1) {
-      auto *cxBuf = cxBufAll + omp_get_thread_num() * (MTile + 2);
+      auto *cxBuf = cxBufAll + omp_get_thread_num() * (MTile + L1MarginSize);
       int kBegin = ParPtr[j1], kEnd = MixPtr[j1 * numKer];
       int ii = Partition[kBegin]; // first iteration of tile
       int mTileLoc = kEnd - kBegin;
@@ -261,8 +261,7 @@ void spmvCsrSpmvCsrTiledFusedRedundantBanded(
       for (int i = 0; i < mTileLoc; ++i) {
         int iipi = ii + i;
         for (int j = Ap[iipi]; j < Ap[iipi + 1]; ++j) {
-          int aij = Ai[j];
-          cxBuf[i] += Ax[j] * Cx[aij];
+          cxBuf[i] += Ax[j] * Cx[Ai[j]];
         }
       }
       // second loop
@@ -273,8 +272,7 @@ void spmvCsrSpmvCsrTiledFusedRedundantBanded(
           int bij = Bi[j] - ii;
           //            assert(bij < mTileLoc + 1 && bij >= 0); // stays within
           //            the tile i
-          int inkk = i;
-          Dx[inkk] += Bx[j] * cxBuf[bij];
+          Dx[i] += Bx[j] * cxBuf[bij];
           // cxBuf[bij + k] = 0;
         }
       }

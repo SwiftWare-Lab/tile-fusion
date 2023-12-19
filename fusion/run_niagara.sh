@@ -13,7 +13,7 @@
 #SBATCH --constraint=cascade
 
 UFDB=$SCRATCH/data/graphs/
-#UFDB=$HOME/UFDB/banded/
+#UFDB=$HOME/UFDB/tri-banded/
 EXP=spmv_spmv
 BCOL=32
 while getopts ":lm:c:e:" arg; do
