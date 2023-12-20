@@ -320,6 +320,7 @@ class SpMVSpMVFusedParallelSeparated : public SpMVSpMVFused {
 protected:
   Timer execute() override {
     OutTensor->reset();
+    FusedCompSet->print_3d();
     Timer t;
     t.start();
     spMVCsrSpMVCsrSeparatedFused(

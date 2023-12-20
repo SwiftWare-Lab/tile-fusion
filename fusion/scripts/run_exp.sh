@@ -59,7 +59,7 @@ if [ "$TUNED" ==  3 ]; then
   while read line; do
     mat=$line
     # shellcheck disable=SC2039
-    for w in {100,1000,5000,10000,500000}; do
+    for w in {100,500,1000,3000,4000,5000,10000}; do
       k=4
       for ntile in {4,8,16,32,64,128,256,512}; do
 #        if [ $ntile -gt $BCOL ]; then

@@ -346,4 +346,60 @@ void spmvCsrSpmvCsrTiledFusedRedundantGeneral(
   }
 }
 
+void spmmCsrSpmmCsrTiledFusedRedundantGeneral(int M, int K, int L,
+                                              const int *Ap, const int *Ai, const double *Ax,
+                                              const int *Bp, const int *Bi,const double *Bx,
+                                              const double *Cx,
+                                              double *Dx,
+                                              double *ACx,
+                                              int LevelNo, const int *LevelPtr, const int *ParPtr,
+                                              const int *Partition, const int *ParType, const int*MixPtr,
+                                              int NThreads, double *Ws) {
+  int numKer=2;
+  auto *cxBufAll = Ws;//new double[MTile * NTile * NThreads]();
+  // First level benefits from Fusion
+  int iBoundBeg = LevelPtr[0], iBoundEnd = LevelPtr[1];
+#pragma omp parallel num_threads(NThreads)
+  {
+#pragma omp  for
+    for (int j1 = iBoundBeg; j1 < iBoundEnd; ++j1) {
+      auto *cxBuf = cxBufAll + omp_get_thread_num() * 2 * M;
+      int kBegin = ParPtr[j1], kEnd = MixPtr[j1 * numKer];
+      int ii = Partition[kBegin]; // first iteration of tile
+      int mTileLoc = kEnd - kBegin;
+        // first loop, for every k-tile
+        for(int k1 = kBegin; k1 < kEnd; k1++) { // i-loop
+          int i = Partition[k1];
+          // reset cxBuf, I used dot product to avoid the following
+            double acc = 0;
+            for (int j = Ap[i]; j < Ap[i + 1]; ++j) {
+              int aij = Ai[j];
+              acc += Ax[j] * Cx[aij];
+              //ACx[iipi * N + k + kk] = tmp;
+            }
+            cxBuf[i] = acc;
+        }
+        // second loop
+        int kEndL2 = MixPtr[j1 * numKer + 1];
+        for(int k1 = kEnd; k1 < kEndL2; k1++) { // i-loop
+          int i = Partition[k1];
+          for (int j = Bp[i]; j < Bp[i + 1]; j++) {
+            int bij = Bi[j];
+            int inkk = i;
+              Dx[inkk] += Bx[j] * cxBuf[bij];
+          }
+        }
+        //std::fill_n(cxBuf, M * NTile, 0.0);
+
+        //            std::cout<<"\n=============\n";
+        //            for(int i = 0; i < mTileLoc; ++i) {
+        //              for(int k = 0; k < NTile; ++k) {
+        //                std::cout << Dx[i * NTile + k] << " ";
+        //              }
+        //              std::cout << std::endl;
+        //            }
+    }
+  }
+}
+
 #endif // SPARSE_FUSION_SPMV_SPMV_UTILS_H
