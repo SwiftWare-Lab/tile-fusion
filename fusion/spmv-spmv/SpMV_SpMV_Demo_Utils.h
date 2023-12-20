@@ -97,6 +97,7 @@ protected:
 
   void setup() override {
     St->OtherStats["PackingType"] = {sym_lib::Separated};
+    St->OtherStats["FusedIterations"] = {0.};
   }
 
   void preExecute() override {}
@@ -320,7 +321,7 @@ class SpMVSpMVFusedParallelSeparated : public SpMVSpMVFused {
 protected:
   Timer execute() override {
     OutTensor->reset();
-    FusedCompSet->print_3d();
+    St->OtherStats["FusedIterations"] = {(double)FusedCompSet->getNumberOfFusedNodes()};
     Timer t;
     t.start();
     spMVCsrSpMVCsrSeparatedFused(
