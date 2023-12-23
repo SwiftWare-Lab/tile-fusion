@@ -98,6 +98,7 @@ protected:
   void setup() override {
     St->OtherStats["PackingType"] = {sym_lib::Separated};
     St->OtherStats["FusedIterations"] = {0.};
+    St->OtherStats["Min Workload Size"] = {10};
   }
 
   void preExecute() override {}
@@ -321,7 +322,8 @@ class SpMVSpMVFusedParallelSeparated : public SpMVSpMVFused {
 protected:
   Timer execute() override {
     OutTensor->reset();
-    St->OtherStats["FusedIterations"] = {(double)FusedCompSet->getNumberOfFusedNodes()};
+    St->OtherStats["FusedIterations"] = {
+        (double)FusedCompSet->getNumberOfFusedNodes()};
     Timer t;
     t.start();
     spMVCsrSpMVCsrSeparatedFused(
@@ -388,6 +390,58 @@ public:
   }
 
   ~SpMVCSRSpMVCSCFusedColoring() { delete FusedCompSet; }
+  sym_lib::SparsityProfileInfo getSpInfo() { return SpInfo; }
+};
+
+class SpMVCSRSpMVCSCPartialFusedColoring : public SpMVSpMVUnFusedSequential {
+protected:
+  sym_lib::MultiDimensionalSet *FusedCompSet;
+  sym_lib::ScheduleParameters Sp;
+  sym_lib::SparsityProfileInfo SpInfo;
+  InspectorForSingleLayerTiledFusedCSCCombined *Inspector;
+  std::map<int, std::vector<int>> ConflictGraphColoring;
+  int MinWorkloadSize;
+  int TileSize;
+  Timer analysis() override {
+    Timer t;
+    t.start();
+
+    FusedCompSet =
+        Inspector->generateScheduleBasedOnConflictGraphColoring(
+            ConflictGraphColoring, InTensor->M, TileSize, MinWorkloadSize);
+
+    t.stop();
+    return t;
+  }
+
+  Timer execute() override {
+    //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
+    OutTensor->reset();
+    Timer t;
+    t.start();
+    spmvCsrSpmvCscPartialFusedColored(
+        InTensor->M, InTensor->K, InTensor->L, InTensor->ACsr->p,
+        InTensor->ACsr->i, InTensor->ACsr->x, InTensor->B->p, InTensor->B->i,
+        InTensor->B->x, InTensor->Cx, OutTensor->Dx, OutTensor->ACx,
+        FusedCompSet->n1_, FusedCompSet->ptr1_, FusedCompSet->id_,
+        FusedCompSet->type_, FusedCompSet->n3_, FusedCompSet->n2_,
+        InTensor->NumThreads);
+
+    t.stop();
+    return t;
+  }
+
+public:
+  SpMVCSRSpMVCSCPartialFusedColoring(
+      TensorInputs<double> *In1, Stats *Stat1, sym_lib::ScheduleParameters SpIn,
+      int TileSize1, std::map<int, std::vector<int>> ConflictGraphColoring1, int MinWorkloadSize1)
+      : SpMVSpMVUnFusedSequential(In1, Stat1), Sp(SpIn), TileSize(TileSize1),
+        MinWorkloadSize(MinWorkloadSize1), ConflictGraphColoring(ConflictGraphColoring1) {
+    Inspector = new InspectorForSingleLayerTiledFusedCSCCombined();
+  }
+
+  ~SpMVCSRSpMVCSCPartialFusedColoring() { delete FusedCompSet; }
   sym_lib::SparsityProfileInfo getSpInfo() { return SpInfo; }
 };
 
@@ -505,8 +559,8 @@ class SpMVSpMVFusedTiledTri : public SpMVSpMVFused {
     buildBandedFusedSchedule(fusedSchedule, band);
     auto pt = St->OtherStats["PackingType"];
     FusedCompSet = new sym_lib::MultiDimensionalSet(fusedSchedule, (int)pt[0]);
-    FusedCompSet->n3_ = band-1;
-//    FusedCompSet->print_3d();
+    FusedCompSet->n3_ = band - 1;
+    //    FusedCompSet->print_3d();
 
     t.stop();
     return t;
@@ -514,7 +568,8 @@ class SpMVSpMVFusedTiledTri : public SpMVSpMVFused {
   Timer execute() override {
     //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
     //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
-    auto *ws = new double[InTensor->NumThreads * (Sp.IterPerPartition + FusedCompSet->n3_)]();
+    auto *ws = new double[InTensor->NumThreads *
+                          (Sp.IterPerPartition + FusedCompSet->n3_)]();
     OutTensor->reset();
     Timer t;
     t.start();
@@ -524,7 +579,8 @@ class SpMVSpMVFusedTiledTri : public SpMVSpMVFused {
         InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Cx, OutTensor->Dx,
         OutTensor->ACx, FusedCompSet->n1_, FusedCompSet->ptr1_,
         FusedCompSet->ptr2_, FusedCompSet->id_, FusedCompSet->type_,
-        FusedCompSet->ker_begin_, InTensor->NumThreads, Sp.IterPerPartition, ws, FusedCompSet->n3_);
+        FusedCompSet->ker_begin_, InTensor->NumThreads, Sp.IterPerPartition, ws,
+        FusedCompSet->n3_);
 
     t.stop();
     delete[] ws;
