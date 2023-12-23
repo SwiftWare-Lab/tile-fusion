@@ -36,6 +36,44 @@ void forwardForOneLayer(int M, int *Ap, int *Ai, double *Ax,
   }
 }
 
+void forwardForOneLayerFusedParallel(int M, int *Ap, int *Ai, double *Ax,
+                                     int InputChannelDim, int OutputChannelDim,
+                                     int *Degrees, double *Features,
+                                     double *Weight, double *Output,
+                                     int NumThreads, int LevelNo,
+                                     const int *LevelPtr, const int *ParPtr,
+                                     const int *Partition, const int *ParType) {
+  double *intermediateResult = new double[M*OutputChannelDim];
+  for (int i1 = 0; i1 < LevelNo; i1++) {
+#pragma omp parallel num_threads(NumThreads)
+    {
+#pragma omp for
+      for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; j1++) {
+        for (int k1 = ParPtr[j1]; k1 < ParPtr[j1 + 1]; ++k1) {
+          int i = Partition[k1];
+          int t = ParType[k1];
+          if (t == 0){
+            cblas_dgemv(
+                CblasRowMajor, CblasNoTrans, OutputChannelDim, InputChannelDim,
+                1, // alpha
+                Weight, InputChannelDim, Features + (i * InputChannelDim), 1,
+                0, // beta
+                intermediateResult + i*OutputChannelDim, 1);
+          }
+          else {
+            for (int j = Ap[i]; j < Ap[i + 1]; j++) {
+              int ip = OutputChannelDim * i;
+              for (int k = 0; k < OutputChannelDim; k++) {
+                Output[ip + k] += Ax[j] * intermediateResult[Ai[j] * OutputChannelDim + k];
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
 void forwardForOneLayerParallel(int M, int *Ap, int *Ai, double *Ax,
                                 int InputChannelDim, int OutputChannelDim,
                                 int *Degrees, double *Features, double *Weight,
@@ -346,7 +384,8 @@ void forwardForOneLayerFromCSCParallel(int M, int *Ap, int *Ai, double *Ax,
     for (int i = 0; i < M; i++) {
       double cache[OutputChannelDim];
       std::memset(cache, 0, sizeof(double *) * OutputChannelDim);
-      cblas_dgemv(CblasRowMajor, CblasNoTrans, OutputChannelDim, InputChannelDim,
+      cblas_dgemv(CblasRowMajor, CblasNoTrans, OutputChannelDim,
+                  InputChannelDim,
                   1, // alpha
                   Weight, InputChannelDim, Features + (i * InputChannelDim), 1,
                   1., // beta
@@ -899,7 +938,8 @@ void forwardForOneLayerFromCSCVectorized(int M, int *Ap, int *Ai, double *Ax,
     for (int i = 0; i < M; i++) {
       double cache[OutputChannelDim];
       std::memset(cache, 0, sizeof(double *) * OutputChannelDim);
-      cblas_dgemv(CblasRowMajor, CblasNoTrans, OutputChannelDim, InputChannelDim,
+      cblas_dgemv(CblasRowMajor, CblasNoTrans, OutputChannelDim,
+                  InputChannelDim,
                   1, // alpha
                   Weight, InputChannelDim, Features + (i * InputChannelDim), 1,
                   1., // beta
@@ -1032,30 +1072,36 @@ void forwardForOneLayerFromCSCTiledParallelCombinedVectorized(
                     Features + i * InputChannelDim, InputChannelDim, Weight,
                     InputChannelDim, 0., tcache, OutputChannelDim);
         for (int ii = 0; ii < tileSize; ii++) {
-          int nnzNum =
-              Ap[i + ii + 1] - Ap[i + ii];
+          int nnzNum = Ap[i + ii + 1] - Ap[i + ii];
           int unrollingEnd = Ap[i + ii + 1] - nnzNum % 3;
-          for (int j = Ap[i + ii]; j < unrollingEnd; j+=3) {
+          for (int j = Ap[i + ii]; j < unrollingEnd; j += 3) {
             __m256d axV1 = _mm256_set1_pd(Ax[j]);
-            __m256d axV2 = _mm256_set1_pd(Ax[j+1]);
-            __m256d axV3 = _mm256_set1_pd(Ax[j+2]);
-            for (int k = 0; k < OutputChannelDim; k+=4) {
-              __m256d outV1 = _mm256_loadu_pd(Output + (Ai[j]*OutputChannelDim + k));
-              __m256d outV2 = _mm256_loadu_pd(Output + (Ai[j+1]*OutputChannelDim + k));
-              __m256d outV3 = _mm256_loadu_pd(Output + (Ai[j+2]*OutputChannelDim + k));
-              __m256d cacheV = _mm256_loadu_pd(tcache + (ii*OutputChannelDim) + k);
+            __m256d axV2 = _mm256_set1_pd(Ax[j + 1]);
+            __m256d axV3 = _mm256_set1_pd(Ax[j + 2]);
+            for (int k = 0; k < OutputChannelDim; k += 4) {
+              __m256d outV1 =
+                  _mm256_loadu_pd(Output + (Ai[j] * OutputChannelDim + k));
+              __m256d outV2 =
+                  _mm256_loadu_pd(Output + (Ai[j + 1] * OutputChannelDim + k));
+              __m256d outV3 =
+                  _mm256_loadu_pd(Output + (Ai[j + 2] * OutputChannelDim + k));
+              __m256d cacheV =
+                  _mm256_loadu_pd(tcache + (ii * OutputChannelDim) + k);
               outV1 = _mm256_fmadd_pd(axV1, cacheV, outV1);
               outV2 = _mm256_fmadd_pd(axV2, cacheV, outV2);
               outV3 = _mm256_fmadd_pd(axV3, cacheV, outV3);
-              _mm256_storeu_pd(Output + (Ai[j]*OutputChannelDim + k), outV1);
-              _mm256_storeu_pd(Output + (Ai[j+1]*OutputChannelDim + k), outV2);
-              _mm256_storeu_pd(Output + (Ai[j+2]*OutputChannelDim + k), outV3);
+              _mm256_storeu_pd(Output + (Ai[j] * OutputChannelDim + k), outV1);
+              _mm256_storeu_pd(Output + (Ai[j + 1] * OutputChannelDim + k),
+                               outV2);
+              _mm256_storeu_pd(Output + (Ai[j + 2] * OutputChannelDim + k),
+                               outV3);
             }
           }
           for (int j = unrollingEnd; j < Ap[i + ii + 1]; j++) {
             __m256d axj = _mm256_set1_pd(Ax[j]);
             for (int k = 0; k < OutputChannelDim; k += 4) {
-              __m256d cacheV = _mm256_loadu_pd(tcache + ii * OutputChannelDim + k);
+              __m256d cacheV =
+                  _mm256_loadu_pd(tcache + ii * OutputChannelDim + k);
               __m256d outputV =
                   _mm256_loadu_pd(Output + Ai[j] * OutputChannelDim + k);
               outputV = _mm256_fmadd_pd(axj, cacheV, outputV);
@@ -1079,24 +1125,26 @@ void forwardForOneLayerFromCSCTiledParallelCombinedVectorized(
                 Features + i * InputChannelDim, InputChannelDim, Weight,
                 InputChannelDim, 0., cache, OutputChannelDim);
     for (int ii = 0; ii < tileSize; ii++) {
-      int nnzNum =
-          Ap[i + ii + 1] - Ap[i + ii];
+      int nnzNum = Ap[i + ii + 1] - Ap[i + ii];
       int unrollingEnd = Ap[i + ii + 1] - nnzNum % 3;
-      for (int j = Ap[i + ii]; j < unrollingEnd; j+=3) {
+      for (int j = Ap[i + ii]; j < unrollingEnd; j += 3) {
         __m256d axV1 = _mm256_set1_pd(Ax[j]);
-        __m256d axV2 = _mm256_set1_pd(Ax[j+1]);
-        __m256d axV3 = _mm256_set1_pd(Ax[j+2]);
-        for (int k = 0; k < OutputChannelDim; k+=4) {
-          __m256d outV1 = _mm256_loadu_pd(Output + (Ai[j]*OutputChannelDim + k));
-          __m256d outV2 = _mm256_loadu_pd(Output + (Ai[j+1]*OutputChannelDim + k));
-          __m256d outV3 = _mm256_loadu_pd(Output + (Ai[j+2]*OutputChannelDim + k));
-          __m256d cacheV = _mm256_loadu_pd(cache + (ii*OutputChannelDim) + k);
+        __m256d axV2 = _mm256_set1_pd(Ax[j + 1]);
+        __m256d axV3 = _mm256_set1_pd(Ax[j + 2]);
+        for (int k = 0; k < OutputChannelDim; k += 4) {
+          __m256d outV1 =
+              _mm256_loadu_pd(Output + (Ai[j] * OutputChannelDim + k));
+          __m256d outV2 =
+              _mm256_loadu_pd(Output + (Ai[j + 1] * OutputChannelDim + k));
+          __m256d outV3 =
+              _mm256_loadu_pd(Output + (Ai[j + 2] * OutputChannelDim + k));
+          __m256d cacheV = _mm256_loadu_pd(cache + (ii * OutputChannelDim) + k);
           outV1 = _mm256_fmadd_pd(axV1, cacheV, outV1);
           outV2 = _mm256_fmadd_pd(axV2, cacheV, outV2);
           outV3 = _mm256_fmadd_pd(axV3, cacheV, outV3);
-          _mm256_storeu_pd(Output + (Ai[j]*OutputChannelDim + k), outV1);
-          _mm256_storeu_pd(Output + (Ai[j+1]*OutputChannelDim + k), outV2);
-          _mm256_storeu_pd(Output + (Ai[j+2]*OutputChannelDim + k), outV3);
+          _mm256_storeu_pd(Output + (Ai[j] * OutputChannelDim + k), outV1);
+          _mm256_storeu_pd(Output + (Ai[j + 1] * OutputChannelDim + k), outV2);
+          _mm256_storeu_pd(Output + (Ai[j + 2] * OutputChannelDim + k), outV3);
         }
       }
       for (int j = unrollingEnd; j < Ap[i + ii + 1]; j++) {

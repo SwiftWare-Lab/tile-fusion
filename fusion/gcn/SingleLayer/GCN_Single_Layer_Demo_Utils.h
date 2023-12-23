@@ -505,6 +505,48 @@ public:
   }
 };
 
+class GCNSingleLayerSparseFusedParallel : public GCNSingleLayerFused {
+protected:
+  sym_lib::MultiDimensionalSet *FusedCompSet;
+  InspectorForAllFused *Inspector;
+
+  Timer analysis() override {
+    Timer t;
+    t.start();
+    FusedCompSet =
+        Inspector->generateFusedScheduleForAllFused(InTensor->AdjacencyMatrix);
+    t.stop();
+    return t;
+  }
+
+  Timer execute() override {
+    Timer t;
+    mkl_set_num_threads(1);
+    OutTensor->reset();
+    t.start();
+    forwardForOneLayerFusedParallel(
+        InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->p,
+        InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x, InTensor->FeatureMatrix->col, InTensor->Weight1->row,
+        InTensor->Degrees, InTensor->FeatureMatrix->a, InTensor->Weight1->a,
+        OutTensor->FirstLayerOutput, InTensor->NumThreads, FusedCompSet->n1_,
+        FusedCompSet->ptr1_, FusedCompSet->ptr2_, FusedCompSet->id_,
+        FusedCompSet->type_);
+    t.stop();
+    return t;
+  }
+
+public:
+  GCNSingleLayerSparseFusedParallel(GnnTensorInputs *In1, Stats *Stat1,
+                      sym_lib::ScheduleParameters SpIn)
+      : GCNSingleLayerFused(In1, Stat1) {
+    Inspector = new InspectorForAllFused(SpIn, Stat1);
+  }
+  ~GCNSingleLayerSparseFusedParallel() {
+    delete FusedCompSet;
+    delete Inspector;
+  }
+};
+
 #ifdef __AVX2__
 class GCNSingleLayerFusedCSCParallelVectorized : public GCNSingleLayerFused {
 protected:

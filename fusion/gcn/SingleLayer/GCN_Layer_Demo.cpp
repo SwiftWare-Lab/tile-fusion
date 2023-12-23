@@ -134,6 +134,17 @@ int main(const int argc, const char *argv[]) {
   delete stats;
   delete gcnSingleLayerUnfusedCsc;
 
+  stats = new swiftware::benchmark::Stats("GCN_SingleLayerFused", "GCN", 7,
+                                          tp._matrix_name, numThread);
+  stats->OtherStats["PackingType"] = {Separated};
+  sp.IterPerPartition = sp.TileN;
+  GCNSingleLayerSparseFusedParallel *gcnSingleLayerSparseFused =
+      new GCNSingleLayerSparseFusedParallel(inputs, stats, sp);
+  gcnSingleLayerSparseFused->run();
+  auto gcnSingleLayerSparseFusedStat = gcnSingleLayerSparseFused->printStats();
+  delete stats;
+  delete gcnSingleLayerSparseFused;
+
   /*
    * Method that iterates over columns of Adjacency matrix and by doing the
    * corresponding GeMV to each nonzero, calculates the partial products of that
@@ -366,6 +377,7 @@ int main(const int argc, const char *argv[]) {
 
   std::cout << gcnOneLayerMKLStat << spStat + tpStat << std::endl;
   std::cout << gcnSingleLayerUnfusedCscStat << spStat + tpStat << std::endl;
+  std::cout << gcnSingleLayerSparseFusedStat << spStat + tpStat << std::endl;
   //  std::cout << gcnTiledFusedSingleLayerStat << spStat + tpStat << std::endl;
   //  std::cout << gcnSingleLayerTiledFusedParallelStat << spStat + tpStat
   //            << std::endl;
