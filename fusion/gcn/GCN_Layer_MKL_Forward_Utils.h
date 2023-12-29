@@ -74,6 +74,44 @@ void forwardForOneLayerFusedParallel(int M, int *Ap, int *Ai, double *Ax,
   }
 }
 
+void forwardForOneLayerFusedParallelSeparated(int M, int *Ap, int *Ai, double *Ax,
+                                     int InputChannelDim, int OutputChannelDim,
+                                     int *Degrees, double *Features,
+                                     double *Weight, double *Output,
+                                     int NumThreads, int LevelNo,
+                                     const int *LevelPtr, const int *ParPtr, const int* MixPtr,
+                                     const int *Partition, const int *ParType) {
+  double *intermediateResult = new double[M*OutputChannelDim];
+  int numKernels = 2;
+  for (int i1 = 0; i1 < LevelNo; i1++) {
+#pragma omp parallel num_threads(NumThreads)
+    {
+#pragma omp for
+      for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; j1++) {
+        int kBeginL1 = ParPtr[j1];
+        int kEndL1 = MixPtr[j1*numKernels];
+        int iL1 = Partition[kBeginL1];
+        int tileSize = kEndL1 - kBeginL1;
+        cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasTrans, tileSize,
+                    OutputChannelDim, InputChannelDim, 1.,
+                    Features + iL1 * InputChannelDim,
+                    InputChannelDim, Weight, InputChannelDim, 0., intermediateResult + iL1*OutputChannelDim,
+                    OutputChannelDim);
+        int kEndL2 = MixPtr[j1*numKernels + 1];
+        for (int k1 = kEndL1; k1 < kEndL2; ++k1) {
+          int i = Partition[k1];
+          for (int j = Ap[i]; j < Ap[i + 1]; j++) {
+            int ip = OutputChannelDim * i;
+            for (int k = 0; k < OutputChannelDim; k++) {
+              Output[ip + k] += Ax[j] * intermediateResult[Ai[j] * OutputChannelDim + k];
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
 void forwardForOneLayerParallel(int M, int *Ap, int *Ai, double *Ax,
                                 int InputChannelDim, int OutputChannelDim,
                                 int *Degrees, double *Features, double *Weight,

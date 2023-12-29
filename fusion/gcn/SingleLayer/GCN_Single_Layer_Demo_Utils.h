@@ -308,7 +308,8 @@ public:
   }
 };
 
-class GCNSingleLayerTiledFusedCSCParallelWithKTiling : public GCNSingleLayerFused {
+class GCNSingleLayerTiledFusedCSCParallelWithKTiling
+    : public GCNSingleLayerFused {
 protected:
   int TileSize;
   int KTileSize;
@@ -354,7 +355,6 @@ public:
     delete Inspector;
   }
 };
-
 
 class GCNSingleLayerTiledFusedCSCParallelWithSchedulingKTiling
     : public GCNSingleLayerFused {
@@ -416,10 +416,8 @@ protected:
   Timer analysis() override {
     Timer t;
     t.start();
-    FusedCompSet =
-    Inspector->generateScheduleBasedOnConflictGraphColoring(
-        ConflictGraphColoring, InTensor->NumOfNodes, TileSize,
-        WorkloadMinSize);
+    FusedCompSet = Inspector->generateScheduleBasedOnConflictGraphColoring(
+        ConflictGraphColoring, InTensor->NumOfNodes, TileSize, WorkloadMinSize);
     t.stop();
     return t;
   }
@@ -455,7 +453,8 @@ public:
   }
 };
 
-class GCNSingleLayerTiledFusedCSCCombinedWithKTiling : public GCNSingleLayerFused {
+class GCNSingleLayerTiledFusedCSCCombinedWithKTiling
+    : public GCNSingleLayerFused {
 protected:
   int TileSize;
   int WorkloadMinSize;
@@ -526,8 +525,9 @@ protected:
     t.start();
     forwardForOneLayerFusedParallel(
         InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->p,
-        InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x, InTensor->FeatureMatrix->col, InTensor->Weight1->row,
-        InTensor->Degrees, InTensor->FeatureMatrix->a, InTensor->Weight1->a,
+        InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x,
+        InTensor->FeatureMatrix->col, InTensor->Weight1->row, InTensor->Degrees,
+        InTensor->FeatureMatrix->a, InTensor->Weight1->a,
         OutTensor->FirstLayerOutput, InTensor->NumThreads, FusedCompSet->n1_,
         FusedCompSet->ptr1_, FusedCompSet->ptr2_, FusedCompSet->id_,
         FusedCompSet->type_);
@@ -537,11 +537,54 @@ protected:
 
 public:
   GCNSingleLayerSparseFusedParallel(GnnTensorInputs *In1, Stats *Stat1,
-                      sym_lib::ScheduleParameters SpIn)
+                                    sym_lib::ScheduleParameters SpIn)
       : GCNSingleLayerFused(In1, Stat1) {
     Inspector = new InspectorForAllFused(SpIn, Stat1);
   }
   ~GCNSingleLayerSparseFusedParallel() {
+    delete FusedCompSet;
+    delete Inspector;
+  }
+};
+
+class GCNSingleLayerSparseFusedParallelWithGeMM : public GCNSingleLayerFused {
+protected:
+  sym_lib::MultiDimensionalSet *FusedCompSet;
+  InspectorForAllFused *Inspector;
+
+  Timer analysis() override {
+    Timer t;
+    t.start();
+    FusedCompSet =
+        Inspector->generateFusedScheduleForAllFused(InTensor->AdjacencyMatrix);
+    t.stop();
+    return t;
+  }
+
+  Timer execute() override {
+    Timer t;
+    mkl_set_num_threads(1);
+    OutTensor->reset();
+    t.start();
+    forwardForOneLayerFusedParallelSeparated(
+        InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->p,
+        InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x,
+        InTensor->FeatureMatrix->col, InTensor->Weight1->row, InTensor->Degrees,
+        InTensor->FeatureMatrix->a, InTensor->Weight1->a,
+        OutTensor->FirstLayerOutput, InTensor->NumThreads, FusedCompSet->n1_,
+        FusedCompSet->ptr1_, FusedCompSet->ptr2_, FusedCompSet->ker_begin_,
+        FusedCompSet->id_, FusedCompSet->type_);
+    t.stop();
+    return t;
+  }
+
+public:
+  GCNSingleLayerSparseFusedParallelWithGeMM(GnnTensorInputs *In1, Stats *Stat1,
+                                            sym_lib::ScheduleParameters SpIn)
+      : GCNSingleLayerFused(In1, Stat1) {
+    Inspector = new InspectorForAllFused(SpIn, Stat1);
+  }
+  ~GCNSingleLayerSparseFusedParallelWithGeMM() {
     delete FusedCompSet;
     delete Inspector;
   }
@@ -597,7 +640,8 @@ public:
       : GCNSingleLayerFused(In1, Stat1), TileSize(TileSize1) {}
 };
 
-class GCNSingleLayerTiledFusedCSCCombinedVectorized : public GCNSingleLayerFused {
+class GCNSingleLayerTiledFusedCSCCombinedVectorized
+    : public GCNSingleLayerFused {
 protected:
   int TileSize;
   int WorkloadMinSize;
@@ -608,10 +652,8 @@ protected:
   Timer analysis() override {
     Timer t;
     t.start();
-    FusedCompSet =
-        Inspector->generateScheduleBasedOnConflictGraphColoring(
-            ConflictGraphColoring, InTensor->NumOfNodes, TileSize,
-            WorkloadMinSize);
+    FusedCompSet = Inspector->generateScheduleBasedOnConflictGraphColoring(
+        ConflictGraphColoring, InTensor->NumOfNodes, TileSize, WorkloadMinSize);
     t.stop();
     return t;
   }
@@ -648,6 +690,5 @@ public:
 };
 
 #endif
-
 
 #endif
