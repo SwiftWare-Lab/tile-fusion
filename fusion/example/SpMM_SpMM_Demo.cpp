@@ -128,17 +128,17 @@ int main(const int argc, const char *argv[]){
 //  delete fusedTiledParallel;
 //  delete stats;
 
-    stats = new swiftware::benchmark::Stats("SpMM_SpMM_FusedTiledParallel_Redundant_General","SpMM", 7,tp._matrix_name,numThread);
-  stats->OtherStats["PackingType"] = {Separated};
-  auto *fusedTiledParallelGen = new SpMMSpMMFusedInterLayerRedundant(inSpMM, stats, sp);
-  fusedTiledParallelGen->run();
-  //fusedTiledParallelGen->OutTensor->printDx();
-  auto fusedTiledParallelGenStat = fusedTiledParallelGen->printStats();
-  auto profileInfoRed = fusedTiledParallelGen->getSpInfo().printCSV(true);
-  std::string profHeaderRed = std::get<0>(profileInfoRed);
-  std::string profStatRed = std::get<1>(profileInfoRed);
-  delete fusedTiledParallelGen;
-  delete stats;
+//    stats = new swiftware::benchmark::Stats("SpMM_SpMM_FusedTiledParallel_Redundant_General","SpMM", 7,tp._matrix_name,numThread);
+//  stats->OtherStats["PackingType"] = {Separated};
+//  auto *fusedTiledParallelGen = new SpMMSpMMFusedInterLayerRedundant(inSpMM, stats, sp);
+//  fusedTiledParallelGen->run();
+//  //fusedTiledParallelGen->OutTensor->printDx();
+//  auto fusedTiledParallelGenStat = fusedTiledParallelGen->printStats();
+//  auto profileInfoRed = fusedTiledParallelGen->getSpInfo().printCSV(true);
+//  std::string profHeaderRed = std::get<0>(profileInfoRed);
+//  std::string profStatRed = std::get<1>(profileInfoRed);
+//  delete fusedTiledParallelGen;
+//  delete stats;
 
 
 //  stats = new swiftware::benchmark::Stats("SpMM_SpMM_FusedTiledParallel_Mixed_General","SpMM", 7,tp._matrix_name,numThread);
