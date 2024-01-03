@@ -563,6 +563,7 @@ protected:
 
   Timer execute() override {
     Timer t;
+    St->OtherStats["FusedIterations"] = {(double)FusedCompSet->getNumberOfFusedNodes()};
     mkl_set_num_threads(1);
     OutTensor->reset();
     t.start();

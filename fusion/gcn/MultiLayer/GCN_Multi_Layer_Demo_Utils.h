@@ -177,7 +177,7 @@ protected:
         double(InTensor->LayerMasks[1].size())};
     this->St->OtherStats["Number of First Layer Nodes"] = {
         double(InTensor->LayerMasks[0].size())};
-    this->St->OtherStats["Number of Fused Nodes"] = {0.};
+    this->St->OtherStats["FusedIterations"] = {0.};
     this->St->OtherStats["Min Workload Size"] = {10.};
   }
 
