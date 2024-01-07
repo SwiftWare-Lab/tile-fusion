@@ -158,10 +158,10 @@ protected:
     OutTensor->reset();
     Timer t;
     t.start();
-    spMVCsrSequentialSegmentedSum(InTensor->M, InTensor->K, InTensor->ACsr->p,
+    spMVCsrSegmentedSumSequential(InTensor->M, InTensor->K, InTensor->ACsr->p,
                                   InTensor->ACsr->i, InTensor->ACsr->x,
                                   InTensor->Cx, OutTensor->ACx, WorkSpace);
-    spMVCsrSequentialSegmentedSum(InTensor->L, InTensor->M, InTensor->BCsr->p,
+    spMVCsrSegmentedSumSequential(InTensor->L, InTensor->M, InTensor->BCsr->p,
                                   InTensor->BCsr->i, InTensor->BCsr->x,
                                   OutTensor->ACx, OutTensor->Dx, WorkSpace);
     t.stop();
@@ -186,12 +186,12 @@ class SpMVSpMVUnFusedSegmentedSumParallel : public SpMVSpMVUnFusedSegmentedSumSe
     t.start();
     spMVCsrSegmentedSumParallel(InTensor->M, InTensor->K, InTensor->ACsr->p,
                                 InTensor->ACsr->i, InTensor->ACsr->x,
-                                InTensor->Cx, OutTensor->ACx, WorkSpace,
-                                InTensor->NumThreads);
+                                InTensor->Cx, OutTensor->ACx,
+                                InTensor->NumThreads, WorkSpace);
     spMVCsrSegmentedSumParallel(InTensor->L, InTensor->M, InTensor->BCsr->p,
                                 InTensor->BCsr->i, InTensor->BCsr->x,
-                                OutTensor->ACx, OutTensor->Dx, WorkSpace,
-                                InTensor->NumThreads);
+                                OutTensor->ACx, OutTensor->Dx,
+                                InTensor->NumThreads, WorkSpace);
     t.stop();
     return t;
   }

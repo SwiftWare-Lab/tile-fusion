@@ -30,7 +30,7 @@ void spMVCsrSequential(int M, int K, const int *Ap, const int *Ai,
 /// \param Bx
 /// \param Cx
 /// \param WS input allocated memory used for temporary storage
-void spMVCsrSegmentedSumSequential(int M, int K, const int *Ap, const int *Ai,
+inline void spMVCsrSegmentedSumSequential(int M, int K, const int *Ap, const int *Ai,
                        const double *Ax, const double *Bx, double *Cx,
                                    double *WS= nullptr) {
   int nnz = Ap[M];
@@ -47,7 +47,8 @@ void spMVCsrSegmentedSumSequential(int M, int K, const int *Ap, const int *Ai,
     }
   if(!WS) delete[] tmp;
 }
-void spMVCsrSegmentedSumParallel(int M, int K, const int *Ap, const int *Ai,
+
+inline void spMVCsrSegmentedSumParallel(int M, int K, const int *Ap, const int *Ai,
                                    const double *Ax, const double *Bx, double *Cx,
                                  int NumThreads, double *WS= nullptr) {
   int nnz = Ap[M];

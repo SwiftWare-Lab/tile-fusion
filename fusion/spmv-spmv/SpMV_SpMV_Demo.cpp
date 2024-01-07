@@ -67,6 +67,23 @@ int main(const int argc, const char *argv[]) {
   delete spmvParallel;
   delete stats;
 
+  stats = new swiftware::benchmark::Stats("SpMV_SpMV_UnFusedSegmentedSumSequential", "SpMV", 7, tp._matrix_name, numThread);
+  stats->OtherStats["PackingType"] = {Interleaved};
+  auto *unfusedSS = new SpMVSpMVUnFusedSegmentedSumSequential(inSpMM, stats);
+  unfusedSS->run();
+  auto spMvSeqSegSumStat = unfusedSS->printStats();
+  delete unfusedSS;
+  delete stats;
+
+  stats = new swiftware::benchmark::Stats("SpMV_SpMV_UnFusedSegmentedSumParallel", "SpMV", 7, tp._matrix_name, numThread);
+  stats->OtherStats["PackingType"] = {Interleaved};
+  auto *unfusedSSParallel = new SpMVSpMVUnFusedSegmentedSumParallel(inSpMM, stats);
+  unfusedSSParallel->run();
+  auto spMvSeqSegSumParallelStat = unfusedSSParallel->printStats();
+  delete unfusedSSParallel;
+  delete stats;
+
+
   stats = new swiftware::benchmark::Stats("SpMV_SpMV_FusedParallel", "SpMV", 7, tp._matrix_name, numThread);
   stats->OtherStats["PackingType"] = {Interleaved};
   auto *spmvFused = new SpMVSpMVFused(inSpMM, stats, sp);
@@ -167,6 +184,10 @@ int main(const int argc, const char *argv[]) {
     std::cout<<headerStat+spHeader+tpHeader<<std::endl;
   std::cout<<baselineStat<<spStat+tpStat<<std::endl;
   std::cout << spMVParallelStat<<spStat+tpStat<<std::endl;
+
+  std::cout << spMvSeqSegSumStat<<spStat+tpStat<<std::endl;
+  std::cout << spMvSeqSegSumParallelStat<<spStat+tpStat<<std::endl;
+
   std::cout << spMVFusedStat<<spStat+tpStat<<std::endl;
 //  std::cout << spMVFusedRRStat<<spStat+tpStat<<std::endl;
 //  std::cout << spMVFusedRBStat<<spStat+tpStat<<std::endl;
