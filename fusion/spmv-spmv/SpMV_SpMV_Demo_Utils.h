@@ -149,6 +149,59 @@ public:
   ~SpMVSpMVUnFusedSequential() { delete OutTensor; }
 };
 
+class SpMVSpMVUnFusedSegmentedSumSequential : public SpMVSpMVUnFusedSequential {
+
+protected:
+  double *WorkSpace;
+  Timer execute() override {
+    std::fill_n(WorkSpace, InTensor->ACsr->nnz, 0.0);
+    OutTensor->reset();
+    Timer t;
+    t.start();
+    spMVCsrSequentialSegmentedSum(InTensor->M, InTensor->K, InTensor->ACsr->p,
+                                  InTensor->ACsr->i, InTensor->ACsr->x,
+                                  InTensor->Cx, OutTensor->ACx, WorkSpace);
+    spMVCsrSequentialSegmentedSum(InTensor->L, InTensor->M, InTensor->BCsr->p,
+                                  InTensor->BCsr->i, InTensor->BCsr->x,
+                                  OutTensor->ACx, OutTensor->Dx, WorkSpace);
+    t.stop();
+    return t;
+  }
+public:
+  SpMVSpMVUnFusedSegmentedSumSequential(TensorInputs<double> *In1,
+                                        Stats *Stat1)
+      : SpMVSpMVUnFusedSequential(In1, Stat1) {
+    WorkSpace = new double[InTensor->ACsr->nnz]();
+  }
+
+  ~SpMVSpMVUnFusedSegmentedSumSequential() { delete[] WorkSpace; }
+};
+
+class SpMVSpMVUnFusedSegmentedSumParallel : public SpMVSpMVUnFusedSegmentedSumSequential {
+  protected:
+  Timer execute() override {
+    std::fill_n(WorkSpace, InTensor->ACsr->nnz, 0.0);
+    OutTensor->reset();
+    Timer t;
+    t.start();
+    spMVCsrSegmentedSumParallel(InTensor->M, InTensor->K, InTensor->ACsr->p,
+                                InTensor->ACsr->i, InTensor->ACsr->x,
+                                InTensor->Cx, OutTensor->ACx, WorkSpace,
+                                InTensor->NumThreads);
+    spMVCsrSegmentedSumParallel(InTensor->L, InTensor->M, InTensor->BCsr->p,
+                                InTensor->BCsr->i, InTensor->BCsr->x,
+                                OutTensor->ACx, OutTensor->Dx, WorkSpace,
+                                InTensor->NumThreads);
+    t.stop();
+    return t;
+  }
+
+  public:
+  SpMVSpMVUnFusedSegmentedSumParallel(TensorInputs<double> *In1,
+                                      Stats *Stat1)
+      : SpMVSpMVUnFusedSegmentedSumSequential(In1, Stat1) {}
+};
+
 class SpMVSpMVUnFusedParallel : public SpMVSpMVUnFusedSequential {
 protected:
   Timer execute() override {

@@ -21,6 +21,58 @@ void spMVCsrSequential(int M, int K, const int *Ap, const int *Ai,
   }
 }
 
+///
+/// \param M
+/// \param K
+/// \param Ap
+/// \param Ai
+/// \param Ax
+/// \param Bx
+/// \param Cx
+/// \param WS input allocated memory used for temporary storage
+void spMVCsrSegmentedSumSequential(int M, int K, const int *Ap, const int *Ai,
+                       const double *Ax, const double *Bx, double *Cx,
+                                   double *WS= nullptr) {
+  int nnz = Ap[M];
+  double *tmp = WS ? WS : new double[nnz]();
+  for (int i = 0; i < M; i++) {
+      for (int j = Ap[i]; j < Ap[i + 1]; j++) {
+        tmp[j] = Ax[j] * Bx[Ai[j]];
+      }
+    }
+    for (int i = 0; i < M; i++) {
+      for (int j = Ap[i]; j < Ap[i + 1]; j++) {
+        Cx[i] += tmp[j];
+      }
+    }
+  if(!WS) delete[] tmp;
+}
+void spMVCsrSegmentedSumParallel(int M, int K, const int *Ap, const int *Ai,
+                                   const double *Ax, const double *Bx, double *Cx,
+                                 int NumThreads, double *WS= nullptr) {
+  int nnz = Ap[M];
+  double *tmp = WS ? WS : new double[nnz]();
+#pragma omp parallel num_threads(NumThreads)
+  {
+#pragma omp for
+    for (int i = 0; i < M; i++) {
+      for (int j = Ap[i]; j < Ap[i + 1]; j++) {
+        tmp[j] = Ax[j] * Bx[Ai[j]];
+      }
+    }
+  }
+#pragma omp parallel num_threads(NumThreads)
+  {
+#pragma omp for
+    for (int i = 0; i < M; i++) {
+      for (int j = Ap[i]; j < Ap[i + 1]; j++) {
+        Cx[i] += tmp[j];
+      }
+    }
+  }
+  if(!WS) delete[] tmp;
+}
+
 void spMVCsrParallel(int M, int K, const int *Ap, const int *Ai,
                      const double *Ax, const double *Bx, double *Cx,
                      int NumThreads) {
