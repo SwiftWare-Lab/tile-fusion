@@ -123,24 +123,24 @@ void parse_args(const int Argc, const char **Argv, ScheduleParameters *Sp,
   } else {
     Tp->_gnn_parameters_mode = "Random";
   }
-  if (auto weightMtxPath = program->present("-w1")) {
-    Tp->_gnn_parameters_mode = "MTX";
-    Tp->_weight1_matrix_path = weightMtxPath.value();
-  } else {
-    Tp->_gnn_parameters_mode = "Random";
-  }
-  if (auto weightMtxPath = program->present("-w2")) {
-    Tp->_gnn_parameters_mode = "MTX";
-    Tp->_weight2_matrix_path = weightMtxPath.value();
-  } else {
-    Tp->_gnn_parameters_mode = "Random";
-  }
-  if (auto resultMtxPath = program->present("-rm")) {
-    Tp->_gnn_parameters_mode = "MTX";
-    Tp->_weight2_matrix_path = resultMtxPath.value();
-  } else {
-    Tp->_gnn_parameters_mode = "Random";
-  }
+//  if (auto weightMtxPath = program->present("-w1")) {
+//    Tp->_gnn_parameters_mode = "MTX";
+//    Tp->_weight1_matrix_path = weightMtxPath.value();
+//  } else {
+//    Tp->_gnn_parameters_mode = "Random";
+//  }
+//  if (auto weightMtxPath = program->present("-w2")) {
+//    Tp->_gnn_parameters_mode = "MTX";
+//    Tp->_weight2_matrix_path = weightMtxPath.value();
+//  } else {
+//    Tp->_gnn_parameters_mode = "Random";
+//  }
+//  if (auto resultMtxPath = program->present("-rm")) {
+//    Tp->_gnn_parameters_mode = "MTX";
+//    Tp->_weight2_matrix_path = resultMtxPath.value();
+//  } else {
+//    Tp->_gnn_parameters_mode = "Random";
+//  }
   Tp->_sampling_ratio = program->get<float>("-sr");
   Tp->expariment_name = program->get("-en");
 
