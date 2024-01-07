@@ -41,9 +41,11 @@ inline void spMVCsrSegmentedSumSequential(int M, int K, const int *Ap, const int
       }
     }
     for (int i = 0; i < M; i++) {
+      double cxi = 0;
       for (int j = Ap[i]; j < Ap[i + 1]; j++) {
-        Cx[i] += tmp[j];
+        cxi += tmp[j];
       }
+      Cx[i] = cxi;
     }
   if(!WS) delete[] tmp;
 }
@@ -66,9 +68,11 @@ inline void spMVCsrSegmentedSumParallel(int M, int K, const int *Ap, const int *
   {
 #pragma omp for
     for (int i = 0; i < M; i++) {
+      double cxi = 0;
       for (int j = Ap[i]; j < Ap[i + 1]; j++) {
-        Cx[i] += tmp[j];
+        cxi += tmp[j];
       }
+      Cx[i] = cxi;
     }
   }
   if(!WS) delete[] tmp;
@@ -366,7 +370,7 @@ void spmvCsrSpmvCsrTiledFusedRedundantBandedV2(
   }
 }
 
-void spmvCsrSpmvCsrTiledFusedRedundantGeneral(
+inline void spmvCsrSpmvCsrTiledFusedRedundantGeneral(
     int M, int K, int L, const int *Ap, const int *Ai, const double *Ax,
     const int *Bp, const int *Bi, const double *Bx, const double *Cx,
     double *Dx, int NThreads, int MTile, double *Ws, int *L1TileLowBounds,
@@ -384,6 +388,7 @@ void spmvCsrSpmvCsrTiledFusedRedundantGeneral(
       int mTileLoc = l1End - l1Begin;
       // if(ii >= mBound) continue;
       for (int ii = l1Begin; ii < l1End; ++ii) {
+        cxBuf[ii - l1Begin] = 0;
         for (int j = Ap[ii]; j < Ap[ii + 1]; ++j) {
           cxBuf[ii - l1Begin] += Ax[j] * Cx[Ai[j]];
         }
@@ -395,7 +400,7 @@ void spmvCsrSpmvCsrTiledFusedRedundantGeneral(
           Dx[ii] += Bx[j] * cxBuf[bij];
         }
       }
-      std::fill_n(cxBuf, MaxL1TileSize, 0.0);
+      //std::fill_n(cxBuf, MaxL1TileSize, 0.0);
     }
   }
 }
