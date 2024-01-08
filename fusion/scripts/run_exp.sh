@@ -6,7 +6,7 @@ TUNED=$3
 THRDS=$4
 MATLIST=$5
 BCOL=$6
-LOGS=./build/logs/
+LOGS=$7
 
 
 #echo $BINLIB $PATHMAIN

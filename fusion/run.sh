@@ -49,7 +49,11 @@ which gcc
 which g++
 which gdb
 which make
-export MKL_DIR=$MKLROOT
+if [ -z "${MKL_DIR}" ]; then
+  echo "MKL_DIR is already  set to: ${MKL_DIR}"
+else
+  export MKL_DIR=$MKLROOT
+fi
 #### Build
 mkdir build
 # shellcheck disable=SC2164
@@ -64,7 +68,8 @@ make -j 40
 cd ..
 
 #BINPATH=./build/example/
-LOGS=./build/logs/
+DATE=$(date -d "today" +"%Y%m%d%H%M")
+LOGS="./build/logs-${DATE}/"
 SCRIPTPATH=./scripts/
 MATLIST=$UFDB/mat_list.txt
 
@@ -83,7 +88,7 @@ export MKL_DYNAMIC=FALSE;
 export OMP_DYNAMIC=FALSE;
 #export MKL_VERBOSE=1
 
-bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE $THRD $MATLIST $BCOL
+bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE $THRD $MATLIST $BCOL $LOGS
   # plotting
 #  python3 $SCRIPTPATH/plot.py $LOGS $BASELINE
 #else
