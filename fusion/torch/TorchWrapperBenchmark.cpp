@@ -64,7 +64,5 @@ int main(const int argc, const char *argv[]) {
     auto unfusedAnswer = CSRUnFusedGCNForwardFunction::apply(feature, adj, weight1);
     t2.stop();
     std::cout << "UnFused Time: " << t2.printTimeCsv(i) << std::endl;
-    std::cout << "Fused Answer: " << fusedAnswer << std::endl;
-    std::cout << "UnFused Answer: " << unfusedAnswer << std::endl;
   }
 }
