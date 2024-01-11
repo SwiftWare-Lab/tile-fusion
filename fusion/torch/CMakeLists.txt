@@ -20,7 +20,7 @@ endif()
 if(TARGET MKL::MKL)
     add_definitions(-DMKL)
     message(STATUS "${MKL_IMPORTED_TARGETS}")
-    add_executable(fused_gcn main.cpp)
+    add_executable(fused_gcn GCNIntegratedTraining.cpp)
     #    target_compile_features(example_app PRIVATE cxx_std_11)
 
     #    add_executable(example-app torchTest.cpp
@@ -34,6 +34,18 @@ if(TARGET MKL::MKL)
             swbench::swbench
             fusion)
     target_include_directories(fused_gcn PUBLIC
+            $<TARGET_PROPERTY:MKL::MKL,INTERFACE_INCLUDE_DIRECTORIES>
+            ${TORCH_INCLUDE_DIRS}
+    )
+    add_executable(wrapper_bench TorchWrapperBenchmark.cpp)
+    target_link_libraries(wrapper_bench PRIVATE
+            ${TORCH_LIBRARIES}
+            Python::Python
+            OpenMP::OpenMP_CXX
+            $<LINK_ONLY:MKL::MKL>
+            swbench::swbench
+            fusion)
+    target_include_directories(wrapper_bench PUBLIC
             $<TARGET_PROPERTY:MKL::MKL,INTERFACE_INCLUDE_DIRECTORIES>
             ${TORCH_INCLUDE_DIRS}
     )
