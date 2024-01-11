@@ -26,9 +26,12 @@ int main(const int argc, const char *argv[]) {
   FloatDense *layer1Weight = readFloatDenseMatrixFromParameter(
       &tp, tp._embed_dim, tp._b_cols, tp.e2e_data_path + "/weight1.mtx");
   FloatDense *layer2Weight = readFloatDenseMatrixFromParameter(
-      &tp, tp._embed_dim, tp._embed_dim, tp.e2e_data_path + "/weight2.mtx");
+      &tp, 3, tp._embed_dim, tp.e2e_data_path + "/weight2.mtx");
   auto weight1 = torch::from_blob(
       layer1Weight, {(long)layer1Weight->row, (long)layer1Weight->col},
+      torch::kFloat32);
+  auto weight2 = torch::from_blob(
+      layer2Weight, {(long)layer2Weight->row, (long)layer2Weight->col},
       torch::kFloat32);
   sym_lib::MultiDimensionalSet *fusedCompSet =
       generateFusedScheduleForCSRFused(aCSR, sp);
@@ -48,21 +51,31 @@ int main(const int argc, const char *argv[]) {
   auto feature = torch::from_blob(
       featuresData->a, {(long)featuresData->row, (long)featuresData->col},
       torch::kFloat32);
-//  torch::set_num_threads(numThread);
-//  torch::set_num_interop_threads(numThread);
-  for (int i = 0; i < 1; i++) {
-    swiftware::benchmark::Timer t1;
-    t1.start();
-    auto fusedAnswer = CSRFusedGCNForwardFunction::apply(
+  //  torch::set_num_threads(numThread);
+  //  torch::set_num_interop_threads(numThread);
+  torch::autograd::AutogradContext* ctx = new torch::autograd::AutogradContext();
+  swiftware::benchmark::Timer t1;
+  t1.start();
+  for (int i = 0; i < 100; i++) {
+    swiftware::benchmark::Timer t2;
+    t2.start();
+    auto fusedAnswer = CSRFusedGCNForwardFunction::forward(ctx,
         feature, adj, weight1, fusedCompSetTensor[0], fusedCompSetTensor[1],
         fusedCompSetTensor[2], fusedCompSetTensor[3], numThread,
         fusedCompSetTensor[4][0].item<int>());
-    t1.stop();
-    std::cout << "Fused Time: " << t1.printTimeCsv(i) << std::endl;
-    swiftware::benchmark::Timer t2;
-    t2.start();
-    auto unfusedAnswer = CSRUnFusedGCNForwardFunction::apply(feature, adj, weight1);
     t2.stop();
-    std::cout << "UnFused Time: " << t2.printTimeCsv(i) << std::endl;
+    std::cout << "first layer time for epoch " << i << ": " << t2.printTimeCsv(i);
+    fusedAnswer = CSRFusedGCNForwardFunction::forward(ctx,
+        fusedAnswer, adj, weight2, fusedCompSetTensor[0], fusedCompSetTensor[1],
+        fusedCompSetTensor[2], fusedCompSetTensor[3], numThread,
+        fusedCompSetTensor[4][0].item<int>());
+    //    std::cout << "Fused Time: " << t1.printTimeCsv(i) << std::endl;
+    //    swiftware::benchmark::Timer t2;
+    //    t2.start();
+    //    auto unfusedAnswer = CSRUnFusedGCNForwardFunction::apply(feature, adj,
+    //    weight1); t2.stop(); std::cout << "UnFused Time: " <<
+    //    t2.printTimeCsv(i) << std::endl;
   }
+  t1.stop();
+  std::cout << "100 forward time: " << t1.printTimeCsv(0) << std::endl;
 }

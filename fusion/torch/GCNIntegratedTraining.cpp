@@ -58,8 +58,8 @@ int tuneMatrix(CSR *Matrix, FloatDense *Features,
     }
     delete fusedCompSet;
     double avgTime = calculateAverageTime(t1);
-    std::cout << "Param: " << parameters[j] << " Time: " << std::to_string(avgTime)
-              << std::endl;
+//    std::cout << "Param: " << parameters[j] << " Time: " << std::to_string(avgTime)
+//              << std::endl;
   }
 
   delete[] out;
@@ -101,19 +101,23 @@ int main(const int argc, const char *argv[]) {
       numClasses = labels[i] + 1;
     }
   }
-  std::cout << "Num Classes: " << numClasses << std::endl;
+//  std::cout << "Num Classes: " << numClasses << std::endl;
   int trainSize = 139;
   torch::Tensor targets =
-      torch::from_blob(labels, {long(aCSC->m)}, torch::kInt64);
+      torch::from_blob(labels, {long(aCSC->m)},  [](void* ptr){
+            delete[] static_cast<long*>(ptr);
+          }, torch::kInt64);
   auto features = torch::from_blob(
-      featuresData->a, {(long)featuresData->row, (long)featuresData->col},
+      featuresData->a, {(long)featuresData->row, (long)featuresData->col}, [](void* ptr){
+        delete[] static_cast<float*>(ptr);
+      },
       torch::kFloat32);
 
-  std::cout << "Features Dim" << features.sizes() << std::endl;
+//  std::cout << "Features Dim" << features.sizes() << std::endl;
   //  torch::Tensor adj = readCSCMatrix("../data/cora/Cora.mtx");
   torch::Tensor adj = convertCSRToTorchTensor(*aCSR);
   // Create a new Net.
-  std::cout << "Building module" << std::endl;
+//  std::cout << "Building module" << std::endl;
   //  auto *net = new GCN(adj, features, tp._embed_dim, 32, 4, 8, 7);
   sym_lib::MultiDimensionalSet *fusedCompSet =
       generateFusedScheduleForCSRFused(aCSR, sp);
@@ -124,8 +128,8 @@ int main(const int argc, const char *argv[]) {
   // Instantiate an SGD optimization algorithm to update our Net's parameters.
   //  torch::optim::SGD optimizer(net->parameters(), /*lr=*/0.01);
   torch::optim::Adam optimizer(net->parameters(), /*lr=*/0.01);
-  std::cout << "Net parameters: " << net->parameters().size() << std::endl;
-  std::cout << "Training..." << std::endl;
+//  std::cout << "Net parameters: " << net->parameters().size() << std::endl;
+//  std::cout << "Training..." << std::endl;
 //  torch::set_num_interop_threads(sp._num_threads);
 //  torch::set_num_threads(sp._num_threads);
   swiftware::benchmark::Timer t1;
@@ -142,11 +146,14 @@ int main(const int argc, const char *argv[]) {
     loss.backward();
     // Update the parameters based on the calculated gradients.
     optimizer.step();
-    std::cout << "Epoch: " << epoch << " | Loss: " << loss.item<float>()
-              << std::endl;
+//    std::cout << "Epoch: " << epoch << " | Loss: " << loss.item<float>()
+//              << std::endl;
   }
   t1.stop();
-  std::cout << t1.printTimeCsv(0) << std::endl;
+  if (tp.print_header){
+    std::cout << "Graph, Time" << std::endl;
+  }
+  std::cout << tp._matrix_name << ", " << t1.printTimeCsv(0) << std::endl;
   delete net;
   delete fusedCompSet;
 }
