@@ -40,6 +40,10 @@ if(TARGET MKL::MKL)
             $<TARGET_PROPERTY:MKL::MKL,INTERFACE_INCLUDE_DIRECTORIES>
             ${TORCH_INCLUDE_DIRS}
     )
+    target_link_directories(fused_gcn PUBLIC
+            ${SYM_AGG}/include
+            ${SYM_FUS}/include
+    )
     add_executable(wrapper_bench TorchWrapperBenchmark.cpp)
     target_link_libraries(wrapper_bench PRIVATE
             ${TORCH_LIBRARIES}

@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --cpus-per-task=40
 #SBATCH --export=ALL
-#SBATCH --job-name="fusion"
+#SBATCH --job-name="gcb-end2end"
 #SBATCH --mail-type=begin  # email me when the job starts
 #SBATCH --mail-type=end    # email me when the job finishes
 #SBATCH --mail-user=msalehi20@gmail.com
@@ -40,12 +40,16 @@ MATLIST="$DATA/mat_list.txt"
 
 module load NiaEnv/.2022a
 module load intel/2022u2
+export MKL_DIR=$MKLROOT
+module load gcc
 module load cmake
+module load python
 
 mkdir build
 # shellcheck disable=SC2164
 cd build
-cmake -DCMAKE_PREFIX_PATH="`python -c 'import torch;print(torch.utils.cmake_prefix_path)'`;$MKLROOT/lib/intel64;$MKLROOT/include;$MKLROOT/../compiler/lib/intel64;_deps/openblas-build/lib/"  -DCMAKE_BUILD_TYPE=Release ..
+TORCH_LIB=/home/salehm32/pytorch
+cmake -DCMAKE_PREFIX_PATH="$TORCH_LIB;$MKL_DIR/lib/intel64;$MKL_DIR/include;$MKL_DIR/../compiler/lib/intel64;_deps/openblas-build/lib/"  -DCMAKE_BUILD_TYPE=Release ..
 make
 mkdir logs
 cd ..
