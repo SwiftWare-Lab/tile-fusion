@@ -65,7 +65,7 @@ public:
     ctx->save_for_backward({X, Adj, Weight});
     float *out = new float[outputSize];
     memset(out, 0, outputSize * sizeof(float));
-    forwardForOneLayerFusedParallelSeparated(
+    forwardForOneLayerFusedParallelSeparatedAVX512(
         X.size(0), Adj.crow_indices().data_ptr<int>(),
         Adj.col_indices().data_ptr<int>(), Adj.values().data_ptr<float>(),
         X.size(1), Weight.size(0), X.data_ptr<float>(),
