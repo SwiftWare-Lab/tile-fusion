@@ -14,7 +14,7 @@
 #endif
 #include <omp.h>
 #include <torch/extension.h>
-#include <<immintrin.h>
+#include <immintrin.h>
 #ifndef FUSED_GCN_FUSIONWRAPPER_H
 #define FUSED_GCN_FUSIONWRAPPER_H
 
