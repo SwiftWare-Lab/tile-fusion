@@ -135,7 +135,7 @@ for dataset in dataset_list:
         times.append(time.time() - start)
         # log(Epoch=epoch, Loss=loss1)
     # print(f'Median time per epoch: {torch.tensor(times).median():.4f}s')
-    print(f'torch_geometric, {name}, {torch.tensor(times).sum():.4f}s')
+    print(f'torch_geometric GCNConv,{name},{torch.tensor(times).sum():.4f}')
 
     # print('total conv1 time: ', model.conv1_time)
     # print('total conv2 time: ', model.conv2_time)

@@ -74,13 +74,13 @@ sr=1
 while read line; do
     echo "for $line $BCOL $ED $tn $mw"
     if [ $header -eq 1 ]; then
-      $BINPATH/fused_gcn -dp $DATA/$line -nt $THREADS -ah -ed $BCOL > ./build/logs/gcn_end2end.csv
+      $BINPATH/fused_gcn -dp $DATA/$line -nt $THREADS -ah -ed $BCOL > ./build/logs/gcn_end2end_$BCOL.csv
       header=0
     else
-      $BINPATH/fused_gcn -dp $DATA/$line -nt $THREADS -ed $BCOL >> ./build/logs/gcn_end2end.csv
+      $BINPATH/fused_gcn -dp $DATA/$line -nt $THREADS -ed $BCOL >> ./build/logs/gcn_end2end_$BCOL.csv
     fi
 done < $MATLIST
 
 source $SCRATCH/.virtualenvs/end2end/bin/activate
 
-python ./torch/gcn-training-example-pyg.py --hidden_channels $BCOL --threads $NUM_THREAD >> ./build/logs/gcn_end2end.csv
+python ./torch/gcn-training-example-pyg.py --hidden_channels $BCOL --threads $NUM_THREAD >> ./build/logs/gcn_end2end_$BCOL.csv

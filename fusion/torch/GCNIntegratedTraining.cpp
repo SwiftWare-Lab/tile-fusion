@@ -159,9 +159,9 @@ int main(const int argc, const char *argv[]) {
   }
   t1.stop();
   if (tp.print_header){
-    std::cout << "Impl, Graph, Time" << std::endl;
+    std::cout << "Impl,Graph,Time" << std::endl;
   }
-  std::cout << "TiledFused, " << tp._matrix_name << ", " << t1.printTimeCsv(0) << std::endl;
+  std::cout << "TiledFused," << tp._matrix_name << "," << t1.printTimeCsv(0) << std::endl;
   delete net;
   delete fusedCompSet;
 }
