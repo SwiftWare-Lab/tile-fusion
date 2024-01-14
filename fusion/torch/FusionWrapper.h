@@ -189,7 +189,7 @@ void forwardForOneLayerFusedParallelSeparatedAVX512(
               Output[ip + k] +=
                   Ax[j] * intermediateResult[Ai[j] * OutputChannelDim + k];
               outputVec = _mm512_fmadd_ps(axVec, irVec, outputVec);
-              _mm512_storeu_ps(Output + Ai[j] * OutputChannelDim + k, outputV);
+              _mm512_storeu_ps(Output + Ai[j] * OutputChannelDim + k, outputVec);
             }
           }
         }
