@@ -82,8 +82,7 @@ for ED in {16,128,256,512}; do
       $BINPATH/fused_gcn -dp $DATA/$line -nt $THREADS -ed $ED >> ./build/logs/gcn_end2end_$ED.csv
     fi
   done
+  source $SCRATCH/.virtualenvs/end2end/bin/activate
+  python ./torch/gcn-training-example-pyg.py --hidden_channels $ED --threads $THREADS >> ./build/logs/gcn_end2end_$ED.csv
+  deactivate
 done < $MATLIST
-
-source $SCRATCH/.virtualenvs/end2end/bin/activate
-
-python ./torch/gcn-training-example-pyg.py --hidden_channels $ED --threads $THREADS >> ./build/logs/gcn_end2end_$ED.csv
