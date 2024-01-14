@@ -105,7 +105,6 @@ void parse_args(const int Argc, const char **Argv, ScheduleParameters *Sp,
     Tp->_mode = "MTX";
     Tp->_matrix_name =
         Tp->e2e_data_path.substr(Tp->e2e_data_path.find_last_of("/\\") + 1);
-    std::cout << "Matrix name: " << Tp->_matrix_name << std::endl;
     Tp->_matrix_path = Tp->e2e_data_path + "/" + Tp->_matrix_name + ".mtx";
     Tp->_gnn_parameters_mode = "MTX";
   }

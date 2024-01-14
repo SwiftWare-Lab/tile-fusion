@@ -83,4 +83,4 @@ done < $MATLIST
 
 source $SCRATCH/.virtualenvs/end2end/bin/activate
 
-python ./torch/gcn-training-example-pyg.py --hidden_channels $BCOL --threads $NUM_THREAD
+python ./torch/gcn-training-example-pyg.py --hidden_channels $BCOL --threads $NUM_THREAD >> ./build/logs/gcn_end2end.csv

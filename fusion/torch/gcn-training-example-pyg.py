@@ -89,8 +89,6 @@ dataset_list = [
 for dataset in dataset_list:
     name = dataset.root.split('/')[-1]
     data = dataset[0].to(device)
-    print(data)
-    print(args.use_gdc)
     if args.use_gdc:
         transform = T.GDC(
             self_loop_weight=1,
