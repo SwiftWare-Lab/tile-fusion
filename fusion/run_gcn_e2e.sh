@@ -80,6 +80,7 @@ while read line; do
     else
       $BINPATH/fused_gcn -dp $DATA/$line -nt $THREADS -ed $ED >> ./build/logs/gcn_end2end_$ED.csv
     fi
+  done
 done < $MATLIST
 
 source $SCRATCH/.virtualenvs/end2end/bin/activate
