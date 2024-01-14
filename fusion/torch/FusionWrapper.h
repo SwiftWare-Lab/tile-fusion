@@ -154,8 +154,9 @@ void forwardForOneLayerFusedParallelSeparated(
       }
     }
   }
+  delete[] intermediateResult;
 }
-
+#ifdef  AVX512
 void forwardForOneLayerFusedParallelSeparatedAVX512(
     int M, int *Ap, int *Ai, float *Ax, int InputChannelDim,
     int OutputChannelDim, float *Features, float *Weight, float *Output,
@@ -197,6 +198,7 @@ void forwardForOneLayerFusedParallelSeparatedAVX512(
     }
   }
 }
+#endif
 
 void inputGradiantForOneLayerFusedParallelSeparated(
     int M, int *Ap, int *Ai, float *Ax, int InputChannelDim,

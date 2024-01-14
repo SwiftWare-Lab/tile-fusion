@@ -44,18 +44,18 @@ if(TARGET MKL::MKL)
             ${SYM_AGG}/include
             ${SYM_FUS}/include
     )
-    add_executable(wrapper_bench TorchWrapperBenchmark.cpp)
-    target_link_libraries(wrapper_bench PRIVATE
-            ${TORCH_LIBRARIES}
-            Python::Python
-            OpenMP::OpenMP_CXX
-            $<LINK_ONLY:MKL::MKL>
-            swbench::swbench
-            fusion)
-    target_include_directories(wrapper_bench PUBLIC
-            $<TARGET_PROPERTY:MKL::MKL,INTERFACE_INCLUDE_DIRECTORIES>
-            ${TORCH_INCLUDE_DIRS}
-    )
+#    add_executable(wrapper_bench TorchWrapperBenchmark.cpp)
+#    target_link_libraries(wrapper_bench PRIVATE
+#            ${TORCH_LIBRARIES}
+#            Python::Python
+#            OpenMP::OpenMP_CXX
+#            $<LINK_ONLY:MKL::MKL>
+#            swbench::swbench
+#            fusion)
+#    target_include_directories(wrapper_bench PUBLIC
+#            $<TARGET_PROPERTY:MKL::MKL,INTERFACE_INCLUDE_DIRECTORIES>
+#            ${TORCH_INCLUDE_DIRS}
+#    )
 #    target_compile_definitions(fused_gcn
 #            PRIVATE VERSION_INFO=${EXAMPLE_VERSION_INFO})
     #    set_property(TARGET example_app PROPERTY CXX_STANDARD 11)

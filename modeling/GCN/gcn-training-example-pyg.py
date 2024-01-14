@@ -31,7 +31,7 @@ args = parser.parse_args()
 # else:
 device = torch.device('cpu')
 torch.set_num_threads(args.threads)
-train_mask = range(140)
+train_mask = range(200)
 # init_wandb(
 #     name=f'GCN-{args.dataset}',
 #     lr=args.lr,
@@ -117,11 +117,11 @@ def test():
 
 best_val_acc = test_acc = 0
 times = []
-for epoch in range(1, 100):
+for epoch in range(0, 100):
     start = time.time()
-    loss = train()
-    log(Epoch=epoch, Loss=loss)
+    loss1 = train()
     times.append(time.time() - start)
+    log(Epoch=epoch, Loss=loss1)
 print(f'Median time per epoch: {torch.tensor(times).median():.4f}s')
 print(f'Total time: {torch.tensor(times).sum():.4f}s')
 print('total conv1 time: ', model.conv1_time)

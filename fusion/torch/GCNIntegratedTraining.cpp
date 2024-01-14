@@ -102,7 +102,7 @@ int main(const int argc, const char *argv[]) {
     }
   }
 //  std::cout << "Num Classes: " << numClasses << std::endl;
-  int trainSize = 139;
+  int trainSize = 200;
   torch::Tensor targets =
       torch::from_blob(labels, {long(aCSC->m)},  [](void* ptr){
             delete[] static_cast<long*>(ptr);
@@ -138,13 +138,21 @@ int main(const int argc, const char *argv[]) {
     // Reset gradients.
     optimizer.zero_grad();
     // Execute the model on the input data.
+//    swiftware::benchmark::Timer t2;
+//    t2.start();
     torch::Tensor prediction = net->forward(features, adj);
+//    t2.stop();
+//    std::cout << "backward time: " << t2.printTimeCsv(0) << std::endl;
     // Compute a loss value to judge the prediction of our model.
     auto loss = torch::cross_entropy_loss(prediction.slice(0, 0, trainSize),
                                           targets.slice(0, 0, trainSize));
     // Compute gradients of the loss w.r.t. the parameters of our model.
+//    swiftware::benchmark::Timer t3;
+//    t3.start();
     loss.backward();
-    // Update the parameters based on the calculated gradients.
+//    t3.stop();
+//    std::cout << "backward time: " << t3.printTimeCsv(0) << std::endl;
+//     Update the parameters based on the calculated gradients.
     optimizer.step();
 //    std::cout << "Epoch: " << epoch << " | Loss: " << loss.item<float>()
 //              << std::endl;
