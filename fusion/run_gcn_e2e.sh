@@ -72,15 +72,16 @@ export OMP_DYNAMIC=FALSE;
 header=1
 sr=1
 while read line; do
+  for ED in {16,128,256,512}; do
     echo "for $line $BCOL $ED $tn $mw"
     if [ $header -eq 1 ]; then
-      $BINPATH/fused_gcn -dp $DATA/$line -nt $THREADS -ah -ed $BCOL > ./build/logs/gcn_end2end_$BCOL.csv
+      $BINPATH/fused_gcn -dp $DATA/$line -nt $THREADS -ah -ed $ED > ./build/logs/gcn_end2end_$ED.csv
       header=0
     else
-      $BINPATH/fused_gcn -dp $DATA/$line -nt $THREADS -ed $BCOL >> ./build/logs/gcn_end2end_$BCOL.csv
+      $BINPATH/fused_gcn -dp $DATA/$line -nt $THREADS -ed $ED >> ./build/logs/gcn_end2end_$ED.csv
     fi
 done < $MATLIST
 
 source $SCRATCH/.virtualenvs/end2end/bin/activate
 
-python ./torch/gcn-training-example-pyg.py --hidden_channels $BCOL --threads $NUM_THREAD >> ./build/logs/gcn_end2end_$BCOL.csv
+python ./torch/gcn-training-example-pyg.py --hidden_channels $ED --threads $THREADS >> ./build/logs/gcn_end2end_$ED.csv
