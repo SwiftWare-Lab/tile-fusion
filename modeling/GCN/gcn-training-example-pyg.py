@@ -6,12 +6,16 @@ import torch
 import torch.nn.functional as F
 
 import torch_geometric.transforms as T
+from scipy.io import mmwrite
 from torch_geometric.datasets import Planetoid
+import torch_geometric.datasets as datasets
 from torch_geometric.logging import init_wandb, log
 from torch_geometric.nn import GCNConv
+import numpy as np
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset', type=str, default='Cora')
+parser.add_argument('--threads', type=int, default=8)
 parser.add_argument('--hidden_channels', type=int, default=16)
 parser.add_argument('--lr', type=float, default=0.01)
 parser.add_argument('--epochs', type=int, default=200)
@@ -19,24 +23,27 @@ parser.add_argument('--use_gdc', action='store_true', help='Use GDC')
 parser.add_argument('--wandb', action='store_true', help='Track experiment')
 args = parser.parse_args()
 
+
 # if torch.cuda.is_available():
 #     device = torch.device('cuda')
 # elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
 #     device = torch.device('mps')
 # else:
 device = torch.device('cpu')
+torch.set_num_threads(args.threads)
+train_mask = range(140)
+# init_wandb(
+#     name=f'GCN-{args.dataset}',
+#     lr=args.lr,
+#     epochs=args.epochs,
+#     hidden_channels=args.hidden_channels,
+#     device=device,
+# )
 
-init_wandb(
-    name=f'GCN-{args.dataset}',
-    lr=args.lr,
-    epochs=args.epochs,
-    hidden_channels=args.hidden_channels,
-    device=device,
-)
-
-path = osp.join(osp.dirname(osp.realpath(__file__)), '..', 'data', 'Planetoid')
-dataset = Planetoid(path, args.dataset, transform=T.NormalizeFeatures())
+path = osp.join(osp.dirname(osp.realpath(__file__)), '..', 'data', args.dataset)
+dataset = datasets.CoraFull(path, transform=T.NormalizeFeatures())
 data = dataset[0].to(device)
+print(data)
 print(args.use_gdc)
 if args.use_gdc:
     transform = T.GDC(
@@ -54,21 +61,24 @@ class GCN(torch.nn.Module):
     def __init__(self, in_channels, hidden_channels, out_channels):
         super().__init__()
         self.conv1 = GCNConv(in_channels, hidden_channels,
-                             normalize=not args.use_gdc)
-        self.conv2 = GCNConv(hidden_channels, out_channels,
-                             normalize=not args.use_gdc)
+                             bias=False)
+        self.conv2 = GCNConv(hidden_channels, out_channels, bias=False)
         self.conv1_time = 0
         self.conv2_time = 0
 
     def forward(self, x, edge_index, edge_weight=None):
-        x = F.dropout(x, p=0.5, training=self.training)
-        l1time = time.time()
-        x = self.conv1(x, edge_index, edge_weight).relu()
-        self.conv1_time += time.time() - l1time
-        x = F.dropout(x, p=0.5, training=self.training)
-        l2time = time.time()
+        # x = F.dropout(x, p=0.5, training=self.training)
+        x = self.conv1(x, edge_index, edge_weight)
+        # for param in self.conv1.parameters():
+        #     mmwrite('weight1.mtx', param.data.detach().numpy())
+        x = x.relu()
+        # mmwrite('output1.mtx', x.detach().numpy())
+        # x = F.dropout(x, p=0.5, training=self.training)x = F.dropout(x, p=0.5, training=self.training)
         x = self.conv2(x, edge_index, edge_weight)
-        self.conv2_time += time.time() - l2time
+        # for param in self.conv2.parameters():
+        #     mmwrite('weight2.mtx', param.data.detach().numpy())
+        # mmwrite('output2.mtx',x.detach().numpy() )
+
         return x
 
 
@@ -87,8 +97,8 @@ optimizer = torch.optim.Adam([
 def train():
     model.train()
     optimizer.zero_grad()
-    out = model(data.x, data.edge_index, data.edge_attr)
-    loss = F.cross_entropy(out[data.train_mask], data.y[data.train_mask])
+    out = model(data.x, data.edge_index)
+    loss = F.cross_entropy(out[train_mask], data.y[train_mask])
     loss.backward()
     optimizer.step()
     return float(loss)
@@ -107,15 +117,12 @@ def test():
 
 best_val_acc = test_acc = 0
 times = []
-for epoch in range(1, args.epochs + 1):
+for epoch in range(1, 100):
     start = time.time()
     loss = train()
-    train_acc, val_acc, tmp_test_acc = test()
-    if val_acc > best_val_acc:
-        best_val_acc = val_acc
-        test_acc = tmp_test_acc
-    log(Epoch=epoch, Loss=loss, Train=train_acc, Val=val_acc, Test=test_acc)
+    log(Epoch=epoch, Loss=loss)
     times.append(time.time() - start)
 print(f'Median time per epoch: {torch.tensor(times).median():.4f}s')
+print(f'Total time: {torch.tensor(times).sum():.4f}s')
 print('total conv1 time: ', model.conv1_time)
 print('total conv2 time: ', model.conv2_time)
