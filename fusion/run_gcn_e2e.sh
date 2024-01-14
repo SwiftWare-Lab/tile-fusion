@@ -80,3 +80,7 @@ while read line; do
       $BINPATH/fused_gcn -dp $DATA/$line -nt $THREADS -ed $BCOL >> ./build/logs/gcn_end2end.csv
     fi
 done < $MATLIST
+
+source $SCRATCH/.virtualenvs/end2end/bin/activate
+
+python ./torch/gcn-training-example-pyg.py --hidden_channels $BCOL --threads $NUM_THREAD
