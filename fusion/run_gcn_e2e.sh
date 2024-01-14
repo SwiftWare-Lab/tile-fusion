@@ -14,10 +14,10 @@ MODE="GCNWithDifferentFusionLevels"
 THREADS=8
 BCOL=100
 
-while getopts ":t:f:m:" arg; do
+while getopts ":t:e:m:" arg; do
 
   case "${arg}" in
-    f)
+    e)
       BCOL=$OPTARG
       ;;
     t)
@@ -74,9 +74,9 @@ sr=1
 while read line; do
     echo "for $line $BCOL $ED $tn $mw"
     if [ $header -eq 1 ]; then
-      $BINPATH/fused_gcn -dp $DATA/$line -nt $THREADS -ah -ed $ED > ./build/logs/gcn_end2end.csv
+      $BINPATH/fused_gcn -dp $DATA/$line -nt $THREADS -ah -ed $BCOL > ./build/logs/gcn_end2end.csv
       header=0
     else
-      $BINPATH/fused_gcn -dp $DATA/$line -nt $THREADS -ed $ED >> ./build/logs/gcn_end2end.csv
+      $BINPATH/fused_gcn -dp $DATA/$line -nt $THREADS -ed $BCOL >> ./build/logs/gcn_end2end.csv
     fi
 done < $MATLIST
