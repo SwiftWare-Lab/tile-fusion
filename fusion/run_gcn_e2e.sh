@@ -69,10 +69,11 @@ export OMP_DYNAMIC=FALSE;
 # echo "TEST"
 #fi
 
-header=1
+
 sr=1
-while read line; do
-  for ED in {16,128,256,512}; do
+for ED in {16,128,256,512}; do
+  header=1
+  while read line; do
     echo "for $line $BCOL $ED $tn $mw"
     if [ $header -eq 1 ]; then
       $BINPATH/fused_gcn -dp $DATA/$line -nt $THREADS -ah -ed $ED > ./build/logs/gcn_end2end_$ED.csv
