@@ -329,6 +329,17 @@ int main(const int argc, const char *argv[]){
 
   std::cout<<mklImplStat<<spStat+tpStat+profStat<<std::endl;
 #endif
+#if defined(__AVX512F__) || defined(__AVX2__)
+  stats = new swiftware::benchmark::Stats("SpMM_SpMM_FusedParallelVectorized","SpMM", 7,tp._matrix_name,numThread);
+  stats->OtherStats["PackingType"] = {Interleaved};
+  auto *fusedParallelVectorized = new SpMMSpMMFusedInterLayerVectorized(inSpMM, stats, sp);
+  fusedParallelVectorized->run();
+  //fusedParallel->OutTensor->printDx();
+  auto fusedParallelVectorizedStat = fusedParallelVectorized->printStats();
+  delete fusedParallelVectorized;
+  delete stats;
+  std::cout<<fusedParallelVectorizedStat<<spStat+tpStat+profStat<<std::endl;
+#endif
 //  sp._num_w_partition = 2;
 //  //print_csc(1,"",A_csc);
 //  auto *sf01 = new SparseFusion(&sp, 2);
