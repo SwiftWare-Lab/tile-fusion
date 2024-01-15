@@ -342,7 +342,6 @@ void spmmCsrSpmmCsrFusedVectorized(int M, int N, int K, int L,
             for (int j = Ap[i]; j < Ap[i + 1]; j++) {
               vectorCrossProduct128Avx512(Ax[j], Ai[j], Cx, ACx, N, i );
               }
-            }
           } else {
             for (int k = Bp[i]; k < Bp[i + 1]; k++) {
               vectorCrossProduct128Avx512(Bx[k], Bi[k], ACX, Dx, N, i );
