@@ -319,7 +319,7 @@ void vectorCrossProduct128Avx512(double Ax, int Ai, double* B, double* C, int N,
   }
 }
 
-void spmmCsrSpmmCsrFused(int M, int N, int K, int L,
+void spmmCsrSpmmCsrFusedVectorized(int M, int N, int K, int L,
                          const int *Ap, const int *Ai, const double *Ax,
                          const int *Bp, const int *Bi,const double *Bx,
                          const double *Cx,
