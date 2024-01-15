@@ -63,6 +63,17 @@ void spmmCsrSpmmCsrFused(int M, int N, int K,
                          int LevelNo, const int *LevelPtr, const int *ParPtr,
                          const int *Partition, const int *ParType,
                          int NThreads);
+#if defined(__AVX512F__) || defined(__AVX2__)
+void spmmCsrSpmmCsrFusedVectorized(int M, int N, int K, int L,
+                                   const int *Ap, const int *Ai, const double *Ax,
+                                   const int *Bp, const int *Bi,const double *Bx,
+                                   const double *Cx,
+                                   double *Dx,
+                                   double *ACx,
+                                   int LevelNo, const int *LevelPtr, const int *ParPtr,
+                                   const int *Partition, const int *ParType,
+                                   int NThreads);
+#endif
 void spmmCsrSpmmCsrFusedKTiled(int M, int N, int K, int L,
                                const int *Ap, const int *Ai, const double *Ax,
                                const int *Bp, const int *Bi,const double *Bx,
