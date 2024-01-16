@@ -245,6 +245,60 @@ void spmmCsrSpmmCsrFused(int M, int N, int K, int L,
 
 
 #ifdef __AVX512F__
+void vectorCrossProduct8Avx512(double Ax, int Ai, const double* B, double* C, int N, int I){
+  int bij = Ai * N;
+  auto bxV = _mm512_set1_pd(Ax);
+  int offset = N * I;
+
+  for (int kk = 0; kk < N; kk+=8) {
+    auto acxV1 = _mm512_loadu_pd(B + bij + kk);
+    auto dxV1 = _mm512_loadu_pd(C + offset + kk);
+    dxV1 = _mm512_fmadd_pd(bxV, acxV1, dxV1);
+    _mm512_storeu_pd(C + offset + kk, dxV1);
+  }
+}
+
+
+void vectorCrossProduct64Avx512(double Ax, int Ai, const double* B, double* C, int N, int I){
+  int bij = Ai * N;
+  auto bxV = _mm512_set1_pd(Ax);
+  int offset = N * I;
+
+  for (int kk = 0; kk < N; kk+=64) {
+    auto acxV1 = _mm512_loadu_pd(B + bij + kk);
+    auto dxV1 = _mm512_loadu_pd(C + offset + kk);
+    auto acxV2 = _mm512_loadu_pd(B + bij + kk + 8);
+    auto dxV2 = _mm512_loadu_pd(C + offset + kk + 8);
+    auto acxV3 = _mm512_loadu_pd(B + bij + kk + 16);
+    auto dxV3 = _mm512_loadu_pd(C + offset + kk + 16);
+    auto acxV4 = _mm512_loadu_pd(B + bij + kk + 24);
+    auto dxV4 = _mm512_loadu_pd(C + offset + kk + 24);
+    auto acxV5 = _mm512_loadu_pd(B + bij + kk + 32);
+    auto dxV5 = _mm512_loadu_pd(C + offset + kk+ 32);
+    auto acxV6 = _mm512_loadu_pd(B + bij + kk + 40);
+    auto dxV6 = _mm512_loadu_pd(C + offset + kk + 40);
+    auto acxV7 = _mm512_loadu_pd(B + bij + kk + 48);
+    auto dxV7 = _mm512_loadu_pd(C + offset + kk + 48);
+    auto acxV8 = _mm512_loadu_pd(B + bij + kk + 56);
+    auto dxV8 = _mm512_loadu_pd(C + offset + kk + 56);
+    dxV1 = _mm512_fmadd_pd(bxV, acxV1, dxV1);
+    dxV2 = _mm512_fmadd_pd(bxV, acxV2, dxV2);
+    dxV3 = _mm512_fmadd_pd(bxV, acxV3, dxV3);
+    dxV4 = _mm512_fmadd_pd(bxV, acxV4, dxV4);
+    dxV5 = _mm512_fmadd_pd(bxV, acxV5, dxV5);
+    dxV6 = _mm512_fmadd_pd(bxV, acxV6, dxV6);
+    dxV7 = _mm512_fmadd_pd(bxV, acxV7, dxV7);
+    dxV8 = _mm512_fmadd_pd(bxV, acxV8, dxV8);
+    _mm512_storeu_pd(C + offset + kk, dxV1);
+    _mm512_storeu_pd(C + offset + kk + 8, dxV2);
+    _mm512_storeu_pd(C + offset + kk + 16, dxV3);
+    _mm512_storeu_pd(C + offset + kk + 24, dxV4);
+    _mm512_storeu_pd(C + offset + kk + 32, dxV5);
+    _mm512_storeu_pd(C + offset + kk + 40, dxV6);
+    _mm512_storeu_pd(C + offset + kk + 48, dxV7);
+    _mm512_storeu_pd(C + offset + kk + 56, dxV8);
+  }
+}
 
 void vectorCrossProduct128Avx512(double Ax, int Ai, const double* B, double* C, int N, int I){
   int bij = Ai * N;
@@ -328,6 +382,16 @@ void spmmCsrSpmmCsrFusedVectorized(int M, int N, int K, int L,
                          int LevelNo, const int *LevelPtr, const int *ParPtr,
                          const int *Partition, const int *ParType,
                          int NThreads) {
+  void (*vectorCrossFunc)(double , int , const double* , double* , int , int );
+  if(N==128) {
+    vectorCrossFunc = vectorCrossProduct128Avx512;
+  }
+  else if(N==64){
+    vectorCrossFunc = vectorCrossProduct64Avx512;
+  }
+  else {
+    vectorCrossFunc = vectorCrossProduct8AVX512;
+  }
   pw_init_instruments;
   for (int i1 = 0; i1 < LevelNo; ++i1) {
 #pragma omp parallel num_threads(NThreads)
@@ -340,11 +404,11 @@ void spmmCsrSpmmCsrFusedVectorized(int M, int N, int K, int L,
           int t = ParType[k1];
           if (t == 0) {
             for (int j = Ap[i]; j < Ap[i + 1]; j++) {
-              vectorCrossProduct128Avx512(Ax[j], Ai[j], Cx, ACx, N, i );
+              vectorCrossFunc(Ax[j], Ai[j], Cx, ACx, N, i );
               }
           } else {
             for (int k = Bp[i]; k < Bp[i + 1]; k++) {
-              vectorCrossProduct128Avx512(Bx[k], Bi[k], ACx, Dx, N, i );
+              vectorCrossFunc(Bx[k], Bi[k], ACx, Dx, N, i );
             }
           }
         }
@@ -364,7 +428,6 @@ void spmmCsrSpmmCsrFusedVectorized(int M, int N, int K, int L,
                          int LevelNo, const int *LevelPtr, const int *ParPtr,
                          const int *Partition, const int *ParType,
                          int NThreads) {
-
   pw_init_instruments;
   for (int i1 = 0; i1 < LevelNo; ++i1) {
 #pragma omp parallel num_threads(NThreads)
