@@ -56,7 +56,7 @@ namespace sym_lib{
 
   ~MultiDimensionalSet() ;
 
-  int getNumberOfFusedNodes(CSR* L2Matrix);
+  int getNumberOfFusedNodes();
   void print();
   void print_3d();
   int *build_node_to_level();
