@@ -328,6 +328,15 @@ public:
 #if defined(__AVX512F__) || defined(__AVX2__)
 class SpMMSpMMFusedInterLayerVectorized : public SpMMSpMMFusedInterLayer {
 protected:
+  void (*spmmCsrSpmmCsrFusedVectorizedFunc)(int , int , int , int ,
+                                            const int *, const int *, const double *,
+                                            const int *, const int *,const double *,
+                                            const double *,
+                                            double *,
+                                            double *,
+                                            int , const int *, const int *,
+                                            const int *, const int *,
+                                            int );
   Timer execute() override {
     //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
     //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
@@ -349,7 +358,21 @@ protected:
 public:
   SpMMSpMMFusedInterLayerVectorized(TensorInputs<double> *In1, Stats *Stat1,
                           sym_lib::ScheduleParameters SpIn)
-      : SpMMSpMMFusedInterLayer(In1, Stat1, SpIn) {}
+      : SpMMSpMMFusedInterLayer(In1, Stat1, SpIn) {
+#if defined(__AVX512F__)
+    if(N==128) {
+      spmmCsrSpmmCsrFusedVectorizedFunc = swiftware::sparse::spmmCsrSpmmCsrFusedVectorized128;
+    }
+    else if(N==64){
+      spmmCsrSpmmCsrFusedVectorizedFunc = swiftware::sparse::spmmCsrSpmmCsrFusedVectorized64;
+    }
+    else {
+      spmmCsrSpmmCsrFusedVectorizedFunc = swiftware::sparse::spmmCsrSpmmCsrFusedVectorized8;
+    }
+#else
+    spmmCsrSpmmCsrFusedVectorizedFunc = swiftware::sparse::spmmCsrSpmmCsrFusedVectorized;
+  }
+#endif
 
 };
 #endif

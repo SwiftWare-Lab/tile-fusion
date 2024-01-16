@@ -374,25 +374,15 @@ inline void vectorCrossProduct128Avx512(double Ax, int Ai, const double* B, doub
   }
 }
 
-void spmmCsrSpmmCsrFusedVectorized(int M, int N, int K, int L,
-                         const int *Ap, const int *Ai, const double *Ax,
-                         const int *Bp, const int *Bi,const double *Bx,
-                         const double *Cx,
-                         double *Dx,
-                         double *ACx,
-                         int LevelNo, const int *LevelPtr, const int *ParPtr,
-                         const int *Partition, const int *ParType,
-                         int NThreads) {
-  void (*vectorCrossFunc)(double , int , const double* , double* , int , int );
-  if(N==128) {
-    vectorCrossFunc = vectorCrossProduct128Avx512;
-  }
-  else if(N==64){
-    vectorCrossFunc = vectorCrossProduct64Avx512;
-  }
-  else {
-    vectorCrossFunc = vectorCrossProduct8Avx512;
-  }
+void spmmCsrSpmmCsrFusedVectorized128(int M, int N, int K, int L,
+                                   const int *Ap, const int *Ai, const double *Ax,
+                                   const int *Bp, const int *Bi,const double *Bx,
+                                   const double *Cx,
+                                   double *Dx,
+                                   double *ACx,
+                                   int LevelNo, const int *LevelPtr, const int *ParPtr,
+                                   const int *Partition, const int *ParType,
+                                   int NThreads) {
   pw_init_instruments;
   for (int i1 = 0; i1 < LevelNo; ++i1) {
 #pragma omp parallel num_threads(NThreads)
@@ -405,11 +395,81 @@ void spmmCsrSpmmCsrFusedVectorized(int M, int N, int K, int L,
           int t = ParType[k1];
           if (t == 0) {
             for (int j = Ap[i]; j < Ap[i + 1]; j++) {
-              vectorCrossFunc(Ax[j], Ai[j], Cx, ACx, N, i );
-              }
+              vectorCrossProduct128Avx512(Ax[j], Ai[j], Cx, ACx, N, i );
+            }
           } else {
             for (int k = Bp[i]; k < Bp[i + 1]; k++) {
-              vectorCrossFunc(Bx[k], Bi[k], ACx, Dx, N, i );
+              vectorCrossProduct128Avx512(Bx[k], Bi[k], ACx, Dx, N, i );
+            }
+          }
+        }
+      }
+      pw_stop_instruments_loop(omp_get_thread_num());
+    }
+  }
+}
+
+void spmmCsrSpmmCsrFusedVectorized64(int M, int N, int K, int L,
+                                      const int *Ap, const int *Ai, const double *Ax,
+                                      const int *Bp, const int *Bi,const double *Bx,
+                                      const double *Cx,
+                                      double *Dx,
+                                      double *ACx,
+                                      int LevelNo, const int *LevelPtr, const int *ParPtr,
+                                      const int *Partition, const int *ParType,
+                                      int NThreads) {
+  pw_init_instruments;
+  for (int i1 = 0; i1 < LevelNo; ++i1) {
+#pragma omp parallel num_threads(NThreads)
+    {
+      pw_start_instruments_loop(omp_get_thread_num());
+#pragma omp  for
+      for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; ++j1) {
+        for (int k1 = ParPtr[j1]; k1 < ParPtr[j1 + 1]; ++k1) {
+          int i = Partition[k1];
+          int t = ParType[k1];
+          if (t == 0) {
+            for (int j = Ap[i]; j < Ap[i + 1]; j++) {
+              vectorCrossProduct64Avx512(Ax[j], Ai[j], Cx, ACx, N, i );
+            }
+          } else {
+            for (int k = Bp[i]; k < Bp[i + 1]; k++) {
+              vectorCrossProduct64Avx512(Bx[k], Bi[k], ACx, Dx, N, i );
+            }
+          }
+        }
+      }
+      pw_stop_instruments_loop(omp_get_thread_num());
+    }
+  }
+}
+
+void spmmCsrSpmmCsrFusedVectorized8(int M, int N, int K, int L,
+                                      const int *Ap, const int *Ai, const double *Ax,
+                                      const int *Bp, const int *Bi,const double *Bx,
+                                      const double *Cx,
+                                      double *Dx,
+                                      double *ACx,
+                                      int LevelNo, const int *LevelPtr, const int *ParPtr,
+                                      const int *Partition, const int *ParType,
+                                      int NThreads) {
+  pw_init_instruments;
+  for (int i1 = 0; i1 < LevelNo; ++i1) {
+#pragma omp parallel num_threads(NThreads)
+    {
+      pw_start_instruments_loop(omp_get_thread_num());
+#pragma omp  for
+      for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; ++j1) {
+        for (int k1 = ParPtr[j1]; k1 < ParPtr[j1 + 1]; ++k1) {
+          int i = Partition[k1];
+          int t = ParType[k1];
+          if (t == 0) {
+            for (int j = Ap[i]; j < Ap[i + 1]; j++) {
+              vectorCrossProduct8Avx512(Ax[j], Ai[j], Cx, ACx, N, i );
+            }
+          } else {
+            for (int k = Bp[i]; k < Bp[i + 1]; k++) {
+              vectorCrossProduct8Avx512(Bx[k], Bi[k], ACx, Dx, N, i );
             }
           }
         }
