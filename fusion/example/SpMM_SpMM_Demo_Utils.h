@@ -360,10 +360,10 @@ public:
                           sym_lib::ScheduleParameters SpIn)
       : SpMMSpMMFusedInterLayer(In1, Stat1, SpIn) {
 #if defined(__AVX512F__)
-    if(N==128) {
+    if(In1->N==128) {
       spmmCsrSpmmCsrFusedVectorizedFunc = swiftware::sparse::spmmCsrSpmmCsrFusedVectorized128;
     }
-    else if(N==64){
+    else if(In1->N==64){
       spmmCsrSpmmCsrFusedVectorizedFunc = swiftware::sparse::spmmCsrSpmmCsrFusedVectorized64;
     }
     else {
