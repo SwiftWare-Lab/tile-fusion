@@ -103,6 +103,7 @@ protected:
 
   void setup() override {
     this->St->OtherStats["NTile"] = {4};
+    this->St->OtherStats["Number of Fused Nodes"] = {0.};
   }
 
   void preExecute() override {}
@@ -284,6 +285,8 @@ protected:
     // sf01->print_final_list();
     auto pt = St->OtherStats["PackingType"];
     FusedCompSet = sf01->getFusedCompressed((int)pt[0]);
+    int fusedNodesNum = FusedCompSet->getNumberOfFusedNodes();
+    this->St->OtherStats["Number of Fused Nodes"] = {(double)fusedNodesNum};
     // FusedCompSet->print_3d();
     delete sf01;
     delete mvDAG;
