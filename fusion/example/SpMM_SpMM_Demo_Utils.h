@@ -427,8 +427,9 @@ public:
     }
 #else
     spmmCsrSpmmCsrFusedVectorizedFunc = swiftware::sparse::spmmCsrSpmmCsrFusedVectorized;
-  }
 #endif
+  }
+
 
 };
 #endif
