@@ -61,7 +61,7 @@ SCRIPTPATH=./scripts/
 if [ $ID -eq 0 ]; then
   MATLIST=$UFDB/mat_list.txt
 else
-  MATLIST=$UFDB/mat_list_$ID.txt
+  MATLIST=$UFDB/mat_list$ID.txt
 fi
 
 mkdir $LOGS
