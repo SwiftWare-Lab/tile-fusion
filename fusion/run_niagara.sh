@@ -16,7 +16,8 @@ UFDB=$SCRATCH/data/graphs/
 #UFDB=$HOME/UFDB/banded/
 
 BCOL=32
-while getopts ":lm:c:" arg; do
+ID=0
+while getopts ":lm:c:i:" arg; do
   case "${arg}" in
     l)
       TEST=1
@@ -26,6 +27,9 @@ while getopts ":lm:c:" arg; do
       ;;
     c)
       BCOL=$OPTARG
+      ;;
+    i)
+      ID=$OPTARG
       ;;
     *) echo "Usage:
     -l TEST=FALSE                                     Set if you want to run the script for one b_col
@@ -42,7 +46,7 @@ module load cmake
 #module load gcc
 
 if [ $TEST -eq 1 ]; then
-  bash run.sh -m $UFDB -c 8
+  bash run.sh -m $UFDB -c 8 -i $ID
 else
-  bash run.sh -t 20 -m $UFDB -c $BCOL
+  bash run.sh -t 20 -m $UFDB -c $BCOL -i $ID
 fi

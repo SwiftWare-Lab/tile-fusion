@@ -5,7 +5,8 @@ BCOL=4
 
 THRD=20
 DOWNLOAD=0
-while getopts ":t:dc:m:" arg; do
+ID=0
+while getopts ":t:dc:m:i:" arg; do
 
   case "${arg}" in
     c)
@@ -19,6 +20,9 @@ while getopts ":t:dc:m:" arg; do
       ;;
     d)
       DOWNLOAD=1
+      ;;
+    i)
+      ID=$OPTARG
       ;;
     *) echo "Usage:
     -c BCOL=4                                         num of the columns of the dense matrix
@@ -54,7 +58,11 @@ cd ..
 BINPATH=./build/example/
 LOGS=./build/logs/
 SCRIPTPATH=./scripts/
-MATLIST=$UFDB/mat_list.txt
+if [ $ID -eq 0 ]; then
+  MATLIST=$UFDB/mat_list.txt
+else
+  MATLIST=$UFDB/mat_list_$ID.txt
+fi
 
 mkdir $LOGS
 
