@@ -415,7 +415,7 @@ public:
   SpMMSpMMFusedInterLayerVectorized(TensorInputs<double> *In1, Stats *Stat1,
                           sym_lib::ScheduleParameters SpIn)
       : SpMMSpMMFusedInterLayer(In1, Stat1, SpIn) {
-#if defined(__AVX512F__)
+#ifdef __AVX512F__
     if(In1->N==128) {
       spmmCsrSpmmCsrFusedVectorizedFunc = swiftware::sparse::spmmCsrSpmmCsrFusedVectorized128;
     }
