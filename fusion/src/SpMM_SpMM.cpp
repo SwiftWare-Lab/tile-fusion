@@ -246,7 +246,7 @@ void spmmCsrSpmmCsrFused(int M, int N, int K, int L,
 
 #ifdef __AVX512F__
 
-void vectorCrossProduct8Avx512(double Ax, int Ai, const double* B, double* C, int N, int I){
+inline void vectorCrossProduct8Avx512(double Ax, int Ai, const double* B, double* C, int N, int I){
   int bij = Ai * N;
   auto bxV = _mm512_set1_pd(Ax);
   int offset = N * I;
@@ -260,7 +260,7 @@ void vectorCrossProduct8Avx512(double Ax, int Ai, const double* B, double* C, in
 }
 
 
-void vectorCrossProduct64Avx512(double Ax, int Ai, const double* B, double* C, int N, int I){
+inline void vectorCrossProduct64Avx512(double Ax, int Ai, const double* B, double* C, int N, int I){
   int bij = Ai * N;
   auto bxV = _mm512_set1_pd(Ax);
   int offset = N * I;
@@ -301,7 +301,7 @@ void vectorCrossProduct64Avx512(double Ax, int Ai, const double* B, double* C, i
   }
 }
 
-void vectorCrossProduct128Avx512(double Ax, int Ai, const double* B, double* C, int N, int I){
+inline void vectorCrossProduct128Avx512(double Ax, int Ai, const double* B, double* C, int N, int I){
   int bij = Ai * N;
   auto bxV = _mm512_set1_pd(Ax);
   int offset = N * I;
