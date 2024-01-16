@@ -5,7 +5,8 @@ BCOL=4
 EXP="spmm_spmm"
 THRD=20
 DOWNLOAD=0
-while getopts ":t:dc:m:e:" arg; do
+ID=0
+while getopts ":t:dc:m:i:e:" arg; do
 
   case "${arg}" in
     c)
@@ -19,6 +20,9 @@ while getopts ":t:dc:m:e:" arg; do
       ;;
     d)
       DOWNLOAD=1
+      ;;
+    i)
+      ID=$OPTARG
       ;;
     e)
       EXP=$OPTARG
@@ -71,7 +75,11 @@ cd ..
 DATE=$(date -d "today" +"%Y%m%d%H%M")
 LOGS="./build/logs-${DATE}/"
 SCRIPTPATH=./scripts/
-MATLIST=$UFDB/mat_list.txt
+if [ $ID -eq 0 ]; then
+  MATLIST=$UFDB/mat_list.txt
+else
+  MATLIST=$UFDB/mat_list_$ID.txt
+fi
 
 mkdir $LOGS
 
