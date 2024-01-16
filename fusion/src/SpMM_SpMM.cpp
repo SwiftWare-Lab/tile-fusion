@@ -245,6 +245,7 @@ void spmmCsrSpmmCsrFused(int M, int N, int K, int L,
 
 
 #ifdef __AVX512F__
+
 void vectorCrossProduct8Avx512(double Ax, int Ai, const double* B, double* C, int N, int I){
   int bij = Ai * N;
   auto bxV = _mm512_set1_pd(Ax);
@@ -390,7 +391,7 @@ void spmmCsrSpmmCsrFusedVectorized(int M, int N, int K, int L,
     vectorCrossFunc = vectorCrossProduct64Avx512;
   }
   else {
-    vectorCrossFunc = vectorCrossProduct8AVX512;
+    vectorCrossFunc = vectorCrossProduct8Avx512;
   }
   pw_init_instruments;
   for (int i1 = 0; i1 < LevelNo; ++i1) {
