@@ -343,7 +343,7 @@ protected:
     OutTensor->reset();
     Timer t;
     t.start();
-    swiftware::sparse::spmmCsrSpmmCsrFusedVectorized(
+    spmmCsrSpmmCsrFusedVectorizedFunc(
         InTensor->M, InTensor->N, InTensor->K, InTensor->L, InTensor->ACsr->p,
         InTensor->ACsr->i, InTensor->ACsr->x, InTensor->BCsr->p,
         InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Cx, OutTensor->Dx,
