@@ -1265,9 +1265,10 @@ protected:
   }
 
 public:
-  SpMMParallelVectorizedUnroll48(TensorInputs<double> *In1, Stats *Stat1, sym_lib::ScheduleParameters Sp1)
+  SpMMParallelVectorizedAVX512_128(TensorInputs<double> *In1, Stats *Stat1, sym_lib::ScheduleParameters Sp1)
       : SpMMSpMMUnFused(In1, Stat1), Sp(Sp1) {}
 };
+
 #endif
 #ifdef __AVX2__
 class SpMMParallelVectorizedUnroll48: public SpMMSpMMUnFused {
