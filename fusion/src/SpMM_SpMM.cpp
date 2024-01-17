@@ -10,16 +10,15 @@
 #endif
 #include <cassert>
 #include <cstring>
+#include <immintrin.h>
 #include <iostream>
 #include <omp.h>
-#include <immintrin.h>
 namespace swiftware {
 namespace sparse {
 
 /// C = A*B, where A is sparse CSR MxK and B (K x N) and C (MxN) are Dense
-void spmmCsrSequential(int M, int N, int K,
-                       const int *Ap, const int *Ai, const double *Ax,
-                       const double *Bx, double *Cx){
+void spmmCsrSequential(int M, int N, int K, const int *Ap, const int *Ai,
+                       const double *Ax, const double *Bx, double *Cx) {
   for (int i = 0; i < M; ++i) {
     for (int j = Ap[i]; j < Ap[i + 1]; ++j) {
       int aij = Ai[j] * N;
@@ -31,11 +30,9 @@ void spmmCsrSequential(int M, int N, int K,
   }
 }
 
-
-
-void spmmCsrParallel(int M, int N, int K,
-                     const int *Ap, const int *Ai, const double *Ax,
-                     const double *Bx, double *Cx, int NThreads) {
+void spmmCsrParallel(int M, int N, int K, const int *Ap, const int *Ai,
+                     const double *Ax, const double *Bx, double *Cx,
+                     int NThreads) {
   pw_init_instruments;
 #pragma omp parallel num_threads(NThreads)
   {
@@ -53,27 +50,27 @@ void spmmCsrParallel(int M, int N, int K,
   }
 }
 
-void spmmCsrParallelTiled(int M, int N, int K,
-                          const int *Ap, const int *Ai, const double *Ax,
-                          const double *Bx, double *Cx, int NThreads,
-                          int MTile, int NTile) {
+void spmmCsrParallelTiled(int M, int N, int K, const int *Ap, const int *Ai,
+                          const double *Ax, const double *Bx, double *Cx,
+                          int NThreads, int MTile, int NTile) {
   int mBound = M - M % MTile;
-  int nt=0;
+  int nt = 0;
 #pragma omp parallel num_threads(NThreads)
   { nt = omp_get_num_threads(); }
-  auto *cxBufAll = new double[MTile * NTile * nt ]();
-  //omp_set_nested(1);
+  auto *cxBufAll = new double[MTile * NTile * nt]();
+  // omp_set_nested(1);
 
   pw_init_instruments;
 #pragma omp parallel num_threads(NThreads)
   {
     pw_start_instruments_loop(omp_get_thread_num());
 #pragma omp for
-    for (int ii = 0; ii < mBound; ii+=MTile) {
-      for (int kk = 0; kk < N; kk+=NTile) {
+    for (int ii = 0; ii < mBound; ii += MTile) {
+      for (int kk = 0; kk < N; kk += NTile) {
         // print the thread id
-        //std::cout << "------------- Thread " << omp_get_thread_num() << " is doing " << ii << " " << kk << std::endl;
-        //assert(omp_get_thread_num() < nt);
+        // std::cout << "------------- Thread " << omp_get_thread_num() << " is
+        // doing " << ii << " " << kk << std::endl; assert(omp_get_thread_num()
+        // < nt);
         auto *cxBuf = cxBufAll + omp_get_thread_num() * MTile * NTile;
         for (int i = 0; i < MTile; ++i) {
           for (int j = Ap[ii + i]; j < Ap[ii + i + 1]; ++j) {
@@ -95,7 +92,7 @@ void spmmCsrParallelTiled(int M, int N, int K,
         //          for (int j = Ap[i]; j < Ap[i + 1]; ++j) {
         //            int aij = Ai[j] * N;
         //            for (int k = kk; k < kk + NTile; ++k) {
-        //              Bx[i * N + k] += Ax[j] * Bx[aij + k];
+        //              Cx[i * N + k] += Ax[j] * Bx[aij + k];
         //            }
         //          }
         //        }
@@ -112,12 +109,11 @@ void spmmCsrParallelTiled(int M, int N, int K,
       }
     }
   }
-  delete [] cxBufAll;
+  delete[] cxBufAll;
 }
 
-
-void spmmCsrInnerProductParallel(int M, int N, int K,
-                                 const int *Ap, const int *Ai, const double *Ax,
+void spmmCsrInnerProductParallel(int M, int N, int K, const int *Ap,
+                                 const int *Ai, const double *Ax,
                                  const double *Bx, double *Cx, int NThreads) {
   pw_init_instruments;
 #pragma omp parallel num_threads(NThreads)
@@ -129,7 +125,7 @@ void spmmCsrInnerProductParallel(int M, int N, int K,
         auto cik = Cx[i * N + k];
         for (int j = Ap[i]; j < Ap[i + 1]; ++j) {
           int aij = Ai[j] * N;
-          cik += Ax[j] * Bx[aij + k];// C[i][k] += A[i][j] * B[j][k];
+          cik += Ax[j] * Bx[aij + k]; // C[i][k] += A[i][j] * B[j][k];
         }
         Cx[i * N + k] = cik;
       }
@@ -138,11 +134,10 @@ void spmmCsrInnerProductParallel(int M, int N, int K,
   }
 }
 
-
-void spmmCsrInnerProductTiledCParallel(int M, int N, int K,
-                                       const int *Ap, const int *Ai, const double *Ax,
-                                       const double *Bx, double *Cx, int NThreads
-                                       ,int MTile, int NTile) {
+void spmmCsrInnerProductTiledCParallel(int M, int N, int K, const int *Ap,
+                                       const int *Ai, const double *Ax,
+                                       const double *Bx, double *Cx,
+                                       int NThreads, int MTile, int NTile) {
   auto *cTile = new double[MTile * NTile]();
   int nTailBeg = N - (N % NTile), mTailBeg = M - (M % MTile);
   pw_init_instruments;
@@ -155,19 +150,19 @@ void spmmCsrInnerProductTiledCParallel(int M, int N, int K,
         // perform computation per C tile
         for (int ii = 0; ii < MTile; ii++) {
           for (int kk = 0; kk < NTile; kk++) {
-            auto cik = 0;//cTile[ii * NTile + kk];
+            auto cik = 0; // cTile[ii * NTile + kk];
             for (int j = Ap[i + ii]; j < Ap[i + ii + 1]; ++j) {
               int aij = Ai[j] * N;
               cik += Ax[j] * Bx[aij + k + kk]; // C[i][k] += A[i][j] * B[j][k];
             }
             Cx[(i + ii) * N + (k + kk)] += cik;
-            //cTile[ii * NTile + kk] += cik;
+            // cTile[ii * NTile + kk] += cik;
           }
         }
         // copy ctile to C
         //        for (int ii = 0; ii < MTile; ii++) {
         //          for (int kk = 0; kk < NTile; kk++) {
-        //            Bx[(i + ii) * N + (k + kk)] += cTile[ii * NTile + kk];
+        //            Cx[(i + ii) * N + (k + kk)] += cTile[ii * NTile + kk];
         //            cTile[ii * NTile + kk] = 0;
         //          }
         //        }
@@ -175,12 +170,12 @@ void spmmCsrInnerProductTiledCParallel(int M, int N, int K,
       // tail iterations for k
       for (int ii = 0; ii < MTile; ii++) {
         for (int k = nTailBeg; k < N; ++k) {
-          auto cik = 0;//Bx[(i+ii) * N + k];
-          for (int j = Ap[i+ii]; j < Ap[i + ii + 1]; ++j) {
+          auto cik = 0; // Cx[(i+ii) * N + k];
+          for (int j = Ap[i + ii]; j < Ap[i + ii + 1]; ++j) {
             int aij = Ai[j] * N;
             cik += Ax[j] * Bx[aij + k]; // C[i][k] += A[i][j] * B[j][k];
           }
-          Cx[(i+ii) * N + k] += cik;
+          Cx[(i + ii) * N + k] += cik;
         }
       }
     }
@@ -188,7 +183,7 @@ void spmmCsrInnerProductTiledCParallel(int M, int N, int K,
   }
   // tail iterations for i
 #pragma omp parallel for num_threads(NThreads)
-  for (int i = mTailBeg; i < M; i++){
+  for (int i = mTailBeg; i < M; i++) {
     for (int k = 0; k < N; ++k) {
       auto cik = Cx[i * N + k];
       for (int j = Ap[i]; j < Ap[i + 1]; ++j) {
@@ -202,13 +197,11 @@ void spmmCsrInnerProductTiledCParallel(int M, int N, int K,
 }
 
 /// D = B*A*C
-void spmmCsrSpmmCsrFused(int M, int N, int K, int L,
-                         const int *Ap, const int *Ai, const double *Ax,
-                         const int *Bp, const int *Bi,const double *Bx,
-                         const double *Cx,
-                         double *Dx,
-                         double *ACx,
-                         int LevelNo, const int *LevelPtr, const int *ParPtr,
+void spmmCsrSpmmCsrFused(int M, int N, int K, int L, const int *Ap,
+                         const int *Ai, const double *Ax, const int *Bp,
+                         const int *Bi, const double *Bx, const double *Cx,
+                         double *Dx, double *ACx, int LevelNo,
+                         const int *LevelPtr, const int *ParPtr,
                          const int *Partition, const int *ParType,
                          int NThreads) {
   pw_init_instruments;
@@ -216,7 +209,7 @@ void spmmCsrSpmmCsrFused(int M, int N, int K, int L,
 #pragma omp parallel num_threads(NThreads)
     {
       pw_start_instruments_loop(omp_get_thread_num());
-#pragma omp  for
+#pragma omp for
       for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; ++j1) {
         for (int k1 = ParPtr[j1]; k1 < ParPtr[j1 + 1]; ++k1) {
           int i = Partition[k1];
@@ -243,15 +236,15 @@ void spmmCsrSpmmCsrFused(int M, int N, int K, int L,
   }
 }
 
-
 #ifdef __AVX512F__
 
-inline void vectorCrossProduct8Avx512(double Ax, int Ai, const double* B, double* C, int N, int I){
+inline void vectorCrossProduct8Avx512(double Ax, int Ai, const double *B,
+                                      double *C, int N, int I) {
   int bij = Ai * N;
   auto bxV = _mm512_set1_pd(Ax);
   int offset = N * I;
 
-  for (int kk = 0; kk < N; kk+=8) {
+  for (int kk = 0; kk < N; kk += 8) {
     auto acxV1 = _mm512_loadu_pd(B + bij + kk);
     auto dxV1 = _mm512_loadu_pd(C + offset + kk);
     dxV1 = _mm512_fmadd_pd(bxV, acxV1, dxV1);
@@ -259,13 +252,13 @@ inline void vectorCrossProduct8Avx512(double Ax, int Ai, const double* B, double
   }
 }
 
-
-inline void vectorCrossProduct64Avx512(double Ax, int Ai, const double* B, double* C, int N, int I){
+inline void vectorCrossProduct64Avx512(double Ax, int Ai, const double *B,
+                                       double *C, int N, int I) {
   int bij = Ai * N;
   auto bxV = _mm512_set1_pd(Ax);
   int offset = N * I;
 
-  for (int kk = 0; kk < N; kk+=64) {
+  for (int kk = 0; kk < N; kk += 64) {
     auto acxV1 = _mm512_loadu_pd(B + bij + kk);
     auto dxV1 = _mm512_loadu_pd(C + offset + kk);
     auto acxV2 = _mm512_loadu_pd(B + bij + kk + 8);
@@ -275,7 +268,7 @@ inline void vectorCrossProduct64Avx512(double Ax, int Ai, const double* B, doubl
     auto acxV4 = _mm512_loadu_pd(B + bij + kk + 24);
     auto dxV4 = _mm512_loadu_pd(C + offset + kk + 24);
     auto acxV5 = _mm512_loadu_pd(B + bij + kk + 32);
-    auto dxV5 = _mm512_loadu_pd(C + offset + kk+ 32);
+    auto dxV5 = _mm512_loadu_pd(C + offset + kk + 32);
     auto acxV6 = _mm512_loadu_pd(B + bij + kk + 40);
     auto dxV6 = _mm512_loadu_pd(C + offset + kk + 40);
     auto acxV7 = _mm512_loadu_pd(B + bij + kk + 48);
@@ -301,11 +294,11 @@ inline void vectorCrossProduct64Avx512(double Ax, int Ai, const double* B, doubl
   }
 }
 
-inline void vectorCrossProduct128Avx512(double Ax, int Ai, const double* B, double* C, int N, int I){
+inline void vectorCrossProduct128Avx512(double Ax, int Ai, const double *B,
+                                        double *C, int N, int I) {
   int bij = Ai * N;
   auto bxV = _mm512_set1_pd(Ax);
-  int offset = N * I
-  auto acxV1 = _mm512_loadu_pd(B + bij + kk);
+  int offset = N *I auto acxV1 = _mm512_loadu_pd(B + bij + kk);
   auto dxV1 = _mm512_loadu_pd(C + offset + kk);
   auto acxV2 = _mm512_loadu_pd(B + bij + kk + 8);
   auto dxV2 = _mm512_loadu_pd(C + offset + kk + 8);
@@ -314,7 +307,7 @@ inline void vectorCrossProduct128Avx512(double Ax, int Ai, const double* B, doub
   auto acxV4 = _mm512_loadu_pd(B + bij + kk + 24);
   auto dxV4 = _mm512_loadu_pd(C + offset + kk + 24);
   auto acxV5 = _mm512_loadu_pd(B + bij + kk + 32);
-  auto dxV5 = _mm512_loadu_pd(C + offset + kk+ 32);
+  auto dxV5 = _mm512_loadu_pd(C + offset + kk + 32);
   auto acxV6 = _mm512_loadu_pd(B + bij + kk + 40);
   auto dxV6 = _mm512_loadu_pd(C + offset + kk + 40);
   auto acxV7 = _mm512_loadu_pd(B + bij + kk + 48);
@@ -361,42 +354,38 @@ inline void vectorCrossProduct128Avx512(double Ax, int Ai, const double* B, doub
   _mm512_storeu_pd(C + offset + kk + 88, dxV12);
   _mm512_storeu_pd(C + offset + kk + 96, dxV13);
   _mm512_storeu_pd(C + offset + kk + 104, dxV14);
-    auto acxV1 = _mm512_loadu_pd(B + bij + kk + 112);
-    auto dxV1 = _mm512_loadu_pd(C + offset + kk + 112);
-    auto acxV2 = _mm512_loadu_pd(B + bij + kk + 120);
-    auto dxV2 = _mm512_loadu_pd(C + offset + kk + 120);
-    dxV1 = _mm512_fmadd_pd(bxV, acxV1, dxV1);
-    dxV2 = _mm512_fmadd_pd(bxV, acxV2, dxV2);
-    _mm512_storeu_pd(C + offset + kk + 112, dxV1);
-    _mm512_storeu_pd(C + offset + kk + 120, dxV2);
+  auto acxV1 = _mm512_loadu_pd(B + bij + kk + 112);
+  auto dxV1 = _mm512_loadu_pd(C + offset + kk + 112);
+  auto acxV2 = _mm512_loadu_pd(B + bij + kk + 120);
+  auto dxV2 = _mm512_loadu_pd(C + offset + kk + 120);
+  dxV1 = _mm512_fmadd_pd(bxV, acxV1, dxV1);
+  dxV2 = _mm512_fmadd_pd(bxV, acxV2, dxV2);
+  _mm512_storeu_pd(C + offset + kk + 112, dxV1);
+  _mm512_storeu_pd(C + offset + kk + 120, dxV2);
 }
 
-void spmmCsrSpmmCsrFusedVectorized128(int M, int N, int K, int L,
-                                   const int *Ap, const int *Ai, const double *Ax,
-                                   const int *Bp, const int *Bi,const double *Bx,
-                                   const double *Cx,
-                                   double *Dx,
-                                   double *ACx,
-                                   int LevelNo, const int *LevelPtr, const int *ParPtr,
-                                   const int *Partition, const int *ParType,
-                                   int NThreads) {
+void spmmCsrSpmmCsrFusedVectorized128(
+    int M, int N, int K, int L, const int *Ap, const int *Ai, const double *Ax,
+    const int *Bp, const int *Bi, const double *Bx, const double *Cx,
+    double *Dx, double *ACx, int LevelNo, const int *LevelPtr,
+    const int *ParPtr, const int *Partition, const int *ParType, int NThreads) {
   pw_init_instruments;
   for (int i1 = 0; i1 < LevelNo; ++i1) {
 #pragma omp parallel num_threads(NThreads)
     {
       pw_start_instruments_loop(omp_get_thread_num());
-#pragma omp  for
+#pragma omp for
       for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; ++j1) {
         for (int k1 = ParPtr[j1]; k1 < ParPtr[j1 + 1]; ++k1) {
           int i = Partition[k1];
           int t = ParType[k1];
           if (t == 0) {
             for (int j = Ap[i]; j < Ap[i + 1]; j++) {
-              vectorCrossProduct128Avx512(Ax[j], Ai[j], Cx, ACx, N, i );
+              vectorCrossProduct128Avx512(Ax[j], Ai[j], Cx, ACx, N, i);
             }
           } else {
             for (int k = Bp[i]; k < Bp[i + 1]; k++) {
-              vectorCrossProduct128Avx512(Bx[k], Bi[k], ACx, Dx, N, i );
+              vectorCrossProduct128Avx512(Bx[k], Bi[k], ACx, Dx, N, i);
             }
           }
         }
@@ -406,32 +395,28 @@ void spmmCsrSpmmCsrFusedVectorized128(int M, int N, int K, int L,
   }
 }
 
-void spmmCsrSpmmCsrFusedVectorized64(int M, int N, int K, int L,
-                                      const int *Ap, const int *Ai, const double *Ax,
-                                      const int *Bp, const int *Bi,const double *Bx,
-                                      const double *Cx,
-                                      double *Dx,
-                                      double *ACx,
-                                      int LevelNo, const int *LevelPtr, const int *ParPtr,
-                                      const int *Partition, const int *ParType,
-                                      int NThreads) {
+void spmmCsrSpmmCsrFusedVectorized64(
+    int M, int N, int K, int L, const int *Ap, const int *Ai, const double *Ax,
+    const int *Bp, const int *Bi, const double *Bx, const double *Cx,
+    double *Dx, double *ACx, int LevelNo, const int *LevelPtr,
+    const int *ParPtr, const int *Partition, const int *ParType, int NThreads) {
   pw_init_instruments;
   for (int i1 = 0; i1 < LevelNo; ++i1) {
 #pragma omp parallel num_threads(NThreads)
     {
       pw_start_instruments_loop(omp_get_thread_num());
-#pragma omp  for
+#pragma omp for
       for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; ++j1) {
         for (int k1 = ParPtr[j1]; k1 < ParPtr[j1 + 1]; ++k1) {
           int i = Partition[k1];
           int t = ParType[k1];
           if (t == 0) {
             for (int j = Ap[i]; j < Ap[i + 1]; j++) {
-              vectorCrossProduct64Avx512(Ax[j], Ai[j], Cx, ACx, N, i );
+              vectorCrossProduct64Avx512(Ax[j], Ai[j], Cx, ACx, N, i);
             }
           } else {
             for (int k = Bp[i]; k < Bp[i + 1]; k++) {
-              vectorCrossProduct64Avx512(Bx[k], Bi[k], ACx, Dx, N, i );
+              vectorCrossProduct64Avx512(Bx[k], Bi[k], ACx, Dx, N, i);
             }
           }
         }
@@ -441,32 +426,28 @@ void spmmCsrSpmmCsrFusedVectorized64(int M, int N, int K, int L,
   }
 }
 
-void spmmCsrSpmmCsrFusedVectorized8(int M, int N, int K, int L,
-                                      const int *Ap, const int *Ai, const double *Ax,
-                                      const int *Bp, const int *Bi,const double *Bx,
-                                      const double *Cx,
-                                      double *Dx,
-                                      double *ACx,
-                                      int LevelNo, const int *LevelPtr, const int *ParPtr,
-                                      const int *Partition, const int *ParType,
-                                      int NThreads) {
+void spmmCsrSpmmCsrFusedVectorized8(
+    int M, int N, int K, int L, const int *Ap, const int *Ai, const double *Ax,
+    const int *Bp, const int *Bi, const double *Bx, const double *Cx,
+    double *Dx, double *ACx, int LevelNo, const int *LevelPtr,
+    const int *ParPtr, const int *Partition, const int *ParType, int NThreads) {
   pw_init_instruments;
   for (int i1 = 0; i1 < LevelNo; ++i1) {
 #pragma omp parallel num_threads(NThreads)
     {
       pw_start_instruments_loop(omp_get_thread_num());
-#pragma omp  for
+#pragma omp for
       for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; ++j1) {
         for (int k1 = ParPtr[j1]; k1 < ParPtr[j1 + 1]; ++k1) {
           int i = Partition[k1];
           int t = ParType[k1];
           if (t == 0) {
             for (int j = Ap[i]; j < Ap[i + 1]; j++) {
-              vectorCrossProduct8Avx512(Ax[j], Ai[j], Cx, ACx, N, i );
+              vectorCrossProduct8Avx512(Ax[j], Ai[j], Cx, ACx, N, i);
             }
           } else {
             for (int k = Bp[i]; k < Bp[i + 1]; k++) {
-              vectorCrossProduct8Avx512(Bx[k], Bi[k], ACx, Dx, N, i );
+              vectorCrossProduct8Avx512(Bx[k], Bi[k], ACx, Dx, N, i);
             }
           }
         }
@@ -475,23 +456,20 @@ void spmmCsrSpmmCsrFusedVectorized8(int M, int N, int K, int L,
     }
   }
 }
-#elif __AVX2__
+#endif
+#ifdef __AVX2__
 
-void spmmCsrSpmmCsrFusedVectorized(int M, int N, int K, int L,
-                         const int *Ap, const int *Ai, const double *Ax,
-                         const int *Bp, const int *Bi,const double *Bx,
-                         const double *Cx,
-                         double *Dx,
-                         double *ACx,
-                         int LevelNo, const int *LevelPtr, const int *ParPtr,
-                         const int *Partition, const int *ParType,
-                         int NThreads) {
+void spmmCsrSpmmCsrFusedVectorized(
+    int M, int N, int K, int L, const int *Ap, const int *Ai, const double *Ax,
+    const int *Bp, const int *Bi, const double *Bx, const double *Cx,
+    double *Dx, double *ACx, int LevelNo, const int *LevelPtr,
+    const int *ParPtr, const int *Partition, const int *ParType, int NThreads) {
   pw_init_instruments;
   for (int i1 = 0; i1 < LevelNo; ++i1) {
 #pragma omp parallel num_threads(NThreads)
     {
       pw_start_instruments_loop(omp_get_thread_num());
-#pragma omp  for
+#pragma omp for
       for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; ++j1) {
         for (int k1 = ParPtr[j1]; k1 < ParPtr[j1 + 1]; ++k1) {
           int i = Partition[k1];
@@ -500,30 +478,30 @@ void spmmCsrSpmmCsrFusedVectorized(int M, int N, int K, int L,
             for (int j = Ap[i]; j < Ap[i + 1]; j++) {
               int aij = Ai[j] * N;
               auto axV = _mm256_set1_pd(Ax[j]);
-              for (int kk = 0; kk < N; kk+=8) {
+              for (int kk = 0; kk < N; kk += 8) {
                 auto cxV = _mm256_loadu_pd(Cx + aij + kk);
-                auto acxV = _mm256_loadu_pd(ACx + i*N + kk);
-                auto cxV2 = _mm256_loadu_pd(Cx + aij + kk+4);
-                auto acxV2 = _mm256_loadu_pd(ACx + i*N + kk+4);
+                auto acxV = _mm256_loadu_pd(ACx + i * N + kk);
+                auto cxV2 = _mm256_loadu_pd(Cx + aij + kk + 4);
+                auto acxV2 = _mm256_loadu_pd(ACx + i * N + kk + 4);
                 acxV = _mm256_fmadd_pd(axV, cxV, acxV);
                 acxV2 = _mm256_fmadd_pd(axV, cxV2, acxV2);
-                _mm256_storeu_pd(ACx + i*N + kk, acxV);
-                _mm256_storeu_pd(ACx + i*N + kk + 4, acxV2);
+                _mm256_storeu_pd(ACx + i * N + kk, acxV);
+                _mm256_storeu_pd(ACx + i * N + kk + 4, acxV2);
               }
             }
           } else {
             for (int k = Bp[i]; k < Bp[i + 1]; k++) {
               int bij = Bi[k] * N;
               auto bxV = _mm256_set1_pd(Bx[k]);
-              for (int kk = 0; kk < N; kk+=4) {
+              for (int kk = 0; kk < N; kk += 4) {
                 auto acxV = _mm256_loadu_pd(ACx + bij + kk);
-                auto dxV = _mm256_loadu_pd(Dx + i*N + kk);
-                auto acxV2 = _mm256_loadu_pd(ACx + bij + kk+4);
-                auto dxV2 = _mm256_loadu_pd(Dx + i*N + kk+4);
+                auto dxV = _mm256_loadu_pd(Dx + i * N + kk);
+                auto acxV2 = _mm256_loadu_pd(ACx + bij + kk + 4);
+                auto dxV2 = _mm256_loadu_pd(Dx + i * N + kk + 4);
                 dxV = _mm256_fmadd_pd(bxV, acxV, dxV);
                 dxV2 = _mm256_fmadd_pd(bxV, acxV2, dxV2);
-                _mm256_storeu_pd(Dx + i*N + kk, dxV);
-                _mm256_storeu_pd(Dx + i*N + kk + 4, dxV2);
+                _mm256_storeu_pd(Dx + i * N + kk, dxV);
+                _mm256_storeu_pd(Dx + i * N + kk + 4, dxV2);
               }
             }
           }
@@ -534,24 +512,200 @@ void spmmCsrSpmmCsrFusedVectorized(int M, int N, int K, int L,
   }
 }
 
+void spmm8CsrVectorizedUnrollJ4(int M, int N, const int *Ap,
+                        const int *Ai, const double *Ax, const double *Cx,
+                        double *ACx, int TileSize, int NThreads) {
+  pw_init_instruments;
+#pragma omp parallel num_threads(NThreads)
+  {
+    pw_start_instruments_loop(omp_get_thread_num());
+#pragma omp for
+    for (int ii = 0; ii < M; ii+=TileSize) {
+      for (int i = ii; i < ii + TileSize && i < M; i++) {
+        int j = Ap[i];
+        for (; j < Ap[i + 1]-3; j+=4) {
+          auto a = _mm256_castsi256_pd(_mm256_lddqu_si256(
+              reinterpret_cast<const __m256i *>(Ax + j)));
+          int aij = Ai[j] * N;
+          int aij2 = Ai[j+1] * N;
+          int aij3 = Ai[j+2] * N;
+          int aij4 = Ai[j+3] * N;
+          auto axv0 = _mm256_permute4x64_pd(a,0b00000000);
+          auto axv1 = _mm256_permute4x64_pd(a,0b01010101);
+          auto axv2 = _mm256_permute4x64_pd(a,0b10101010);
+          auto axv3 = _mm256_permute4x64_pd(a,0b11111111);
+          for (int kk = 0; kk < N; kk += 8) {
+            auto cxV11 = _mm256_loadu_pd(Cx + aij + kk);
+            auto cxV12 = _mm256_loadu_pd(Cx + aij + kk + 4);
+            auto cxV21 = _mm256_loadu_pd(Cx + aij2 + kk);
+            auto cxV22 = _mm256_loadu_pd(Cx + aij2 + kk + 4);
+            auto cxV31 = _mm256_loadu_pd(Cx + aij3 + kk);
+            auto cxV32 = _mm256_loadu_pd(Cx + aij3 + kk + 4);
+            auto cxV41 = _mm256_loadu_pd(Cx + aij4 + kk);
+            auto cxV42 = _mm256_loadu_pd(Cx + aij4 + kk + 4);
+            auto acxV = _mm256_loadu_pd(ACx + i * N + kk);
+            auto acxV2 = _mm256_loadu_pd(ACx + i * N + kk + 4);
+            acxV = _mm256_fmadd_pd(axv0, cxV11, acxV);
+            acxV = _mm256_fmadd_pd(axv1, cxV21, acxV);
+            acxV = _mm256_fmadd_pd(axv2, cxV31, acxV);
+            acxV = _mm256_fmadd_pd(axv3, cxV41, acxV);
+            acxV2 = _mm256_fmadd_pd(axv0, cxV12, acxV2);
+            acxV2 = _mm256_fmadd_pd(axv1, cxV22, acxV2);
+            acxV2 = _mm256_fmadd_pd(axv2, cxV32, acxV2);
+            acxV2 = _mm256_fmadd_pd(axv3, cxV42, acxV2);
+            _mm256_storeu_pd(ACx + i * N + kk, acxV);
+            _mm256_storeu_pd(ACx + i * N + kk + 4, acxV2);
+          }
+        }
+        for (; j < Ap[i+1]; ++j) {
+          int aij = Ai[j] * N;
+          auto axv0 = _mm256_set1_pd(Ax[j]);
+          for (int kk = 0; kk < N; kk += 8) {
+            auto cxV11 = _mm256_loadu_pd(Cx + aij + kk);
+            auto cxV12 = _mm256_loadu_pd(Cx + aij + kk + 4);
+            auto acxV = _mm256_loadu_pd(ACx + i * N + kk);
+            auto acxV2 = _mm256_loadu_pd(ACx + i * N + kk + 4);
+            acxV = _mm256_fmadd_pd(axv0, cxV11, acxV);
+            acxV2 = _mm256_fmadd_pd(axv0, cxV12, acxV2);
+            _mm256_storeu_pd(ACx + i * N + kk, acxV);
+            _mm256_storeu_pd(ACx + i * N + kk + 4, acxV2);
+          }
+        }
+      }
+    }
+    pw_stop_instruments_loop(omp_get_thread_num());
+  }
+  pw_init_instruments;
+}
+
+void spmm16CsrVectorizedUnrollJ2(int M, int N, const int *Ap,
+                        const int *Ai, const double *Ax, const double *Cx,
+                        double *ACx, int TileSize, int NThreads) {
+  pw_init_instruments;
+#pragma omp parallel num_threads(NThreads)
+  {
+    pw_start_instruments_loop(omp_get_thread_num());
+#pragma omp for
+    for (int ii = 0; ii < M; ii+=TileSize) {
+      for (int i = ii; i < ii + TileSize && i < M; i++) {
+        int j = Ap[i];
+        for (; j < Ap[i + 1]-1; j+=2) {
+          int aij = Ai[j] * N;
+          int aij2 = Ai[j+1] * N;
+          auto axv0 = _mm256_set1_pd(Ax[j]);
+          auto axv1 = _mm256_set1_pd(Ax[j+1]);
+          for (int kk = 0; kk < N; kk += 16) {
+            auto cxV11 = _mm256_loadu_pd(Cx + aij + kk);
+            auto cxV12 = _mm256_loadu_pd(Cx + aij + kk + 4);
+            auto cxV13 = _mm256_loadu_pd(Cx + aij + kk + 8);
+            auto cxV14 = _mm256_loadu_pd(Cx + aij + kk + 12);
+            auto cxV21 = _mm256_loadu_pd(Cx + aij2 + kk);
+            auto cxV22 = _mm256_loadu_pd(Cx + aij2 + kk + 4);
+            auto cxV23 = _mm256_loadu_pd(Cx + aij2 + kk + 8);
+            auto cxV24 = _mm256_loadu_pd(Cx + aij2 + kk + 12);
+            auto acxV = _mm256_loadu_pd(ACx + i * N + kk);
+            auto acxV2 = _mm256_loadu_pd(ACx + i * N + kk + 4);
+            auto acxV3 = _mm256_loadu_pd(ACx + i * N + kk + 8);
+            auto acxV4 = _mm256_loadu_pd(ACx + i * N + kk + 12);
+            acxV = _mm256_fmadd_pd(axv0, cxV11, acxV);
+            acxV = _mm256_fmadd_pd(axv1, cxV21, acxV);
+            acxV2 = _mm256_fmadd_pd(axv0, cxV12, acxV2);
+            acxV2 = _mm256_fmadd_pd(axv1, cxV22, acxV2);
+            acxV3 = _mm256_fmadd_pd(axv0, cxV13, acxV3);
+            acxV3 = _mm256_fmadd_pd(axv1, cxV23, acxV3);
+            acxV4 = _mm256_fmadd_pd(axv0, cxV14, acxV4);
+            acxV4 = _mm256_fmadd_pd(axv1, cxV24, acxV4);
+            _mm256_storeu_pd(ACx + i * N + kk, acxV);
+            _mm256_storeu_pd(ACx + i * N + kk + 4, acxV2);
+            _mm256_storeu_pd(ACx + i * N + kk + 8, acxV3);
+            _mm256_storeu_pd(ACx + i * N + kk + 12, acxV3);
+          }
+        }
+        for (; j < Ap[i+1]; ++j) {
+          int aij = Ai[j] * N;
+          auto axv0 = _mm256_set1_pd(Ax[j]);
+          for (int kk = 0; kk < N; kk += 16) {
+            auto cxV11 = _mm256_loadu_pd(Cx + aij + kk);
+            auto cxV12 = _mm256_loadu_pd(Cx + aij + kk + 4);
+            auto cxV13 = _mm256_loadu_pd(Cx + aij + kk + 8);
+            auto cxV14 = _mm256_loadu_pd(Cx + aij + kk + 12);
+            auto acxV = _mm256_loadu_pd(ACx + i * N + kk);
+            auto acxV2 = _mm256_loadu_pd(ACx + i * N + kk + 4);
+            auto acxV3 = _mm256_loadu_pd(ACx + i * N + kk + 8);
+            auto acxV4 = _mm256_loadu_pd(ACx + i * N + kk + 12);
+            acxV = _mm256_fmadd_pd(axv0, cxV11, acxV);
+            acxV2 = _mm256_fmadd_pd(axv0, cxV12, acxV2);
+            acxV3 = _mm256_fmadd_pd(axv0, cxV13, acxV3);
+            acxV4 = _mm256_fmadd_pd(axv0, cxV14, acxV4);
+            _mm256_storeu_pd(ACx + i * N + kk, acxV);
+            _mm256_storeu_pd(ACx + i * N + kk + 4, acxV2);
+            _mm256_storeu_pd(ACx + i * N + kk + 8, acxV3);
+            _mm256_storeu_pd(ACx + i * N + kk + 12, acxV4);
+          }
+        }
+      }
+    }
+    pw_stop_instruments_loop(omp_get_thread_num());
+  }
+  pw_init_instruments;
+}
+
+void spmm16CsrVectorized(int M, int N,const int *Ap,
+                                 const int *Ai, const double *Ax, const double *Cx,
+                                 double *ACx, int TileSize, int NThreads) {
+  pw_init_instruments;
+#pragma omp parallel num_threads(NThreads)
+  {
+    pw_start_instruments_loop(omp_get_thread_num());
+#pragma omp for
+    for (int ii = 0; ii < M; ii+=TileSize) {
+      for (int i = ii; i < ii + TileSize && i < M; i++) {
+        int j = Ap[i];
+        for (; j < Ap[i + 1]; j+=1) {
+          int aij = Ai[j] * N;
+          auto axv0 = _mm256_set1_pd(Ax[j]);
+          for (int kk = 0; kk < N; kk += 16) {
+            auto cxV11 = _mm256_loadu_pd(Cx + aij + kk);
+            auto cxV12 = _mm256_loadu_pd(Cx + aij + kk + 4);
+            auto cxV13 = _mm256_loadu_pd(Cx + aij + kk + 8);
+            auto cxV14 = _mm256_loadu_pd(Cx + aij + kk + 12);
+            auto acxV = _mm256_loadu_pd(ACx + i * N + kk);
+            auto acxV2 = _mm256_loadu_pd(ACx + i * N + kk + 4);
+            auto acxV3 = _mm256_loadu_pd(ACx + i * N + kk + 8);
+            auto acxV4 = _mm256_loadu_pd(ACx + i * N + kk + 12);
+            acxV = _mm256_fmadd_pd(axv0, cxV11, acxV);
+            acxV2 = _mm256_fmadd_pd(axv0, cxV12, acxV2);
+            acxV3 = _mm256_fmadd_pd(axv0, cxV13, acxV3);
+            acxV4 = _mm256_fmadd_pd(axv0, cxV14, acxV4);
+            _mm256_storeu_pd(ACx + i * N + kk, acxV);
+            _mm256_storeu_pd(ACx + i * N + kk + 4, acxV2);
+            _mm256_storeu_pd(ACx + i * N + kk + 8, acxV3);
+            _mm256_storeu_pd(ACx + i * N + kk + 12, acxV3);
+          }
+        }
+      }
+    }
+    pw_stop_instruments_loop(omp_get_thread_num());
+  }
+  pw_init_instruments;
+}
+
 #endif
 
 /// D = B*A*C
-void spmmCsrSpmmCsrFusedKTiled(int M, int N, int K, int L,
-                         const int *Ap, const int *Ai, const double *Ax,
-                         const int *Bp, const int *Bi,const double *Bx,
-                         const double *Cx,
-                         double *Dx,
-                         double *ACx, int KTileSize,
-                         int LevelNo, const int *LevelPtr, const int *ParPtr,
-                         const int *Partition, const int *ParType,
-                         int NThreads) {
+void spmmCsrSpmmCsrFusedKTiled(int M, int N, int K, int L, const int *Ap,
+                               const int *Ai, const double *Ax, const int *Bp,
+                               const int *Bi, const double *Bx,
+                               const double *Cx, double *Dx, double *ACx,
+                               int KTileSize, int LevelNo, const int *LevelPtr,
+                               const int *ParPtr, const int *Partition,
+                               const int *ParType, int NThreads) {
   pw_init_instruments;
   for (int i1 = 0; i1 < LevelNo; ++i1) {
 #pragma omp parallel num_threads(NThreads)
     {
       pw_start_instruments_loop(omp_get_thread_num());
-#pragma omp  for
+#pragma omp for
       for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; ++j1) {
         for (int k1 = ParPtr[j1]; k1 < ParPtr[j1 + 1]; ++k1) {
           int i = Partition[k1];
@@ -582,13 +736,11 @@ void spmmCsrSpmmCsrFusedKTiled(int M, int N, int K, int L,
   }
 }
 
-void spmmCsrSpmmCscFused(int M, int N, int K, int L,
-                         const int *Ap, const int *Ai, const double *Ax,
-                         const int *Bp, const int *Bi,const double *Bx,
-                         const double *Cx,
-                         double *Dx,
-                         double *ACx,
-                         int LevelNo, const int *LevelPtr, const int *ParPtr,
+void spmmCsrSpmmCscFused(int M, int N, int K, int L, const int *Ap,
+                         const int *Ai, const double *Ax, const int *Bp,
+                         const int *Bi, const double *Bx, const double *Cx,
+                         double *Dx, double *ACx, int LevelNo,
+                         const int *LevelPtr, const int *ParPtr,
                          const int *Partition, const int *ParType,
                          int NThreads) {
   pw_init_instruments;
@@ -596,7 +748,7 @@ void spmmCsrSpmmCscFused(int M, int N, int K, int L,
 #pragma omp parallel num_threads(NThreads)
     {
       pw_start_instruments_loop(omp_get_thread_num());
-#pragma omp  for
+#pragma omp for
       for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; ++j1) {
         for (int k1 = ParPtr[j1]; k1 < ParPtr[j1 + 1]; ++k1) {
           int i = Partition[k1];
@@ -614,7 +766,7 @@ void spmmCsrSpmmCscFused(int M, int N, int K, int L,
               for (int kk = 0; kk < N; ++kk) {
                 int bij = Bi[k] * N;
 #pragma omp atomic
-                Dx[bij + kk] += Bx[k] * ACx[i*N + kk];
+                Dx[bij + kk] += Bx[k] * ACx[i * N + kk];
               }
             }
           }
@@ -625,59 +777,53 @@ void spmmCsrSpmmCscFused(int M, int N, int K, int L,
   }
 }
 
-
-void spmmCsrSpmmCscFusedAffine(int M, int N, int K, int L,
-                               const int *Ap, const int *Ai, const double *Ax,
-                               const int *Bp, const int *Bi,const double *Bx,
-                               const double *Cx,
-                               double *Dx,
-                               double *ACx,
+void spmmCsrSpmmCscFusedAffine(int M, int N, int K, int L, const int *Ap,
+                               const int *Ai, const double *Ax, const int *Bp,
+                               const int *Bi, const double *Bx,
+                               const double *Cx, double *Dx, double *ACx,
                                int NThreads) {
-#pragma omp parallel  for num_threads(NThreads)
-    for (int i = 0; i < M; ++i) {
-      for (int j = Ap[i]; j < Ap[i + 1]; j++) {
-        int aij = Ai[j] * N;
-        for (int kk = 0; kk < N; ++kk) {
-          ACx[i * N + kk] += Ax[j] * Cx[aij + kk];
-        }
-      }
-      for (int k = Bp[i]; k < Bp[i + 1]; k++) { // for each column of B
-        for (int kk = 0; kk < N; ++kk) {
-          int bij = Bi[k] * N;
-          auto tmp = Bx[k] * ACx[i*N + kk];
-#pragma omp atomic
-          Dx[bij + kk] += tmp;
-        }
+#pragma omp parallel for num_threads(NThreads)
+  for (int i = 0; i < M; ++i) {
+    for (int j = Ap[i]; j < Ap[i + 1]; j++) {
+      int aij = Ai[j] * N;
+      for (int kk = 0; kk < N; ++kk) {
+        ACx[i * N + kk] += Ax[j] * Cx[aij + kk];
       }
     }
+    for (int k = Bp[i]; k < Bp[i + 1]; k++) { // for each column of B
+      for (int kk = 0; kk < N; ++kk) {
+        int bij = Bi[k] * N;
+        auto tmp = Bx[k] * ACx[i * N + kk];
+#pragma omp atomic
+        Dx[bij + kk] += tmp;
+      }
+    }
+  }
 }
 
-
-void spmmCsrSpmmCscFusedColored(int M, int N, int K, int L,
-                                const int *Ap, const int *Ai, const double *Ax,
-                                const int *Bp, const int *Bi,const double *Bx,
-                                const double *Cx,
-                                double *Dx,
-                                double *ACx,
-                                int LevelNo, const int *LevelPtr,
-                                const int *Id,
+void spmmCsrSpmmCscFusedColored(int M, int N, int K, int L, const int *Ap,
+                                const int *Ai, const double *Ax, const int *Bp,
+                                const int *Bi, const double *Bx,
+                                const double *Cx, double *Dx, double *ACx,
+                                int LevelNo, const int *LevelPtr, const int *Id,
                                 int TileSize, int NThreads) {
-    int lastTileSize = M% TileSize;
-    double* aCxi = new double[NThreads * TileSize * N];
-    pw_init_instruments;
-    for (int i1 = 0; i1 < LevelNo; ++i1) {
+  int lastTileSize = M % TileSize;
+  double *aCxi = new double[NThreads * TileSize * N];
+  pw_init_instruments;
+  for (int i1 = 0; i1 < LevelNo; ++i1) {
 #pragma omp parallel num_threads(NThreads)
-      {
-        pw_start_instruments_loop(omp_get_thread_num());
-        int threadId = omp_get_thread_num();
+    {
+      pw_start_instruments_loop(omp_get_thread_num());
+      int threadId = omp_get_thread_num();
 #pragma omp for
-        for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; ++j1) {
-          int id = Id[j1];
-          int i = id * TileSize;
-          memset(aCxi + threadId*TileSize*N, 0.,sizeof (double) *N*TileSize);
-          for (int ii = 0; ii < TileSize; ++ii) {
+      for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; ++j1) {
+        int id = Id[j1];
+        int i = id * TileSize;
+        memset(aCxi + threadId * TileSize * N, 0.,
+               sizeof(double) * N * TileSize);
+        for (int ii = 0; ii < TileSize; ++ii) {
           auto ipii = i + ii;
-          double* tAcxi = aCxi + threadId*N*TileSize + ii*N;
+          double *tAcxi = aCxi + threadId * N * TileSize + ii * N;
           // first SpMM
           for (int j = Ap[ipii]; j < Ap[ipii + 1]; j++) {
             int aij = Ai[j] * N;
@@ -693,190 +839,177 @@ void spmmCsrSpmmCscFusedColored(int M, int N, int K, int L,
               Dx[bij + kk] += Bx[k] * tAcxi[kk];
             }
           }
-          }
         }
-        pw_stop_instruments_loop(omp_get_thread_num());
+      }
+      pw_stop_instruments_loop(omp_get_thread_num());
+    }
+  }
+  delete[] aCxi;
+  int i = M - lastTileSize;
+  for (int ii = 0; ii < lastTileSize; ++ii) {
+    auto ipii = i + ii;
+    // first SpMM
+    for (int j = Ap[ipii]; j < Ap[ipii + 1]; j++) {
+      int aij = Ai[j] * N;
+      for (int kk = 0; kk < N; ++kk) {
+        ACx[ipii * N + kk] += Ax[j] * Cx[aij + kk];
       }
     }
-    delete[] aCxi;
-    int i = M-lastTileSize;
-    for (int ii = 0; ii < lastTileSize; ++ii) {
-      auto ipii = i + ii;
-      // first SpMM
-      for (int j = Ap[ipii]; j < Ap[ipii + 1]; j++) {
-        int aij = Ai[j] * N;
-        for (int kk = 0; kk < N; ++kk) {
-          ACx[ipii * N + kk] += Ax[j] * Cx[aij + kk];
-        }
-      }
-      // second SpMM CSC
-      for (int k = Bp[ipii]; k < Bp[ipii + 1];
-           k++) { // for each column of B
-        for (int kk = 0; kk < N; ++kk) {
-          int bij = Bi[k] * N;
-          Dx[bij + kk] += Bx[k] * ACx[ipii * N + kk];
-        }
+    // second SpMM CSC
+    for (int k = Bp[ipii]; k < Bp[ipii + 1]; k++) { // for each column of B
+      for (int kk = 0; kk < N; ++kk) {
+        int bij = Bi[k] * N;
+        Dx[bij + kk] += Bx[k] * ACx[ipii * N + kk];
       }
     }
-
+  }
 }
 
-
-void spmmCsrSpmmCscFusedColoredWithScheduledKTiles(int M, int N, int K, int L,
-                                const int *Ap, const int *Ai, const double *Ax,
-                                const int *Bp, const int *Bi,const double *Bx,
-                                const double *Cx,
-                                double *Dx,
-                                double *ACx,
-                                int LevelNo, const int *LevelPtr,
-                                const int *Id,
-                                int TileSize, int KTileSize,
-                                int NThreads) {
-    int numOfKTiles = N / KTileSize;
-    int lastTileSize = M % TileSize;
-    pw_init_instruments;
-    for (int i1 = 0; i1 < LevelNo; ++i1) {
+void spmmCsrSpmmCscFusedColoredWithScheduledKTiles(
+    int M, int N, int K, int L, const int *Ap, const int *Ai, const double *Ax,
+    const int *Bp, const int *Bi, const double *Bx, const double *Cx,
+    double *Dx, double *ACx, int LevelNo, const int *LevelPtr, const int *Id,
+    int TileSize, int KTileSize, int NThreads) {
+  int numOfKTiles = N / KTileSize;
+  int lastTileSize = M % TileSize;
+  pw_init_instruments;
+  for (int i1 = 0; i1 < LevelNo; ++i1) {
 #pragma omp parallel num_threads(NThreads)
-      {
-        pw_start_instruments_loop(omp_get_thread_num());
-#pragma omp  for
-        for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; ++j1) {
-          int id = Id[j1];
-          int tile = (id/numOfKTiles);
-          int i = tile * TileSize;
-          int k = (id % numOfKTiles) * KTileSize;
-          for(int ii = 0; ii <  TileSize; ++ii) {
-            auto ipii = i + ii;
-            // first SpMM
-            for (int j = Ap[ipii]; j < Ap[ipii + 1]; j++) {
-              int aij = Ai[j] * N;
-              for (int kk = 0; kk < KTileSize; ++kk) {
-                ACx[ipii * N + kk + k] += Ax[j] * Cx[aij + kk + k];
-              }
+    {
+      pw_start_instruments_loop(omp_get_thread_num());
+#pragma omp for
+      for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; ++j1) {
+        int id = Id[j1];
+        int tile = (id / numOfKTiles);
+        int i = tile * TileSize;
+        int k = (id % numOfKTiles) * KTileSize;
+        for (int ii = 0; ii < TileSize; ++ii) {
+          auto ipii = i + ii;
+          // first SpMM
+          for (int j = Ap[ipii]; j < Ap[ipii + 1]; j++) {
+            int aij = Ai[j] * N;
+            for (int kk = 0; kk < KTileSize; ++kk) {
+              ACx[ipii * N + kk + k] += Ax[j] * Cx[aij + kk + k];
             }
-            // second SpMM CSC
-            for (int j = Bp[ipii]; j < Bp[ipii + 1]; j++) { // for each column of B
-              for (int kk = 0; kk < KTileSize; ++kk) {
-                int bij = Bi[j] * N;
-                Dx[bij + kk + k] += Bx[j] * ACx[ipii * N + kk + k];
-              }
+          }
+          // second SpMM CSC
+          for (int j = Bp[ipii]; j < Bp[ipii + 1];
+               j++) { // for each column of B
+            for (int kk = 0; kk < KTileSize; ++kk) {
+              int bij = Bi[j] * N;
+              Dx[bij + kk + k] += Bx[j] * ACx[ipii * N + kk + k];
             }
           }
         }
-        pw_stop_instruments_loop(omp_get_thread_num());
+      }
+      pw_stop_instruments_loop(omp_get_thread_num());
+    }
+  }
+  int i = M - lastTileSize;
+  for (int ii = 0; ii < lastTileSize; ++ii) {
+    auto ipii = i + ii;
+    // first SpMM
+    for (int j = Ap[ipii]; j < Ap[ipii + 1]; j++) {
+      int aij = Ai[j] * N;
+      for (int kk = 0; kk < N; ++kk) {
+        ACx[ipii * N + kk] += Ax[j] * Cx[aij + kk];
       }
     }
-    int i = M-lastTileSize;
-    for (int ii = 0; ii < lastTileSize; ++ii) {
-      auto ipii = i + ii;
-      // first SpMM
-      for (int j = Ap[ipii]; j < Ap[ipii + 1]; j++) {
-        int aij = Ai[j] * N;
-        for (int kk = 0; kk < N; ++kk) {
-          ACx[ipii * N + kk] += Ax[j] * Cx[aij + kk];
-        }
-      }
-      // second SpMM CSC
-      for (int k = Bp[ipii]; k < Bp[ipii + 1];
-           k++) { // for each column of B
-        for (int kk = 0; kk < N; ++kk) {
-          int bij = Bi[k] * N;
-          Dx[bij + kk] += Bx[k] * ACx[ipii * N + kk];
-        }
+    // second SpMM CSC
+    for (int k = Bp[ipii]; k < Bp[ipii + 1]; k++) { // for each column of B
+      for (int kk = 0; kk < N; ++kk) {
+        int bij = Bi[k] * N;
+        Dx[bij + kk] += Bx[k] * ACx[ipii * N + kk];
       }
     }
+  }
 }
 
-void spmmCsrSpmmCscFusedColoredWithReplicatedKTiles(int M, int N, int K, int L,
-                                                        const int *Ap, const int *Ai, const double *Ax,
-                                                        const int *Bp, const int *Bi,const double *Bx,
-                                                        const double *Cx,
-                                                        double *Dx,
-                                                        double *ACx,
-                                                        int LevelNo, const int *LevelPtr,
-                                                        const int *Id, const int *TileSizes,
-                                                        int TileSize, int KTileSize,
-                                                        int NThreads) {
-    int numOfKTiles = N / KTileSize;
-    int lastTileSize = M% TileSize;
-    pw_init_instruments;
-    for (int i1 = 0; i1 < LevelNo; ++i1) {
+void spmmCsrSpmmCscFusedColoredWithReplicatedKTiles(
+    int M, int N, int K, int L, const int *Ap, const int *Ai, const double *Ax,
+    const int *Bp, const int *Bi, const double *Bx, const double *Cx,
+    double *Dx, double *ACx, int LevelNo, const int *LevelPtr, const int *Id,
+    const int *TileSizes, int TileSize, int KTileSize, int NThreads) {
+  int numOfKTiles = N / KTileSize;
+  int lastTileSize = M % TileSize;
+  pw_init_instruments;
+  for (int i1 = 0; i1 < LevelNo; ++i1) {
 #pragma omp parallel num_threads(NThreads)
-      {
-        pw_start_instruments_loop(omp_get_thread_num());
-#pragma omp  for
-        for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; ++j1) {
-          int id = Id[j1];
-          int i = id * TileSize;
-          int k = (j1 % numOfKTiles) * KTileSize;
-          for(int ii = 0; ii <  TileSize; ++ii) {
-            auto ipii = i + ii;
-            // first SpMM
-            for (int j = Ap[ipii]; j < Ap[ipii + 1]; j++) {
-              int aij = Ai[j] * N;
-              for (int kk = 0; kk < KTileSize; ++kk) {
-                ACx[ipii * N + kk + k] += Ax[j] * Cx[aij + kk + k];
-              }
+    {
+      pw_start_instruments_loop(omp_get_thread_num());
+#pragma omp for
+      for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; ++j1) {
+        int id = Id[j1];
+        int i = id * TileSize;
+        int k = (j1 % numOfKTiles) * KTileSize;
+        for (int ii = 0; ii < TileSize; ++ii) {
+          auto ipii = i + ii;
+          // first SpMM
+          for (int j = Ap[ipii]; j < Ap[ipii + 1]; j++) {
+            int aij = Ai[j] * N;
+            for (int kk = 0; kk < KTileSize; ++kk) {
+              ACx[ipii * N + kk + k] += Ax[j] * Cx[aij + kk + k];
             }
-            // second SpMM CSC
-            for (int j = Bp[ipii]; j < Bp[ipii + 1]; j++) { // for each column of B
-              for (int kk = 0; kk < KTileSize; ++kk) {
-                int bij = Bi[j] * N;
-                Dx[bij + kk + k] += Bx[j] * ACx[ipii * N + kk + k];
-              }
+          }
+          // second SpMM CSC
+          for (int j = Bp[ipii]; j < Bp[ipii + 1];
+               j++) { // for each column of B
+            for (int kk = 0; kk < KTileSize; ++kk) {
+              int bij = Bi[j] * N;
+              Dx[bij + kk + k] += Bx[j] * ACx[ipii * N + kk + k];
             }
           }
         }
-        pw_stop_instruments_loop(omp_get_thread_num());
+      }
+      pw_stop_instruments_loop(omp_get_thread_num());
+    }
+  }
+  int i = M - lastTileSize;
+  for (int ii = 0; ii < lastTileSize; ++ii) {
+    auto ipii = i + ii;
+    // first SpMM
+    for (int j = Ap[ipii]; j < Ap[ipii + 1]; j++) {
+      int aij = Ai[j] * N;
+      for (int kk = 0; kk < N; ++kk) {
+        ACx[ipii * N + kk] += Ax[j] * Cx[aij + kk];
       }
     }
-    int i = M-lastTileSize;
-    for (int ii = 0; ii < lastTileSize; ++ii) {
-      auto ipii = i + ii;
-      // first SpMM
-      for (int j = Ap[ipii]; j < Ap[ipii + 1]; j++) {
-        int aij = Ai[j] * N;
-        for (int kk = 0; kk < N; ++kk) {
-          ACx[ipii * N + kk] += Ax[j] * Cx[aij + kk];
-        }
-      }
-      // second SpMM CSC
-      for (int k = Bp[ipii]; k < Bp[ipii + 1];
-           k++) { // for each column of B
-        for (int kk = 0; kk < N; ++kk) {
-          int bij = Bi[k] * N;
-          Dx[bij + kk] += Bx[k] * ACx[ipii * N + kk];
-        }
+    // second SpMM CSC
+    for (int k = Bp[ipii]; k < Bp[ipii + 1]; k++) { // for each column of B
+      for (int kk = 0; kk < N; ++kk) {
+        int bij = Bi[k] * N;
+        Dx[bij + kk] += Bx[k] * ACx[ipii * N + kk];
       }
     }
+  }
 }
 
-void spmmCsrSpmmCsrTiledFused(int M, int N, int K, int L,
-                              const int *Ap, const int *Ai, const double *Ax,
-                              const int *Bp, const int *Bi,const double *Bx,
-                              const double *Cx,
-                              double *Dx,
-                              double *ACx,
-                              int LevelNo, const int *LevelPtr, const int *ParPtr,
+void spmmCsrSpmmCsrTiledFused(int M, int N, int K, int L, const int *Ap,
+                              const int *Ai, const double *Ax, const int *Bp,
+                              const int *Bi, const double *Bx, const double *Cx,
+                              double *Dx, double *ACx, int LevelNo,
+                              const int *LevelPtr, const int *ParPtr,
                               const int *Partition, const int *ParType,
                               int NThreads, int MTile, int NTile, double *Ws) {
   pw_init_instruments;
   int mBound = M - M % MTile;
-  auto *cxBufAll = Ws;//new double[MTile * NTile * NThreads]();
+  auto *cxBufAll = Ws; // new double[MTile * NTile * NThreads]();
   // First level benefits from Fusion
   int iBoundBeg = LevelPtr[0], iBoundEnd = LevelPtr[1];
-  //#pragma omp parallel num_threads(NThreads)
+  // #pragma omp parallel num_threads(NThreads)
   {
-    //#pragma omp  for
+    // #pragma omp  for
     for (int j1 = iBoundBeg; j1 < iBoundEnd; ++j1) {
       auto *cxBuf = cxBufAll + omp_get_thread_num() * MTile * NTile;
 
       int kBegin = ParPtr[j1], kEnd = ParPtr[j1 + 1];
-      if(kEnd - kBegin == 0) continue;
-      if(kEnd - kBegin < MTile)
-        continue ;
+      if (kEnd - kBegin == 0)
+        continue;
+      if (kEnd - kBegin < MTile)
+        continue;
       int ii = Partition[kBegin]; // first iteration of tile
-      if(ii >= mBound) continue;
+      if (ii >= mBound)
+        continue;
 
       for (int kk = 0; kk < N; kk += NTile) {
         // first loop, for every k-tile
@@ -885,21 +1018,21 @@ void spmmCsrSpmmCsrTiledFused(int M, int N, int K, int L,
           for (int j = Ap[iipi]; j < Ap[iipi + 1]; ++j) {
             int aij = Ai[j] * N;
             for (int k = 0; k < NTile; ++k) {
-              //auto tmp = Ax[j] * Bx[aij + k];
+              // auto tmp = Ax[j] * Cx[aij + k];
               cxBuf[i * NTile + k] += Ax[j] * Cx[aij + k];
-              //ACx[iipi * N + k + kk] = tmp;
+              // ACx[iipi * N + k + kk] = tmp;
             }
           }
         }
         //}
 
         // second loop
-        //for (int kk = 0; kk < N; kk += NTile) {
-        for(int k1 = kBegin+MTile; k1 < kEnd; k1++) {// i-loop
+        // for (int kk = 0; kk < N; kk += NTile) {
+        for (int k1 = kBegin + MTile; k1 < kEnd; k1++) { // i-loop
           int i = Partition[k1];
 
           for (int j = Bp[i]; j < Bp[i + 1]; j++) {
-            int bij = Bi[j]-ii;
+            int bij = Bi[j] - ii;
             assert(bij < MTile && bij >= 0); // stays within the tile i
             bij *= NTile;
             int inkk = i * N + kk;
@@ -911,7 +1044,7 @@ void spmmCsrSpmmCsrTiledFused(int M, int N, int K, int L,
         // }
 
         // copy to ACx for the next wavefront
-        //for (int kk = 0; kk < N; kk += NTile) {
+        // for (int kk = 0; kk < N; kk += NTile) {
         //        for (int i = ii, ti = 0; i < ii + MTile; ++i, ++ti) {
         //          for (int k = kk, tk = 0; k < kk + NTile; ++k, ++tk) {
         //            ACx[i * N + k] = cxBuf[ti * NTile + tk];
@@ -921,26 +1054,26 @@ void spmmCsrSpmmCsrTiledFused(int M, int N, int K, int L,
       }
     }
   }
-  //delete[] cxBufAll;
+  // delete[] cxBufAll;
   int loopBeg = ParPtr[LevelPtr[1]], loopEnd = ParPtr[LevelPtr[LevelNo]];
-  //for (int i1 = 1; i1 < LevelNo; ++i1) {
+  // for (int i1 = 1; i1 < LevelNo; ++i1) {
 #pragma omp parallel num_threads(NThreads)
   {
-#pragma omp  for
-    //for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; ++j1) {
-    //for (int k1 = ParPtr[j1]; k1 < ParPtr[j1 + 1]; ++k1) {
-    for(int k1 = loopBeg; k1 < loopEnd; ++k1) {
+#pragma omp for
+    // for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; ++j1) {
+    // for (int k1 = ParPtr[j1]; k1 < ParPtr[j1 + 1]; ++k1) {
+    for (int k1 = loopBeg; k1 < loopEnd; ++k1) {
       int i = Partition[k1];
       //          int t = ParType[k1];
       //          if (t == 0) {
       //            for (int j = Ap[i]; j < Ap[i + 1]; j++) {
       //              int aij = Ai[j] * N;
       //              for (int kk = 0; kk < N; ++kk) {
-      //                ACx[i * N + kk] += Ax[j] * Bx[aij + kk];
+      //                ACx[i * N + kk] += Ax[j] * Cx[aij + kk];
       //              }
       //            }
       //          } else {
-      //#pragma omp parallel for
+      // #pragma omp parallel for
       for (int kk = 0; kk < N; kk += NTile) {
         for (int j = Bp[i]; j < Bp[i + 1]; j++) {
           int bij = Bi[j] * N + kk, dik = i * N + kk;
@@ -953,58 +1086,53 @@ void spmmCsrSpmmCsrTiledFused(int M, int N, int K, int L,
       //          for (int k = Bp[i]; k < Bp[i + 1]; k++) {
       //            int bij = Bi[k] * N;
       //            for (int kk = 0; kk < N; ++kk) {
-      //              Xx[i * N + kk] += Bx[k] * ACx[bij + kk];
+      //              Dx[i * N + kk] += Bx[k] * ACx[bij + kk];
       //            }
       //          }
-
     }
     //}
   }
   //}
 }
 
-
-void spmmCsrSpmmCsrTiledFusedRedundantBanded(int M, int N, int K, int L,
-                                             const int *Ap, const int *Ai, const double *Ax,
-                                             const int *Bp, const int *Bi,const double *Bx,
-                                             const double *Cx,
-                                             double *Dx,
-                                             double *ACx,
-                                             int LevelNo, const int *LevelPtr, const int *ParPtr,
-                                             const int *Partition, const int *ParType, const int*MixPtr,
-                                             int NThreads, int MTile, int NTile, double *Ws) {
+void spmmCsrSpmmCsrTiledFusedRedundantBanded(
+    int M, int N, int K, int L, const int *Ap, const int *Ai, const double *Ax,
+    const int *Bp, const int *Bi, const double *Bx, const double *Cx,
+    double *Dx, double *ACx, int LevelNo, const int *LevelPtr,
+    const int *ParPtr, const int *Partition, const int *ParType,
+    const int *MixPtr, int NThreads, int MTile, int NTile, double *Ws) {
   pw_init_instruments;
-  int numKer=2;
+  int numKer = 2;
   int mBound = M - M % MTile;
-  auto *cxBufAll = Ws;//new double[MTile * NTile * NThreads]();
+  auto *cxBufAll = Ws; // new double[MTile * NTile * NThreads]();
   // First level benefits from Fusion
   int iBoundBeg = LevelPtr[0], iBoundEnd = LevelPtr[1];
 #pragma omp parallel num_threads(NThreads)
   {
-#pragma omp  for
+#pragma omp for
     for (int j1 = iBoundBeg; j1 < iBoundEnd; ++j1) {
       auto *cxBuf = cxBufAll + omp_get_thread_num() * 2 * MTile * NTile;
-
 
       int kBegin = ParPtr[j1], kEnd = MixPtr[j1 * numKer];
       int ii = Partition[kBegin]; // first iteration of tile
       int mTileLoc = kEnd - kBegin;
-      //if(ii >= mBound) continue;
+      // if(ii >= mBound) continue;
 
       for (int kk = 0; kk < N; kk += NTile) {
         // first loop, for every k-tile
         for (int i = 0; i < mTileLoc; ++i) {
           int iipi = ii + i;
-          //            for (int k1 = ParPtr[j1]; k1 < MixPtr[j1 * numKer]; ++k1) {
+          //            for (int k1 = ParPtr[j1]; k1 < MixPtr[j1 * numKer];
+          //            ++k1) {
           //              int i = Partition[k1];
           for (int j = Ap[iipi]; j < Ap[iipi + 1]; ++j) {
             int aij = Ai[j] * N;
-            //std::fill_n(cxBuf + i * NTile, NTile, 0.0);
+            // std::fill_n(cxBuf + i * NTile, NTile, 0.0);
             for (int k = 0; k < NTile; ++k) {
-              //auto tmp = Ax[j] * Bx[aij + k];
-              //cxBuf[i * NTile + k] = 0;
+              // auto tmp = Ax[j] * Cx[aij + k];
+              // cxBuf[i * NTile + k] = 0;
               cxBuf[i * NTile + k] += Ax[j] * Cx[aij + k];
-              //ACx[iipi * N + k + kk] = tmp;
+              // ACx[iipi * N + k + kk] = tmp;
             }
           }
         }
@@ -1018,16 +1146,16 @@ void spmmCsrSpmmCsrTiledFusedRedundantBanded(int M, int N, int K, int L,
 
         // second loop
         int kEndL2 = MixPtr[j1 * numKer + 1];
-        for(int k1 = kEnd; k1 < kEndL2; k1++) { // i-loop
+        for (int k1 = kEnd; k1 < kEndL2; k1++) { // i-loop
           int i = Partition[k1];
           for (int j = Bp[i]; j < Bp[i + 1]; j++) {
-            int bij = Bi[j]-ii;
+            int bij = Bi[j] - ii;
             assert(bij < mTileLoc + 1 && bij >= 0); // stays within the tile i
             bij *= NTile;
             int inkk = i * N + kk;
             for (int k = 0; k < NTile; ++k) {
               Dx[inkk + k] += Bx[j] * cxBuf[bij + k];
-              //cxBuf[bij + k] = 0;
+              // cxBuf[bij + k] = 0;
             }
           }
         }
@@ -1036,36 +1164,30 @@ void spmmCsrSpmmCsrTiledFusedRedundantBanded(int M, int N, int K, int L,
         //            std::cout<<"\n=============\n";
         //            for(int i = 0; i < mTileLoc; ++i) {
         //              for(int k = 0; k < NTile; ++k) {
-        //                std::cout << Xx[i * NTile + k] << " ";
+        //                std::cout << Dx[i * NTile + k] << " ";
         //              }
         //              std::cout << std::endl;
         //            }
-
       }
     }
   }
 }
 
-
-
-void spmmCsrSpmmCsrTiledFusedRedundantGeneral(int M, int N, int K, int L,
-                                              const int *Ap, const int *Ai, const double *Ax,
-                                              const int *Bp, const int *Bi,const double *Bx,
-                                              const double *Cx,
-                                              double *Dx,
-                                              double *ACx,
-                                              int LevelNo, const int *LevelPtr, const int *ParPtr,
-                                              const int *Partition, const int *ParType, const int*MixPtr,
-                                              int NThreads, int MTile, int NTile, double *Ws) {
+void spmmCsrSpmmCsrTiledFusedRedundantGeneral(
+    int M, int N, int K, int L, const int *Ap, const int *Ai, const double *Ax,
+    const int *Bp, const int *Bi, const double *Bx, const double *Cx,
+    double *Dx, double *ACx, int LevelNo, const int *LevelPtr,
+    const int *ParPtr, const int *Partition, const int *ParType,
+    const int *MixPtr, int NThreads, int MTile, int NTile, double *Ws) {
   pw_init_instruments;
-  int numKer=2;
+  int numKer = 2;
   int mBound = M - M % MTile;
-  auto *cxBufAll = Ws;//new double[MTile * NTile * NThreads]();
+  auto *cxBufAll = Ws; // new double[MTile * NTile * NThreads]();
   // First level benefits from Fusion
   int iBoundBeg = LevelPtr[0], iBoundEnd = LevelPtr[1];
 #pragma omp parallel num_threads(NThreads)
   {
-#pragma omp  for
+#pragma omp for
     for (int j1 = iBoundBeg; j1 < iBoundEnd; ++j1) {
       auto *cxBuf = cxBufAll + omp_get_thread_num() * 2 * M * NTile;
       int kBegin = ParPtr[j1], kEnd = MixPtr[j1 * numKer];
@@ -1073,20 +1195,20 @@ void spmmCsrSpmmCsrTiledFusedRedundantGeneral(int M, int N, int K, int L,
       int mTileLoc = kEnd - kBegin;
       for (int kk = 0; kk < N; kk += NTile) {
         // first loop, for every k-tile
-        for(int k1 = kBegin; k1 < kEnd; k1++) { // i-loop
+        for (int k1 = kBegin; k1 < kEnd; k1++) { // i-loop
           int i = Partition[k1];
           // reset cxBuf, I used dot product to avoid the following
-          //std::fill_n(cxBuf + i * NTile,  NTile, 0.0);
+          // std::fill_n(cxBuf + i * NTile,  NTile, 0.0);
           for (int k = 0; k < NTile; ++k) {
             double acc = 0;
             for (int j = Ap[i]; j < Ap[i + 1]; ++j) {
               int aij = Ai[j] * N;
-              //std::fill_n(cxBuf + i * NTile, NTile, 0.0);
+              // std::fill_n(cxBuf + i * NTile, NTile, 0.0);
 
-              //auto tmp = Ax[j] * Bx[aij + k];
-              //cxBuf[i * NTile + k] = 0;
+              // auto tmp = Ax[j] * Cx[aij + k];
+              // cxBuf[i * NTile + k] = 0;
               acc += Ax[j] * Cx[aij + k];
-              //ACx[iipi * N + k + kk] = tmp;
+              // ACx[iipi * N + k + kk] = tmp;
             }
             cxBuf[i * NTile + k] = acc;
           }
@@ -1101,7 +1223,7 @@ void spmmCsrSpmmCsrTiledFusedRedundantGeneral(int M, int N, int K, int L,
 
         // second loop
         int kEndL2 = MixPtr[j1 * numKer + 1];
-        for(int k1 = kEnd; k1 < kEndL2; k1++) { // i-loop
+        for (int k1 = kEnd; k1 < kEndL2; k1++) { // i-loop
           int i = Partition[k1];
           for (int j = Bp[i]; j < Bp[i + 1]; j++) {
             int bij = Bi[j];
@@ -1109,34 +1231,30 @@ void spmmCsrSpmmCsrTiledFusedRedundantGeneral(int M, int N, int K, int L,
             int inkk = i * N + kk;
             for (int k = 0; k < NTile; ++k) {
               Dx[inkk + k] += Bx[j] * cxBuf[bij + k];
-              //cxBuf[bij + k] = 0;
+              // cxBuf[bij + k] = 0;
             }
           }
         }
-        //std::fill_n(cxBuf, M * NTile, 0.0);
+        // std::fill_n(cxBuf, M * NTile, 0.0);
 
         //            std::cout<<"\n=============\n";
         //            for(int i = 0; i < mTileLoc; ++i) {
         //              for(int k = 0; k < NTile; ++k) {
-        //                std::cout << Xx[i * NTile + k] << " ";
+        //                std::cout << Dx[i * NTile + k] << " ";
         //              }
         //              std::cout << std::endl;
         //            }
-
       }
     }
   }
 }
 
-
 // TODO: this is WIP, we want to tile kk to improve reuse
-void spmmCsrSpmmCsrTiledFused(int M, int N, int K, int L,
-                              const int *Ap, const int *Ai, const double *Ax,
-                              const int *Bp, const int *Bi,const double *Bx,
-                              const double *Cx,
-                              double *Dx,
-                              double *ACx,
-                              int LevelNo, const int *LevelPtr, const int *ParPtr,
+void spmmCsrSpmmCsrTiledFused(int M, int N, int K, int L, const int *Ap,
+                              const int *Ai, const double *Ax, const int *Bp,
+                              const int *Bi, const double *Bx, const double *Cx,
+                              double *Dx, double *ACx, int LevelNo,
+                              const int *LevelPtr, const int *ParPtr,
                               const int *Partition, const int *ParType,
                               int NThreads) {
   pw_init_instruments;
@@ -1144,7 +1262,7 @@ void spmmCsrSpmmCsrTiledFused(int M, int N, int K, int L,
 #pragma omp parallel num_threads(NThreads)
     {
       pw_start_instruments_loop(omp_get_thread_num());
-#pragma omp  for
+#pragma omp for
       for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; ++j1) {
         for (int k1 = ParPtr[j1]; k1 < ParPtr[j1 + 1]; ++k1) {
           int i = Partition[k1];
@@ -1172,21 +1290,17 @@ void spmmCsrSpmmCsrTiledFused(int M, int N, int K, int L,
 }
 
 /// D = B*A*C
-void spmmCsrSpmmCsrInnerProductFused(int M, int N, int K, int L,
-                                     const int *Ap, const int *Ai, const double *Ax,
-                                     const int *Bp, const int *Bi,const double *Bx,
-                                     const double *Cx,
-                                     double *Dx,
-                                     double *ACx,
-                                     int LevelNo, const int *LevelPtr, const int *ParPtr,
-                                     const int *Partition, const int *ParType,
-                                     int NThreads) {
+void spmmCsrSpmmCsrInnerProductFused(
+    int M, int N, int K, int L, const int *Ap, const int *Ai, const double *Ax,
+    const int *Bp, const int *Bi, const double *Bx, const double *Cx,
+    double *Dx, double *ACx, int LevelNo, const int *LevelPtr,
+    const int *ParPtr, const int *Partition, const int *ParType, int NThreads) {
   pw_init_instruments;
   for (int i1 = 0; i1 < LevelNo; ++i1) {
 #pragma omp parallel num_threads(NThreads)
     {
       pw_start_instruments_loop(omp_get_thread_num());
-#pragma omp  for
+#pragma omp for
       for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; ++j1) {
         for (int k1 = ParPtr[j1]; k1 < ParPtr[j1 + 1]; ++k1) {
           int i = Partition[k1];
@@ -1217,22 +1331,17 @@ void spmmCsrSpmmCsrInnerProductFused(int M, int N, int K, int L,
   }
 }
 
-
-void spmmCsrSpmmCsrMixedScheduleFused(int M, int N, int K, int L,
-                                      const int *Ap, const int *Ai, const double *Ax,
-                                      const int *Bp, const int *Bi,const double *Bx,
-                                      const double *Cx,
-                                      double *Dx,
-                                      double *ACx,
-                                      int LevelNo, const int *LevelPtr, const int *ParPtr,
-                                      const int *Partition, const int *ParType,
-                                      int NThreads) {
+void spmmCsrSpmmCsrMixedScheduleFused(
+    int M, int N, int K, int L, const int *Ap, const int *Ai, const double *Ax,
+    const int *Bp, const int *Bi, const double *Bx, const double *Cx,
+    double *Dx, double *ACx, int LevelNo, const int *LevelPtr,
+    const int *ParPtr, const int *Partition, const int *ParType, int NThreads) {
   pw_init_instruments;
   for (int i1 = 0; i1 < LevelNo; ++i1) {
 #pragma omp parallel num_threads(NThreads)
     {
       pw_start_instruments_loop(omp_get_thread_num());
-#pragma omp  for
+#pragma omp for
       for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; ++j1) {
         for (int k1 = ParPtr[j1]; k1 < ParPtr[j1 + 1]; ++k1) {
           int i = Partition[k1];
@@ -1254,12 +1363,13 @@ void spmmCsrSpmmCsrMixedScheduleFused(int M, int N, int K, int L,
               }
             }
             //                            for (int kk = 0; kk < N; ++kk) {
-            //                                auto dxik = Xx[i * N + kk];
-            //                                for (int k = Bp[i]; k < Bp[i + 1]; k++) {
+            //                                auto dxik = Dx[i * N + kk];
+            //                                for (int k = Bp[i]; k < Bp[i + 1];
+            //                                k++) {
             //                                    int bij = Bi[k] * N;
             //                                    dxik += Bx[k] * ACx[bij + kk];
             //                                }
-            //                                Xx[i * N + kk] = dxik;
+            //                                Dx[i * N + kk] = dxik;
             //                            }
           }
         }
@@ -1269,23 +1379,21 @@ void spmmCsrSpmmCsrMixedScheduleFused(int M, int N, int K, int L,
   }
 }
 
-void spmmCsrSpmmCsrSeparatedFused(int M, int N, int K, int L,
-                                  const int *Ap, const int *Ai, const double *Ax,
-                                  const int *Bp, const int *Bi,const double *Bx,
-                                  const double *Cx,
-                                  double *Dx,
-                                  double *ACx,
-                                  int LevelNo, const int *LevelPtr, const int *ParPtr,
+void spmmCsrSpmmCsrSeparatedFused(int M, int N, int K, int L, const int *Ap,
+                                  const int *Ai, const double *Ax,
+                                  const int *Bp, const int *Bi,
+                                  const double *Bx, const double *Cx,
+                                  double *Dx, double *ACx, int LevelNo,
+                                  const int *LevelPtr, const int *ParPtr,
                                   const int *Partition, const int *ParType,
-                                  const int *MixPtr,
-                                  int NThreads) {
+                                  const int *MixPtr, int NThreads) {
   int numKer = 2;
   pw_init_instruments;
   for (int i1 = 0; i1 < LevelNo; ++i1) {
 #pragma omp parallel num_threads(NThreads)
     {
       pw_start_instruments_loop(omp_get_thread_num());
-#pragma omp  for
+#pragma omp for
       for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; ++j1) {
 
         // Loop 1
@@ -1302,7 +1410,7 @@ void spmmCsrSpmmCsrSeparatedFused(int M, int N, int K, int L,
         } // end loop 1
 
         // Loop 2
-        for (int k1 = MixPtr[j1 * numKer ]; k1 < MixPtr[j1 * numKer + 1]; ++k1) {
+        for (int k1 = MixPtr[j1 * numKer]; k1 < MixPtr[j1 * numKer + 1]; ++k1) {
           int i = Partition[k1];
           for (int kk = 0; kk < N; ++kk) {
             auto dxik = Dx[i * N + kk];
@@ -1313,13 +1421,11 @@ void spmmCsrSpmmCsrSeparatedFused(int M, int N, int K, int L,
             Dx[i * N + kk] = dxik;
           }
         } // end loop 2
-
       }
       pw_stop_instruments_loop(omp_get_thread_num());
     }
   }
 }
-
 
 } // namespace sparse
 } // namespace swiftware

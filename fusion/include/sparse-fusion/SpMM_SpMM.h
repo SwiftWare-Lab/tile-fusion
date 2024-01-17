@@ -91,8 +91,8 @@ void spmmCsrSpmmCsrFusedVectorized128(int M, int N, int K, int L,
                                     int LevelNo, const int *LevelPtr, const int *ParPtr,
                                     const int *Partition, const int *ParType,
                                     int NThreads);
-
-#elif defined(__AVX2__)
+#endif
+#if defined(__AVX2__)
 void spmmCsrSpmmCsrFusedVectorized(int M, int N, int K, int L,
                                    const int *Ap, const int *Ai, const double *Ax,
                                    const int *Bp, const int *Bi,const double *Bx,
@@ -102,6 +102,15 @@ void spmmCsrSpmmCsrFusedVectorized(int M, int N, int K, int L,
                                    int LevelNo, const int *LevelPtr, const int *ParPtr,
                                    const int *Partition, const int *ParType,
                                    int NThreads);
+void spmm8CsrVectorizedUnrollJ4(int M, int N,const int *Ap,
+                                const int *Ai, const double *Ax, const double *Cx,
+                                double *ACx, int TileSize, int NThreads);
+void spmm16CsrVectorizedUnrollJ2(int M, int N, const int *Ap,
+                                const int *Ai, const double *Ax, const double *Cx,
+                                double *ACx, int TileSize, int NThreads);
+void spmm16CsrVectorized(int M, int N, const int *Ap,
+                                const int *Ai, const double *Ax, const double *Cx,
+                                double *ACx, int TileSize, int NThreads);
 #endif
 void spmmCsrSpmmCsrFusedKTiled(int M, int N, int K, int L,
                                const int *Ap, const int *Ai, const double *Ax,

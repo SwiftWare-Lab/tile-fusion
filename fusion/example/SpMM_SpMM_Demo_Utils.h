@@ -209,7 +209,49 @@ public:
     mkl_free(B);
   }
 };
+
+
+class SpMMMKLImpl : public SpMMSpMMUnFused {
+protected:
+  sparse_matrix_t A;
+  MKL_INT *LLI_A;
+  matrix_descr d;
+  Timer execute() override {
+    Timer t;
+    t.start();
+    mkl_sparse_d_mm(SPARSE_OPERATION_NON_TRANSPOSE, 1, this->A, this->d,
+                    SPARSE_LAYOUT_ROW_MAJOR, this->InTensor->Cx,
+                    this->InTensor->N, this->InTensor->N, 0,
+                    this->OutTensor->ACx, this->InTensor->N);
+    t.stop();
+    return t;
+  }
+
+public:
+  SpMMMKLImpl(TensorInputs<double> *In1, Stats *Stat1)
+      : SpMMSpMMUnFused(In1, Stat1) {
+    d.type = SPARSE_MATRIX_TYPE_GENERAL;
+
+    LLI_A = new MKL_INT[this->InTensor->M + 1]();
+    for (int l = 0; l < this->InTensor->M + 1; ++l) {
+      LLI_A[l] = this->InTensor->ACsr->p[l];
+    }
+
+    mkl_sparse_d_create_csr(&A, SPARSE_INDEX_BASE_ZERO, this->InTensor->M,
+                            this->InTensor->K, LLI_A, LLI_A + 1,
+                            this->InTensor->ACsr->i, this->InTensor->ACsr->x);
+    mkl_set_num_threads(this->InTensor->NumThreads);
+  }
+
+  ~SpMMMKLImpl() {
+    mkl_free(A);
+  }
+};
+
+
+
 #endif
+
 
 class SpMMSpMMUnFusedParallelTiled : public SpMMSpMMUnFused {
 protected:
@@ -1182,4 +1224,91 @@ public:
   ~SpMMCSRSpMMCSCFusedColoringWithReplicatedKTiling() { delete FusedCompSet; }
   sym_lib::SparsityProfileInfo getSpInfo() { return SpInfo; }
 };
+
+//class SpMMParallelVectorized : public SpMMSpMMUnFused {
+//protected:
+//  Timer execute() override {
+//    //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+//    //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
+//    OutTensor->reset();
+//    Timer t;
+//    t.start();
+//    swiftware::sparse::spmmCsrParallel(InTensor->M, InTensor->N, InTensor->K,
+//                                       InTensor->ACsr->p, InTensor->ACsr->i,
+//                                       InTensor->ACsr->x, InTensor->Cx,
+//                                       OutTensor->ACx, InTensor->NumThreads);
+//    t.stop();
+//    return t;
+//  }
+//
+//public:
+//  SpMMParallelVectorized(TensorInputs<double> *In1, Stats *Stat1)
+//      : SpMMSpMMUnFused(In1, Stat1) {}
+//};
+
+class SpMMParallelVectorizedUnroll48: public SpMMSpMMUnFused {
+protected:
+  sym_lib::ScheduleParameters Sp;
+  Timer execute() override {
+    //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
+    OutTensor->reset();
+    Timer t;
+    t.start();
+    swiftware::sparse::spmm8CsrVectorizedUnrollJ4(InTensor->M, InTensor->N,
+                                       InTensor->ACsr->p, InTensor->ACsr->i,
+                                       InTensor->ACsr->x, InTensor->Cx,
+                                       OutTensor->ACx, Sp.TileM, InTensor->NumThreads);
+    t.stop();
+    return t;
+  }
+
+public:
+  SpMMParallelVectorizedUnroll48(TensorInputs<double> *In1, Stats *Stat1, sym_lib::ScheduleParameters Sp1)
+      : SpMMSpMMUnFused(In1, Stat1), Sp(Sp1) {}
+};
+
+class SpMMParallelVectorizedUnroll216: public SpMMParallelVectorizedUnroll48 {
+protected:
+  Timer execute() override {
+    //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
+    OutTensor->reset();
+    Timer t;
+    t.start();
+    swiftware::sparse::spmm16CsrVectorizedUnrollJ2(InTensor->M, InTensor->N,
+                                       InTensor->ACsr->p, InTensor->ACsr->i,
+                                       InTensor->ACsr->x, InTensor->Cx,
+                                       OutTensor->ACx, Sp.TileM, InTensor->NumThreads);
+    t.stop();
+    return t;
+  }
+
+public:
+  SpMMParallelVectorizedUnroll216(TensorInputs<double> *In1, Stats *Stat1, sym_lib::ScheduleParameters Sp1)
+      : SpMMParallelVectorizedUnroll48(In1, Stat1, Sp1) {}
+};
+
+class SpMMParallelVectorizedUnroll16: public SpMMParallelVectorizedUnroll48 {
+protected:
+  Timer execute() override {
+    //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
+    OutTensor->reset();
+    Timer t;
+    t.start();
+    swiftware::sparse::spmm16CsrVectorized(InTensor->M, InTensor->N,
+                                       InTensor->ACsr->p, InTensor->ACsr->i,
+                                       InTensor->ACsr->x, InTensor->Cx,
+                                       OutTensor->ACx, Sp.TileM ,InTensor->NumThreads);
+    t.stop();
+    return t;
+  }
+
+public:
+  SpMMParallelVectorizedUnroll16(TensorInputs<double> *In1, Stats *Stat1, sym_lib::ScheduleParameters Sp1)
+      : SpMMParallelVectorizedUnroll48(In1, Stat1, Sp1) {}
+};
+
+
 #endif // SPARSE_FUSION_SPMM_SPMM_DEMO_UTILS_H
