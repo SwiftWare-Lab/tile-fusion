@@ -117,11 +117,11 @@ int main(const int argc, const char *argv[]){
 
 #ifdef __AVX512F__
   stats = new swiftware::benchmark::Stats("SpMM_Vectorized_AVX512","SpMM", 7,tp._matrix_name,numThread);
-  spmmVectorized16 = new SpMMParallelVectorizedAVX512_128(inSpMM, stats, sp);
-  spmmVectorized16->run();
+  spmmVectorizedAvx512 = new SpMMParallelVectorizedAVX512_128(inSpMM, stats, sp);
+  spmmVectorizedAvx512->run();
   //unfused->OutTensor->printDx();
-  auto spmmVectorizedAvx512 = spmmVectorized16->printStats();
-  delete spmmVectorized16;
+  auto spmmVectorizedAvx512 = spmmVectorizedAvx512->printStats();
+  delete spmmVectorizedAvx512;
   delete stats;
   std::cout<<spmmVectorizedAvx512<<spStat+tpStat<<std::endl;
 
