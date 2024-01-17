@@ -33,7 +33,7 @@ while getopts ":t:dc:m:i:" arg; do
       exit 0
   esac
 done
-BINFILE="spmm_spmm_fusion"
+BINFILE="spmm_vectorized"
 
 
 which cmake
