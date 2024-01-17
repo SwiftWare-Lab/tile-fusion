@@ -397,29 +397,18 @@ void spmmCsrSpmmCsrFusedVectorized128(
   }
 }
 
-void spmmCsrVectorized128Avx512(int M, int N, const int *Ap,
-                          const int *Ai, const double *Ax, const double *Cx,
-                          double *ACx, int TileSize, int NThreads) {
+void spmmCsrVectorized128Avx512(int M, int N, const int *Ap, const int *Ai,
+                                const double *Ax, const double *Cx, double *ACx,
+                                int TileSize, int NThreads) {
   pw_init_instruments;
 #pragma omp parallel num_threads(NThreads)
   {
     pw_start_instruments_loop(omp_get_thread_num());
 #pragma omp for
-    for (int ii = 0; ii < M; ii+=TileSize) {
+    for (int ii = 0; ii < M; ii += TileSize) {
       for (int i = ii; i < ii + TileSize && i < M; i++) {
-      for (int j = Ap[i]; j < Ap[i + 1]; ++j) {
-        for (int k1 = ParPtr[j1]; k1 < ParPtr[j1 + 1]; ++k1) {
-          int i = Partition[k1];
-          int t = ParType[k1];
-          if (t == 0) {
-            for (int j = Ap[i]; j < Ap[i + 1]; j++) {
-              vectorCrossProduct128Avx512(Ax[j], Ai[j], Cx, ACx, N, i);
-            }
-          } else {
-            for (int k = Bp[i]; k < Bp[i + 1]; k++) {
-              vectorCrossProduct128Avx512(Bx[k], Bi[k], ACx, Dx, N, i);
-            }
-          }
+        for (int j = Ap[i]; j < Ap[i + 1]; ++j) {
+          vectorCrossProduct128Avx512(Ax[j], Ai[j], Cx, ACx, N, i);
         }
       }
       pw_stop_instruments_loop(omp_get_thread_num());
@@ -544,28 +533,28 @@ void spmmCsrSpmmCsrFusedVectorized(
   }
 }
 
-void spmm8CsrVectorizedUnrollJ4(int M, int N, const int *Ap,
-                        const int *Ai, const double *Ax, const double *Cx,
-                        double *ACx, int TileSize, int NThreads) {
+void spmm8CsrVectorizedUnrollJ4(int M, int N, const int *Ap, const int *Ai,
+                                const double *Ax, const double *Cx, double *ACx,
+                                int TileSize, int NThreads) {
   pw_init_instruments;
 #pragma omp parallel num_threads(NThreads)
   {
     pw_start_instruments_loop(omp_get_thread_num());
 #pragma omp for
-    for (int ii = 0; ii < M; ii+=TileSize) {
+    for (int ii = 0; ii < M; ii += TileSize) {
       for (int i = ii; i < ii + TileSize && i < M; i++) {
         int j = Ap[i];
-        for (; j < Ap[i + 1]-3; j+=4) {
-          auto a = _mm256_castsi256_pd(_mm256_lddqu_si256(
-              reinterpret_cast<const __m256i *>(Ax + j)));
+        for (; j < Ap[i + 1] - 3; j += 4) {
+          auto a = _mm256_castsi256_pd(
+              _mm256_lddqu_si256(reinterpret_cast<const __m256i *>(Ax + j)));
           int aij = Ai[j] * N;
-          int aij2 = Ai[j+1] * N;
-          int aij3 = Ai[j+2] * N;
-          int aij4 = Ai[j+3] * N;
-          auto axv0 = _mm256_permute4x64_pd(a,0b00000000);
-          auto axv1 = _mm256_permute4x64_pd(a,0b01010101);
-          auto axv2 = _mm256_permute4x64_pd(a,0b10101010);
-          auto axv3 = _mm256_permute4x64_pd(a,0b11111111);
+          int aij2 = Ai[j + 1] * N;
+          int aij3 = Ai[j + 2] * N;
+          int aij4 = Ai[j + 3] * N;
+          auto axv0 = _mm256_permute4x64_pd(a, 0b00000000);
+          auto axv1 = _mm256_permute4x64_pd(a, 0b01010101);
+          auto axv2 = _mm256_permute4x64_pd(a, 0b10101010);
+          auto axv3 = _mm256_permute4x64_pd(a, 0b11111111);
           for (int kk = 0; kk < N; kk += 8) {
             auto cxV11 = _mm256_loadu_pd(Cx + aij + kk);
             auto cxV12 = _mm256_loadu_pd(Cx + aij + kk + 4);
@@ -589,7 +578,7 @@ void spmm8CsrVectorizedUnrollJ4(int M, int N, const int *Ap,
             _mm256_storeu_pd(ACx + i * N + kk + 4, acxV2);
           }
         }
-        for (; j < Ap[i+1]; ++j) {
+        for (; j < Ap[i + 1]; ++j) {
           int aij = Ai[j] * N;
           auto axv0 = _mm256_set1_pd(Ax[j]);
           for (int kk = 0; kk < N; kk += 8) {
@@ -610,22 +599,22 @@ void spmm8CsrVectorizedUnrollJ4(int M, int N, const int *Ap,
   pw_init_instruments;
 }
 
-void spmm16CsrVectorizedUnrollJ2(int M, int N, const int *Ap,
-                        const int *Ai, const double *Ax, const double *Cx,
-                        double *ACx, int TileSize, int NThreads) {
+void spmm16CsrVectorizedUnrollJ2(int M, int N, const int *Ap, const int *Ai,
+                                 const double *Ax, const double *Cx,
+                                 double *ACx, int TileSize, int NThreads) {
   pw_init_instruments;
 #pragma omp parallel num_threads(NThreads)
   {
     pw_start_instruments_loop(omp_get_thread_num());
 #pragma omp for
-    for (int ii = 0; ii < M; ii+=TileSize) {
+    for (int ii = 0; ii < M; ii += TileSize) {
       for (int i = ii; i < ii + TileSize && i < M; i++) {
         int j = Ap[i];
-        for (; j < Ap[i + 1]-1; j+=2) {
+        for (; j < Ap[i + 1] - 1; j += 2) {
           int aij = Ai[j] * N;
-          int aij2 = Ai[j+1] * N;
+          int aij2 = Ai[j + 1] * N;
           auto axv0 = _mm256_set1_pd(Ax[j]);
-          auto axv1 = _mm256_set1_pd(Ax[j+1]);
+          auto axv1 = _mm256_set1_pd(Ax[j + 1]);
           for (int kk = 0; kk < N; kk += 16) {
             auto cxV11 = _mm256_loadu_pd(Cx + aij + kk);
             auto cxV12 = _mm256_loadu_pd(Cx + aij + kk + 4);
@@ -653,7 +642,7 @@ void spmm16CsrVectorizedUnrollJ2(int M, int N, const int *Ap,
             _mm256_storeu_pd(ACx + i * N + kk + 12, acxV3);
           }
         }
-        for (; j < Ap[i+1]; ++j) {
+        for (; j < Ap[i + 1]; ++j) {
           int aij = Ai[j] * N;
           auto axv0 = _mm256_set1_pd(Ax[j]);
           for (int kk = 0; kk < N; kk += 16) {
@@ -682,18 +671,18 @@ void spmm16CsrVectorizedUnrollJ2(int M, int N, const int *Ap,
   pw_init_instruments;
 }
 
-void spmm16CsrVectorized(int M, int N,const int *Ap,
-                                 const int *Ai, const double *Ax, const double *Cx,
-                                 double *ACx, int TileSize, int NThreads) {
+void spmm16CsrVectorized(int M, int N, const int *Ap, const int *Ai,
+                         const double *Ax, const double *Cx, double *ACx,
+                         int TileSize, int NThreads) {
   pw_init_instruments;
 #pragma omp parallel num_threads(NThreads)
   {
     pw_start_instruments_loop(omp_get_thread_num());
 #pragma omp for
-    for (int ii = 0; ii < M; ii+=TileSize) {
+    for (int ii = 0; ii < M; ii += TileSize) {
       for (int i = ii; i < ii + TileSize && i < M; i++) {
         int j = Ap[i];
-        for (; j < Ap[i + 1]; j+=1) {
+        for (; j < Ap[i + 1]; j += 1) {
           int aij = Ai[j] * N;
           auto axv0 = _mm256_set1_pd(Ax[j]);
           for (int kk = 0; kk < N; kk += 16) {
