@@ -1246,6 +1246,30 @@ public:
 //      : SpMMSpMMUnFused(In1, Stat1) {}
 //};
 
+#ifdef __AVX512__
+class SpMMParallelVectorizedAVX512_128: public SpMMSpMMUnFused {
+protected:
+  sym_lib::ScheduleParameters Sp;
+  Timer execute() override {
+    //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
+    OutTensor->reset();
+    Timer t;
+    t.start();
+    swiftware::sparse::spmmCsrVectorized128Avx512(InTensor->M, InTensor->N,
+                                                  InTensor->ACsr->p, InTensor->ACsr->i,
+                                                  InTensor->ACsr->x, InTensor->Cx,
+                                                  OutTensor->ACx, Sp.TileM, InTensor->NumThreads);
+    t.stop();
+    return t;
+  }
+
+public:
+  SpMMParallelVectorizedUnroll48(TensorInputs<double> *In1, Stats *Stat1, sym_lib::ScheduleParameters Sp1)
+      : SpMMSpMMUnFused(In1, Stat1), Sp(Sp1) {}
+};
+#endif
+#ifdef __AVX2__
 class SpMMParallelVectorizedUnroll48: public SpMMSpMMUnFused {
 protected:
   sym_lib::ScheduleParameters Sp;
@@ -1310,5 +1334,5 @@ public:
       : SpMMParallelVectorizedUnroll48(In1, Stat1, Sp1) {}
 };
 
-
+#endif
 #endif // SPARSE_FUSION_SPMM_SPMM_DEMO_UTILS_H
