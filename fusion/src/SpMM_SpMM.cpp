@@ -304,74 +304,71 @@ inline void vectorCrossProduct64Avx512(double Ax, int Ai, const double* B, doubl
 inline void vectorCrossProduct128Avx512(double Ax, int Ai, const double* B, double* C, int N, int I){
   int bij = Ai * N;
   auto bxV = _mm512_set1_pd(Ax);
-  int offset = N * I;
-
-  for (int kk = 0; kk < N; kk+=128) {
-    auto acxV1 = _mm512_loadu_pd(B + bij + kk);
-    auto dxV1 = _mm512_loadu_pd(C + offset + kk);
-    auto acxV2 = _mm512_loadu_pd(B + bij + kk + 8);
-    auto dxV2 = _mm512_loadu_pd(C + offset + kk + 8);
-    auto acxV3 = _mm512_loadu_pd(B + bij + kk + 16);
-    auto dxV3 = _mm512_loadu_pd(C + offset + kk + 16);
-    auto acxV4 = _mm512_loadu_pd(B + bij + kk + 24);
-    auto dxV4 = _mm512_loadu_pd(C + offset + kk + 24);
-    auto acxV5 = _mm512_loadu_pd(B + bij + kk + 32);
-    auto dxV5 = _mm512_loadu_pd(C + offset + kk+ 32);
-    auto acxV6 = _mm512_loadu_pd(B + bij + kk + 40);
-    auto dxV6 = _mm512_loadu_pd(C + offset + kk + 40);
-    auto acxV7 = _mm512_loadu_pd(B + bij + kk + 48);
-    auto dxV7 = _mm512_loadu_pd(C + offset + kk + 48);
-    auto acxV8 = _mm512_loadu_pd(B + bij + kk + 56);
-    auto dxV8 = _mm512_loadu_pd(C + offset + kk + 56);
-    auto acxV9 = _mm512_loadu_pd(B + bij + kk + 64);
-    auto dxV9 = _mm512_loadu_pd(C + offset + kk + 64);
-    auto acxV10 = _mm512_loadu_pd(B + bij + kk + 72);
-    auto dxV10 = _mm512_loadu_pd(C + offset + kk + 72);
-    auto acxV11 = _mm512_loadu_pd(B + bij + kk + 80);
-    auto dxV11 = _mm512_loadu_pd(C + offset + kk + 80);
-    auto acxV12 = _mm512_loadu_pd(B + bij + kk + 88);
-    auto dxV12 = _mm512_loadu_pd(C + offset + kk + 88);
-    auto acxV13 = _mm512_loadu_pd(B + bij + kk + 96);
-    auto dxV13 = _mm512_loadu_pd(C + offset + kk + 96);
-    auto acxV14 = _mm512_loadu_pd(B + bij + kk + 104);
-    auto dxV14 = _mm512_loadu_pd(C + offset + kk + 104);
-    auto acxV15 = _mm512_loadu_pd(B + bij + kk + 112);
-    auto dxV15 = _mm512_loadu_pd(C + offset + kk + 112);
-    auto acxV16 = _mm512_loadu_pd(B + bij + kk + 120);
-    auto dxV16 = _mm512_loadu_pd(C + offset + kk + 120);
+  int offset = N * I
+  auto acxV1 = _mm512_loadu_pd(B + bij + kk);
+  auto dxV1 = _mm512_loadu_pd(C + offset + kk);
+  auto acxV2 = _mm512_loadu_pd(B + bij + kk + 8);
+  auto dxV2 = _mm512_loadu_pd(C + offset + kk + 8);
+  auto acxV3 = _mm512_loadu_pd(B + bij + kk + 16);
+  auto dxV3 = _mm512_loadu_pd(C + offset + kk + 16);
+  auto acxV4 = _mm512_loadu_pd(B + bij + kk + 24);
+  auto dxV4 = _mm512_loadu_pd(C + offset + kk + 24);
+  auto acxV5 = _mm512_loadu_pd(B + bij + kk + 32);
+  auto dxV5 = _mm512_loadu_pd(C + offset + kk+ 32);
+  auto acxV6 = _mm512_loadu_pd(B + bij + kk + 40);
+  auto dxV6 = _mm512_loadu_pd(C + offset + kk + 40);
+  auto acxV7 = _mm512_loadu_pd(B + bij + kk + 48);
+  auto dxV7 = _mm512_loadu_pd(C + offset + kk + 48);
+  auto acxV8 = _mm512_loadu_pd(B + bij + kk + 56);
+  auto dxV8 = _mm512_loadu_pd(C + offset + kk + 56);
+  auto acxV9 = _mm512_loadu_pd(B + bij + kk + 64);
+  auto dxV9 = _mm512_loadu_pd(C + offset + kk + 64);
+  auto acxV10 = _mm512_loadu_pd(B + bij + kk + 72);
+  auto dxV10 = _mm512_loadu_pd(C + offset + kk + 72);
+  auto acxV11 = _mm512_loadu_pd(B + bij + kk + 80);
+  auto dxV11 = _mm512_loadu_pd(C + offset + kk + 80);
+  auto acxV12 = _mm512_loadu_pd(B + bij + kk + 88);
+  auto dxV12 = _mm512_loadu_pd(C + offset + kk + 88);
+  auto acxV13 = _mm512_loadu_pd(B + bij + kk + 96);
+  auto dxV13 = _mm512_loadu_pd(C + offset + kk + 96);
+  auto acxV14 = _mm512_loadu_pd(B + bij + kk + 104);
+  auto dxV14 = _mm512_loadu_pd(C + offset + kk + 104);
+  dxV1 = _mm512_fmadd_pd(bxV, acxV1, dxV1);
+  dxV2 = _mm512_fmadd_pd(bxV, acxV2, dxV2);
+  dxV3 = _mm512_fmadd_pd(bxV, acxV3, dxV3);
+  dxV4 = _mm512_fmadd_pd(bxV, acxV4, dxV4);
+  dxV5 = _mm512_fmadd_pd(bxV, acxV5, dxV5);
+  dxV6 = _mm512_fmadd_pd(bxV, acxV6, dxV6);
+  dxV7 = _mm512_fmadd_pd(bxV, acxV7, dxV7);
+  dxV8 = _mm512_fmadd_pd(bxV, acxV8, dxV8);
+  dxV9 = _mm512_fmadd_pd(bxV, acxV9, dxV9);
+  dxV10 = _mm512_fmadd_pd(bxV, acxV10, dxV10);
+  dxV11 = _mm512_fmadd_pd(bxV, acxV11, dxV11);
+  dxV12 = _mm512_fmadd_pd(bxV, acxV12, dxV12);
+  dxV13 = _mm512_fmadd_pd(bxV, acxV13, dxV13);
+  dxV14 = _mm512_fmadd_pd(bxV, acxV14, dxV14);
+  _mm512_storeu_pd(C + offset + kk, dxV1);
+  _mm512_storeu_pd(C + offset + kk + 8, dxV2);
+  _mm512_storeu_pd(C + offset + kk + 16, dxV3);
+  _mm512_storeu_pd(C + offset + kk + 24, dxV4);
+  _mm512_storeu_pd(C + offset + kk + 32, dxV5);
+  _mm512_storeu_pd(C + offset + kk + 40, dxV6);
+  _mm512_storeu_pd(C + offset + kk + 48, dxV7);
+  _mm512_storeu_pd(C + offset + kk + 56, dxV8);
+  _mm512_storeu_pd(C + offset + kk + 64, dxV9);
+  _mm512_storeu_pd(C + offset + kk + 72, dxV10);
+  _mm512_storeu_pd(C + offset + kk + 80, dxV11);
+  _mm512_storeu_pd(C + offset + kk + 88, dxV12);
+  _mm512_storeu_pd(C + offset + kk + 96, dxV13);
+  _mm512_storeu_pd(C + offset + kk + 104, dxV14);
+    auto acxV1 = _mm512_loadu_pd(B + bij + kk + 112);
+    auto dxV1 = _mm512_loadu_pd(C + offset + kk + 112);
+    auto acxV2 = _mm512_loadu_pd(B + bij + kk + 120);
+    auto dxV2 = _mm512_loadu_pd(C + offset + kk + 120);
     dxV1 = _mm512_fmadd_pd(bxV, acxV1, dxV1);
     dxV2 = _mm512_fmadd_pd(bxV, acxV2, dxV2);
-    dxV3 = _mm512_fmadd_pd(bxV, acxV3, dxV3);
-    dxV4 = _mm512_fmadd_pd(bxV, acxV4, dxV4);
-    dxV5 = _mm512_fmadd_pd(bxV, acxV5, dxV5);
-    dxV6 = _mm512_fmadd_pd(bxV, acxV6, dxV6);
-    dxV7 = _mm512_fmadd_pd(bxV, acxV7, dxV7);
-    dxV8 = _mm512_fmadd_pd(bxV, acxV8, dxV8);
-    dxV9 = _mm512_fmadd_pd(bxV, acxV9, dxV9);
-    dxV10 = _mm512_fmadd_pd(bxV, acxV10, dxV10);
-    dxV11 = _mm512_fmadd_pd(bxV, acxV11, dxV11);
-    dxV12 = _mm512_fmadd_pd(bxV, acxV12, dxV12);
-    dxV13 = _mm512_fmadd_pd(bxV, acxV13, dxV13);
-    dxV14 = _mm512_fmadd_pd(bxV, acxV14, dxV14);
-    dxV15 = _mm512_fmadd_pd(bxV, acxV15, dxV15);
-    dxV16 = _mm512_fmadd_pd(bxV, acxV16, dxV16);
-    _mm512_storeu_pd(C + offset + kk, dxV1);
-    _mm512_storeu_pd(C + offset + kk + 8, dxV2);
-    _mm512_storeu_pd(C + offset + kk + 16, dxV3);
-    _mm512_storeu_pd(C + offset + kk + 24, dxV4);
-    _mm512_storeu_pd(C + offset + kk + 32, dxV5);
-    _mm512_storeu_pd(C + offset + kk + 40, dxV6);
-    _mm512_storeu_pd(C + offset + kk + 48, dxV7);
-    _mm512_storeu_pd(C + offset + kk + 56, dxV8);
-    _mm512_storeu_pd(C + offset + kk + 64, dxV9);
-    _mm512_storeu_pd(C + offset + kk + 72, dxV10);
-    _mm512_storeu_pd(C + offset + kk + 80, dxV11);
-    _mm512_storeu_pd(C + offset + kk + 88, dxV12);
-    _mm512_storeu_pd(C + offset + kk + 96, dxV13);
-    _mm512_storeu_pd(C + offset + kk + 104, dxV14);
-    _mm512_storeu_pd(C + offset + kk + 112, dxV15);
-    _mm512_storeu_pd(C + offset + kk + 120, dxV16);
-  }
+    _mm512_storeu_pd(C + offset + kk + 112, dxV1);
+    _mm512_storeu_pd(C + offset + kk + 120, dxV2);
 }
 
 void spmmCsrSpmmCsrFusedVectorized128(int M, int N, int K, int L,
@@ -503,11 +500,15 @@ void spmmCsrSpmmCsrFusedVectorized(int M, int N, int K, int L,
             for (int j = Ap[i]; j < Ap[i + 1]; j++) {
               int aij = Ai[j] * N;
               auto axV = _mm256_set1_pd(Ax[j]);
-              for (int kk = 0; kk < N; kk+=4) {
+              for (int kk = 0; kk < N; kk+=8) {
                 auto cxV = _mm256_loadu_pd(Cx + aij + kk);
                 auto acxV = _mm256_loadu_pd(ACx + i*N + kk);
+                auto cxV2 = _mm256_loadu_pd(Cx + aij + kk+4);
+                auto acxV2 = _mm256_loadu_pd(ACx + i*N + kk+4);
                 acxV = _mm256_fmadd_pd(axV, cxV, acxV);
+                acxV2 = _mm256_fmadd_pd(axV, cxV2, acxV2);
                 _mm256_storeu_pd(ACx + i*N + kk, acxV);
+                _mm256_storeu_pd(ACx + i*N + kk + 4, acxV2);
               }
             }
           } else {
@@ -517,8 +518,12 @@ void spmmCsrSpmmCsrFusedVectorized(int M, int N, int K, int L,
               for (int kk = 0; kk < N; kk+=4) {
                 auto acxV = _mm256_loadu_pd(ACx + bij + kk);
                 auto dxV = _mm256_loadu_pd(Dx + i*N + kk);
+                auto acxV2 = _mm256_loadu_pd(ACx + bij + kk+4);
+                auto dxV2 = _mm256_loadu_pd(Dx + i*N + kk+4);
                 dxV = _mm256_fmadd_pd(bxV, acxV, dxV);
+                dxV2 = _mm256_fmadd_pd(bxV, acxV2, dxV2);
                 _mm256_storeu_pd(Dx + i*N + kk, dxV);
+                _mm256_storeu_pd(Dx + i*N + kk + 4, dxV2);
               }
             }
           }
