@@ -1246,7 +1246,7 @@ public:
 //      : SpMMSpMMUnFused(In1, Stat1) {}
 //};
 
-#ifdef __AVX512__
+#ifdef __AVX512F__
 class SpMMParallelVectorizedAVX512_128: public SpMMSpMMUnFused {
 protected:
   sym_lib::ScheduleParameters Sp;
