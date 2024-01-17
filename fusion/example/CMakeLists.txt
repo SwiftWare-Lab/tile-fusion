@@ -28,6 +28,18 @@ if(TARGET MKL::MKL)
             OpenMP::OpenMP_CXX
     )
 
+    add_executable(spmm_vectorized
+            SpMM_Demo.cpp
+    )
+    target_include_directories(spmm_vectorized PRIVATE
+            $<TARGET_PROPERTY:MKL::MKL,INTERFACE_INCLUDE_DIRECTORIES>
+    )
+    target_link_libraries(spmm_vectorized
+            fusion
+            swbench::swbench
+            $<LINK_ONLY:MKL::MKL>
+            OpenMP::OpenMP_CXX
+    )
     add_executable(fusion_profiler
             Fusion_Profiler.cpp
     )
@@ -61,6 +73,7 @@ endif()
 
 add_executable(dag_decomp
         dag_decomposition_demo.cpp
+        SpMM_Demo.cpp
 )
 target_link_libraries(dag_decomp
         fusion

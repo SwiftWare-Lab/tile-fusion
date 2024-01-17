@@ -1,6 +1,10 @@
 //
 // Created by salehm32 on 03/11/23.
 //
+
+#ifndef SPARSE_FUSION_FUSIONINSPECTOR_H
+#define SPARSE_FUSION_FUSIONINSPECTOR_H
+
 #include "Stats.h"
 #include "aggregation/def.h"
 #include "aggregation/sparse_utilities.h"
@@ -10,8 +14,6 @@
 #include <climits>
 #include <cmath>
 #include <set>
-#ifndef SPARSE_FUSION_FUSIONINSPECTOR_H
-#define SPARSE_FUSION_FUSIONINSPECTOR_H
 
 using namespace swiftware::benchmark;
 
