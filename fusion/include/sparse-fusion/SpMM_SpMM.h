@@ -91,6 +91,9 @@ void spmmCsrSpmmCsrFusedVectorized128(int M, int N, int K, int L,
                                     int LevelNo, const int *LevelPtr, const int *ParPtr,
                                     const int *Partition, const int *ParType,
                                     int NThreads);
+void spmmCsrVectorized128Avx512(int M, int N, const int *Ap, const int *Ai,
+                                const double *Ax, const double *Cx, double *ACx,
+                                int TileSize, int NThreads);
 #endif
 #if defined(__AVX2__)
 void spmmCsrSpmmCsrFusedVectorized(int M, int N, int K, int L,
