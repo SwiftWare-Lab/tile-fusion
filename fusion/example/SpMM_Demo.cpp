@@ -120,10 +120,10 @@ int main(const int argc, const char *argv[]){
   auto spmmVectorizedAvx512 = new SpMMParallelVectorizedAVX512_128(inSpMM, stats, sp);
   spmmVectorizedAvx512->run();
   //unfused->OutTensor->printDx();
-  auto spmmVectorizedAvx512 = spmmVectorizedAvx512->printStats();
-  delete spmmVectorizedAvx512;
+  auto spmmVectorizedAvx512Stat = spmmVectorizedAvx512->printStats();
+  delete spmmVectorizedAvx512Stat;
   delete stats;
-  std::cout<<spmmVectorizedAvx512<<spStat+tpStat<<std::endl;
+  std::cout<<spmmVectorizedAvx512Stat<<spStat+tpStat<<std::endl;
 
 #endif
   delete aCSC;

@@ -497,7 +497,7 @@ protected:
   }
 
 public:
-  SpMMSpMMFusedInterLayerVectorized(TensorInputs<double> *In1, Stats *Stat1,
+  SpMMSpMMFusedInterLayerVectorizedAvx512(TensorInputs<double> *In1, Stats *Stat1,
                           sym_lib::ScheduleParameters SpIn)
       : SpMMSpMMFusedInterLayer(In1, Stat1, SpIn) {
     if(In1->N==8) {
