@@ -672,8 +672,8 @@ void spmmCsrSpmmCsrFusedVectorized2_8(
                 auto dxV2 = _mm256_loadu_pd(Dx + i * N + kk + 4);
                 dxV = _mm256_fmadd_pd(bxv0, cxV11, dxV);
                 dxV2 = _mm256_fmadd_pd(bxv0, cxV12, dxV2);
-                _mm256_storeu_pd(ACx + i * N + kk, dxV);
-                _mm256_storeu_pd(ACx + i * N + kk + 4, dxV2);
+                _mm256_storeu_pd(Dx + i * N + kk, dxV);
+                _mm256_storeu_pd(Dx + i * N + kk + 4, dxV2);
               }
             }
           }
