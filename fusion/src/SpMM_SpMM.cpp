@@ -611,7 +611,7 @@ void spmmCsrSpmmCsrFusedVectorized2_8(
               int aij2 = Ai[j+1] * N;
               auto axV1 = _mm256_set1_pd(Ax[j]);
               auto axV2 = _mm256_set1_pd(Ax[j+1]);
-              for (int kk = 0; kk < N; kk += 16) {
+              for (int kk = 0; kk < N; kk += 8) {
                 auto cxV11 = _mm256_loadu_pd(Cx + aij1 + kk);
                 auto cxV12 = _mm256_loadu_pd(Cx + aij1 + kk + 4);
                 auto cxV21 = _mm256_loadu_pd(Cx + aij2 + kk);
@@ -629,7 +629,7 @@ void spmmCsrSpmmCsrFusedVectorized2_8(
             for (; j < Ap[i + 1]; ++j) {
               int aij = Ai[j] * N;
               auto axv0 = _mm256_set1_pd(Ax[j]);
-              for (int kk = 0; kk < N; kk += 16) {
+              for (int kk = 0; kk < N; kk += 8) {
                 auto cxV11 = _mm256_loadu_pd(Cx + aij + kk);
                 auto cxV12 = _mm256_loadu_pd(Cx + aij + kk + 4);
                 auto acxV = _mm256_loadu_pd(ACx + i * N + kk);
@@ -647,7 +647,7 @@ void spmmCsrSpmmCsrFusedVectorized2_8(
               int bij2 = Bi[k+1] * N;
               auto bxV1 = _mm256_set1_pd(Bx[k]);
               auto bxV2 = _mm256_set1_pd(Bx[k+1]);
-              for (int kk = 0; kk < N; kk += 4) {
+              for (int kk = 0; kk < N; kk += 8) {
                 auto acxV11 = _mm256_loadu_pd(ACx + bij1 + kk);
                 auto acxV12 = _mm256_loadu_pd(ACx + bij1 + kk + 4);
                 auto acxV21 = _mm256_loadu_pd(ACx + bij2 + kk);
@@ -665,7 +665,7 @@ void spmmCsrSpmmCsrFusedVectorized2_8(
             for (; k < Bp[i + 1]; ++k) {
               int bij = Bi[k] * N;
               auto bxv0 = _mm256_set1_pd(Bx[k]);
-              for (int kk = 0; kk < N; kk += 16) {
+              for (int kk = 0; kk < N; kk += 8) {
                 auto cxV11 = _mm256_loadu_pd(ACx + bij + kk);
                 auto cxV12 = _mm256_loadu_pd(ACx + bij + kk + 4);
                 auto dxV = _mm256_loadu_pd(Dx + i * N + kk);
