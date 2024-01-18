@@ -321,12 +321,12 @@ inline void vectorCrossProduct2_32Avx512(const double* Ax, const int* Ai, const 
   int offset = N * I;
   for (int kk = 0; kk < N; kk += 32) {
     auto acxV11 = _mm512_loadu_pd(B + bij0 + kk);
-    auto dxV1 = _mm512_loadu_pd(C + offset + kk);
     auto acxV12 = _mm512_loadu_pd(B + bij0 + kk + 8);
-    auto dxV2 = _mm512_loadu_pd(C + offset + kk + 8);
     auto acxV13 = _mm512_loadu_pd(B + bij0 + kk + 16);
-    auto dxV3 = _mm512_loadu_pd(C + offset + kk + 16);
     auto acxV14 = _mm512_loadu_pd(B + bij0 + kk + 24);
+    auto dxV1 = _mm512_loadu_pd(C + offset + kk);
+    auto dxV2 = _mm512_loadu_pd(C + offset + kk + 8);
+    auto dxV3 = _mm512_loadu_pd(C + offset + kk + 16);
     auto dxV4 = _mm512_loadu_pd(C + offset + kk + 24);
     auto acxV21 = _mm512_loadu_pd(B + bij1 + kk + 0);
     auto acxV22 = _mm512_loadu_pd(B + bij1 + kk + 8);
@@ -762,7 +762,7 @@ void spmmCsrSpmmCsrFusedVectorized2_16(
               int bij2 = Bi[k+1] * N;
               auto bxV1 = _mm256_set1_pd(Bx[k]);
               auto bxV2 = _mm256_set1_pd(Bx[k+1]);
-              for (int kk = 0; kk < N; kk += 4) {
+              for (int kk = 0; kk < N; kk += 16) {
                 auto acxV11 = _mm256_loadu_pd(ACx + bij1 + kk);
                 auto acxV12 = _mm256_loadu_pd(ACx + bij1 + kk + 4);
                 auto acxV13 = _mm256_loadu_pd(ACx + bij1 + kk + 8);
@@ -805,10 +805,10 @@ void spmmCsrSpmmCsrFusedVectorized2_16(
                 dxV2 = _mm256_fmadd_pd(bxv0, cxV12, dxV2);
                 dxV3 = _mm256_fmadd_pd(bxv0, cxV13, dxV3);
                 dxV4 = _mm256_fmadd_pd(bxv0, cxV14, dxV4);
-                _mm256_storeu_pd(ACx + i * N + kk, dxV);
-                _mm256_storeu_pd(ACx + i * N + kk + 4, dxV2);
-                _mm256_storeu_pd(ACx + i * N + kk + 8, dxV3);
-                _mm256_storeu_pd(ACx + i * N + kk + 12, dxV4);
+                _mm256_storeu_pd(Dx + i * N + kk, dxV);
+                _mm256_storeu_pd(Dx + i * N + kk + 4, dxV2);
+                _mm256_storeu_pd(Dx + i * N + kk + 8, dxV3);
+                _mm256_storeu_pd(Dx + i * N + kk + 12, dxV4);
               }
             }
           }

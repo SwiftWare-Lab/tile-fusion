@@ -422,7 +422,7 @@ public:
 
   ~SpMMSpMMFusedInterLayer() { delete FusedCompSet; }
 };
-
+#ifdef __AVX2__
 class SpMMSpMMFusedInterLayerVectorizedAvx256 : public SpMMSpMMFusedInterLayer {
 protected:
   void (*spmmCsrSpmmCsrFusedVectorizedFunc)(int , int , int , int ,
@@ -465,6 +465,7 @@ public:
   }
 
 };
+#endif
 
 #ifdef __AVX512F__
 class SpMMSpMMFusedInterLayerVectorizedAvx512 : public SpMMSpMMFusedInterLayer {
