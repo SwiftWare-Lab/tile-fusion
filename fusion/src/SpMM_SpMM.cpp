@@ -260,7 +260,7 @@ inline void vectorCrossProduct2_8Avx512(const double* Ax, const int* Ai, const d
   auto bxV2 = _mm512_set1_pd(Ax[1]);
   int offset = N * I;
 
-  for (int kk = 0; kk < N; kk += 8) {
+  for (int kk = 0; kk < N; kk += 16) {
     auto acxV1 = _mm512_loadu_pd(B + bij1 + kk);
     auto acxV2 = _mm512_loadu_pd(B + bij2 + kk);
     auto dxV1 = _mm512_loadu_pd(C + offset + kk);
