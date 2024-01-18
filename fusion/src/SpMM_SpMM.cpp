@@ -783,10 +783,10 @@ void spmmCsrSpmmCsrFusedVectorized2_16(
                 _mm256_storeu_pd(Dx + i * N + kk + 4, dxV2);
                 dxV3 = _mm256_fmadd_pd(bxV1, acxV13, dxV3);
                 dxV3 = _mm256_fmadd_pd(bxV2, acxV23, dxV3);
-                _mm256_storeu_pd(Dx + i * N + kk + 8, dxV1);
+                _mm256_storeu_pd(Dx + i * N + kk + 8, dxV3);
                 dxV4 = _mm256_fmadd_pd(bxV1, acxV14, dxV4);
                 dxV4 = _mm256_fmadd_pd(bxV2, acxV24, dxV4);
-                _mm256_storeu_pd(Dx + i * N + kk + 12, dxV2);
+                _mm256_storeu_pd(Dx + i * N + kk + 12, dxV4);
               }
             }
             for (; k < Bp[i + 1]; ++k) {
