@@ -423,8 +423,51 @@ public:
   ~SpMMSpMMFusedInterLayer() { delete FusedCompSet; }
 };
 
-#if defined(__AVX512F__) || defined(__AVX2__)
-class SpMMSpMMFusedInterLayerVectorized : public SpMMSpMMFusedInterLayer {
+class SpMMSpMMFusedInterLayerVectorizedAvx256 : public SpMMSpMMFusedInterLayer {
+protected:
+  void (*spmmCsrSpmmCsrFusedVectorizedFunc)(int , int , int , int ,
+                                            const int *, const int *, const double *,
+                                            const int *, const int *,const double *,
+                                            const double *,
+                                            double *,
+                                            double *,
+                                            int , const int *, const int *,
+                                            const int *, const int *,
+                                            int );
+  Timer execute() override {
+    //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
+    OutTensor->reset();
+    Timer t;
+    t.start();
+    spmmCsrSpmmCsrFusedVectorizedFunc(
+        InTensor->M, InTensor->N, InTensor->K, InTensor->L, InTensor->ACsr->p,
+        InTensor->ACsr->i, InTensor->ACsr->x, InTensor->BCsr->p,
+        InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Cx, OutTensor->Dx,
+        OutTensor->ACx, FusedCompSet->n1_, FusedCompSet->ptr1_,
+        FusedCompSet->ptr2_, FusedCompSet->id_, FusedCompSet->type_,
+        InTensor->NumThreads);
+
+    t.stop();
+    return t;
+  }
+
+public:
+  SpMMSpMMFusedInterLayerVectorizedAvx256(TensorInputs<double> *In1, Stats *Stat1,
+                          sym_lib::ScheduleParameters SpIn)
+      : SpMMSpMMFusedInterLayer(In1, Stat1, SpIn) {
+    if(this->InTensor->N == 8){
+      this->spmmCsrSpmmCsrFusedVectorizedFunc = swiftware::sparse::spmmCsrSpmmCsrFusedVectorized2_8;
+    }
+    else{
+      this->spmmCsrSpmmCsrFusedVectorizedFunc = swiftware::sparse::spmmCsrSpmmCsrFusedVectorized2_16;
+    }
+  }
+
+};
+
+#ifdef __AVX512F__
+class SpMMSpMMFusedInterLayerVectorizedAvx512 : public SpMMSpMMFusedInterLayer {
 protected:
   void (*spmmCsrSpmmCsrFusedVectorizedFunc)(int , int , int , int ,
                                             const int *, const int *, const double *,
@@ -457,21 +500,13 @@ public:
   SpMMSpMMFusedInterLayerVectorized(TensorInputs<double> *In1, Stats *Stat1,
                           sym_lib::ScheduleParameters SpIn)
       : SpMMSpMMFusedInterLayer(In1, Stat1, SpIn) {
-#ifdef __AVX512F__
-    if(In1->N==128) {
-      spmmCsrSpmmCsrFusedVectorizedFunc = swiftware::sparse::spmmCsrSpmmCsrFusedVectorized128;
-    }
-    else if(In1->N==64){
-      spmmCsrSpmmCsrFusedVectorizedFunc = swiftware::sparse::spmmCsrSpmmCsrFusedVectorized64;
+    if(In1->N==8) {
+      spmmCsrSpmmCsrFusedVectorizedFunc = swiftware::sparse::spmmCsrSpmmCsrFusedVectorized8Avx512;
     }
     else {
-      spmmCsrSpmmCsrFusedVectorizedFunc = swiftware::sparse::spmmCsrSpmmCsrFusedVectorized8;
+      spmmCsrSpmmCsrFusedVectorizedFunc = swiftware::sparse::spmmCsrSpmmCsrFusedVectorized2_32Avx512;
     }
-#else
-    spmmCsrSpmmCsrFusedVectorizedFunc = swiftware::sparse::spmmCsrSpmmCsrFusedVectorized;
-#endif
   }
-
 
 };
 #endif
