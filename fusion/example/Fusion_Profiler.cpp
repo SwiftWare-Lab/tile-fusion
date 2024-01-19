@@ -46,9 +46,9 @@ int main(const int argc, const char *argv[]){
   auto *fusionProfiler = new SpMMSpMMFusionProfiler(inSpMM, stats, sp);
   fusionProfiler->run();
   //unfused->OutTensor->printDx();
-  inSpMM->CorrectSol = std::copy(fusionProfiler->OutTensor->Dx,
-                fusionProfiler->OutTensor->Dx +
-                    fusionProfiler->OutTensor->M * fusionProfiler->OutTensor->N, inSpMM->CorrectMul);
+  inSpMM->CorrectSol = std::copy(fusionProfiler->OutTensor->Xx,
+                fusionProfiler->OutTensor->Xx +
+                    fusionProfiler->OutTensor->M * fusionProfiler->OutTensor->N, inSpMM->CorrectSol);
   inSpMM->IsSolProvided = true;
   auto headerStat = fusionProfiler->printStatsHeader();
   auto baselineStat = fusionProfiler->printStats();

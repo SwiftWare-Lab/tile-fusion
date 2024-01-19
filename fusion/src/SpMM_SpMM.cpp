@@ -93,7 +93,7 @@ void spmmCsrParallelTiled(int M, int N, int K,
         //          for (int j = Ap[i]; j < Ap[i + 1]; ++j) {
         //            int aij = Ai[j] * N;
         //            for (int k = kk; k < kk + NTile; ++k) {
-        //              Cx[i * N + k] += Ax[j] * Bx[aij + k];
+        //              Bx[i * N + k] += Ax[j] * Bx[aij + k];
         //            }
         //          }
         //        }
@@ -165,7 +165,7 @@ void spmmCsrInnerProductTiledCParallel(int M, int N, int K,
         // copy ctile to C
         //        for (int ii = 0; ii < MTile; ii++) {
         //          for (int kk = 0; kk < NTile; kk++) {
-        //            Cx[(i + ii) * N + (k + kk)] += cTile[ii * NTile + kk];
+        //            Bx[(i + ii) * N + (k + kk)] += cTile[ii * NTile + kk];
         //            cTile[ii * NTile + kk] = 0;
         //          }
         //        }
@@ -173,7 +173,7 @@ void spmmCsrInnerProductTiledCParallel(int M, int N, int K,
       // tail iterations for k
       for (int ii = 0; ii < MTile; ii++) {
         for (int k = nTailBeg; k < N; ++k) {
-          auto cik = 0;//Cx[(i+ii) * N + k];
+          auto cik = 0;//Bx[(i+ii) * N + k];
           for (int j = Ap[i+ii]; j < Ap[i + ii + 1]; ++j) {
             int aij = Ai[j] * N;
             cik += Ax[j] * Bx[aij + k]; // C[i][k] += A[i][j] * B[j][k];
@@ -585,7 +585,7 @@ void spmmCsrSpmmCsrTiledFused(int M, int N, int K, int L,
           for (int j = Ap[iipi]; j < Ap[iipi + 1]; ++j) {
             int aij = Ai[j] * N;
             for (int k = 0; k < NTile; ++k) {
-              //auto tmp = Ax[j] * Cx[aij + k];
+              //auto tmp = Ax[j] * Bx[aij + k];
               cxBuf[i * NTile + k] += Ax[j] * Cx[aij + k];
               //ACx[iipi * N + k + kk] = tmp;
             }
@@ -636,7 +636,7 @@ void spmmCsrSpmmCsrTiledFused(int M, int N, int K, int L,
       //            for (int j = Ap[i]; j < Ap[i + 1]; j++) {
       //              int aij = Ai[j] * N;
       //              for (int kk = 0; kk < N; ++kk) {
-      //                ACx[i * N + kk] += Ax[j] * Cx[aij + kk];
+      //                ACx[i * N + kk] += Ax[j] * Bx[aij + kk];
       //              }
       //            }
       //          } else {
@@ -653,7 +653,7 @@ void spmmCsrSpmmCsrTiledFused(int M, int N, int K, int L,
       //          for (int k = Bp[i]; k < Bp[i + 1]; k++) {
       //            int bij = Bi[k] * N;
       //            for (int kk = 0; kk < N; ++kk) {
-      //              Dx[i * N + kk] += Bx[k] * ACx[bij + kk];
+      //              Xx[i * N + kk] += Bx[k] * ACx[bij + kk];
       //            }
       //          }
 
@@ -701,7 +701,7 @@ void spmmCsrSpmmCsrTiledFusedRedundantBanded(int M, int N, int K, int L,
             int aij = Ai[j] * N;
             //std::fill_n(cxBuf + i * NTile, NTile, 0.0);
             for (int k = 0; k < NTile; ++k) {
-              //auto tmp = Ax[j] * Cx[aij + k];
+              //auto tmp = Ax[j] * Bx[aij + k];
               //cxBuf[i * NTile + k] = 0;
               cxBuf[i * NTile + k] += Ax[j] * Cx[aij + k];
               //ACx[iipi * N + k + kk] = tmp;
@@ -736,7 +736,7 @@ void spmmCsrSpmmCsrTiledFusedRedundantBanded(int M, int N, int K, int L,
         //            std::cout<<"\n=============\n";
         //            for(int i = 0; i < mTileLoc; ++i) {
         //              for(int k = 0; k < NTile; ++k) {
-        //                std::cout << Dx[i * NTile + k] << " ";
+        //                std::cout << Xx[i * NTile + k] << " ";
         //              }
         //              std::cout << std::endl;
         //            }
@@ -783,7 +783,7 @@ void spmmCsrSpmmCsrTiledFusedRedundantGeneral(int M, int N, int K, int L,
               int aij = Ai[j] * N;
               //std::fill_n(cxBuf + i * NTile, NTile, 0.0);
 
-              //auto tmp = Ax[j] * Cx[aij + k];
+              //auto tmp = Ax[j] * Bx[aij + k];
               //cxBuf[i * NTile + k] = 0;
               acc += Ax[j] * Cx[aij + k];
               //ACx[iipi * N + k + kk] = tmp;
@@ -818,7 +818,7 @@ void spmmCsrSpmmCsrTiledFusedRedundantGeneral(int M, int N, int K, int L,
         //            std::cout<<"\n=============\n";
         //            for(int i = 0; i < mTileLoc; ++i) {
         //              for(int k = 0; k < NTile; ++k) {
-        //                std::cout << Dx[i * NTile + k] << " ";
+        //                std::cout << Xx[i * NTile + k] << " ";
         //              }
         //              std::cout << std::endl;
         //            }
@@ -954,12 +954,12 @@ void spmmCsrSpmmCsrMixedScheduleFused(int M, int N, int K, int L,
               }
             }
             //                            for (int kk = 0; kk < N; ++kk) {
-            //                                auto dxik = Dx[i * N + kk];
+            //                                auto dxik = Xx[i * N + kk];
             //                                for (int k = Bp[i]; k < Bp[i + 1]; k++) {
             //                                    int bij = Bi[k] * N;
             //                                    dxik += Bx[k] * ACx[bij + kk];
             //                                }
-            //                                Dx[i * N + kk] = dxik;
+            //                                Xx[i * N + kk] = dxik;
             //                            }
           }
         }
