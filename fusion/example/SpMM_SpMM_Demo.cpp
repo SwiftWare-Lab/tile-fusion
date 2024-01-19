@@ -54,7 +54,7 @@ int main(const int argc, const char *argv[]){
   auto *unfused = new SpMMSpMMUnFused(inSpMM, stats);
   unfused->run();
   //unfused->OutTensor->printDx();
-  inSpMM->CorrectSol = std::copy(unfused->OutTensor->Dx, unfused->OutTensor->Dx + unfused->OutTensor->M * unfused->OutTensor->N, inSpMM->CorrectMul);
+  inSpMM->CorrectSol = std::copy(unfused->OutTensor->Xx, unfused->OutTensor->Xx + unfused->OutTensor->M * unfused->OutTensor->N, inSpMM->CorrectSol);
   inSpMM->IsSolProvided = true;
   auto headerStat = unfused->printStatsHeader();
   auto baselineStat = unfused->printStats();
