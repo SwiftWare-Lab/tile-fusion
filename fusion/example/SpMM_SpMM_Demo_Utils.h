@@ -33,8 +33,8 @@ template <typename T> struct TensorInputs : public Inputs<T> {
   sym_lib::CSC *A, *B;
   sym_lib::CSR *ACsr, *BCsr;
 
-  T *Cx;
-  T *CorrectMul;
+  T *Bx;
+  T *CorrectSol;
   bool IsSolProvided;
 
   TensorInputs(int M1, int N1, int K1, int L1, sym_lib::CSC *A1,
@@ -49,19 +49,19 @@ template <typename T> struct TensorInputs : public Inputs<T> {
     B = sym_lib::copy_sparse(B1);
     ACsr = sym_lib::csc_to_csr(A);
     BCsr = sym_lib::csc_to_csr(B);
-    Cx = new double[K * N]();
+    Bx = new double[K * N]();
     // randomly initialize the input
     for (int i = 0; i < K * N; ++i) {
-      Cx[i] = 1.0; //(double)rand()/RAND_MAX;
+      Bx[i] = 1.0; //(double)rand()/RAND_MAX;
     }
-    CorrectMul = new double[L * N](); // the correct solution
+    CorrectSol = new double[L * N](); // the correct solution
     IsSolProvided = false;
     Inputs<T>::Threshold = 1e-6;
   }
 
   ~TensorInputs() {
-    delete[] Cx;
-    delete[] CorrectMul;
+    delete[] Bx;
+    delete[] CorrectSol;
     delete A;
     delete B;
     delete ACsr;
@@ -71,28 +71,28 @@ template <typename T> struct TensorInputs : public Inputs<T> {
 
 template <typename T> struct TensorOutputs : public Outputs<T> {
   int M, N, L;
-  T *Dx, *ACx;
+  T *Xx, *ACx;
 
   TensorOutputs(int M, int N, int L) : M(M), N(N), L(L) {
-    Dx = new T[L * N]();
+    Xx = new T[L * N]();
     ACx = new T[M * N]();
   }
 
   ~TensorOutputs() {
-    delete[] Dx;
+    delete[] Xx;
     delete[] ACx;
   }
 
   void printDx() {
     std::cout << "\n ACx:\n";
     printDense<T>(M, N, ACx);
-    std::cout << "\n Dx:\n";
-    printDense<T>(L, N, Dx);
+    std::cout << "\n Xx:\n";
+    printDense<T>(L, N, Xx);
     std::cout << "\n";
   }
 
   void reset() {
-    std::fill_n(Dx, L * N, 0.0);
+    std::fill_n(Xx, L * N, 0.0);
     std::fill_n(ACx, M * N, 0.0);
   }
 };
@@ -110,17 +110,17 @@ protected:
   void preExecute() override {}
 
   Timer execute() override {
-    //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->Xx, InTensor->L * InTensor->N, 0.0);
     //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
     OutTensor->reset();
     Timer t;
     t.start();
     swiftware::sparse::spmmCsrSequential(
         InTensor->M, InTensor->N, InTensor->K, InTensor->ACsr->p,
-        InTensor->ACsr->i, InTensor->ACsr->x, InTensor->Cx, OutTensor->ACx);
+        InTensor->ACsr->i, InTensor->ACsr->x, InTensor->Bx, OutTensor->ACx);
     swiftware::sparse::spmmCsrSequential(
         InTensor->L, InTensor->N, InTensor->M, InTensor->BCsr->p,
-        InTensor->BCsr->i, InTensor->BCsr->x, OutTensor->ACx, OutTensor->Dx);
+        InTensor->BCsr->i, InTensor->BCsr->x, OutTensor->ACx, OutTensor->Xx);
     t.stop();
     return t;
   }
@@ -133,8 +133,8 @@ protected:
     }
     double infNorm = 0;
     for (int i = 0; i < InTensor->L * InTensor->N; ++i) {
-      if (std::abs(OutTensor->Dx[i] - InTensor->CorrectMul[i]) > infNorm) {
-        infNorm = std::abs(OutTensor->Dx[i] - InTensor->CorrectMul[i]);
+      if (std::abs(OutTensor->Xx[i] - InTensor->CorrectSol[i]) > infNorm) {
+        infNorm = std::abs(OutTensor->Xx[i] - InTensor->CorrectSol[i]);
       }
     }
     Error = (double)infNorm;
@@ -256,19 +256,19 @@ public:
 class SpMMSpMMUnFusedParallelTiled : public SpMMSpMMUnFused {
 protected:
   Timer execute() override {
-    //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->Xx, InTensor->L * InTensor->N, 0.0);
     //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
     OutTensor->reset();
     Timer t;
     t.start();
     swiftware::sparse::spmmCsrParallel(InTensor->M, InTensor->N, InTensor->K,
                                        InTensor->ACsr->p, InTensor->ACsr->i,
-                                       InTensor->ACsr->x, InTensor->Cx,
+                                       InTensor->ACsr->x, InTensor->Bx,
                                        OutTensor->ACx, InTensor->NumThreads);
     swiftware::sparse::spmmCsrParallel(InTensor->L, InTensor->N, InTensor->M,
                                        InTensor->BCsr->p, InTensor->BCsr->i,
                                        InTensor->BCsr->x, OutTensor->ACx,
-                                       OutTensor->Dx, InTensor->NumThreads);
+                                       OutTensor->Xx, InTensor->NumThreads);
     t.stop();
     return t;
   }
@@ -281,19 +281,19 @@ public:
 class SpMMSpMMUnFusedParallel : public SpMMSpMMUnFused {
 protected:
   Timer execute() override {
-    //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->Xx, InTensor->L * InTensor->N, 0.0);
     //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
     OutTensor->reset();
     Timer t;
     t.start();
     swiftware::sparse::spmmCsrParallel(InTensor->M, InTensor->N, InTensor->K,
                                        InTensor->ACsr->p, InTensor->ACsr->i,
-                                       InTensor->ACsr->x, InTensor->Cx,
+                                       InTensor->ACsr->x, InTensor->Bx,
                                        OutTensor->ACx, InTensor->NumThreads);
     swiftware::sparse::spmmCsrParallel(InTensor->L, InTensor->N, InTensor->M,
                                        InTensor->BCsr->p, InTensor->BCsr->i,
                                        InTensor->BCsr->x, OutTensor->ACx,
-                                       OutTensor->Dx, InTensor->NumThreads);
+                                       OutTensor->Xx, InTensor->NumThreads);
     t.stop();
     return t;
   }
@@ -306,18 +306,18 @@ public:
 class SpMMSpMMUnFusedInnerParallel : public SpMMSpMMUnFused {
 protected:
   Timer execute() override {
-    //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->Xx, InTensor->L * InTensor->N, 0.0);
     //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
     OutTensor->reset();
     Timer t;
     t.start();
     swiftware::sparse::spmmCsrInnerProductParallel(
         InTensor->M, InTensor->N, InTensor->K, InTensor->ACsr->p,
-        InTensor->ACsr->i, InTensor->ACsr->x, InTensor->Cx, OutTensor->ACx,
+        InTensor->ACsr->i, InTensor->ACsr->x, InTensor->Bx, OutTensor->ACx,
         InTensor->NumThreads);
     swiftware::sparse::spmmCsrInnerProductParallel(
         InTensor->L, InTensor->N, InTensor->M, InTensor->BCsr->p,
-        InTensor->BCsr->i, InTensor->BCsr->x, OutTensor->ACx, OutTensor->Dx,
+        InTensor->BCsr->i, InTensor->BCsr->x, OutTensor->ACx, OutTensor->Xx,
         InTensor->NumThreads);
     t.stop();
     return t;
@@ -332,7 +332,7 @@ class SpMMSpMMUnFusedCTiledParallel : public SpMMSpMMUnFused {
 protected:
   sym_lib::ScheduleParameters Sp;
   Timer execute() override {
-    //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->Xx, InTensor->L * InTensor->N, 0.0);
     //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
     int tileM = Sp.TileM, tileN = Sp.TileN;
 
@@ -341,11 +341,11 @@ protected:
     t.start();
     swiftware::sparse::spmmCsrParallelTiled(
         InTensor->M, InTensor->N, InTensor->K, InTensor->ACsr->p,
-        InTensor->ACsr->i, InTensor->ACsr->x, InTensor->Cx, OutTensor->ACx,
+        InTensor->ACsr->i, InTensor->ACsr->x, InTensor->Bx, OutTensor->ACx,
         InTensor->NumThreads, tileM, tileN);
     swiftware::sparse::spmmCsrParallelTiled(
         InTensor->L, InTensor->N, InTensor->M, InTensor->BCsr->p,
-        InTensor->BCsr->i, InTensor->BCsr->x, OutTensor->ACx, OutTensor->Dx,
+        InTensor->BCsr->i, InTensor->BCsr->x, OutTensor->ACx, OutTensor->Xx,
         InTensor->NumThreads, tileM, tileN);
     t.stop();
     return t;
@@ -398,7 +398,7 @@ protected:
   }
 
   Timer execute() override {
-    //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->Xx, InTensor->L * InTensor->N, 0.0);
     //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
     OutTensor->reset();
     Timer t;
@@ -406,7 +406,7 @@ protected:
     swiftware::sparse::spmmCsrSpmmCsrFused(
         InTensor->M, InTensor->N, InTensor->K, InTensor->L, InTensor->ACsr->p,
         InTensor->ACsr->i, InTensor->ACsr->x, InTensor->BCsr->p,
-        InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Cx, OutTensor->Dx,
+        InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Bx, OutTensor->Xx,
         OutTensor->ACx, FusedCompSet->n1_, FusedCompSet->ptr1_,
         FusedCompSet->ptr2_, FusedCompSet->id_, FusedCompSet->type_,
         InTensor->NumThreads);
@@ -550,7 +550,7 @@ protected:
   }
 
   Timer execute() override {
-    //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->Xx, InTensor->L * InTensor->N, 0.0);
     //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
     OutTensor->reset();
     Timer t;
@@ -558,7 +558,7 @@ protected:
     swiftware::sparse::spmmCsrSpmmCsrFusedKTiled(
         InTensor->M, InTensor->N, InTensor->K, InTensor->L, InTensor->ACsr->p,
         InTensor->ACsr->i, InTensor->ACsr->x, InTensor->BCsr->p,
-        InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Cx, OutTensor->Dx,
+        InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Bx, OutTensor->Xx,
         OutTensor->ACx, KTileSize, FusedCompSet->n1_, FusedCompSet->ptr1_,
         FusedCompSet->ptr2_, FusedCompSet->id_, FusedCompSet->type_,
         InTensor->NumThreads);
@@ -614,7 +614,7 @@ protected:
   }
 
   Timer execute() override {
-    //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->Xx, InTensor->L * InTensor->N, 0.0);
     //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
     auto *ws = new double[InTensor->NumThreads * 2 * InTensor->M * Sp.TileN]();
     OutTensor->reset();
@@ -623,7 +623,7 @@ protected:
     swiftware::sparse::spmmCsrSpmmCsrTiledFusedRedundantGeneral(
         InTensor->M, InTensor->N, InTensor->K, InTensor->L, InTensor->ACsr->p,
         InTensor->ACsr->i, InTensor->ACsr->x, InTensor->BCsr->p,
-        InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Cx, OutTensor->Dx,
+        InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Bx, OutTensor->Xx,
         OutTensor->ACx, FusedCompSet->n1_, FusedCompSet->ptr1_,
         FusedCompSet->ptr2_, FusedCompSet->id_, FusedCompSet->type_,
         FusedCompSet->ker_begin_, InTensor->NumThreads, Sp.TileM, Sp.TileN, ws);
@@ -688,7 +688,7 @@ protected:
   }
 
   Timer execute() override {
-    //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->Xx, InTensor->L * InTensor->N, 0.0);
     //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
     OutTensor->reset();
     Timer t;
@@ -696,7 +696,7 @@ protected:
     swiftware::sparse::spmmCsrSpmmCsrFused(
         InTensor->M, InTensor->N, InTensor->K, InTensor->L, InTensor->ACsr->p,
         InTensor->ACsr->i, InTensor->ACsr->x, InTensor->BCsr->p,
-        InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Cx, OutTensor->Dx,
+        InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Bx, OutTensor->Xx,
         OutTensor->ACx, FusedCompSet->n1_, FusedCompSet->ptr1_,
         FusedCompSet->ptr2_, FusedCompSet->id_, FusedCompSet->type_,
         InTensor->NumThreads);
@@ -716,7 +716,7 @@ public:
 
 class SpMMSpMMFusedInnerProdInterLayer : public SpMMSpMMFusedInterLayer {
   Timer execute() override {
-    //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->Xx, InTensor->L * InTensor->N, 0.0);
     //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
     OutTensor->reset();
     Timer t;
@@ -724,7 +724,7 @@ class SpMMSpMMFusedInnerProdInterLayer : public SpMMSpMMFusedInterLayer {
     swiftware::sparse::spmmCsrSpmmCsrInnerProductFused(
         InTensor->M, InTensor->N, InTensor->K, InTensor->L, InTensor->ACsr->p,
         InTensor->ACsr->i, InTensor->ACsr->x, InTensor->BCsr->p,
-        InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Cx, OutTensor->Dx,
+        InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Bx, OutTensor->Xx,
         OutTensor->ACx, FusedCompSet->n1_, FusedCompSet->ptr1_,
         FusedCompSet->ptr2_, FusedCompSet->id_, FusedCompSet->type_,
         InTensor->NumThreads);
@@ -742,7 +742,7 @@ public:
 
 class SpMMSpMMFusedTiled : public SpMMSpMMFusedInterLayer {
   Timer execute() override {
-    //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->Xx, InTensor->L * InTensor->N, 0.0);
     //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
     auto *ws = new double[InTensor->NumThreads * Sp.TileM * Sp.TileN];
     OutTensor->reset();
@@ -751,7 +751,7 @@ class SpMMSpMMFusedTiled : public SpMMSpMMFusedInterLayer {
     swiftware::sparse::spmmCsrSpmmCsrTiledFused(
         InTensor->M, InTensor->N, InTensor->K, InTensor->L, InTensor->ACsr->p,
         InTensor->ACsr->i, InTensor->ACsr->x, InTensor->BCsr->p,
-        InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Cx, OutTensor->Dx,
+        InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Bx, OutTensor->Xx,
         OutTensor->ACx, FusedCompSet->n1_, FusedCompSet->ptr1_,
         FusedCompSet->ptr2_, FusedCompSet->id_, FusedCompSet->type_,
         InTensor->NumThreads, Sp.TileM, Sp.TileN, ws);
@@ -836,7 +836,7 @@ class SpMMSpMMFusedTiledTri : public SpMMSpMMFusedInterLayer {
     return t;
   }
   Timer execute() override {
-    //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->Xx, InTensor->L * InTensor->N, 0.0);
     //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
     auto *ws = new double[InTensor->NumThreads * 2 * Sp.TileM * Sp.TileN]();
     OutTensor->reset();
@@ -845,7 +845,7 @@ class SpMMSpMMFusedTiledTri : public SpMMSpMMFusedInterLayer {
     swiftware::sparse::spmmCsrSpmmCsrTiledFusedRedundantBanded(
         InTensor->M, InTensor->N, InTensor->K, InTensor->L, InTensor->ACsr->p,
         InTensor->ACsr->i, InTensor->ACsr->x, InTensor->BCsr->p,
-        InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Cx, OutTensor->Dx,
+        InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Bx, OutTensor->Xx,
         OutTensor->ACx, FusedCompSet->n1_, FusedCompSet->ptr1_,
         FusedCompSet->ptr2_, FusedCompSet->id_, FusedCompSet->type_,
         FusedCompSet->ker_begin_, InTensor->NumThreads, Sp.TileM, Sp.TileN, ws);
@@ -864,7 +864,7 @@ public:
 
 class SpMMSpMMFusedSepInterLayer : public SpMMSpMMFusedInterLayer {
   Timer execute() override {
-    //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->Xx, InTensor->L * InTensor->N, 0.0);
     //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
     OutTensor->reset();
     Timer t;
@@ -872,7 +872,7 @@ class SpMMSpMMFusedSepInterLayer : public SpMMSpMMFusedInterLayer {
     swiftware::sparse::spmmCsrSpmmCsrSeparatedFused(
         InTensor->M, InTensor->N, InTensor->K, InTensor->L, InTensor->ACsr->p,
         InTensor->ACsr->i, InTensor->ACsr->x, InTensor->BCsr->p,
-        InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Cx, OutTensor->Dx,
+        InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Bx, OutTensor->Xx,
         OutTensor->ACx, FusedCompSet->n1_, FusedCompSet->ptr1_,
         FusedCompSet->ptr2_, FusedCompSet->id_, FusedCompSet->type_,
         FusedCompSet->ker_begin_, InTensor->NumThreads);
@@ -889,7 +889,7 @@ public:
 
 class SpMMSpMMFusedMixedInterLayer : public SpMMSpMMFusedInterLayer {
   Timer execute() override {
-    //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->Xx, InTensor->L * InTensor->N, 0.0);
     //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
     OutTensor->reset();
     Timer t;
@@ -897,7 +897,7 @@ class SpMMSpMMFusedMixedInterLayer : public SpMMSpMMFusedInterLayer {
     swiftware::sparse::spmmCsrSpmmCsrMixedScheduleFused(
         InTensor->M, InTensor->N, InTensor->K, InTensor->L, InTensor->ACsr->p,
         InTensor->ACsr->i, InTensor->ACsr->x, InTensor->BCsr->p,
-        InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Cx, OutTensor->Dx,
+        InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Bx, OutTensor->Xx,
         OutTensor->ACx, FusedCompSet->n1_, FusedCompSet->ptr1_,
         FusedCompSet->ptr2_, FusedCompSet->id_, FusedCompSet->type_,
         InTensor->NumThreads);
@@ -915,7 +915,7 @@ public:
 // class SpMMSpMMUnFusedCTiledParallel : public SpMMSpMMUnFused {
 //   protected:
 //     Timer execute() override {
-//         //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+//         //    std::fill_n(OutTensor->Xx, InTensor->L * InTensor->N, 0.0);
 //         //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
 //         int tileM = 128, tileN = 32;
 //         OutTensor->reset();
@@ -923,12 +923,12 @@ public:
 //         t.start();
 //         swiftware::sparse::spmmCsrParallelTiled(
 //             InTensor->M, InTensor->N, InTensor->K, InTensor->ACsr->p,
-//             InTensor->ACsr->i, InTensor->ACsr->x, InTensor->Cx,
+//             InTensor->ACsr->i, InTensor->ACsr->x, InTensor->Bx,
 //             OutTensor->ACx, InTensor->NumThreads, tileM, tileN);
 //         swiftware::sparse::spmmCsrParallelTiled(
 //             InTensor->L, InTensor->N, InTensor->M, InTensor->BCsr->p,
 //             InTensor->BCsr->i, InTensor->BCsr->x, OutTensor->ACx,
-//             OutTensor->Dx, InTensor->NumThreads, tileM, tileN);
+//             OutTensor->Xx, InTensor->NumThreads, tileM, tileN);
 //         t.stop();
 //         return t;
 //     }
@@ -973,7 +973,7 @@ protected:
   }
 
   Timer execute() override {
-    //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->Xx, InTensor->L * InTensor->N, 0.0);
     //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
     OutTensor->reset();
     Timer t;
@@ -986,8 +986,8 @@ protected:
     //                                               InTensor->BCsr->p,
     //                                               InTensor->BCsr->i,
     //                                               InTensor->BCsr->x,
-    //                                               InTensor->Cx,
-    //                                               OutTensor->Dx,
+    //                                               InTensor->Bx,
+    //                                               OutTensor->Xx,
     //                                               OutTensor->ACx,
     //                                               FusedCompSet->n1_,
     //                                               FusedCompSet->ptr1_,
@@ -1045,7 +1045,7 @@ protected:
   }
 
   Timer execute() override {
-    //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->Xx, InTensor->L * InTensor->N, 0.0);
     //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
     OutTensor->reset();
     Timer t;
@@ -1053,7 +1053,7 @@ protected:
     swiftware::sparse::spmmCsrSpmmCscFused(
         InTensor->M, InTensor->N, InTensor->K, InTensor->L, InTensor->ACsr->p,
         InTensor->ACsr->i, InTensor->ACsr->x, InTensor->B->p, InTensor->B->i,
-        InTensor->B->x, InTensor->Cx, OutTensor->Dx, OutTensor->ACx,
+        InTensor->B->x, InTensor->Bx, OutTensor->Xx, OutTensor->ACx,
         FusedCompSet->n1_, FusedCompSet->ptr1_, FusedCompSet->ptr2_,
         FusedCompSet->id_, FusedCompSet->type_, InTensor->NumThreads);
 
@@ -1084,7 +1084,7 @@ protected:
   }
 
   Timer execute() override {
-    //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->Xx, InTensor->L * InTensor->N, 0.0);
     //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
     OutTensor->reset();
     Timer t;
@@ -1092,7 +1092,7 @@ protected:
     swiftware::sparse::spmmCsrSpmmCscFusedAffine(
         InTensor->M, InTensor->N, InTensor->K, InTensor->L, InTensor->ACsr->p,
         InTensor->ACsr->i, InTensor->ACsr->x, InTensor->B->p, InTensor->B->i,
-        InTensor->B->x, InTensor->Cx, OutTensor->Dx, OutTensor->ACx,
+        InTensor->B->x, InTensor->Bx, OutTensor->Xx, OutTensor->ACx,
         InTensor->NumThreads);
 
     t.stop();
@@ -1129,7 +1129,7 @@ protected:
   }
 
   Timer execute() override {
-    //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->Xx, InTensor->L * InTensor->N, 0.0);
     //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
     OutTensor->reset();
     Timer t;
@@ -1137,7 +1137,7 @@ protected:
     swiftware::sparse::spmmCsrSpmmCscFusedColored(
         InTensor->M, InTensor->N, InTensor->K, InTensor->L, InTensor->ACsr->p,
         InTensor->ACsr->i, InTensor->ACsr->x, InTensor->B->p, InTensor->B->i,
-        InTensor->B->x, InTensor->Cx, OutTensor->Dx, OutTensor->ACx,
+        InTensor->B->x, InTensor->Bx, OutTensor->Xx, OutTensor->ACx,
         FusedCompSet->n1_, FusedCompSet->ptr1_, FusedCompSet->id_,
         Sp.TileM, InTensor->NumThreads);
 
@@ -1180,7 +1180,7 @@ protected:
   }
 
   Timer execute() override {
-    //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->Xx, InTensor->L * InTensor->N, 0.0);
     //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
     OutTensor->reset();
     Timer t;
@@ -1188,7 +1188,7 @@ protected:
     swiftware::sparse::spmmCsrSpmmCscFusedColoredWithScheduledKTiles(
         InTensor->M, InTensor->N, InTensor->K, InTensor->L, InTensor->ACsr->p,
         InTensor->ACsr->i, InTensor->ACsr->x, InTensor->B->p, InTensor->B->i,
-        InTensor->B->x, InTensor->Cx, OutTensor->Dx, OutTensor->ACx,
+        InTensor->B->x, InTensor->Bx, OutTensor->Xx, OutTensor->ACx,
         FusedCompSet->n1_, FusedCompSet->ptr1_, FusedCompSet->id_,
         TileSize, KTileSize, InTensor->NumThreads);
 
@@ -1232,7 +1232,7 @@ protected:
   }
 
   Timer execute() override {
-    //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->Xx, InTensor->L * InTensor->N, 0.0);
     //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
     OutTensor->reset();
     Timer t;
@@ -1240,7 +1240,7 @@ protected:
     swiftware::sparse::spmmCsrSpmmCscFusedColoredWithReplicatedKTiles(
         InTensor->M, InTensor->N, InTensor->K, InTensor->L, InTensor->ACsr->p,
         InTensor->ACsr->i, InTensor->ACsr->x, InTensor->B->p, InTensor->B->i,
-        InTensor->B->x, InTensor->Cx, OutTensor->Dx, OutTensor->ACx,
+        InTensor->B->x, InTensor->Bx, OutTensor->Xx, OutTensor->ACx,
         FusedCompSet->n1_, FusedCompSet->ptr1_, FusedCompSet->id_,
         FusedCompSet->type_, TileSize, KTileSize, InTensor->NumThreads);
 
