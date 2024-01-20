@@ -109,7 +109,7 @@ template <typename T> struct TensorOutputs : public Outputs<T> {
 class JacobiCSRUnfused : public SWTensorBench<double> {
 protected:
   TensorInputs<double> *InTensor;
-  double Threshold = 1e-6;
+  double Threshold = 1e-3;
   int MaxIters = 1000;
   double *WS;
   int RetValue = 0, WSSize = 0;
@@ -132,7 +132,7 @@ protected:
         InTensor->ACsr->i, InTensor->ACsr->x, OutTensor->Xx, InTensor->Bx, InTensor->K,
         Threshold, MaxIters, WS);
     t.stop();
-    //std::cout << "Return value: " << RetValue << std::endl;
+    std::cout << "Return value: " << RetValue << std::endl;
     return t;
   }
 

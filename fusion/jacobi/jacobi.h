@@ -23,7 +23,7 @@ inline double ResidualMutipleCols(int M, int K, const double *X0, const double *
 inline void jacobiIterationCsr(int m, const int *Ap, const int *Ai, const double *Ax, double *Diags,
                         double *Xx, double *XxIn, const double *B, int BCol){
   // x = (b - dot(R,x)) / D
-//#pragma omp parallel for
+#pragma omp parallel for
   for (int j = 0; j < m; ++j) {
     for(int i=0; i<BCol; ++i) {
       long double sum = 0.0;
