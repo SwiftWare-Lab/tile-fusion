@@ -68,7 +68,7 @@ void jacobiTwoIterationsFusedCsr(int M, const int *Ap, const int *Ai,
           } else {
             for (int i = 0; i < BCol; ++i) {
               long double sum = 0.0;
-              auto *xIn = X2 + i;// Xx2[0][i];
+              auto *xIn = X1 + i;// Xx2[0][i];
               auto *x2 = X2 + i;
               auto *b = Bx + i; // B[0][i];
               for (int k = Ap[j]; k < Ap[j + 1]; ++k) {
@@ -163,13 +163,14 @@ inline int jacobiBiIterationFusedCSR(int m, int k, const int *Ap, const int *Ai,
   // copy X to xp
   std::memcpy(xp, X2, sizeof(double)*m*k);
   for (int i = 0; i < NIter; i+=2) {
-    jacobiTwoIterationsFusedCsr(m, Ap, Ai, r, B, BCol, X1, X2, xp, diagVals, LevelNo,
+    jacobiTwoIterationsFusedCsr(m, Ap, Ai, r, B, BCol, xp,X1, X2, diagVals, LevelNo,
                                 LevelPtr, ParPtr, Partition, ParType, NThreads);
 
-    double res = ResidualMutipleCols(m, k, X2, xp);
+    double res = ResidualMutipleCols(m, k, X2, X1);
     if (res < Eps)
       return i + 2;
     std::memcpy(xp, X2, sizeof(double) * m * k);
+//    std::memcpy(X2, X1, sizeof(double) * m * k);
   }
   return 0;
 }

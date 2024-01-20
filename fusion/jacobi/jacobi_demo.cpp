@@ -63,7 +63,8 @@ int main(const int argc, const char *argv[]) {
       unfused->OutTensor->Xx2,
       unfused->OutTensor->Xx2 + unfused->OutTensor->M * unfused->OutTensor->K,
       inJacobi->CorrectSol);
-  inJacobi->IsSolProvided = false;
+  inJacobi->IsSolProvided = true;
+//  unfused->OutTensor->printDx();
   auto headerStat = unfused->printStatsHeader();
   auto baselineStat = unfused->printStats();
   delete unfused;
@@ -74,6 +75,7 @@ int main(const int argc, const char *argv[]) {
   stats->OtherStats["PackingType"] = {Interleaved};
   auto *fused = new JacobiCSRFused(inJacobi, stats, sp);
   fused->run();
+//  fused->OutTensor->printDx();
   auto fusedStat = fused->printStats();
   delete fused;
   delete stats;

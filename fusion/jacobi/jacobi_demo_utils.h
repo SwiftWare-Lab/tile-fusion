@@ -101,7 +101,9 @@ template <typename T> struct TensorOutputs : public Outputs<T> {
   }
 
   void printDx() {
-    std::cout << "\n Xx2:\n";
+    std::cout << "\n Xx1:\n";
+    printDense<T>(M, K, Xx1);
+    std::cout << "\n Xx2\n";
     printDense<T>(M, K, Xx2);
     std::cout << "\n";
   }
@@ -115,14 +117,14 @@ template <typename T> struct TensorOutputs : public Outputs<T> {
 class JacobiCSRUnfused : public SWTensorBench<double> {
 protected:
   TensorInputs<double> *InTensor;
-  double Threshold = 1e-3;
+  double Threshold = 1e-4;
   int MaxIters = 10000;
   double *WS;
   int RetValue = 0, WSSize = 0;
 
   void setup() override {
     this->St->OtherStats["NTile"] = {4};
-//    Threshold *= InTensor->MaxVal; //normalize
+    Threshold *= InTensor->MaxVal; //normalize
   }
 
   void preExecute() override {}
