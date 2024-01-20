@@ -118,7 +118,7 @@ class JacobiCSRUnfused : public SWTensorBench<double> {
 protected:
   TensorInputs<double> *InTensor;
   double Threshold = 1e-4;
-  int MaxIters = 10000;
+  int MaxIters = 1000;
   double *WS;
   int RetValue = 0, WSSize = 0;
 
