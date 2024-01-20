@@ -55,14 +55,14 @@ void jacobiTwoIterationsFusedCsr(int M, const int *Ap, const int *Ai,
           if (t == 0) {
             for (int i = 0; i < BCol; ++i) {
               long double sum = 0.0;
-              auto *x1 = X2 + i;
-              auto *x2 = X1 + i;// Xx2[0][i];
+              auto *x2 = X2 + i;
+              auto *x1 = X1 + i;// Xx2[0][i];
               auto *b = Bx + i; // B[0][i];
               for (int k = Ap[j]; k < Ap[j + 1]; ++k) {
-                sum += Ax[k] * x1[Ai[k] * BCol];
+                sum += Ax[k] * x2[Ai[k] * BCol];
               }
               assert(!std::isnan(sum));
-              x2[j * BCol] = (b[j * BCol] - sum) / Diags[j];
+              x1[j * BCol] = (b[j * BCol] - sum) / Diags[j];
             }
           } else {
             for (int i = 0; i < BCol; ++i) {

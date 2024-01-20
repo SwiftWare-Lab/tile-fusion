@@ -100,7 +100,10 @@ template <typename T> struct TensorOutputs : public Outputs<T> {
     std::cout << "\n";
   }
 
-  void reset() { std::fill_n(Xx2, M * K, 0.0); }
+  void reset() {
+    std::fill_n(Xx2, M * K, 0.0);
+    std::fill_n(Xx1, M * K, 0.0);
+  }
 };
 
 class JacobiCSRUnfused : public SWTensorBench<double> {
