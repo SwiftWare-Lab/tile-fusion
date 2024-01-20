@@ -321,7 +321,7 @@ int main(const int argc, const char *argv[]){
 
   stats = new swiftware::benchmark::Stats("SpMM_SpMM_MKL", "SpMM", 7, tp._matrix_name, numThread);
   stats->OtherStats["PackingType"] = {Separated};
-  auto *mklImpl = new SpMMSpMMMKL(inSpMM, stats);
+  auto *mklImpl = new SpMMSpMMMkl(inSpMM, stats);
   mklImpl->run();
   auto mklImplStat = mklImpl->printStats();
   delete mklImpl;
