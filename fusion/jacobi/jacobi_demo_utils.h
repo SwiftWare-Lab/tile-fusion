@@ -116,13 +116,13 @@ class JacobiCSRUnfused : public SWTensorBench<double> {
 protected:
   TensorInputs<double> *InTensor;
   double Threshold = 1e-3;
-  int MaxIters = 1000;
+  int MaxIters = 10000;
   double *WS;
   int RetValue = 0, WSSize = 0;
 
   void setup() override {
     this->St->OtherStats["NTile"] = {4};
-    Threshold *= InTensor->MaxVal; //normalize
+//    Threshold *= InTensor->MaxVal; //normalize
   }
 
   void preExecute() override {}
@@ -229,7 +229,7 @@ protected:
         FusedCompSet->ptr1_, FusedCompSet->ptr2_, FusedCompSet->id_,
         FusedCompSet->type_, InTensor->NumThreads);
     t.stop();
-    // std::cout << "Return value: " << RetValue << std::endl;
+     std::cout << "Return value: " << RetValue << std::endl;
     return t;
   }
 

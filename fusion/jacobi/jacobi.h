@@ -40,7 +40,7 @@ inline void jacobiIterationCsr(int m, const int *Ap, const int *Ai, const double
 }
 
 void jacobiTwoIterationsFusedCsr(int M, const int *Ap, const int *Ai,
-                                 const double *Ax, const double *Bx, int BCol,
+                                 const double *Ax, const double *Bx, int BCol, double* XIn,
                                  double *X1, double *X2, double *Diags,
                                  int LevelNo, const int *LevelPtr,
                                  const int *ParPtr, const int *Partition,
@@ -56,11 +56,11 @@ void jacobiTwoIterationsFusedCsr(int M, const int *Ap, const int *Ai,
           if (t == 0) {
             for (int i = 0; i < BCol; ++i) {
               long double sum = 0.0;
-              auto *x2 = X2 + i;
+              auto *xIn = XIn + i;
               auto *x1 = X1 + i;// Xx2[0][i];
               auto *b = Bx + i; // B[0][i];
               for (int k = Ap[j]; k < Ap[j + 1]; ++k) {
-                sum += Ax[k] * x2[Ai[k] * BCol];
+                sum += Ax[k] * xIn[Ai[k] * BCol];
               }
               assert(!std::isnan(sum));
               x1[j * BCol] = (b[j * BCol] - sum) / Diags[j];
@@ -68,11 +68,11 @@ void jacobiTwoIterationsFusedCsr(int M, const int *Ap, const int *Ai,
           } else {
             for (int i = 0; i < BCol; ++i) {
               long double sum = 0.0;
-              auto *x1 = X1 + i;// Xx2[0][i];
+              auto *xIn = X2 + i;// Xx2[0][i];
               auto *x2 = X2 + i;
               auto *b = Bx + i; // B[0][i];
               for (int k = Ap[j]; k < Ap[j + 1]; ++k) {
-                sum += Ax[k] * x1[Ai[k] * BCol];
+                sum += Ax[k] * xIn[Ai[k] * BCol];
               }
               assert(!std::isnan(sum));
               x2[j * BCol] = (b[j * BCol] - sum) / Diags[j];
@@ -156,17 +156,17 @@ inline int jacobiBiIterationFusedCSR(int m, int k, const int *Ap, const int *Ai,
     }
   }
   // x = (b - dot(R,x)) / D
-  jacobiIterationCsr(m, Ap, Ai, r, diagVals, xp, B, BCol);
-  // copy xp to X2
-  std::memcpy(X2, xp, sizeof(double) * m * k);
+  jacobiIterationCsr(m, Ap, Ai, r, diagVals, X2, xp, B, BCol);
+  //sym_lib::print_dense(m, BCol, 1, B);
+  //std::cout<<" \n ==== \n";
+  //sym_lib::print_dense(m, BCol, 1, X);
+  // copy X to xp
+  std::memcpy(xp, X2, sizeof(double)*m*k);
   for (int i = 0; i < NIter; i+=2) {
-    jacobiTwoIterationsFusedCsr(m, Ap, Ai, r, B, BCol, X1, X2, diagVals, LevelNo,
+    jacobiTwoIterationsFusedCsr(m, Ap, Ai, r, B, BCol, X1, X2, xp, diagVals, LevelNo,
                                 LevelPtr, ParPtr, Partition, ParType, NThreads);
 
-    double res = ResidualMutipleCols(m, k, X1, xp);
-    if (res < Eps)
-      return i + 1;
-    res = ResidualMutipleCols(m, k, X2, X1);
+    double res = ResidualMutipleCols(m, k, X2, xp);
     if (res < Eps)
       return i + 2;
     std::memcpy(xp, X2, sizeof(double) * m * k);
