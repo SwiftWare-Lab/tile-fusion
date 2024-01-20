@@ -49,9 +49,7 @@ module load cmake
 #module load gcc
 
 if [ $TEST -eq 1 ]; then
-  bash run.sh -m $UFDB -c 8 -e $EXP
-  bash run.sh -m $UFDB -c 8 -i $ID
+  bash run.sh -m $UFDB -c 8 -i $ID -e $EXP
 else
-  bash run.sh -t 20 -m $UFDB -c $BCOL -e $EXP
-  bash run.sh -t 20 -m $UFDB -c $BCOL -i $ID
+  bash run.sh -t 20 -m $UFDB -c $BCOL -i $ID  -e $EXP
 fi

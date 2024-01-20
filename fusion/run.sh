@@ -42,6 +42,9 @@ if [ $EXP == "spmm_spmm" ]; then
 elif [ $EXP == "spmv_spmv" ]; then
   BINPATH=./build/spmv-spmv/
   BINFILE="spmv_spmv_demo"
+elif [ $EXP == "jacobi" ]; then
+  BINPATH=./build/spmv-spmv/
+  BINFILE="jacobi_demo"
 else
   echo "Wrong experiment name"
   exit 0
