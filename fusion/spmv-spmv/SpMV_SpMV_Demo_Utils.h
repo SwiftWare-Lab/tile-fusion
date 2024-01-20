@@ -113,8 +113,8 @@ protected:
     spMVCsrSequential(InTensor->M, InTensor->K, InTensor->ACsr->p,
                       InTensor->ACsr->i, InTensor->ACsr->x, InTensor->Cx,
                       OutTensor->ACx);
-    spMVCsrSequential(InTensor->L, InTensor->M, InTensor->BCsr->p,
-                      InTensor->BCsr->i, InTensor->BCsr->x, OutTensor->ACx,
+    spMVCsrSequential(InTensor->L, InTensor->M, InTensor->ACsr->p,
+                      InTensor->ACsr->i, InTensor->ACsr->x, OutTensor->ACx,
                       OutTensor->Dx);
     t.stop();
     return t;
@@ -162,8 +162,8 @@ protected:
     spMVCsrSegmentedSumSequential(InTensor->M, InTensor->K, InTensor->ACsr->p,
                                   InTensor->ACsr->i, InTensor->ACsr->x,
                                   InTensor->Cx, OutTensor->ACx, WorkSpace);
-    spMVCsrSegmentedSumSequential(InTensor->L, InTensor->M, InTensor->BCsr->p,
-                                  InTensor->BCsr->i, InTensor->BCsr->x,
+    spMVCsrSegmentedSumSequential(InTensor->L, InTensor->M, InTensor->ACsr->p,
+                                  InTensor->ACsr->i, InTensor->ACsr->x,
                                   OutTensor->ACx, OutTensor->Dx, WorkSpace);
     t.stop();
     return t;
@@ -189,8 +189,8 @@ class SpMVSpMVUnFusedSegmentedSumParallel : public SpMVSpMVUnFusedSegmentedSumSe
                                 InTensor->ACsr->i, InTensor->ACsr->x,
                                 InTensor->Cx, OutTensor->ACx,
                                 InTensor->NumThreads, WorkSpace);
-    spMVCsrSegmentedSumParallel(InTensor->L, InTensor->M, InTensor->BCsr->p,
-                                InTensor->BCsr->i, InTensor->BCsr->x,
+    spMVCsrSegmentedSumParallel(InTensor->L, InTensor->M, InTensor->ACsr->p,
+                                InTensor->ACsr->i, InTensor->ACsr->x,
                                 OutTensor->ACx, OutTensor->Dx,
                                 InTensor->NumThreads, WorkSpace);
     t.stop();
@@ -214,8 +214,8 @@ protected:
     spMVCsrParallel(InTensor->M, InTensor->K, InTensor->ACsr->p,
                     InTensor->ACsr->i, InTensor->ACsr->x, InTensor->Cx,
                     OutTensor->ACx, InTensor->NumThreads);
-    spMVCsrParallel(InTensor->L, InTensor->M, InTensor->BCsr->p,
-                    InTensor->BCsr->i, InTensor->BCsr->x, OutTensor->ACx,
+    spMVCsrParallel(InTensor->L, InTensor->M, InTensor->ACsr->p,
+                    InTensor->ACsr->i, InTensor->ACsr->x, OutTensor->ACx,
                     OutTensor->Dx, InTensor->NumThreads);
     t.stop();
     return t;
@@ -269,8 +269,8 @@ protected:
     Timer t;
     t.start();
     spMVCsrSpMCsrFused(InTensor->M, InTensor->K, InTensor->L, InTensor->ACsr->p,
-                       InTensor->ACsr->i, InTensor->ACsr->x, InTensor->BCsr->p,
-                       InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Cx,
+                       InTensor->ACsr->i, InTensor->ACsr->x, InTensor->ACsr->p,
+                       InTensor->ACsr->i, InTensor->ACsr->x, InTensor->Cx,
                        OutTensor->Dx, OutTensor->ACx, FusedCompSet->n1_,
                        FusedCompSet->ptr1_, FusedCompSet->ptr2_,
                        FusedCompSet->id_, FusedCompSet->type_,
@@ -354,8 +354,8 @@ protected:
     t.start();
     spMVCsrSpMCsrFusedRegisterReuseBanded(
         InTensor->M, InTensor->K, InTensor->L, InTensor->ACsr->p,
-        InTensor->ACsr->i, InTensor->ACsr->x, InTensor->BCsr->p,
-        InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Cx, OutTensor->Dx,
+        InTensor->ACsr->i, InTensor->ACsr->x, InTensor->ACsr->p,
+        InTensor->ACsr->i, InTensor->ACsr->x, InTensor->Cx, OutTensor->Dx,
         OutTensor->ACx, FusedCompSet->n1_, FusedCompSet->ptr1_,
         FusedCompSet->ptr2_, FusedCompSet->id_, FusedCompSet->type_,
         InTensor->NumThreads);
@@ -382,8 +382,8 @@ protected:
     t.start();
     spMVCsrSpMVCsrSeparatedFused(
         InTensor->M, InTensor->K, InTensor->L, InTensor->ACsr->p,
-        InTensor->ACsr->i, InTensor->ACsr->x, InTensor->BCsr->p,
-        InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Cx, OutTensor->Dx,
+        InTensor->ACsr->i, InTensor->ACsr->x, InTensor->ACsr->p,
+        InTensor->ACsr->i, InTensor->ACsr->x, InTensor->Cx, OutTensor->Dx,
         OutTensor->ACx, FusedCompSet->n1_, FusedCompSet->ptr1_,
         FusedCompSet->ptr2_, FusedCompSet->id_, FusedCompSet->type_,
         FusedCompSet->ker_begin_, InTensor->NumThreads);
