@@ -131,6 +131,13 @@ int main(const int argc, const char *argv[]) {
   delete spmvFusedSeparated;
   delete stats;
 
+//  stats = new swiftware::benchmark::Stats("SpMV_SpMV_FusedParallel_SparseTiling", "SpMV", 7,
+//                                          tp._matrix_name, numThread);
+//  auto *spmvFusedSparseTiling = new SpmvSpmvSparseTiling(inSpMM, stats, sp);
+//  spmvFusedSparseTiling->run();
+//  auto spmvFusedSparseTilingStat = spmvFusedSparseTiling->printStats();
+//  delete spmvFusedSparseTiling;
+//  delete stats;
 
   int tileSize = sp.TileM;
   DsaturColoringForConflictGraph *dsaturColoring =
@@ -144,7 +151,7 @@ int main(const int argc, const char *argv[]) {
       dsaturColoring->generateGraphColoringForConflictGraphOf(aCSCFull,
                                                               tileSize, false);
 
-  stats = new swiftware::benchmark::Stats("SpMV_SpMV_CSC_Interleaved_Coloring_FusedParallel","SpMM", 7,tp._matrix_name,numThread);
+  stats = new swiftware::benchmark::Stats("SpMV_SpMV_CSC_Interleaved_Coloring_FusedParallel","SpMV", 7,tp._matrix_name,numThread);
   auto *fusedCSCInterleavedColoringParallel = new SpMVCSRSpMVCSCFusedColoring(inSpMM, stats, sp, tileSize,
                                                                               colorToTiles);
   fusedCSCInterleavedColoringParallel->run();
@@ -155,7 +162,7 @@ int main(const int argc, const char *argv[]) {
   int minWorkloads[8] = {4, 6, 8, 10, 12, 14, 16, 18};
   std::vector<std::string> combinedStats;
   for(auto minWorkload: minWorkloads){
-    stats = new swiftware::benchmark::Stats("SpMV_SpMV_CSC_Interleaved_Coloring_PartialFusedParallel","SpMM", 7,tp._matrix_name,numThread);
+    stats = new swiftware::benchmark::Stats("SpMV_SpMV_CSC_Interleaved_Coloring_PartialFusedParallel","SpMV", 7,tp._matrix_name,numThread);
     auto *pFusedCSCInterleavedColoringParallel = new SpMVCSRSpMVCSCPartialFusedColoring(inSpMM, stats, sp, tileSize,
                                                                                         colorToTilesForPartial, minWorkload);
     pFusedCSCInterleavedColoringParallel->run();

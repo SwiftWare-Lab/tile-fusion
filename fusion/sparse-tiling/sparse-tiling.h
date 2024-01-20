@@ -64,7 +64,7 @@ bool vertex_cmp(vertex a, vertex b){
     return false;
 }
 
-void sparse_tiling_mv_mv(CSC *A,
+inline void sparseTilingMvMv(CSC *A,
                          std::vector<std::vector<std::vector<vertex>>>& Schedule,
                          int SeedNo=4){
   int dim = A->n;
@@ -81,7 +81,7 @@ void sparse_tiling_mv_mv(CSC *A,
   ais[1]=tmpA->i; ais[0]=A->i;
   CSC *combinedDag;
   combinedDag = merge_graph_two(nGraphs, dim, aps, ais);
-  //print_csc(1,"combined\n",combined_DAG);
+  print_csc(1,"combined\n",combinedDag);
   //print_vec(" \nvec\n",0, dim+1, combined_DAG->p);
   delete []aps;
   delete []ais;
@@ -90,8 +90,8 @@ void sparse_tiling_mv_mv(CSC *A,
   std::vector<bool *> vertexExist;
   auto rowVec = new bool[combinedDag->m]();
   vertexExist.push_back(rowVec);
-  std::vector<std::vector<vertex>> emptyRow;
-  Schedule.push_back(emptyRow);
+  std::vector<std::vector<vertex>> emptyRow1;
+  Schedule.push_back(emptyRow1);
   int i = 0, curLevel=0;
   while(i < dim){
     curLevel=0;
@@ -139,7 +139,7 @@ void sparse_tiling_mv_mv(CSC *A,
       }
     }
     // now copy tmp to the right level
-    assert(cur_level <= vertex_exist.size());
+    assert(curLevel <= vertexExist.size());
     if(curLevel == vertexExist.size()){// allocate a new row
       auto *tmpRow = new bool[combinedDag->m]();
       vertexExist.push_back(tmpRow);

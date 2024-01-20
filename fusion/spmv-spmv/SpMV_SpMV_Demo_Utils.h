@@ -765,9 +765,9 @@ public:
 
 class SpmvSpmvSparseTiling : public SpMVSpMVFused{
 protected:
-  std::vector<std::vector<std::vector<sym_lib::vertex>>> sched;
-  int Levels, *SparPtr, *wpar_ptr,
-      *vertices, *vert_types, seed_no;
+  std::vector<std::vector<std::vector<sym_lib::vertex>>> Sched;
+  int Levels, *SparPtr, *WparPtr,
+      *Vertices, *VertTypes, SeedNo;
 
   void setup() override {
     //    std::fill_n(x_in_,n_,0.1);
@@ -777,17 +777,17 @@ protected:
   void preExecute() override {}
 
   Timer analysis() override {
-    sparse_tiling_mv_mv(InTensor->A,sched, seed_no);
+    sparseTilingMvMv(InTensor->A,Sched, SeedNo);
     //std::cout<<"\n";
-    SparPtr = new int[sched.size()+1](); int cnt=0;
-    vertices = new int[2*InTensor->A->m]();
-    vert_types = new int[2*InTensor->A->m]();
-    for (int m = 0; m < sched.size(); ++m) {
-      cnt += sched[m].size();
+    SparPtr = new int[Sched.size()+1](); int cnt=0;
+    Vertices = new int[2*InTensor->A->m]();
+    VertTypes = new int[2*InTensor->A->m]();
+    for (int m = 0; m < Sched.size(); ++m) {
+      cnt += Sched[m].size();
     }
-    wpar_ptr = new int[cnt+1]();
-    convertScheduleToSet(sched,Levels, SparPtr, wpar_ptr,
-                            vertices, vert_types);
+    WparPtr = new int[cnt+1]();
+    convertScheduleToSet(Sched,Levels, SparPtr, WparPtr,
+                            Vertices, VertTypes);
 #if 0
    int cc = 0;
    auto k1 = new bool[A_csc_->m]();
@@ -819,7 +819,7 @@ protected:
    delete []k1;
    delete []k2;
 #endif
-    //std::cout<<sched.size()<<"---\n";
+    std::cout<<Sched.size()<<"---\n";
     //std::cout<<sched[0].size()<<"---\n";
   }
 
@@ -833,8 +833,8 @@ protected:
     sym_lib::spmvCsrSpmvCsrSparseTiling(
         InTensor->M, InTensor->ACsr->p,
         InTensor->ACsr->i, InTensor->ACsr->x, InTensor->Cx, OutTensor->Dx,
-        OutTensor->ACx, Sp.TileM,
-        FusedCompSet->ptr1_, FusedCompSet->ptr2_, (const int*)FusedCompSet->n1_,
+        OutTensor->ACx, FusedCompSet->n1_,
+        FusedCompSet->ptr1_, FusedCompSet->ptr2_, FusedCompSet->id_,
         FusedCompSet->type_, ws);
 
     t.stop();
@@ -855,8 +855,8 @@ protected:
 
 public:
 
-  void set_seed(int seed){
-    seed_no = seed;
+  void setSeed(int seed){
+    SeedNo = seed;
   }
 
 
@@ -870,9 +870,9 @@ public:
 
   ~SpmvSpmvSparseTiling()  {
     delete []SparPtr;
-    delete []wpar_ptr;
-    delete []vertices;
-    delete []vert_types;
+    delete []WparPtr;
+    delete []Vertices;
+    delete []VertTypes;
   }
 
 
