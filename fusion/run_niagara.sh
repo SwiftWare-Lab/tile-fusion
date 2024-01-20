@@ -42,7 +42,6 @@ module load NiaEnv/.2022a
 module load intel/2022u2
 export MKL_DIR=$MKLROOT
 module load cmake
-module load gcc
 
 if [ $TEST -eq 1 ]; then
   bash run.sh -m $UFDB -c 8 -e $EXP
