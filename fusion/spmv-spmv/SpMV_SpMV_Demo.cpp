@@ -191,8 +191,8 @@ int main(const int argc, const char *argv[]) {
   std::cout<<baselineStat<<spStat+tpStat<<std::endl;
   std::cout << spMVParallelStat<<spStat+tpStat<<std::endl;
 
-  std::cout << spMvSeqSegSumStat<<spStat+tpStat<<std::endl;
-  std::cout << spMvSeqSegSumParallelStat<<spStat+tpStat<<std::endl;
+//  std::cout << spMvSeqSegSumStat<<spStat+tpStat<<std::endl;
+//  std::cout << spMvSeqSegSumParallelStat<<spStat+tpStat<<std::endl;
 
   std::cout << spMVFusedStat<<spStat+tpStat<<std::endl;
 //  std::cout << spMVFusedRRStat<<spStat+tpStat<<std::endl;
