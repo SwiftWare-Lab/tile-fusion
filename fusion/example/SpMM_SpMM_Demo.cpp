@@ -67,7 +67,7 @@ int main(const int argc, const char *argv[]){
   auto *unfusedParallel = new SpMMSpMMUnFusedParallel(inSpMM, stats);
   unfusedParallel->run();
   //unfusedParallel->OutTensor->printDx();
-  inSpMM->CorrectSol = std::copy(unfusedParallel->OutTensor->Dx, unfusedParallel->OutTensor->Dx + unfusedParallel->OutTensor->M * unfusedParallel->OutTensor->N, inSpMM->CorrectMul);
+  inSpMM->CorrectSol = std::copy(unfusedParallel->OutTensor->Xx, unfusedParallel->OutTensor->Xx + unfusedParallel->OutTensor->M * unfusedParallel->OutTensor->N, inSpMM->CorrectSol);
   inSpMM->IsSolProvided = true;
   auto headerStat = unfusedParallel->printStatsHeader();
   auto unfusedParallelStat = unfusedParallel->printStats();
