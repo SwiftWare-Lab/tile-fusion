@@ -21,12 +21,16 @@ template <typename T> void printDense(int M, int N, T *X) {
   }
 }
 
-inline void getSumRowCSR(int m, int *Ap, int *Ai, double *Ax, double *SumRow) {
-  double maxSum = 0;
+inline void getSumRowCSR(int m, int *Ap, int *Ai, double *Ax, double *SumRow,
+                         double &MaxVal) {
+  double maxSum = 0; MaxVal = 0;
   for (int i = 0; i < m; ++i) {
     SumRow[i] = 0;
     for (int j = Ap[i]; j < Ap[i + 1]; ++j) {
       SumRow[i] += Ax[j];
+      if (std::abs(Ax[j]) > MaxVal) {
+        MaxVal = std::abs(Ax[j]);
+      }
     }
     if (std::abs(SumRow[i]) > maxSum) {
       maxSum = std::abs(SumRow[i]);
@@ -45,6 +49,7 @@ template <typename T> struct TensorInputs : public Inputs<T> {
   T *Bx;
   T *CorrectSol;
   bool IsSolProvided;
+  double MaxVal;
 
   TensorInputs(int M1, int K1, sym_lib::CSC *A1, int NumThreads1, int NumTrial1,
                std::string ExpN)
@@ -55,7 +60,7 @@ template <typename T> struct TensorInputs : public Inputs<T> {
     ACsr = sym_lib::csc_to_csr(A);
     Bx = new double[M * K]();
     double *tmpSumRow = new double[M]();
-    getSumRowCSR(M, ACsr->p, ACsr->i, ACsr->x, tmpSumRow);
+    getSumRowCSR(M, ACsr->p, ACsr->i, ACsr->x, tmpSumRow, MaxVal);
     // initialize the RHS
     for (int i = 0; i < M; ++i) {
       for (int j = 0; j < K; ++j) {
@@ -104,13 +109,14 @@ template <typename T> struct TensorOutputs : public Outputs<T> {
 class JacobiCSRUnfused : public SWTensorBench<double> {
 protected:
   TensorInputs<double> *InTensor;
-  double Threshold = 1e-3;
-  int MaxIters = 10000;
+  double Threshold = 1e-6;
+  int MaxIters = 1000;
   double *WS;
   int RetValue = 0, WSSize = 0;
 
   void setup() override {
     this->St->OtherStats["NTile"] = {4};
+    Threshold *= InTensor->MaxVal; //normalize
   }
 
   void preExecute() override {}
