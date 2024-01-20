@@ -33,7 +33,7 @@ while getopts ":t:dc:m:i:" arg; do
       exit 0
   esac
 done
-BINFILE="spmm_vectorized"
+BINFILE="jacobi_demo"
 
 
 which cmake
@@ -55,7 +55,7 @@ make -j 40
 
 cd ..
 
-BINPATH=./build/example/
+BINPATH=./build/jacobi/
 LOGS=./build/logs/
 SCRIPTPATH=./scripts/
 if [ $ID -eq 0 ]; then
