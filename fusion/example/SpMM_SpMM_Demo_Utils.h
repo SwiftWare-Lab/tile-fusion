@@ -169,13 +169,13 @@ protected:
     Timer t;
     t.start();
     mkl_sparse_d_mm(SPARSE_OPERATION_NON_TRANSPOSE, 1, this->A, this->d,
-                    SPARSE_LAYOUT_ROW_MAJOR, this->InTensor->Cx,
+                    SPARSE_LAYOUT_ROW_MAJOR, this->InTensor->Bx,
                     this->InTensor->N, this->InTensor->N, 0,
                     this->OutTensor->ACx, this->InTensor->N);
     mkl_sparse_d_mm(SPARSE_OPERATION_NON_TRANSPOSE, 1, this->B, this->d,
                     SPARSE_LAYOUT_ROW_MAJOR, this->OutTensor->ACx,
                     this->InTensor->N, this->InTensor->N, 0,
-                    this->OutTensor->Dx, this->InTensor->N);
+                    this->OutTensor->Xx, this->InTensor->N);
     t.stop();
     return t;
   }
@@ -220,7 +220,7 @@ protected:
     Timer t;
     t.start();
     mkl_sparse_d_mm(SPARSE_OPERATION_NON_TRANSPOSE, 1, this->A, this->d,
-                    SPARSE_LAYOUT_ROW_MAJOR, this->InTensor->Cx,
+                    SPARSE_LAYOUT_ROW_MAJOR, this->InTensor->Bx,
                     this->InTensor->N, this->InTensor->N, 0,
                     this->OutTensor->ACx, this->InTensor->N);
     t.stop();
@@ -443,7 +443,7 @@ protected:
     spmmCsrSpmmCsrFusedVectorizedFunc(
         InTensor->M, InTensor->N, InTensor->K, InTensor->L, InTensor->ACsr->p,
         InTensor->ACsr->i, InTensor->ACsr->x, InTensor->BCsr->p,
-        InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Cx, OutTensor->Dx,
+        InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Bx, OutTensor->Xx,
         OutTensor->ACx, FusedCompSet->n1_, FusedCompSet->ptr1_,
         FusedCompSet->ptr2_, FusedCompSet->id_, FusedCompSet->type_,
         InTensor->NumThreads);
@@ -488,7 +488,7 @@ protected:
     spmmCsrSpmmCsrFusedVectorizedFunc(
         InTensor->M, InTensor->N, InTensor->K, InTensor->L, InTensor->ACsr->p,
         InTensor->ACsr->i, InTensor->ACsr->x, InTensor->BCsr->p,
-        InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Cx, OutTensor->Dx,
+        InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Bx, OutTensor->Xx,
         OutTensor->ACx, FusedCompSet->n1_, FusedCompSet->ptr1_,
         FusedCompSet->ptr2_, FusedCompSet->id_, FusedCompSet->type_,
         InTensor->NumThreads);
@@ -1294,7 +1294,7 @@ protected:
     t.start();
     swiftware::sparse::spmmCsrVectorized128Avx512(InTensor->M, InTensor->N,
                                                   InTensor->ACsr->p, InTensor->ACsr->i,
-                                                  InTensor->ACsr->x, InTensor->Cx,
+                                                  InTensor->ACsr->x, InTensor->Bx,
                                                   OutTensor->ACx, Sp.TileM, InTensor->NumThreads);
     t.stop();
     return t;
@@ -1318,7 +1318,7 @@ protected:
     t.start();
     swiftware::sparse::spmm8CsrVectorizedUnrollJ4(InTensor->M, InTensor->N,
                                        InTensor->ACsr->p, InTensor->ACsr->i,
-                                       InTensor->ACsr->x, InTensor->Cx,
+                                       InTensor->ACsr->x, InTensor->Bx,
                                        OutTensor->ACx, Sp.TileM, InTensor->NumThreads);
     t.stop();
     return t;
@@ -1339,7 +1339,7 @@ protected:
     t.start();
     swiftware::sparse::spmm16CsrVectorizedUnrollJ2(InTensor->M, InTensor->N,
                                        InTensor->ACsr->p, InTensor->ACsr->i,
-                                       InTensor->ACsr->x, InTensor->Cx,
+                                       InTensor->ACsr->x, InTensor->Bx,
                                        OutTensor->ACx, Sp.TileM, InTensor->NumThreads);
     t.stop();
     return t;
@@ -1360,7 +1360,7 @@ protected:
     t.start();
     swiftware::sparse::spmm16CsrVectorized(InTensor->M, InTensor->N,
                                        InTensor->ACsr->p, InTensor->ACsr->i,
-                                       InTensor->ACsr->x, InTensor->Cx,
+                                       InTensor->ACsr->x, InTensor->Bx,
                                        OutTensor->ACx, Sp.TileM ,InTensor->NumThreads);
     t.stop();
     return t;
