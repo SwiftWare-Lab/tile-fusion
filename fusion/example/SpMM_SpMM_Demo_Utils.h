@@ -1072,7 +1072,7 @@ public:
 #ifdef MKL
 
 #include <mkl.h>
-class SpMMSpMMMKL : public SpMMSpMMUnFused {
+class SpMMSpMMMkl : public SpMMSpMMUnFused {
 protected:
   sparse_matrix_t A;
   sparse_matrix_t B;
@@ -1095,7 +1095,7 @@ protected:
   }
 
 public:
-  SpMMSpMMMKL(TensorInputs<double> *In1, Stats *Stat1)
+  SpMMSpMMMkl(TensorInputs<double> *In1, Stats *Stat1)
       : SpMMSpMMUnFused(In1, Stat1) {
     d.type = SPARSE_MATRIX_TYPE_GENERAL;
 
@@ -1118,7 +1118,7 @@ public:
     mkl_set_num_threads(this->InTensor->NumThreads);
   }
 
-  ~SpMMSpMMMKL() {
+  ~SpMMSpMMMkl() {
     mkl_free(A);
     mkl_free(B);
   }

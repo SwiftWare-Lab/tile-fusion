@@ -237,12 +237,12 @@ namespace sym_lib {
   std:: cout << "fused ratio: " << double(fused_counter)/counter << std::endl;
  }
 
- int MultiDimensionalSet::getNumberOfFusedNodes(CSR* L2Matrix) {
+ int MultiDimensionalSet::getNumberOfFusedNodes() {
    int fusedCounter = 0;
    for (int i = 0; i < n1_; ++i) {
      for (int j = ptr1_[i]; j < ptr1_[i + 1]; ++j) {
        for (int k = ptr2_[j]; k < ptr2_[j + 1]; ++k) {
-         if (i == 0 && type_[k] == 1 && L2Matrix->p[i]!=L2Matrix->p[i+1]){
+         if (i == 0 && type_[k] == 1){
            fusedCounter += 1;
          }
        }

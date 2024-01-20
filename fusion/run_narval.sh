@@ -1,7 +1,7 @@
 #!/bin/bash
 
 
-#SBATCH --cpus-per-task=40
+#SBATCH --cpus-per-task=64
 #SBATCH --export=ALL
 #SBATCH --job-name="fusion"
 #SBATCH --mail-type=begin  # email me when the job starts
@@ -10,7 +10,8 @@
 #SBATCH --nodes=1
 #SBATCH --output="fusion.%j.%N.out"
 #SBATCH -t 11:59:00
-#SBATCH --constraint=cascade
+
+
 
 UFDB=$SCRATCH/data/graphs/
 #UFDB=$HOME/UFDB/tri-banded/
@@ -38,14 +39,24 @@ while getopts ":lm:c:e:" arg; do
 done
 
 
-module load NiaEnv/.2022a
-module load intel/2022u2
+#module load NiaEnv/.2022a
+#module load StdEnv/2023
+module load StdEnv/2020
+#module load intel/2023.2.1
+module load intel/2022.1.0
+echo "========> ${MKLROOT}"
+echo " -------> ${MKL_DIR}"
 export MKL_DIR=$MKLROOT
+
 module load cmake
 module load gcc
 
-if [ $TEST -eq 1 ]; then
+if [[ $TEST -eq 1 ]]; then
   bash run.sh -m $UFDB -c 8 -e $EXP
 else
-  bash run.sh -t 20 -m $UFDB -c $BCOL -e $EXP
+  bash run.sh -t 32 -m $UFDB -c $BCOL -e $EXP
 fi
+
+
+
+
