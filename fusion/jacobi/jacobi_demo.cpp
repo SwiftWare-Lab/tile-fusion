@@ -50,10 +50,10 @@ int main(const int argc, const char *argv[]) {
   int numThread = sp._num_threads, numTrial = 7;
   std::string expName = "Jacobi_CSR_Demo";
   auto *inJacobi =
-      new TensorInputs<double>(aCSCFull->m, tp._b_cols, aCSCFull, numThread, numTrial,
+      new TensorInputs<double>(aCSCFull->m, tp._b_cols, aCSCFull, numThread, 1,
                                expName);
 
-  stats = new swiftware::benchmark::Stats("Jacobi_Demo", "Jacobi CSR", 7,
+  stats = new swiftware::benchmark::Stats("Jacobi_Demo", "Jacobi CSR", 3,
                                           tp._matrix_name, numThread);
   stats->OtherStats["PackingType"] = {Interleaved};
   auto *unfused = new JacobiCSRUnfused(inJacobi, stats);
@@ -70,7 +70,7 @@ int main(const int argc, const char *argv[]) {
   delete unfused;
   delete stats;
 
-  stats = new swiftware::benchmark::Stats("Jacobi_BiIterationFused_Demo", "Jacobi CSR", 7,
+  stats = new swiftware::benchmark::Stats("Jacobi_BiIterationFused_Demo", "Jacobi CSR", 3,
                                           tp._matrix_name, numThread);
   stats->OtherStats["PackingType"] = {Interleaved};
   auto *fused = new JacobiCSRFused(inJacobi, stats, sp);

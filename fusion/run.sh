@@ -36,6 +36,7 @@ while getopts ":t:dc:m:i:e:" arg; do
       exit 0
   esac
 done
+MODE=3
 if [ $EXP == "spmm_spmm" ]; then
   BINFILE="spmm_spmm_fusion"
   BINPATH=./build/example/
@@ -45,6 +46,7 @@ elif [ $EXP == "spmv_spmv" ]; then
 elif [ $EXP == "jacobi" ]; then
   BINPATH=./build/jacobi/
   BINFILE="jacobi_demo"
+  MODE=4
 else
   echo "Wrong experiment name"
   exit 0
@@ -85,8 +87,6 @@ else
 fi
 
 mkdir $LOGS
-
-MODE=3
 # performing the experiments
 if [ $DOWNLOAD -eq 1 ]; then
     python3 $SCRIPTPATH/dl_matrix.py $UFDB $MATLIST

@@ -77,4 +77,19 @@ if [ "$TUNED" ==  3 ]; then
   done < ${MATLIST}
 fi
 
+if [ "$TUNED" ==  4 ]; then
+  while read line; do
+    tokens=$(echo $line | tr "," "\n")
+    mat=$(echo $tokens | awk '{print $1}')
+    ntile=$(echo $tokens | awk '{print $2}')
+      echo "for $mat $ntile"
+      if [ $header -eq 1 ]; then
+        $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -ah -bc $BCOL -ip $ntile -tm $ntile -tn $ntile > $LOGS/spmv_spmv_$BCOL.csv
+        header=0
+      else
+        $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -bc $BCOL -ip $ntile -tm $ntile -tn $ntile >> $LOGS/spmv_spmv_$BCOL.csv
+      fi
+  done < ${MATLIST}
+fi
+
 # shellcheck disable=SC2039

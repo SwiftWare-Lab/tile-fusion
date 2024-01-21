@@ -2,6 +2,8 @@
 // Created by kazem on 1/19/24.
 //
 
+#include <immintrin.h>
+
 #ifndef SPARSE_FUSION_JACOBI_H
 #define SPARSE_FUSION_JACOBI_H
 
