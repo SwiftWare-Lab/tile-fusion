@@ -53,7 +53,7 @@ int main(const int argc, const char *argv[]) {
       new TensorInputs<double>(aCSCFull->m, tp._b_cols, aCSCFull, numThread, 1,
                                expName);
 
-  stats = new swiftware::benchmark::Stats("Jacobi_Demo", "Jacobi CSR", 3,
+  stats = new swiftware::benchmark::Stats("Jacobi_Demo", "Jacobi CSR", 1,
                                           tp._matrix_name, numThread);
   stats->OtherStats["PackingType"] = {Interleaved};
   auto *unfused = new JacobiCSRUnfused(inJacobi, stats);
@@ -67,16 +67,18 @@ int main(const int argc, const char *argv[]) {
 //  unfused->OutTensor->printDx();
   auto headerStat = unfused->printStatsHeader();
   auto baselineStat = unfused->printStats();
+  std::string unfusedRetValue = std::to_string(unfused->OutTensor->RetValue);
   delete unfused;
   delete stats;
 
-  stats = new swiftware::benchmark::Stats("Jacobi_BiIterationFused_Demo", "Jacobi CSR", 3,
+  stats = new swiftware::benchmark::Stats("Jacobi_BiIterationFused_Demo", "Jacobi CSR", 1,
                                           tp._matrix_name, numThread);
   stats->OtherStats["PackingType"] = {Interleaved};
   auto *fused = new JacobiCSRFused(inJacobi, stats, sp);
   fused->run();
 //  fused->OutTensor->printDx();
   auto fusedStat = fused->printStats();
+  std::string fusedRetValue = std::to_string(fused->OutTensor->RetValue);
   delete fused;
   delete stats;
 
@@ -89,10 +91,10 @@ int main(const int argc, const char *argv[]) {
   std::string tpStat = std::get<1>(tpCsv);
 
   if(tp.print_header){
-    std::cout << headerStat+spHeader+tpHeader << std::endl;
+    std::cout << headerStat+spHeader+tpHeader+",RetValue," << std::endl;
   }
-  std::cout << baselineStat+spStat+tpStat << std::endl;
-  std::cout << fusedStat+spStat+tpStat << std::endl;
+  std::cout << baselineStat+spStat+tpStat+unfusedRetValue+',' << std::endl;
+  std::cout << fusedStat+spStat+tpStat+unfusedRetValue+',' << std::endl;
 
   delete aCSC;
   delete aCSCFull;

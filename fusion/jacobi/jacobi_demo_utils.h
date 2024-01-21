@@ -89,6 +89,7 @@ template <typename T> struct TensorInputs : public Inputs<T> {
 template <typename T> struct TensorOutputs : public Outputs<T> {
   int M, K;
   T *Xx1, *Xx2;
+  int RetValue = 0;
 
   TensorOutputs(int m, int k) : M(m), K(k) {
     Xx1 = new T[M * K]();
@@ -117,10 +118,10 @@ template <typename T> struct TensorOutputs : public Outputs<T> {
 class JacobiCSRUnfused : public SWTensorBench<double> {
 protected:
   TensorInputs<double> *InTensor;
-  double Threshold = 1e-10;
+  double Threshold = 1e-6;
   int MaxIters = 1000;
   double *WS;
-  int RetValue = 0, WSSize = 0;
+  int WSSize = 0;
 
   void setup() override {
     this->St->OtherStats["NTile"] = {4};
@@ -135,12 +136,11 @@ protected:
     OutTensor->reset();
     Timer t;
     t.start();
-    RetValue =
+    OutTensor->RetValue =
         sym_lib::jacobiCSR(InTensor->M, InTensor->K, InTensor->ACsr->p,
                            InTensor->ACsr->i, InTensor->ACsr->x, OutTensor->Xx2,
                            InTensor->Bx, InTensor->K, Threshold, MaxIters, WS);
     t.stop();
-    std::cout << "Return value: " << RetValue << std::endl;
     return t;
   }
 
@@ -224,14 +224,13 @@ protected:
     OutTensor->reset();
     Timer t;
     t.start();
-    RetValue = sym_lib::jacobiBiIterationFusedCSR(
+    OutTensor->RetValue = sym_lib::jacobiBiIterationFusedCSR(
         InTensor->M, InTensor->K, InTensor->ACsr->p, InTensor->ACsr->i,
         InTensor->ACsr->x, OutTensor->Xx1, OutTensor->Xx2, InTensor->Bx,
         InTensor->K, Threshold, MaxIters, WS, FusedCompSet->n1_,
         FusedCompSet->ptr1_, FusedCompSet->ptr2_, FusedCompSet->id_,
         FusedCompSet->type_, InTensor->NumThreads);
     t.stop();
-     std::cout << "Return value: " << RetValue << std::endl;
     return t;
   }
 
