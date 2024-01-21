@@ -91,7 +91,7 @@ int main(const int argc, const char *argv[]) {
   std::string tpStat = std::get<1>(tpCsv);
 
   if(tp.print_header){
-    std::cout << headerStat+spHeader+tpHeader+",RetValue," << std::endl;
+    std::cout << headerStat+spHeader+tpHeader+"RetValue," << std::endl;
   }
   std::cout << baselineStat+spStat+tpStat+unfusedRetValue+',' << std::endl;
   std::cout << fusedStat+spStat+tpStat+unfusedRetValue+',' << std::endl;
