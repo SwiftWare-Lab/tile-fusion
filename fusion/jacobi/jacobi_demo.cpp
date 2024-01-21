@@ -58,7 +58,7 @@ int main(const int argc, const char *argv[]) {
   stats->OtherStats["PackingType"] = {Interleaved};
   auto *unfused = new JacobiCSRUnfused(inJacobi, stats);
   unfused->run();
-  // unfused->OutTensor->printDx();
+  //unfused->OutTensor->printDx();
   inJacobi->CorrectSol = std::copy(
       unfused->OutTensor->Xx,
       unfused->OutTensor->Xx + unfused->OutTensor->M * unfused->OutTensor->K,

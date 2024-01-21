@@ -21,19 +21,20 @@ inline double ResidualMutipleCols(int M, int K, const double *X0, const double *
 
 
 inline void jacobiIterationCsr(int m, const int *Ap, const int *Ai, const double *Ax, double *Diags,
-                        double *Xx, const double *B, int BCol){
+                        double *Xx, double *XxIn, const double *B, int BCol){
   // x = (b - dot(R,x)) / D
 #pragma omp parallel for
   for (int j = 0; j < m; ++j) {
     for(int i=0; i<BCol; ++i) {
       long double sum = 0.0;
-      auto *x = Xx + i; //Xx[0][i];
+      auto *xIn = XxIn + i; //Xx[0][i];
+      auto *xOut = Xx + i;
       auto *b = B + i; //B[0][i];
       for (int k = Ap[j]; k < Ap[j + 1]; ++k) {
-        sum += Ax[k] * x[Ai[k]*BCol];
+        sum += Ax[k] * xIn[Ai[k]*BCol];
       }
       assert(!std::isnan(sum));
-      x[j*BCol] = (b[j*BCol] - sum) / Diags[j];
+      xOut[j*BCol] = (b[j*BCol] - sum) / Diags[j];
     }
   }
 }
@@ -70,12 +71,15 @@ inline int jacobiCSR(int m, int k, const int *Ap, const int *Ai, const double *A
     }
   }
   // x = (b - dot(R,x)) / D
-  jacobiIterationCsr(m, Ap, Ai, r, diagVals, xp, B, BCol);
-  // copy xp to X
-  std::memcpy(X, xp, sizeof(double)*m*k);
+  jacobiIterationCsr(m, Ap, Ai, r, diagVals, X, xp, B, BCol);
+  //sym_lib::print_dense(m, BCol, 1, B);
+  //std::cout<<" \n ==== \n";
+  //sym_lib::print_dense(m, BCol, 1, X);
+  // copy X to xp
+  std::memcpy(xp, X, sizeof(double)*m*k);
   for (int i = 0; i < NIter; ++i) {
-    jacobiIterationCsr(m, Ap, Ai, r, diagVals, X, B, BCol);
-    double res = ResidualMutipleCols(m, k, X, xp);
+    jacobiIterationCsr(m, Ap, Ai, r, diagVals, X, xp, B, BCol);
+    double res = ResidualMutipleCols(m, k, xp, X);
     if(res < Eps)
       return i+1;
     std::memcpy(xp, X, sizeof(double)*m*k);
