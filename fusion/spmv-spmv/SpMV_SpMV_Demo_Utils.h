@@ -226,6 +226,30 @@ public:
       : SpMVSpMVUnFusedSequential(In1, Stat1) {}
 };
 
+class SpMVSpMVCSCFusedInterleavedParallelAtomic : public SpMVSpMVUnFusedSequential {
+protected:
+  sym_lib::ScheduleParameters Sp;
+  Timer execute() override {
+    //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
+    OutTensor->reset();
+    Timer t;
+    t.start();
+    spMVCsrSpMVCscFusedAtomic(
+        InTensor->M, InTensor->K, InTensor->L, InTensor->ACsr->p,
+        InTensor->ACsr->i, InTensor->ACsr->x, InTensor->B->p, InTensor->B->i,
+        InTensor->B->x, InTensor->Cx, OutTensor->Dx, OutTensor->ACx,
+        Sp.TileM,
+        InTensor->NumThreads);
+    t.stop();
+    return t;
+  }
+
+public:
+  SpMVSpMVCSCFusedInterleavedParallelAtomic(TensorInputs<double> *In1, Stats *Stat1, sym_lib::ScheduleParameters Sp1)
+      : SpMVSpMVUnFusedSequential(In1, Stat1), Sp(Sp1) {}
+};
+
 class SpMVSpMVFused : public SpMVSpMVUnFusedSequential {
 protected:
   sym_lib::MultiDimensionalSet *FusedCompSet;

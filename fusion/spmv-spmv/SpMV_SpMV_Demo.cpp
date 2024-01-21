@@ -130,6 +130,13 @@ int main(const int argc, const char *argv[]) {
   delete spmvFusedSeparated;
   delete stats;
 
+  stats = new swiftware::benchmark::Stats("SpMV_SpMV_CSC_Interleaved_Atomic_FusedParallel", "SpMV", 7, tp._matrix_name, numThread);
+  auto *spmvFusedCSCAtomic = new SpMVSpMVCSCFusedInterleavedParallelAtomic(inSpMM, stats, sp);
+  spmvFusedCSCAtomic->run();
+  auto spmvFusedCSCAtomicStats = spmvFusedCSCAtomic->printStats();
+  delete spmvFusedCSCAtomic;
+  delete stats;
+
 //  stats = new swiftware::benchmark::Stats("SpMV_SpMV_FusedParallel_SparseTiling", "SpMV", 7,
 //                                          tp._matrix_name, numThread);
 //  auto *spmvFusedSparseTiling = new SpmvSpmvSparseTiling(inSpMM, stats, sp);
@@ -138,26 +145,26 @@ int main(const int argc, const char *argv[]) {
 //  delete spmvFusedSparseTiling;
 //  delete stats;
 
-//  int tileSize = sp.TileM;
-//  DsaturColoringForConflictGraph *dsaturColoring =
-//      new DsaturColoringForConflictGraph();
+  int tileSize = sp.IterPerPartition;
+  DsaturColoringForConflictGraph *dsaturColoring =
+      new DsaturColoringForConflictGraph();
 //
 //
-//  std::map<int, std::vector<int>> colorToTiles =
-//      dsaturColoring->generateGraphColoringForConflictGraphOf(aCSCFull,
-//                                                              tileSize, true);
+  std::map<int, std::vector<int>> colorToTiles =
+      dsaturColoring->generateGraphColoringForConflictGraphOf(aCSCFull,
+                                                              tileSize, true);
 //  std::map<int, std::vector<int>> colorToTilesForPartial =
 //      dsaturColoring->generateGraphColoringForConflictGraphOf(aCSCFull,
 //                                                              tileSize, false);
 //
-//  stats = new swiftware::benchmark::Stats("SpMV_SpMV_CSC_Interleaved_Coloring_FusedParallel","SpMV", 7,tp._matrix_name,numThread);
-//  auto *fusedCSCInterleavedColoringParallel = new SpMVCSRSpMVCSCFusedColoring(inSpMM, stats, sp, tileSize,
-//                                                                              colorToTiles);
-//  fusedCSCInterleavedColoringParallel->run();
-//  auto fusedCSCInterleavedColoringParallelStat = fusedCSCInterleavedColoringParallel->printStats();
-//  delete fusedCSCInterleavedColoringParallel;
-//  delete stats;
-//
+  stats = new swiftware::benchmark::Stats("SpMV_SpMV_CSC_Interleaved_Coloring_FusedParallel","SpMV", 7,tp._matrix_name,numThread);
+  auto *fusedCSCInterleavedColoringParallel = new SpMVCSRSpMVCSCFusedColoring(inSpMM, stats, sp, tileSize,
+                                                                              colorToTiles);
+  fusedCSCInterleavedColoringParallel->run();
+  auto fusedCSCInterleavedColoringParallelStat = fusedCSCInterleavedColoringParallel->printStats();
+  delete fusedCSCInterleavedColoringParallel;
+  delete stats;
+
 //  int minWorkloads[8] = {4, 6, 8, 10, 12, 14, 16, 18};
 //  std::vector<std::string> combinedStats;
 //  for(auto minWorkload: minWorkloads){
@@ -199,7 +206,8 @@ int main(const int argc, const char *argv[]) {
 //  std::cout << spMVFusedRBStat<<spStat+tpStat<<std::endl;
   std::cout << spMVFusedRGStat<<spStat+tpStat<<std::endl;
   std::cout << spMVFusedSeparatedStat<<spStat+tpStat<<std::endl;
-//  std::cout << fusedCSCInterleavedColoringParallelStat<<spStat+tpStat<<std::endl;
+  std::cout << spmvFusedCSCAtomicStats<<spStat+tpStat<<std::endl;
+  std::cout << fusedCSCInterleavedColoringParallelStat<<spStat+tpStat<<std::endl;
 //  std::cout << fusedCSCInterleavedColoringReductionParallelStat<<spStat+tpStat<<std::endl;
 //  for (auto stat: combinedStats){
 //    std::cout << stat<<spStat+tpStat<<std::endl;
