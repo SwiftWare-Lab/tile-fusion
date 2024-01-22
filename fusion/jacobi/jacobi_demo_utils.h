@@ -118,7 +118,7 @@ template <typename T> struct TensorOutputs : public Outputs<T> {
 class JacobiCSRUnfused : public SWTensorBench<double> {
 protected:
   TensorInputs<double> *InTensor;
-  double Threshold = 1e-8;
+  double Threshold = 1e-6;
   int MaxIters = 1000;
   double *WS;
   int WSSize = 0;
