@@ -67,10 +67,10 @@ if [ "$TUNED" ==  3 ]; then
 #        fi
       echo "for $line $BCOL $w $ntile"
       if [ $header -eq 1 ]; then
-        $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -ah -bc $BCOL -ip $ntile -tm $ntile -tn $ntile > $LOGS/spmv_spmv_$BCOL.csv
+        $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -ah -bc $BCOL -ip $ntile -tm $ntile -tn $BCOL > $LOGS/spmv_spmv_$BCOL.csv
         header=0
       else
-        $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -bc $BCOL -ip $ntile -tm $ntile -tn $ntile >> $LOGS/spmv_spmv_$BCOL.csv
+        $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -bc $BCOL -ip $ntile -tm $ntile -tn $BCOL >> $LOGS/spmv_spmv_$BCOL.csv
       fi
       done
 #    done
