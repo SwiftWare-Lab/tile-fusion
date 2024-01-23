@@ -167,6 +167,7 @@ protected:
   matrix_descr d;
   Timer execute() override {
     Timer t;
+    OutTensor->reset();
     t.start();
     mkl_sparse_d_mm(SPARSE_OPERATION_NON_TRANSPOSE, 1, this->A, this->d,
                     SPARSE_LAYOUT_ROW_MAJOR, this->InTensor->Bx,
@@ -442,7 +443,7 @@ protected:
     t.start();
     spmmCsrSpmmCsrFusedVectorizedFunc(
         InTensor->M, InTensor->N, InTensor->K, InTensor->L, InTensor->ACsr->p,
-        InTensor->ACsr->i, InTensor->ACsr->x, InTensor->BCsr->p,
+        InTensor->ACsr->i, InTensor->ACsr->x, InTensor->ACsr->p,
         InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Bx, OutTensor->Xx,
         OutTensor->ACx, FusedCompSet->n1_, FusedCompSet->ptr1_,
         FusedCompSet->ptr2_, FusedCompSet->id_, FusedCompSet->type_,
@@ -967,6 +968,7 @@ protected:
     // FusedCompSet->print_3d();
     delete sf01;
     delete mvDAG;
+    delete tmpCSCCSR;
 
     t.stop();
     return t;
@@ -1005,7 +1007,7 @@ public:
                          sym_lib::ScheduleParameters SpIn)
       : SpMMSpMMUnFused(In1, Stat1), Sp(SpIn) {}
 
-  ~SpMMSpMMFusionProfiler() { delete FusedCompSet; }
+//  ~SpMMSpMMFusionProfiler() { delete FusedCompSet; }
 
   sym_lib::SparsityProfileInfo getSpInfo() { return SpInfo; }
 };
