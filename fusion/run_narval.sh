@@ -51,7 +51,7 @@ echo " -------> ${MKL_DIR}"
 export MKL_DIR=$MKLROOT
 
 module load cmake
-module load gcc
+#module load gcc #we need to add -march=core-avx2 to CXXFLAGS
 
 if [[ $TEST -eq 1 ]]; then
   bash run.sh -m $UFDB -c 8 -e $EXP
