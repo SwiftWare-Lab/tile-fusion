@@ -12,6 +12,7 @@
 #include <fstream>
 
 using namespace sym_lib;
+
 // A is MxK, C is KxN, B is LxM, and D is LxN; AC is MxN
 int main(const int argc, const char *argv[]){
   TestParameters tp;tp._order_method=SYM_ORDERING::NONE;
@@ -33,14 +34,15 @@ int main(const int argc, const char *argv[]){
   tp._density = (double)tp._nnz / (double)(tp._dim1 * tp._dim2);
 
   CSC *bCSC = sym_lib::copy_sparse(aCSCFull);
-  auto *alCSC = make_half(aCSC->n, aCSC->p, aCSC->i, aCSC->x);
-  std::vector<CSC*> orderedVec;
-  if(tp._order_method != SYM_ORDERING::NONE){
-    // applies ordering here
-    get_reorderd_matrix(alCSC, orderedVec);
-    delete alCSC;
-    alCSC = orderedVec[0];
-  }
+  delete aCSC;
+//  auto *alCSC = make_half(aCSC->n, aCSC->p, aCSC->i, aCSC->x);
+//  std::vector<CSC*> orderedVec;
+//  if(tp._order_method != SYM_ORDERING::NONE){
+//    // applies ordering here
+//    get_reorderd_matrix(alCSC, orderedVec);
+//    delete alCSC;
+//    alCSC = orderedVec[0];
+//  }
 
 
   //print_csc(1,"",aCSC);
@@ -48,7 +50,8 @@ int main(const int argc, const char *argv[]){
   auto *inSpMM = new TensorInputs<double>(aCSCFull->m,  tp._b_cols, aCSCFull->n,
                                          bCSC->m, aCSCFull, bCSC,
                                           numThread, numTrial, expName);
-
+  delete aCSCFull;
+  delete bCSC;
 //  stats = new swiftware::benchmark::Stats("SpMM_SpMM_Demo", "SpMM", 7, tp._matrix_name, numThread);
 //  stats->OtherStats["PackingType"] = {Interleaved};
 //  auto *unfused = new SpMMSpMMUnFused(inSpMM, stats);
@@ -368,10 +371,10 @@ int main(const int argc, const char *argv[]){
 //  }
 //  std::cout<<std::get<1>(tpCsv)<<std::get<1>(spCsv);
 
-  delete aCSC;
-  delete aCSCFull;
-  delete bCSC;
-  delete alCSC;
+//  delete aCSC;
+//  delete aCSCFull;
+//  delete bCSC;
+//  delete alCSC;
   delete inSpMM;
 //  delete dsaturColoring;
 //  delete dsaturColoringWithKTiling;

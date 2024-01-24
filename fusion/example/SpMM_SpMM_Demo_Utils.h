@@ -45,10 +45,10 @@ template <typename T> struct TensorInputs : public Inputs<T> {
     N = N1;
     K = K1;
     L = L1;
-    A = sym_lib::copy_sparse(A1);
-    B = sym_lib::copy_sparse(B1);
-    ACsr = sym_lib::csc_to_csr(A);
-    BCsr = sym_lib::csc_to_csr(B);
+//    A = sym_lib::copy_sparse(A1);
+//    B = sym_lib::copy_sparse(B1);
+    ACsr = sym_lib::csc_to_csr(A1);
+    BCsr = sym_lib::csc_to_csr(B1);
     Bx = new double[K * N]();
     // randomly initialize the input
     for (int i = 0; i < K * N; ++i) {
@@ -62,8 +62,8 @@ template <typename T> struct TensorInputs : public Inputs<T> {
   ~TensorInputs() {
     delete[] Bx;
     delete[] CorrectSol;
-    delete A;
-    delete B;
+//    delete A;
+//    delete B;
     delete ACsr;
     delete BCsr;
   }
