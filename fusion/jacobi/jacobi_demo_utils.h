@@ -70,6 +70,7 @@ template <typename T> struct TensorInputs : public Inputs<T> {
         Bx[i * K + j] = tmpSumRow[i];
       }
     }
+    delete[] tmpSumRow;
     //    for (int i = 0; i < K * M; ++i) {
     //      Bx[i] = 1.0; //(double)rand()/RAND_MAX;
     //    }

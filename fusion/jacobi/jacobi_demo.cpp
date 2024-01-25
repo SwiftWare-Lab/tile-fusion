@@ -59,7 +59,7 @@ int main(const int argc, const char *argv[]) {
   auto *unfused = new JacobiCSRUnfused(inJacobi, stats);
   unfused->run();
   //unfused->OutTensor->printDx();
-  inJacobi->CorrectSol = std::copy(
+  std::copy(
       unfused->OutTensor->Xx2,
       unfused->OutTensor->Xx2 + unfused->OutTensor->M * unfused->OutTensor->K,
       inJacobi->CorrectSol);
@@ -100,6 +100,6 @@ int main(const int argc, const char *argv[]) {
   delete aCSCFull;
   delete bCSC;
   delete alCSC;
-  //delete inJacobi;
+  delete inJacobi;
   return 0;
 }
