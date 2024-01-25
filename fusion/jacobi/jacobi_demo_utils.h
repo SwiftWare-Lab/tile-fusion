@@ -39,9 +39,9 @@ inline void getSumRowCSR(int m, int *Ap, int *Ai, double *Ax, double *SumRow,
       maxSum = std::abs(SumRow[i]);
     }
   }
-//  for (int i = 0; i < m; ++i) {
-//    SumRow[i] /= maxSum;
-//  }
+  for (int i = 0; i < m; ++i) {
+    SumRow[i] /= maxSum;
+  }
 }
 
 template <typename T> struct TensorInputs : public Inputs<T> {
@@ -118,14 +118,14 @@ template <typename T> struct TensorOutputs : public Outputs<T> {
 class JacobiCSRUnfused : public SWTensorBench<double> {
 protected:
   TensorInputs<double> *InTensor;
-  double Threshold = 1e-6;
+  double Threshold = 1e-30;
   int MaxIters = 1000;
   double *WS;
   int WSSize = 0;
 
   void setup() override {
     this->St->OtherStats["NTile"] = {4};
-    Threshold *= InTensor->MaxVal; //normalize
+//    Threshold *= InTensor->MaxVal; //normalize
   }
 
   void preExecute() override {}
@@ -233,14 +233,9 @@ protected:
   }
 
 public:
-  TensorOutputs<double> *OutTensor;
   JacobiCSRFused(TensorInputs<double> *In1, Stats *Stat1,
                  sym_lib::ScheduleParameters Sp1)
       : JacobiCSRUnfused(In1, Stat1), Sp(Sp1) {
-    OutTensor = new TensorOutputs<double>(In1->M, In1->K);
-    InTensor = In1;
-    WSSize = In1->M + In1->ACsr->nnz + In1->M * In1->K;
-    WS = new double[WSSize];
   }
 
   ~JacobiCSRFused() { delete FusedCompSet; }

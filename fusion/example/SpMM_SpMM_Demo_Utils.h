@@ -208,6 +208,8 @@ public:
   ~SpMMSpMMMKL() {
     mkl_free(A);
     mkl_free(B);
+    delete[] LLI_A;
+    delete[] LLI_B;
   }
 };
 
