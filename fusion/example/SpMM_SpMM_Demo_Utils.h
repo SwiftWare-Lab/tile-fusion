@@ -1140,8 +1140,8 @@ protected:
     t.start();
     swiftware::sparse::spmmCsrSpmmCscFusedColored(
         InTensor->M, InTensor->N, InTensor->K, InTensor->L, InTensor->ACsr->p,
-        InTensor->ACsr->i, InTensor->ACsr->x, InTensor->B->p, InTensor->B->i,
-        InTensor->B->x, InTensor->Bx, OutTensor->Xx, OutTensor->ACx,
+        InTensor->ACsr->i, InTensor->ACsr->x, InTensor->BCsr->p, InTensor->BCsr->i,
+        InTensor->BCsr->x, InTensor->Bx, OutTensor->Xx, OutTensor->ACx,
         FusedCompSet->n1_, FusedCompSet->ptr1_, FusedCompSet->id_,
         Sp.TileM, InTensor->NumThreads);
 
