@@ -150,20 +150,20 @@ int main(const int argc, const char *argv[]) {
 //    delete fusedTiledParallel;
 //    delete stats;
 
-  stats =
-      new swiftware::benchmark::Stats("SpMM_SpMM_FusedTiledParallel_Redundant",
-                                      "SpMM", 7, tp._matrix_name, numThread);
-  stats->OtherStats["PackingType"] = {Separated};
-  auto *fusedTiledParallelGen =
-      new SpMMSpMMFusedInterLayerRedundant(inSpMM, stats, sp);
-  fusedTiledParallelGen->run();
-  //  fusedTiledParallelGen->OutTensor->printDx();
-  auto fusedTiledParallelGenStat = fusedTiledParallelGen->printStats();
-  auto profileInfoRed = fusedTiledParallelGen->getSpInfo().printCSV(true);
-  std::string profHeaderRed = std::get<0>(profileInfoRed);
-  std::string profStatRed = std::get<1>(profileInfoRed);
-  delete fusedTiledParallelGen;
-  delete stats;
+//  stats =
+//      new swiftware::benchmark::Stats("SpMM_SpMM_FusedTiledParallel_Redundant",
+//                                      "SpMM", 7, tp._matrix_name, numThread);
+//  stats->OtherStats["PackingType"] = {Separated};
+//  auto *fusedTiledParallelGen =
+//      new SpMMSpMMFusedInterLayerRedundant(inSpMM, stats, sp);
+//  fusedTiledParallelGen->run();
+//  //  fusedTiledParallelGen->OutTensor->printDx();
+//  auto fusedTiledParallelGenStat = fusedTiledParallelGen->printStats();
+//  auto profileInfoRed = fusedTiledParallelGen->getSpInfo().printCSV(true);
+//  std::string profHeaderRed = std::get<0>(profileInfoRed);
+//  std::string profStatRed = std::get<1>(profileInfoRed);
+//  delete fusedTiledParallelGen;
+//  delete stats;
 
   //  stats = new
   //  swiftware::benchmark::Stats("SpMM_SpMM_FusedTiledParallel_Mixed_General","SpMM",
@@ -341,8 +341,8 @@ int main(const int argc, const char *argv[]) {
   std::cout<<fusedParallelStat<<spStat+tpStat+profStat<<std::endl;
   std::cout<<fusedParallelStatBfs<<spStat+tpStat+profStat<<std::endl;
   // std::cout<<fusedTiledParallelStat<<spStat+tpStat+profStat<<std::endl;
-  std::cout << fusedTiledParallelGenStat << spStat + tpStat + profStatRed
-            << std::endl;
+  //  std::cout << fusedTiledParallelGenStat << spStat + tpStat + profStatRed
+  //            << std::endl;
   // std::cout<<fusedTiledParallelMixedStat<<spStat+tpStat+profStatMixed<<std::endl;
   //  std::cout<<fusedParallelOutStat<<spStat+tpStat+profStat<<std::endl;
   //  std::cout<<fusedParallelMixedStat<<spStat+tpStat+profStat<<std::endl;
@@ -416,7 +416,7 @@ int main(const int argc, const char *argv[]) {
   //  delete bCSC;
   //  delete alCSC;
   delete inSpMM;
-  //  delete dsaturColoring;
+  delete dsaturColoring;
   //  delete dsaturColoringWithKTiling;
 
   return 0;
