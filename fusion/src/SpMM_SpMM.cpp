@@ -1284,7 +1284,7 @@ void spmmCsrSpmmCscFusedColoredAvx512(int M, int N, int K, int L, const int *Ap,
         for (int ii = 0; ii < TileSize; ++ii) {
           auto ipii = i + ii;
           // first SpMM
-          for (int k = 0; k < N; k += 32) {
+          for (int k = 0; k < N; k += 64) {
             auto acxv0 = _mm512_setzero_pd();
             auto acxv1 = _mm512_setzero_pd();
             auto acxv2 = _mm512_setzero_pd();
@@ -1295,9 +1295,6 @@ void spmmCsrSpmmCscFusedColoredAvx512(int M, int N, int K, int L, const int *Ap,
             auto acxv7 = _mm512_setzero_pd();
             for (int j = Ap[ipii]; j < Ap[ipii + 1]; j++) {
               int aij = Ai[j] * N;
-              //              for (int kk = 0; kk < N; ++kk) {
-              //                tAcxi[kk] += Ax[j] * Cx[aij + kk];
-              //              }
               auto axv0 = _mm512_set1_pd(Ax[j]);
               auto bxv0 = _mm512_loadu_pd(Cx + aij + k);
               auto bxv1 = _mm512_loadu_pd(Cx + aij + k + 8);
@@ -1318,11 +1315,7 @@ void spmmCsrSpmmCscFusedColoredAvx512(int M, int N, int K, int L, const int *Ap,
             }
             // second SpMM CSC
             for (int j = Bp[ipii]; j < Bp[ipii + 1];
-                 j++) { // for each column of B
-                        //              for (int kk = 0; kk < N; ++kk) {
-                        //                int bij = Bi[k] * N;
-                        //                Dx[bij + kk] += Bx[k] * tAcxi[kk];
-                        //              }
+                 j++) {
               auto bxv0 = _mm512_set1_pd(Bx[j]);
               auto dxv0 = _mm512_loadu_pd(Dx + Bi[j] * N + k);
               auto dxv1 = _mm512_loadu_pd(Dx + Bi[j] * N + k + 8);
