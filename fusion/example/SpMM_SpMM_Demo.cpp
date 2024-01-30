@@ -439,6 +439,16 @@ int main(const int argc, const char *argv[]) {
      fusedParallelVectorized512->printStats(); delete
      fusedParallelVectorized512; delete stats;
      std::cout<<fusedParallelVectorized512Stat<<spStat+tpStat+profStat<<std::endl;
+
+     stats = new swiftware::benchmark::Stats("SpMM_SpMM_CSC_Interleaved_Coloring_FusedParallel_Avx512","SpMM",7,tp._matrix_name,numThread);
+      stats->OtherStats["PackingType"] = {Separated};
+      auto *fusedCSCInterleavedColoringParallelVectorized512 = new SpMMCSRSpMMCSCFusedColoringVectorizedAvx512(inSpMM, stats, sp, colorToTiles);
+      fusedCSCInterleavedColoringParallelVectorized512->run();
+      auto fusedCSCInterleavedColoringParallelVectorized512Stat = fusedCSCInterleavedColoringParallelVectorized512->printStats();
+      delete fusedCSCInterleavedColoringParallelVectorized512;
+      delete stats;
+      std::cout<<fusedCSCInterleavedColoringParallelVectorized512Stat<<spStat+tpStat+profStat<<std::endl;
+
    #endif
   //
   //

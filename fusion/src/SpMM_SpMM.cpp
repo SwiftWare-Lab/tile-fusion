@@ -1174,7 +1174,7 @@ void spmmCsrSpmmCscFusedColored(int M, int N, int K, int L, const int *Ap,
 }
 
 #ifdef __AVX2__
-void spmmCsrSpmmCscFusedColoredVectorized(int M, int N, int K, int L, const int *Ap,
+void spmmCsrSpmmCscFusedColoredAvx256(int M, int N, int K, int L, const int *Ap,
                                 const int *Ai, const double *Ax, const int *Bp,
                                 const int *Bi, const double *Bx,
                                 const double *Cx, double *Dx, double *ACx,
@@ -1263,6 +1263,119 @@ void spmmCsrSpmmCscFusedColoredVectorized(int M, int N, int K, int L, const int 
 
 #endif
 
+#ifdef __AVX512F__
+void spmmCsrSpmmCscFusedColoredAvx512(int M, int N, int K, int L, const int *Ap,
+                                      const int *Ai, const double *Ax, const int *Bp,
+                                      const int *Bi, const double *Bx,
+                                      const double *Cx, double *Dx, double *ACx,
+                                      int LevelNo, const int *LevelPtr, const int *Id,
+                                      int TileSize, int NThreads) {
+  int lastTileSize = M % TileSize;
+  pw_init_instruments;
+  for (int i1 = 0; i1 < LevelNo; ++i1) {
+#pragma omp parallel num_threads(NThreads)
+    {
+      pw_start_instruments_loop(omp_get_thread_num());
+      int threadId = omp_get_thread_num();
+#pragma omp for
+      for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; ++j1) {
+        int id = Id[j1];
+        int i = id * TileSize;
+        for (int ii = 0; ii < TileSize; ++ii) {
+          auto ipii = i + ii;
+          // first SpMM
+          for (int k = 0; k < N; k += 32) {
+            auto acxv0 = _mm512_setzero_pd();
+            auto acxv1 = _mm512_setzero_pd();
+            auto acxv2 = _mm512_setzero_pd();
+            auto acxv3 = _mm512_setzero_pd();
+            auto acxv4 = _mm512_setzero_pd();
+            auto acxv5 = _mm512_setzero_pd();
+            auto acxv6 = _mm512_setzero_pd();
+            auto acxv7 = _mm512_setzero_pd();
+            for (int j = Ap[ipii]; j < Ap[ipii + 1]; j++) {
+              int aij = Ai[j] * N;
+              //              for (int kk = 0; kk < N; ++kk) {
+              //                tAcxi[kk] += Ax[j] * Cx[aij + kk];
+              //              }
+              auto axv0 = _mm512_set1_pd(Ax[j]);
+              auto bxv0 = _mm512_loadu_pd(Cx + aij + k);
+              auto bxv1 = _mm512_loadu_pd(Cx + aij + k + 8);
+              auto bxv2 = _mm512_loadu_pd(Cx + aij + k + 16);
+              auto bxv3 = _mm512_loadu_pd(Cx + aij + k + 24);
+              auto bxv4 = _mm512_loadu_pd(Cx + aij + k + 32);
+              auto bxv5 = _mm512_loadu_pd(Cx + aij + k + 40);
+              auto bxv6 = _mm512_loadu_pd(Cx + aij + k + 48);
+              auto bxv7 = _mm512_loadu_pd(Cx + aij + k + 56);
+              acxv0 = _mm256_fmadd_pd(axv0, bxv0, acxv0);
+              acxv1 = _mm256_fmadd_pd(axv0, bxv1, acxv1);
+              acxv2 = _mm256_fmadd_pd(axv0, bxv2, acxv2);
+              acxv3 = _mm256_fmadd_pd(axv0, bxv3, acxv3);
+              acxv4 = _mm256_fmadd_pd(axv0, bxv4, acxv4);
+              acxv5 = _mm256_fmadd_pd(axv0, bxv5, acxv5);
+              acxv6 = _mm256_fmadd_pd(axv0, bxv6, acxv6);
+              acxv7 = _mm256_fmadd_pd(axv0, bxv7, acxv7);
+            }
+            // second SpMM CSC
+            for (int j = Bp[ipii]; j < Bp[ipii + 1];
+                 j++) { // for each column of B
+                        //              for (int kk = 0; kk < N; ++kk) {
+                        //                int bij = Bi[k] * N;
+                        //                Dx[bij + kk] += Bx[k] * tAcxi[kk];
+                        //              }
+              auto bxv0 = _mm256_set1_pd(Bx[j]);
+              auto dxv0 = _mm256_loadu_pd(Dx + Bi[j] * N + k);
+              auto dxv1 = _mm256_loadu_pd(Dx + Bi[j] * N + k + 8);
+              auto dxv2 = _mm256_loadu_pd(Dx + Bi[j] * N + k + 16);
+              auto dxv3 = _mm256_loadu_pd(Dx + Bi[j] * N + k + 24);
+              auto dxv4 = _mm256_loadu_pd(Dx + Bi[j] * N + k + 32);
+              auto dxv5 = _mm256_loadu_pd(Dx + Bi[j] * N + k + 40);
+              auto dxv6 = _mm256_loadu_pd(Dx + Bi[j] * N + k + 48);
+              auto dxv7 = _mm256_loadu_pd(Dx + Bi[j] * N + k + 56);
+              dxv0 = _mm256_fmadd_pd(bxv0, acxv0, dxv0);
+              dxv1 = _mm256_fmadd_pd(bxv0, acxv1, dxv1);
+              dxv2 = _mm256_fmadd_pd(bxv0, acxv2, dxv2);
+              dxv3 = _mm256_fmadd_pd(bxv0, acxv3, dxv3);
+              dxv4 = _mm256_fmadd_pd(bxv0, acxv4, dxv4);
+              dxv5 = _mm256_fmadd_pd(bxv0, acxv5, dxv5);
+              dxv6 = _mm256_fmadd_pd(bxv0, acxv6, dxv6);
+              dxv7 = _mm256_fmadd_pd(bxv0, acxv7, dxv7);
+              _mm256_storeu_pd(Dx + Bi[j] * N + k, dxv0);
+              _mm256_storeu_pd(Dx + Bi[j] * N + k + 8, dxv1);
+              _mm256_storeu_pd(Dx + Bi[j] * N + k + 16, dxv2);
+              _mm256_storeu_pd(Dx + Bi[j] * N + k + 24, dxv3);
+              _mm256_storeu_pd(Dx + Bi[j] * N + k + 32, dxv4);
+              _mm256_storeu_pd(Dx + Bi[j] * N + k + 40, dxv5);
+              _mm256_storeu_pd(Dx + Bi[j] * N + k + 48, dxv6);
+              _mm256_storeu_pd(Dx + Bi[j] * N + k + 56, dxv7);
+            }
+          }
+        }
+      }
+      pw_stop_instruments_loop(omp_get_thread_num());
+    }
+  }
+  int i = M - lastTileSize;
+  for (int ii = 0; ii < lastTileSize; ++ii) {
+    auto ipii = i + ii;
+    // first SpMM
+    for (int j = Ap[ipii]; j < Ap[ipii + 1]; j++) {
+      int aij = Ai[j] * N;
+      for (int kk = 0; kk < N; ++kk) {
+        ACx[ipii * N + kk] += Ax[j] * Cx[aij + kk];
+      }
+    }
+    // second SpMM CSC
+    for (int k = Bp[ipii]; k < Bp[ipii + 1]; k++) { // for each column of B
+      for (int kk = 0; kk < N; ++kk) {
+        int bij = Bi[k] * N;
+        Dx[bij + kk] += Bx[k] * ACx[ipii * N + kk];
+      }
+    }
+  }
+}
+
+#endif
 
 void spmmCsrSpmmCscFusedColoredNTiling(int M, int N, int K, int L, const int *Ap,
                                 const int *Ai, const double *Ax, const int *Bp,

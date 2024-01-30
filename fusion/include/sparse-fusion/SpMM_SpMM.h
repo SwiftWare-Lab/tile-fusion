@@ -222,12 +222,20 @@ void spmmCsrSpmmCscFusedColored(int M, int N, int K, int L,
                                 const int *Id, int TileSize,
                                 int NThreads);
 #ifdef __AVX2__
-void spmmCsrSpmmCscFusedColoredVectorized(int M, int N, int K, int L, const int *Ap,
+void spmmCsrSpmmCscFusedColoredAvx256(int M, int N, int K, int L, const int *Ap,
                                           const int *Ai, const double *Ax, const int *Bp,
                                           const int *Bi, const double *Bx,
                                           const double *Cx, double *Dx, double *ACx,
                                           int LevelNo, const int *LevelPtr, const int *Id,
                                           int TileSize, int NThreads);
+#endif
+#ifdef __AVX512F__
+void spmmCsrSpmmCscFusedColoredAvx512(int M, int N, int K, int L, const int *Ap,
+                                      const int *Ai, const double *Ax, const int *Bp,
+                                      const int *Bi, const double *Bx,
+                                      const double *Cx, double *Dx, double *ACx,
+                                      int LevelNo, const int *LevelPtr, const int *Id,
+                                      int TileSize, int NThreads);
 #endif
 void spmmCsrSpmmCscFusedColoredNTiling(int M, int N, int K, int L, const int *Ap,
                                        const int *Ai, const double *Ax, const int *Bp,
