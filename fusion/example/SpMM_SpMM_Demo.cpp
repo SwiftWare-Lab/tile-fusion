@@ -262,6 +262,19 @@ int main(const int argc, const char *argv[]) {
   delete stats;
 
   stats = new swiftware::benchmark::Stats(
+      "SpMM_SpMM_CSC_Interleaved_Coloring_FusedParallel_Vectorized", "SpMM", 7,
+      tp._matrix_name, numThread);
+  stats->OtherStats["PackingType"] = {Separated};
+  auto *fusedCSCInterleavedColoringParallelVectorized = new SpMMCSRSpMMCSCFusedColoringVectorized(
+      inSpMM, stats, sp, colorToTiles);
+  fusedCSCInterleavedColoringParallelVectorized->run();
+  // fusedParallel->OutTensor->printDx();
+  auto fusedCSCInterleavedColoringParallelVectorizedStat =
+      fusedCSCInterleavedColoringParallelVectorized->printStats();
+  delete fusedCSCInterleavedColoringParallelVectorized;
+  delete stats;
+
+  stats = new swiftware::benchmark::Stats(
       "SpMM_SpMM_CSC_Interleaved_Coloring_NTiled_FusedParallel", "SpMM", 7,
       tp._matrix_name, numThread);
   stats->OtherStats["PackingType"] = {Separated};
@@ -376,6 +389,7 @@ int main(const int argc, const char *argv[]) {
   //  std::cout<<fusedCSCParallelSepStat<<spStat+tpStat+profStat<<std::endl;
   //  std::cout<<fusedCSCInterleavedParallelStat<<spStat+tpStat+profStat<<std::endl;
   std::cout<<fusedCSCInterleavedColoringParallelStat << spStat+tpStat+profStat<<std::endl;
+  std::cout<<fusedCSCInterleavedColoringParallelVectorizedStat << spStat+tpStat+profStat<<std::endl;
   std::cout<<fusedCSCInterleavedColoringITParallelStat << spStat+tpStat+profStat<<std::endl;
   std::cout<<fusedCSCInterleavedColoringNTParallelStat << spStat+tpStat+profStat<<std::endl;
   //  for (auto stat: scheduledKTilingStats){
