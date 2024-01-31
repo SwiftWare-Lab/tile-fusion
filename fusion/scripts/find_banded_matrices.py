@@ -5,7 +5,7 @@ import math
 banded_mat = []
 MAX_WIDTH = 2000
 folder = sys.argv[1]
-mat_list = os.path.join(folder, "mat_list.txt")
+mat_list = os.path.join(folder, "banded_mat_list.txt")
 with open(mat_list, "r") as file:
     mat_list = file.readlines()
 mat_list = [x.strip() for x in mat_list]

@@ -31,12 +31,12 @@ int main(const int argc, const char *argv[]) {
   } else {
     aCSCFull = sym_lib::copy_sparse(aCSC);
   }
-  tp._dim1 = aCSCFull->m;
-  tp._dim2 = aCSCFull->n;
-  tp._nnz = aCSCFull->nnz;
+  tp._dim1 = aCSC->m;
+  tp._dim2 = aCSC->n;
+  tp._nnz = aCSC->nnz;
   tp._density = (double)tp._nnz / (double)(tp._dim1 * tp._dim2);
-  CSC *bCSC = sym_lib::copy_sparse(aCSCFull);
-  delete aCSC;
+  CSC *bCSC = sym_lib::copy_sparse(aCSC);
+//  delete aCSC;
   //  auto *alCSC = make_half(aCSC->n, aCSC->p, aCSC->i, aCSC->x);
   //  std::vector<CSC*> orderedVec;
   //  if(tp._order_method != SYM_ORDERING::NONE){
@@ -50,15 +50,16 @@ int main(const int argc, const char *argv[]) {
   int numThread = sp._num_threads, numTrial = 7;
   std::string expName = "SpMM_SpMM_Demo";
   auto *inSpMM =
-      new TensorInputs<double>(aCSCFull->m, tp._b_cols, aCSCFull->n, bCSC->m,
-                               aCSCFull, bCSC, numThread, numTrial, expName);
+      new TensorInputs<double>(aCSC->m, tp._b_cols, aCSC->n, bCSC->m,
+                               aCSC, bCSC, numThread, numTrial, expName);
   DsaturColoringForConflictGraph *dsaturColoring =
       new DsaturColoringForConflictGraph();
   std::map<int, std::vector<int>> colorToTiles =
       dsaturColoring->generateGraphColoringForConflictGraphOf(
-          aCSCFull, sp.IterPerPartition, true);
+          aCSC, sp.IterPerPartition, true);
   delete aCSCFull;
   delete bCSC;
+  delete aCSC;
   //  stats = new swiftware::benchmark::Stats("SpMM_SpMM_Demo", "SpMM", 7,
   //  tp._matrix_name, numThread); stats->OtherStats["PackingType"] =
   //  {Interleaved}; auto *unfused = new SpMMSpMMUnFused(inSpMM, stats);
