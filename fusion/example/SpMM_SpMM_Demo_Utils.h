@@ -1291,11 +1291,23 @@ protected:
     swiftware::sparse::spmmCsrSpmmCscFusedColoredAvx256Packed(
         InTensor->M, InTensor->N, InTensor->K, InTensor->L, InTensor->ACsr->p,
         InTensor->ACsr->i, InTensor->ACsr->x, InTensor->BCsr->p,
-        InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Bx, OutTensor->Xx,
+        InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Bx, packedDx,
         OutTensor->ACx, FusedCompSet->n1_, FusedCompSet->ptr1_,
-        FusedCompSet->id_, Sp.IterPerPartition, InTensor->NumThreads, packedDx);
+        FusedCompSet->id_, Sp.IterPerPartition, InTensor->NumThreads);
     t.stop();
+    unpack(packedDx, 16);
+    delete[] packedDx;
     return t;
+  }
+
+  void unpack(double *packedResult, int NPack){
+    for (int i = 0; i < InTensor->L; i++){
+      for (int k = 0; k < InTensor->N; k+=NPack){
+        for (int kk = 0; kk < NPack; kk+=1){
+          OutTensor->Xx[i * InTensor->N + k + kk] = packedResult[k * InTensor->L + i * NPack + kk];
+        }
+      }
+    }
   }
 
 public:

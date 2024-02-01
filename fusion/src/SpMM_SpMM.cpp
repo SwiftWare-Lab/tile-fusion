@@ -1266,7 +1266,7 @@ void spmmCsrSpmmCscFusedColoredAvx256Packed(int M, int N, int K, int L, const in
                                       const int *Bi, const double *Bx,
                                       const double *Cx, double *Dx, double *ACx,
                                       int LevelNo, const int *LevelPtr, const int *Id,
-                                      int TileSize, int NThreads, double* PackedDx) {
+                                      int TileSize, int NThreads) {
   int lastTileSize = M % TileSize;
   int packedN = 16;
   pw_init_instruments;
@@ -1281,7 +1281,7 @@ void spmmCsrSpmmCscFusedColoredAvx256Packed(int M, int N, int K, int L, const in
         int i = id * TileSize;
         for (int k = 0; k < N; k += packedN) {
           int pckId = k/packedN;
-          double* curPack = PackedDx + pckId * M * packedN;
+          double* curPack = Dx + pckId * M * packedN;
           for (int ii = 0; ii < TileSize; ++ii) {
             auto ipii = i + ii;
             // first SpMM
@@ -1328,31 +1328,35 @@ void spmmCsrSpmmCscFusedColoredAvx256Packed(int M, int N, int K, int L, const in
       pw_stop_instruments_loop(omp_get_thread_num());
     }
   }
-#pragma omp parallel for num_threads(NThreads)
-  for (int ii = 0; ii < M; ++ii) {
-  for (int k = 0; k < N; k += packedN){
-      for (int j = 0; j < packedN; ++j) {
-        Dx[ii * N + k + j] += PackedDx[ii * packedN + j];
-      }
-    }
-  }
+//#pragma omp parallel for num_threads(NThreads)
+//  for (int ii = 0; ii < M; ++ii) {
+//  for (int k = 0; k < N; k += packedN){
+//      for (int j = 0; j < packedN; ++j) {
+//        Dx[ii * N + k + j] = PackedDx[ii * packedN + j];
+//      }
+//    }
+//  }
   int i = M - lastTileSize;
-  for (int ii = 0; ii < lastTileSize; ++ii) {
-    auto ipii = i + ii;
-    // first SpMM
-    for (int j = Ap[ipii]; j < Ap[ipii + 1]; j++) {
-      int aij = Ai[j] * N;
-      for (int kk = 0; kk < N; ++kk) {
-        ACx[ipii * N + kk] += Ax[j] * Cx[aij + kk];
+  for (int k = 0; k < N; k +=packedN) {
+    int pckId = k /packedN;
+    double* curPack = Dx + pckId * M * packedN;
+    for (int ii = 0; ii < lastTileSize; ++ii) {
+      auto ipii = i + ii;
+      // first SpMM
+        for (int j = Ap[ipii]; j < Ap[ipii + 1]; j++) {
+          int aij = Ai[j] * N;
+          for (int kk = 0; kk < packedN; kk++) {
+            ACx[ipii * N + k + kk] += Ax[j] * Cx[aij + k + kk];
+          }
+        }
+      // second SpMM CSC
+      for (int j = Bp[ipii]; j < Bp[ipii + 1]; j++) {
+          for (int kk = 0; kk < packedN; kk++){
+            int bij = Bi[j] * packedN;
+            curPack[bij + kk] += Bx[j] * ACx[ipii * N + k + kk];
+          }// for each column of B
+        }
       }
-    }
-    // second SpMM CSC
-    for (int k = Bp[ipii]; k < Bp[ipii + 1]; k++) { // for each column of B
-      for (int kk = 0; kk < N; ++kk) {
-        int bij = Bi[k] * N;
-        Dx[bij + kk] += Bx[k] * ACx[ipii * N + kk];
-      }
-    }
   }
 }
 
