@@ -1260,6 +1260,56 @@ public:
   ~SpMMCSRSpMMCSCFusedColoringVectorized() { delete FusedCompSet; }
   sym_lib::SparsityProfileInfo getSpInfo() { return SpInfo; }
 };
+
+
+class SpMMCSRSpMMCSCFusedColoringVectorizedPacked : public SpMMSpMMUnFused {
+protected:
+  sym_lib::MultiDimensionalSet *FusedCompSet;
+  sym_lib::ScheduleParameters Sp;
+  sym_lib::SparsityProfileInfo SpInfo;
+  InspectorForSingleLayerTiledFusedCSCParallel *Inspector;
+  std::map<int, std::vector<int>> ConflictGraphColoring;
+  Timer analysis() override {
+    Timer t;
+    t.start();
+
+    FusedCompSet =
+        Inspector->generateFusedScheduleForSingleLayerTiledFusedCSCParallel(
+            ConflictGraphColoring, InTensor->M, Sp.IterPerPartition);
+
+    t.stop();
+    return t;
+  }
+
+  Timer execute() override {
+    //    std::fill_n(OutTensor->Xx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
+    OutTensor->reset();
+    double* packedDx = new double[InTensor->L * InTensor->N]{};
+    Timer t;
+    t.start();
+    swiftware::sparse::spmmCsrSpmmCscFusedColoredAvx256Packed(
+        InTensor->M, InTensor->N, InTensor->K, InTensor->L, InTensor->ACsr->p,
+        InTensor->ACsr->i, InTensor->ACsr->x, InTensor->BCsr->p,
+        InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Bx, OutTensor->Xx,
+        OutTensor->ACx, FusedCompSet->n1_, FusedCompSet->ptr1_,
+        FusedCompSet->id_, Sp.IterPerPartition, InTensor->NumThreads, packedDx);
+    t.stop();
+    return t;
+  }
+
+public:
+  SpMMCSRSpMMCSCFusedColoringVectorizedPacked(
+      TensorInputs<double> *In1, Stats *Stat1, sym_lib::ScheduleParameters SpIn,
+      std::map<int, std::vector<int>> ConflictGraphColoring1)
+      : SpMMSpMMUnFused(In1, Stat1), Sp(SpIn),
+        ConflictGraphColoring(ConflictGraphColoring1) {
+    Inspector = new InspectorForSingleLayerTiledFusedCSCParallel();
+  }
+
+  ~SpMMCSRSpMMCSCFusedColoringVectorizedPacked() { delete FusedCompSet; }
+  sym_lib::SparsityProfileInfo getSpInfo() { return SpInfo; }
+};
 #endif
 
 #ifdef __AVX512F__
