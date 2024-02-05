@@ -10,7 +10,7 @@ pip install -r requirements.txt
 ```
 
 ## Usage
-
+A simple numba pass is implemented in `numba_pass.py`. You can run the script by:
 ```bash
-python main.py 
+python numba_pass.py 
 ```
