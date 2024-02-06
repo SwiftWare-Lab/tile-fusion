@@ -27,7 +27,6 @@ if(TARGET MKL::MKL)
             $<LINK_ONLY:MKL::MKL>
             OpenMP::OpenMP_CXX
     )
-
     add_executable(fusion_profiler
             Fusion_Profiler.cpp
     )

@@ -5,7 +5,8 @@ BCOL=4
 EXP="spmm_spmm"
 THRD=20
 DOWNLOAD=0
-while getopts ":t:dc:m:e:" arg; do
+ID=0
+while getopts ":t:dc:m:i:e:" arg; do
 
   case "${arg}" in
     c)
@@ -20,6 +21,9 @@ while getopts ":t:dc:m:e:" arg; do
     d)
       DOWNLOAD=1
       ;;
+    i)
+      ID=$OPTARG
+      ;;
     e)
       EXP=$OPTARG
       ;;
@@ -32,12 +36,17 @@ while getopts ":t:dc:m:e:" arg; do
       exit 0
   esac
 done
+MODE=3
 if [ $EXP == "spmm_spmm" ]; then
   BINFILE="spmm_spmm_fusion"
   BINPATH=./build/example/
 elif [ $EXP == "spmv_spmv" ]; then
   BINPATH=./build/spmv-spmv/
   BINFILE="spmv_spmv_demo"
+elif [ $EXP == "jacobi" ]; then
+  BINPATH=./build/jacobi/
+  BINFILE="jacobi_demo"
+  MODE=4
 else
   echo "Wrong experiment name"
   exit 0
@@ -71,11 +80,13 @@ cd ..
 DATE=$(date -d "today" +"%Y%m%d%H%M")
 LOGS="./build/logs-${DATE}/"
 SCRIPTPATH=./scripts/
-MATLIST=$UFDB/mat_list.txt
+if [ $ID -eq 0 ]; then
+  MATLIST=$UFDB/mat_list.txt
+else
+  MATLIST=$UFDB/mat_list$ID.txt
+fi
 
 mkdir $LOGS
-
-MODE=3
 # performing the experiments
 if [ $DOWNLOAD -eq 1 ]; then
     python3 $SCRIPTPATH/dl_matrix.py $UFDB $MATLIST

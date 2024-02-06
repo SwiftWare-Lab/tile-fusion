@@ -251,6 +251,21 @@ namespace sym_lib {
    return fusedCounter;
  }
 
+ int MultiDimensionalSet::getFusedNnzNum(CSR* matrix) {
+   int nnzCounter = 0;
+   for (int i = 0; i < n1_; ++i) {
+     for (int j = ptr1_[i]; j < ptr1_[i + 1]; ++j) {
+       for (int k = ptr2_[j]; k < ptr2_[j + 1]; ++k) {
+         if (i == 0 && type_[k] == 1){
+           int id = id_[k];
+           nnzCounter += matrix->p[id+1] - matrix->p[id];
+         }
+       }
+     }
+   }
+   return nnzCounter;
+ }
+
  int *MultiDimensionalSet::build_node_to_level(){
   int n = ptr1_[n1_];
   int *n2l = new int[n]();

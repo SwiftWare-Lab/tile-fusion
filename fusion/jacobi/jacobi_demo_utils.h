@@ -2,12 +2,15 @@
 // Created by kazem on 1/19/24.
 //
 
-
 #ifndef SPARSE_FUSION_JACOBI_DEMO_UTILS_H
 #define SPARSE_FUSION_JACOBI_DEMO_UTILS_H
 
 #include "jacobi.h"
 #include "SWTensorBench.h"
+#include "jacobi.h"
+#include "sparse-fusion/Fusion_Defs.h"
+#include "sparse-fusion/MultiDimensionalSet.h"
+#include "sparse-fusion/SparseFusion.h"
 
 using namespace swiftware::benchmark;
 
@@ -36,9 +39,9 @@ inline void getSumRowCSR(int m, int *Ap, int *Ai, double *Ax, double *SumRow,
       maxSum = std::abs(SumRow[i]);
     }
   }
-//  for (int i = 0; i < m; ++i) {
-//    SumRow[i] /= maxSum;
-//  }
+  for (int i = 0; i < m; ++i) {
+    SumRow[i] /= maxSum;
+  }
 }
 
 template <typename T> struct TensorInputs : public Inputs<T> {
@@ -67,9 +70,10 @@ template <typename T> struct TensorInputs : public Inputs<T> {
         Bx[i * K + j] = tmpSumRow[i];
       }
     }
-//    for (int i = 0; i < K * M; ++i) {
-//      Bx[i] = 1.0; //(double)rand()/RAND_MAX;
-//    }
+    delete[] tmpSumRow;
+    //    for (int i = 0; i < K * M; ++i) {
+    //      Bx[i] = 1.0; //(double)rand()/RAND_MAX;
+    //    }
     CorrectSol = new double[M * K](); // the correct solution
     IsSolProvided = false;
     Inputs<T>::Threshold = 1e-6;
@@ -85,38 +89,44 @@ template <typename T> struct TensorInputs : public Inputs<T> {
 
 template <typename T> struct TensorOutputs : public Outputs<T> {
   int M, K;
-  T *Xx;
+  T *Xx1, *Xx2;
+  int RetValue = 0;
 
-  TensorOutputs(int m, int k) : M(m), K(k) { Xx = new T[M * K]();
+  TensorOutputs(int m, int k) : M(m), K(k) {
+    Xx1 = new T[M * K]();
+    Xx2 = new T[M * K]();
   }
 
   ~TensorOutputs() {
-    delete[] Xx;
+    delete[] Xx2;
+    delete[] Xx1;
   }
 
   void printDx() {
-    std::cout << "\n Xx:\n";
-    printDense<T>(M, K, Xx);
+    std::cout << "\n Xx1:\n";
+    printDense<T>(M, K, Xx1);
+    std::cout << "\n Xx2\n";
+    printDense<T>(M, K, Xx2);
     std::cout << "\n";
   }
 
   void reset() {
-    std::fill_n(Xx, M * K, 0.0);
+    std::fill_n(Xx2, M * K, 0.0);
+    std::fill_n(Xx1, M * K, 0.0);
   }
 };
-
 
 class JacobiCSRUnfused : public SWTensorBench<double> {
 protected:
   TensorInputs<double> *InTensor;
-  double Threshold = 1e-3;
+  double Threshold = 1e-30;
   int MaxIters = 1000;
   double *WS;
-  int RetValue = 0, WSSize = 0;
+  int WSSize = 0;
 
   void setup() override {
     this->St->OtherStats["NTile"] = {4};
-    Threshold *= InTensor->MaxVal; //normalize
+//    Threshold *= InTensor->MaxVal; //normalize
   }
 
   void preExecute() override {}
@@ -127,12 +137,11 @@ protected:
     OutTensor->reset();
     Timer t;
     t.start();
-    RetValue = sym_lib::jacobiCSR(
-        InTensor->M, InTensor->K, InTensor->ACsr->p,
-        InTensor->ACsr->i, InTensor->ACsr->x, OutTensor->Xx, InTensor->Bx, InTensor->K,
-        Threshold, MaxIters, WS);
+    OutTensor->RetValue =
+        sym_lib::jacobiCSR(InTensor->M, InTensor->K, InTensor->ACsr->p,
+                           InTensor->ACsr->i, InTensor->ACsr->x, OutTensor->Xx2,
+                           InTensor->Bx, InTensor->K, Threshold, MaxIters, WS);
     t.stop();
-    std::cout << "Return value: " << RetValue << std::endl;
     return t;
   }
 
@@ -144,8 +153,8 @@ protected:
     }
     double infNorm = 0;
     for (int i = 0; i < InTensor->M * InTensor->K; ++i) {
-      if (std::abs(OutTensor->Xx[i] - InTensor->CorrectSol[i]) > infNorm) {
-        infNorm = std::abs(OutTensor->Xx[i] - InTensor->CorrectSol[i]);
+      if (std::abs(OutTensor->Xx2[i] - InTensor->CorrectSol[i]) > infNorm) {
+        infNorm = std::abs(OutTensor->Xx2[i] - InTensor->CorrectSol[i]);
       }
     }
     Error = (double)infNorm;
@@ -171,7 +180,66 @@ public:
   }
 };
 
+class JacobiCSRFused : public JacobiCSRUnfused {
+protected:
+  sym_lib::MultiDimensionalSet *FusedCompSet;
+  sym_lib::ScheduleParameters Sp;
+  Timer analysis() override {
+    Timer t;
+    t.start();
+    // sym_lib::ScheduleParameters sp;
+    // sp._num_threads = InTensor->NumThreads;
+    //  create the fused set
 
+    Sp._num_w_partition = std::max<int>(InTensor->ACsr->m / Sp.IterPerPartition,
+                                        2 * Sp._num_threads);
+    auto *sf01 = new sym_lib::SparseFusion(&Sp, 2);
+    auto *mvDAG = sym_lib::diagonal(InTensor->ACsr->m, 1.0);
+    auto *tmpCSCCSR = new sym_lib::CSC(InTensor->ACsr->m, InTensor->ACsr->n,
+                                       InTensor->ACsr->nnz, InTensor->ACsr->p,
+                                       InTensor->ACsr->i, InTensor->ACsr->x);
+    auto *Di = InTensor->ACsr;
+    // sym_lib::print_csc(1, "Di", 6, Di->p, Di->i, Di->x);
+    sf01->fuse(0, mvDAG, tmpCSCCSR);
 
+    // sf01->print_final_list();
+    sf01->fuse(1, mvDAG, tmpCSCCSR);
+    // sf01->print_final_list();
+    auto pt = St->OtherStats["PackingType"];
+    FusedCompSet = sf01->getFusedCompressed((int)pt[0]);
+    int fusedNodesNum = FusedCompSet->getNumberOfFusedNodes();
+    int fusedNnzNum = FusedCompSet->getFusedNnzNum(InTensor->ACsr);
+    // FusedCompSet->print_3d();
+    delete sf01;
+    delete mvDAG;
+    delete tmpCSCCSR;
+
+    t.stop();
+    return t;
+  }
+  Timer execute() override {
+    //    std::fill_n(OutTensor->Xx2, InTensor->L * InTensor->N, 0.0);
+    std::fill_n(WS, WSSize, 0.0);
+    OutTensor->reset();
+    Timer t;
+    t.start();
+    OutTensor->RetValue = sym_lib::jacobiBiIterationFusedCSR(
+        InTensor->M, InTensor->K, InTensor->ACsr->p, InTensor->ACsr->i,
+        InTensor->ACsr->x, OutTensor->Xx1, OutTensor->Xx2, InTensor->Bx,
+        InTensor->K, Threshold, MaxIters, WS, FusedCompSet->n1_,
+        FusedCompSet->ptr1_, FusedCompSet->ptr2_, FusedCompSet->id_,
+        FusedCompSet->type_, InTensor->NumThreads);
+    t.stop();
+    return t;
+  }
+
+public:
+  JacobiCSRFused(TensorInputs<double> *In1, Stats *Stat1,
+                 sym_lib::ScheduleParameters Sp1)
+      : JacobiCSRUnfused(In1, Stat1), Sp(Sp1) {
+  }
+
+  ~JacobiCSRFused() { delete FusedCompSet; }
+};
 
 #endif // SPARSE_FUSION_JACOBI_DEMO_UTILS_H

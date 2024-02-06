@@ -25,7 +25,7 @@ namespace sym_lib{
  std::tuple<std::string,std::string> TestParameters::print_csv(bool header) const {
   std::string header_text, row;
   if(header){
-   header_text  = "MatrixName,Density,nRows,nCols,NNZ,Mode,Ordering,Algorithm,bCols,EmbedDim";
+   header_text  = "MatrixName,Density,nRows,nCols,NNZ,Mode,Ordering,Algorithm,bCols,EmbedDim,";
   }
   row = _matrix_name+","+ std::to_string(_density)+","+ std::to_string(_dim1)+","+
     std::to_string(_dim2)+","+ std::to_string(_nnz)+","+_mode+","+

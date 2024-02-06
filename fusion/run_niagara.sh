@@ -16,7 +16,8 @@ UFDB=$SCRATCH/data/graphs/
 #UFDB=$HOME/UFDB/tri-banded/
 EXP=spmv_spmv
 BCOL=32
-while getopts ":lm:c:e:" arg; do
+ID=0
+while getopts ":lm:c:i:e:" arg; do
   case "${arg}" in
     l)
       TEST=1
@@ -30,6 +31,9 @@ while getopts ":lm:c:e:" arg; do
     e)
       EXP=$OPTARG
       ;;
+    i)
+      ID=$OPTARG
+      ;;
     *) echo "Usage:
     -l TEST=FALSE                                     Set if you want to run the script for one b_col
     -m UFDB=$SCRATCH/UFDB/AM/                        path of matrices data"
@@ -42,10 +46,10 @@ module load NiaEnv/.2022a
 module load intel/2022u2
 export MKL_DIR=$MKLROOT
 module load cmake
-module load gcc
+#module load gcc
 
 if [ $TEST -eq 1 ]; then
-  bash run.sh -m $UFDB -c 8 -e $EXP
+  bash run.sh -m $UFDB -c 8 -i $ID -e $EXP
 else
-  bash run.sh -t 20 -m $UFDB -c $BCOL -e $EXP
+  bash run.sh -t 20 -m $UFDB -c $BCOL -i $ID  -e $EXP
 fi

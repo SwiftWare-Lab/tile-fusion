@@ -176,39 +176,35 @@ protected:
 
   std::map<std::string, std::vector<std::string>>
   createTilesConflictGraph(sym_lib::CSC *AdjMtx, int TileSize, bool DeleteIncompleteTile) {
+    std::map<int, std::set<int>> conflictGraphIntToSet;
     std::map<std::string, std::vector<std::string>> conflictGraph;
     int numOfTiles;
-    if (DeleteIncompleteTile)
+    if (DeleteIncompleteTile) {
       numOfTiles = AdjMtx->m / TileSize;
-    else
+    }
+    else {
       numOfTiles = (int)ceil((double)AdjMtx->m / TileSize);
-    for (int i = 0; i < numOfTiles; i++) {
-      int iStart = i * TileSize;
-      int iEnd = std::min(iStart + TileSize, (int)AdjMtx->m);
-      int aSize = AdjMtx->p[iEnd] - AdjMtx->p[iStart];
-      int *a = new int[aSize];
-      std::string iStr = std::to_string(i);
-      if (conflictGraph.find(iStr) == conflictGraph.end()) {
-        conflictGraph[iStr] = std::vector<std::string>();
-      }
-      for (int j = i + 1; j < numOfTiles; j++) {
-        int jStart = j * TileSize;
-        int jEnd = std::min(jStart + TileSize, (int)AdjMtx->m);
-        int bSize = AdjMtx->p[jEnd] - AdjMtx->p[jStart];
-        int *b = new int[bSize];
-        std::memcpy(a, AdjMtx->i + AdjMtx->p[iStart], aSize * sizeof(int));
-        std::memcpy(b, AdjMtx->i + AdjMtx->p[jStart], bSize * sizeof(int));
-        if (checkIfTwoArraysHasSameValue(a, b, aSize, bSize)) {
-          std::string jStr = std::to_string(j);
-          if (conflictGraph.find(jStr) == conflictGraph.end()) {
-            conflictGraph[jStr] = std::vector<std::string>();
+    }
+    for (int i = 0; i < numOfTiles; i++){
+      conflictGraphIntToSet[i] = std::set<int>();
+    }
+    for (int i = 0; i < AdjMtx->m; i++){
+      for (int j = AdjMtx->p[i]; j < AdjMtx->p[i+1]-1; j++){
+        for (int k = j+1; k < AdjMtx->p[i+1]; k++){
+          int tileJ = AdjMtx->i[j] / TileSize;
+          int tileK = AdjMtx->i[k] / TileSize;
+          if (tileJ != tileK && tileJ < numOfTiles && tileK < numOfTiles){
+            conflictGraphIntToSet[tileJ].insert(tileK);
+            conflictGraphIntToSet[tileK].insert(tileJ);
           }
-          conflictGraph[iStr].push_back(jStr);
-          conflictGraph[jStr].push_back(iStr);
         }
-        delete[] b;
       }
-      delete[] a;
+    }
+    for (auto cgisi: conflictGraphIntToSet){
+      conflictGraph[std::to_string(cgisi.first)] = std::vector<std::string>();
+      for (auto t: cgisi.second){
+        conflictGraph[std::to_string(cgisi.first)].push_back(std::to_string(t));
+      }
     }
     return conflictGraph;
   }
