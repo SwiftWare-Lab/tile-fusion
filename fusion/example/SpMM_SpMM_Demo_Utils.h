@@ -360,7 +360,7 @@ public:
       : SpMMSpMMUnFused(In1, Stat1), Sp(SpIn) {}
 };
 
-class SpMMSpMMFusedInterLayer : public SpMMSpMMUnFused {
+class SpMMSpMMFusedConditional : public SpMMSpMMUnFused {
 protected:
   sym_lib::MultiDimensionalSet *FusedCompSet;
   sym_lib::ScheduleParameters Sp;
@@ -386,12 +386,12 @@ protected:
     sf01->fuse(1, mvDAG, tmpCSCCSR);
     // sf01->print_final_list();
     auto pt = St->OtherStats["PackingType"];
-    FusedCompSet = sf01->getFusedCompressed((int)pt[0]);
+    FusedCompSet = sf01->getFusedCompressed((int)pt[0], InTensor->ACsr);
     int fusedNodesNum = FusedCompSet->getNumberOfFusedNodes();
     int fusedNnzNum = FusedCompSet->getFusedNnzNum(InTensor->ACsr);
     this->St->OtherStats["Number of Fused Nodes"] = {(double)fusedNodesNum};
     this->St->OtherStats["Number of Fused nnz"] = {(double)fusedNnzNum};
-    // FusedCompSet->print_3d();
+//    FusedCompSet->print_3d();
     delete sf01;
     delete mvDAG;
     delete tmpCSCCSR;
@@ -419,14 +419,14 @@ protected:
   }
 
 public:
-  SpMMSpMMFusedInterLayer(TensorInputs<double> *In1, Stats *Stat1,
+  SpMMSpMMFusedConditional(TensorInputs<double> *In1, Stats *Stat1,
                           sym_lib::ScheduleParameters SpIn)
       : SpMMSpMMUnFused(In1, Stat1), Sp(SpIn) {}
 
-  ~SpMMSpMMFusedInterLayer() { delete FusedCompSet; }
+  ~SpMMSpMMFusedConditional() { delete FusedCompSet; }
 };
 #ifdef __AVX2__
-class SpMMSpMMFusedInterLayerVectorizedAvx256 : public SpMMSpMMFusedInterLayer {
+class SpMMSpMMFusedInterLayerVectorizedAvx256 : public SpMMSpMMFusedConditional {
 protected:
   void (*spmmCsrSpmmCsrFusedVectorizedFunc)(int , int , int , int ,
                                             const int *, const int *, const double *,
@@ -458,7 +458,7 @@ protected:
 public:
   SpMMSpMMFusedInterLayerVectorizedAvx256(TensorInputs<double> *In1, Stats *Stat1,
                           sym_lib::ScheduleParameters SpIn)
-      : SpMMSpMMFusedInterLayer(In1, Stat1, SpIn) {
+      : SpMMSpMMFusedConditional(In1, Stat1, SpIn) {
     if(this->InTensor->N == 8){
       this->spmmCsrSpmmCsrFusedVectorizedFunc = swiftware::sparse::spmmCsrSpmmCsrFusedVectorized2_8;
     }
@@ -471,7 +471,7 @@ public:
 #endif
 
 #ifdef __AVX512F__
-class SpMMSpMMFusedInterLayerVectorizedAvx512 : public SpMMSpMMFusedInterLayer {
+class SpMMSpMMFusedInterLayerVectorizedAvx512 : public SpMMSpMMFusedConditional {
 protected:
   void (*spmmCsrSpmmCsrFusedVectorizedFunc)(int , int , int , int ,
                                             const int *, const int *, const double *,
@@ -503,7 +503,7 @@ protected:
 public:
   SpMMSpMMFusedInterLayerVectorizedAvx512(TensorInputs<double> *In1, Stats *Stat1,
                           sym_lib::ScheduleParameters SpIn)
-      : SpMMSpMMFusedInterLayer(In1, Stat1, SpIn) {
+      : SpMMSpMMFusedConditional(In1, Stat1, SpIn) {
     if(In1->N==8) {
       spmmCsrSpmmCsrFusedVectorizedFunc = swiftware::sparse::spmmCsrSpmmCsrFusedVectorized8Avx512;
     }
@@ -717,7 +717,7 @@ public:
   sym_lib::SparsityProfileInfo getSpInfo() { return SpInfo; }
 };
 
-class SpMMSpMMFusedInnerProdInterLayer : public SpMMSpMMFusedInterLayer {
+class SpMMSpMMFusedInnerProdInterLayer : public SpMMSpMMFusedConditional {
   Timer execute() override {
     //    std::fill_n(OutTensor->Xx, InTensor->L * InTensor->N, 0.0);
     //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
@@ -739,11 +739,11 @@ class SpMMSpMMFusedInnerProdInterLayer : public SpMMSpMMFusedInterLayer {
 public:
   SpMMSpMMFusedInnerProdInterLayer(TensorInputs<double> *In1, Stats *Stat1,
                                    sym_lib::ScheduleParameters SpIn)
-      : SpMMSpMMFusedInterLayer(In1, Stat1, SpIn) {}
+      : SpMMSpMMFusedConditional(In1, Stat1, SpIn) {}
   ~SpMMSpMMFusedInnerProdInterLayer() {}
 };
 
-class SpMMSpMMFusedTiled : public SpMMSpMMFusedInterLayer {
+class SpMMSpMMFusedTiled : public SpMMSpMMFusedConditional {
   Timer execute() override {
     //    std::fill_n(OutTensor->Xx, InTensor->L * InTensor->N, 0.0);
     //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
@@ -767,11 +767,11 @@ class SpMMSpMMFusedTiled : public SpMMSpMMFusedInterLayer {
 public:
   SpMMSpMMFusedTiled(TensorInputs<double> *In1, Stats *Stat1,
                      sym_lib::ScheduleParameters SpIn)
-      : SpMMSpMMFusedInterLayer(In1, Stat1, SpIn) {}
+      : SpMMSpMMFusedConditional(In1, Stat1, SpIn) {}
   ~SpMMSpMMFusedTiled() {}
 };
 
-class SpMMSpMMFusedTiledTri : public SpMMSpMMFusedInterLayer {
+class SpMMSpMMFusedTiledTri : public SpMMSpMMFusedConditional {
 
   void buildBandedFusedSchedule(
       std::vector<std::vector<sym_lib::FusedNode *>> &FusedSchedule,
@@ -861,11 +861,11 @@ class SpMMSpMMFusedTiledTri : public SpMMSpMMFusedInterLayer {
 public:
   SpMMSpMMFusedTiledTri(TensorInputs<double> *In1, Stats *Stat1,
                         sym_lib::ScheduleParameters SpIn)
-      : SpMMSpMMFusedInterLayer(In1, Stat1, SpIn) {}
+      : SpMMSpMMFusedConditional(In1, Stat1, SpIn) {}
   ~SpMMSpMMFusedTiledTri() {}
 };
 
-class SpMMSpMMFusedSepInterLayer : public SpMMSpMMFusedInterLayer {
+class SpMMSpMMFusedSepInterLayer : public SpMMSpMMFusedConditional {
   Timer execute() override {
     //    std::fill_n(OutTensor->Xx, InTensor->L * InTensor->N, 0.0);
     //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
@@ -887,10 +887,10 @@ class SpMMSpMMFusedSepInterLayer : public SpMMSpMMFusedInterLayer {
 public:
   SpMMSpMMFusedSepInterLayer(TensorInputs<double> *In1, Stats *Stat1,
                              sym_lib::ScheduleParameters SpIn)
-      : SpMMSpMMFusedInterLayer(In1, Stat1, SpIn) {}
+      : SpMMSpMMFusedConditional(In1, Stat1, SpIn) {}
 };
 
-class SpMMSpMMFusedMixedInterLayer : public SpMMSpMMFusedInterLayer {
+class SpMMSpMMFusedMixedInterLayer : public SpMMSpMMFusedConditional {
   Timer execute() override {
     //    std::fill_n(OutTensor->Xx, InTensor->L * InTensor->N, 0.0);
     //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
@@ -912,7 +912,7 @@ class SpMMSpMMFusedMixedInterLayer : public SpMMSpMMFusedInterLayer {
 public:
   SpMMSpMMFusedMixedInterLayer(TensorInputs<double> *In1, Stats *Stat1,
                                sym_lib::ScheduleParameters SpIn)
-      : SpMMSpMMFusedInterLayer(In1, Stat1, SpIn) {}
+      : SpMMSpMMFusedConditional(In1, Stat1, SpIn) {}
 };
 
 // class SpMMSpMMUnFusedCTiledParallel : public SpMMSpMMUnFused {

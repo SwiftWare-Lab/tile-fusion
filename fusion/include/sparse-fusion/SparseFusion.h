@@ -79,7 +79,7 @@ namespace sym_lib{
   virtual void fuse(int LoopId, CSC *Gi, CSC *Di);
 
   MultiDimensionalSet *getFusedCompressed(int PT);
-
+  MultiDimensionalSet *getFusedCompressed(int PT, CSR *Matrix);
   virtual void pairing(int LoopId, CSC *Gi, CSC *Di);
 
   void merge_pairs();

@@ -4,6 +4,7 @@
 
 #include "sparse-fusion/MultiDimensionalSet.h"
 #include <iostream>
+#include <map>
 
 namespace sym_lib {
 
@@ -112,6 +113,88 @@ namespace sym_lib {
       type_[cnt] = j;
       cnt++;
      }
+    }
+    cntW++;
+    ptr2_[cntW] = cnt;
+   }
+   ptr1_[l+1] = cntW;
+  }
+ }
+
+ MultiDimensionalSet::MultiDimensionalSet(
+     const std::vector<std::vector<FusedNode*>> &FusedSchedule,
+     CSR *Matrix){
+  int totalNode = 0, height = FusedSchedule.size(), width = 0, partNo = 0;
+  for (int i = 0; i < FusedSchedule.size(); ++i) {
+   width = std::max(width, (int) FusedSchedule[i].size());
+   partNo += FusedSchedule[i].size();
+   for (int j = 0; j < FusedSchedule[i].size(); ++j) {
+    for (int k = 0; k < FusedSchedule[i][j]->_list.size(); ++k) {
+     totalNode+=FusedSchedule[i][j]->_list[k].size();
+    }
+   }
+  }
+  n1_ = height;
+  n2_ = partNo;
+  n3_ = totalNode;
+  ptr1_ = new int[n1_ + 1]();
+  ptr2_ = new int[n2_ + 1]();
+  id_ = new int[n3_];
+  type_= new int[n3_];
+  w_par_type_ = NULLPNTR;
+  ker_begin_ = NULLPNTR;
+  is_redundancy_=NULLPNTR;
+  map_redundancy_=NULLPNTR;
+
+  int cnt = 0;
+  int cntW = 0;
+  ptr1_[0]=0;
+  ptr2_[0]=0;
+  for (int l = 0; l < FusedSchedule.size(); ++l) { // over levels
+   for (int i = 0; i < FusedSchedule[l].size() ; ++i) {
+    // reading each w-partition
+    int l1Index = 0;
+    if(FusedSchedule[l][i]->_list[0].size() > 0 && FusedSchedule[l][i]->_list[1].size()){
+     std::map<int, std::vector<int>> posToL2Iter;
+      for (int k = 0; k < FusedSchedule[l][i]->_list[1].size(); ++k) {
+       int r = FusedSchedule[l][i]->_list[1][k];
+       int lastIndex = Matrix->i[Matrix->p[r + 1] - 1];
+       auto it = posToL2Iter.find(lastIndex);
+       if (it == posToL2Iter.end()) {
+        posToL2Iter[lastIndex] = std::vector<int>();
+       }
+       posToL2Iter[lastIndex].push_back(r);
+      }
+      int l1Iter = FusedSchedule[l][i]->_list[0][0];
+      for (auto pIter : posToL2Iter) {
+       int pos = pIter.first;
+       while (l1Iter <= pos) {
+        id_[cnt] = l1Iter;
+        type_[cnt] = 0;
+        l1Iter++;
+        cnt++;
+       }
+       for (auto l2Iter : pIter.second) {
+        id_[cnt] = l2Iter;
+        type_[cnt] = 1;
+        cnt++;
+       }
+      }
+      while (l1Iter <= *FusedSchedule[l][i]->_list[0].rbegin()){
+       id_[cnt] = l1Iter;
+       type_[cnt] = 0;
+       l1Iter++;
+       cnt++;
+      }
+    }
+    else{
+      for (int j = 0; j < FusedSchedule[l][i]->_list.size(); ++j) { // each fused loop
+       for (int k = 0; k < FusedSchedule[l][i]->_list[j].size(); ++k) { // each iteration
+        id_[cnt] = FusedSchedule[l][i]->_list[j][k];
+        type_[cnt] = j;
+        cnt++;
+       }
+      }
     }
     cntW++;
     ptr2_[cntW] = cnt;

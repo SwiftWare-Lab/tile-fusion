@@ -235,4 +235,13 @@ namespace sym_lib{
   return ret;
  }
 
+ MultiDimensionalSet *SparseFusion::getFusedCompressed(int PT, CSR* Matrix) {
+  MultiDimensionalSet *ret;
+  if(PT == Separated)
+    ret = new MultiDimensionalSet(_final_node_list, PT);
+  else
+    ret = new MultiDimensionalSet(_final_node_list, Matrix);
+  return ret;
+ }
+
 } // end namespace sym_lib

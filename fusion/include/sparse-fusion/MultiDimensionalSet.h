@@ -51,6 +51,8 @@ namespace sym_lib{
   MultiDimensionalSet(
     const std::vector<std::vector<FusedNode*>> &FusedSchedule);
   MultiDimensionalSet(
+      const std::vector<std::vector<FusedNode*>> &FusedSchedule, CSR *Matrix);
+  MultiDimensionalSet(
       const std::vector<std::vector<FusedNode*>> &FusedSchedule,
       int PerPartition);
 
