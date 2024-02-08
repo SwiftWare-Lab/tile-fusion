@@ -36,7 +36,7 @@ while getopts ":t:dc:m:i:e:" arg; do
       exit 0
   esac
 done
-MODE=3
+MODE=5
 if [ $EXP == "spmm_spmm" ]; then
   BINFILE="spmm_spmm_fusion"
   BINPATH=./build/example/
