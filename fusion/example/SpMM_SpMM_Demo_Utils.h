@@ -514,7 +514,7 @@ protected:
         InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Bx, OutTensor->Xx,
         OutTensor->ACx, FusedCompSet->n1_, FusedCompSet->ptr1_,
         FusedCompSet->ptr2_, FusedCompSet->id_, FusedCompSet->type_,
-        InTensor->NumThreads, tilesTime);
+        InTensor->NumThreads, TilesTime);
     t.stop();
     return t;
   }
