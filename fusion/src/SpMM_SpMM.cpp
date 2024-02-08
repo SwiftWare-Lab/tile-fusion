@@ -13,6 +13,7 @@
 #include <immintrin.h>
 #include <iostream>
 #include <omp.h>
+#include "Timer.h"
 namespace swiftware {
 namespace sparse {
 
@@ -197,13 +198,13 @@ void spmmCsrInnerProductTiledCParallel(int M, int N, int K, const int *Ap,
 }
 
 /// D = B*A*C
-void spmmCsrSpmmCsrFused(int M, int N, int K, int L, const int *Ap,
+ void spmmCsrSpmmCsrFused(int M, int N, int K, int L, const int *Ap,
                          const int *Ai, const double *Ax, const int *Bp,
                          const int *Bi, const double *Bx, const double *Cx,
                          double *Dx, double *ACx, int LevelNo,
                          const int *LevelPtr, const int *ParPtr,
                          const int *Partition, const int *ParType,
-                         int NThreads) {
+                         int NThreads, double* TilesTime) {
   pw_init_instruments;
   for (int i1 = 0; i1 < LevelNo; ++i1) {
 #pragma omp parallel num_threads(NThreads)
@@ -214,20 +215,25 @@ void spmmCsrSpmmCsrFused(int M, int N, int K, int L, const int *Ap,
         for (int k1 = ParPtr[j1]; k1 < ParPtr[j1 + 1]; ++k1) {
           int i = Partition[k1];
           int t = ParType[k1];
+          benchmark::Timer ti;
           if (t == 0) {
+            ti.start();
             for (int j = Ap[i]; j < Ap[i + 1]; j++) {
               int aij = Ai[j] * N;
               for (int kk = 0; kk < N; ++kk) {
                 ACx[i * N + kk] += Ax[j] * Cx[aij + kk];
               }
             }
+            TilesTime[j1*2] += ti.stop();
           } else {
+            ti.start();
             for (int k = Bp[i]; k < Bp[i + 1]; k++) {
               int bij = Bi[k] * N;
               for (int kk = 0; kk < N; ++kk) {
                 Dx[i * N + kk] += Bx[k] * ACx[bij + kk];
               }
             }
+            TilesTime[j1*2+1] += ti.stop();
           }
         }
       }
@@ -239,7 +245,7 @@ void spmmCsrSpmmCsrFused(int M, int N, int K, int L, const int *Ap,
 #ifdef __AVX512F__
 
 inline void vectorCrossProduct8Avx512(double Ax, int Ai, const double *B,
-                                      double *C, int N, int I) {
+                                      double *C, int N, int I, double* TilesTimes) {
   int bij = Ai * N;
   auto bxV = _mm512_set1_pd(Ax);
   int offset = N * I;
@@ -454,7 +460,7 @@ void spmmCsrSpmmCsrFusedVectorized2_32Avx512(
     int M, int N, int K, int L, const int *Ap, const int *Ai, const double *Ax,
     const int *Bp, const int *Bi, const double *Bx, const double *Cx,
     double *Dx, double *ACx, int LevelNo, const int *LevelPtr,
-    const int *ParPtr, const int *Partition, const int *ParType, int NThreads) {
+    const int *ParPtr, const int *Partition, const int *ParType, int NThreads, double* TilesTimes, double* TilesTime) {
   pw_init_instruments;
   for (int i1 = 0; i1 < LevelNo; ++i1) {
 #pragma omp parallel num_threads(NThreads)
@@ -465,7 +471,9 @@ void spmmCsrSpmmCsrFusedVectorized2_32Avx512(
         for (int k1 = ParPtr[j1]; k1 < ParPtr[j1 + 1]; ++k1) {
           int i = Partition[k1];
           int t = ParType[k1];
+          benchmark::Timer ti;
           if (t == 0) {
+            ti.start();
             int j = Ap[i];
             for (; j < Ap[i + 1]-1; j+=2) {
               vectorCrossProduct2_32Avx512(Ax + j, Ai + j, Cx, ACx, N, i);
@@ -473,7 +481,9 @@ void spmmCsrSpmmCsrFusedVectorized2_32Avx512(
             for (;j < Ap[i + 1]; j++){
               vectorCrossProduct64Avx512(Ax[j], Ai[j], Cx, ACx, N, i);
             }
+            TilesTime[j1*2] += ti.stop();
           } else {
+            ti.start();
             int k = Bp[i];
             for (; k < Bp[i + 1]-1; k+=2) {
               vectorCrossProduct2_32Avx512(Bx + k, Bi + k, ACx, Dx, N, i);
@@ -481,6 +491,7 @@ void spmmCsrSpmmCsrFusedVectorized2_32Avx512(
             for (;k < Bp[i + 1]; k++){
               vectorCrossProduct64Avx512(Bx[k], Bi[k], ACx, Dx, N, i);
             }
+            TilesTime[j1*2+1] += ti.stop();
           }
         }
       }
@@ -552,7 +563,7 @@ void spmmCsrSpmmCsrFusedVectorized8Avx512(
     int M, int N, int K, int L, const int *Ap, const int *Ai, const double *Ax,
     const int *Bp, const int *Bi, const double *Bx, const double *Cx,
     double *Dx, double *ACx, int LevelNo, const int *LevelPtr,
-    const int *ParPtr, const int *Partition, const int *ParType, int NThreads) {
+    const int *ParPtr, const int *Partition, const int *ParType, int NThreads, double* TilesTime) {
   pw_init_instruments;
   for (int i1 = 0; i1 < LevelNo; ++i1) {
 #pragma omp parallel num_threads(NThreads)
@@ -563,7 +574,9 @@ void spmmCsrSpmmCsrFusedVectorized8Avx512(
         for (int k1 = ParPtr[j1]; k1 < ParPtr[j1 + 1]; ++k1) {
           int i = Partition[k1];
           int t = ParType[k1];
+          Timer ti;
           if (t == 0) {
+            ti.start();
             int j = Ap[i];
             for (; j < Ap[i + 1]-1; j+=2) {
               vectorCrossProduct2_8Avx512(Ax + j, Ai + j, Cx, ACx, N, i);
@@ -571,7 +584,9 @@ void spmmCsrSpmmCsrFusedVectorized8Avx512(
             for (; j < Ap[i+1];j++){
               vectorCrossProduct8Avx512(Ax[j], Ai[j], Cx, ACx, N, i);
             }
+            TilesTime[j1*2] += ti.stop();
           } else {
+            ti.start();
             int k = Bp[i];
             for (; k < Bp[i + 1]-1; k+=2) {
               vectorCrossProduct2_8Avx512(Bx + k, Bi + k, ACx, Dx, N, i);
@@ -579,6 +594,7 @@ void spmmCsrSpmmCsrFusedVectorized8Avx512(
             for(; k < Bp[i+1]; k++){
               vectorCrossProduct8Avx512(Bx[k], Bi[k], ACx, Dx, N, i);
             }
+            TilesTime[j1*2+1] += ti.stop();
           }
         }
       }

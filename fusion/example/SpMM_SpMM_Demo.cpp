@@ -118,6 +118,8 @@ int main(const int argc, const char *argv[]) {
     stats, sp); fusedParallel->run();
     //fusedParallel->OutTensor->printDx();
     auto fusedParallelStat = fusedParallel->printStats();
+    auto fusedParallelTilingStats = fusedParallel->printTilesTimings();
+    auto tilingStatsHeader = fusedParallel->printTilesHeaders();
     delete fusedParallel;
     delete stats;
 
@@ -128,6 +130,7 @@ int main(const int argc, const char *argv[]) {
                                                        stats, sp); fusedParallelCSep->run();
     //fusedParallel->OutTensor->printDx();
     auto fusedParallelCSepStat = fusedParallelCSep->printStats();
+    auto fusedParallelCSepTilingStats = fusedParallelCSep->printTilesTimings();
     delete fusedParallelCSep;
     delete stats;
   ////
@@ -397,13 +400,14 @@ int main(const int argc, const char *argv[]) {
   std::string tpStat = std::get<1>(tpCsv);
 
   if (tp.print_header)
-    std::cout << headerStat + spHeader + tpHeader + profHeader << std::endl;
+    std::cout << headerStat + spHeader + tpHeader + profHeader + tilingStatsHeader << std::endl;
   //  std::cout<<baselineStat<<spStat+tpStat+profStat<<std::endl;
   std::cout << unfusedParallelStat << spStat + tpStat + profStat << std::endl;
   //  std::cout<<unfusedOutParallelStat<<spStat+tpStat+profStat<<std::endl;
   //  std::cout<<unfusedCTiledParallelStat<<spStat+tpStat+profStat<<std::endl;
-  std::cout << fusedParallelStat <<spStat+tpStat+profStat<<std::endl;
-  std::cout << fusedParallelCSepStat <<spStat+tpStat+profStat<<std::endl;
+  std::cout << fusedParallelStat <<spStat+tpStat+profStat+ fusedParallelTilingStats
+            <<std::endl;
+  std::cout << fusedParallelCSepStat <<spStat+tpStat+profStat+fusedParallelCSepTilingStats<<std::endl;
 //  std::cout<<fusedParallelStatBfs<<spStat+tpStat+profStat<<std::endl;
   // std::cout<<fusedTiledParallelStat<<spStat+tpStat+profStat<<std::endl;
   //  std::cout << fusedTiledParallelGenStat << spStat + tpStat + profStatRed
@@ -475,9 +479,12 @@ int main(const int argc, const char *argv[]) {
      fusedParallelVectorized512->run();
      //fusedParallel->OutTensor->printDx();
      auto fusedParallelVectorized512Stat =
-     fusedParallelVectorized512->printStats(); delete
-     fusedParallelVectorized512; delete stats;
-     std::cout<<fusedParallelVectorized512Stat<<spStat+tpStat+profStat<<std::endl;
+     fusedParallelVectorized512->printStats();
+     auto fusedParallelVectorized512TilingStats =
+         fusedParallelVectorized512->printTilesTimings();
+     delete fusedParallelVectorized512;
+     delete stats;
+     std::cout<<fusedParallelVectorized512Stat<<spStat+tpStat+profStat+fusedParallelVectorized512TilingStats<<std::endl;
 
      stats = new
          swiftware::benchmark::Stats("SpMM_SpMM_FusedParallel_Conditional_Separated_Avx512","SpMM",
@@ -487,10 +494,12 @@ int main(const int argc, const char *argv[]) {
      fusedParallelVectorized512Sep->run();
      //fusedParallel->OutTensor->printDx();
      auto fusedParallelVectorized512StatSep =
-         fusedParallelVectorized512Sep->printStats(); delete
-         fusedParallelVectorized512Sep;
+         fusedParallelVectorized512Sep->printStats();
+     auto fusedParallelVectorized512SepTilingStats =
+         fusedParallelVectorized512Sep->printTilesTimings();
+     delete fusedParallelVectorized512Sep;
      delete stats;
-     std::cout<<fusedParallelVectorized512StatSep<<spStat+tpStat+profStat<<std::endl;
+     std::cout<<fusedParallelVectorized512StatSep<<spStat+tpStat+profStat+fusedParallelVectorized512SepTilingStats<<std::endl;
 
 //     stats = new swiftware::benchmark::Stats("SpMM_SpMM_CSC_Interleaved_Coloring_FusedParallel_Avx512","SpMM",7,tp._matrix_name,numThread);
 //      stats->OtherStats["PackingType"] = {Separated};

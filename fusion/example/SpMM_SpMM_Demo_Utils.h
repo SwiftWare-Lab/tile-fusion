@@ -395,8 +395,9 @@ protected:
     delete sf01;
     delete mvDAG;
     delete tmpCSCCSR;
-
+    TilesTime = new double[FusedCompSet->ptr1_[FusedCompSet->n1_]*2]{};
     t.stop();
+
     return t;
   }
 
@@ -412,18 +413,37 @@ protected:
         InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Bx, OutTensor->Xx,
         OutTensor->ACx, FusedCompSet->n1_, FusedCompSet->ptr1_,
         FusedCompSet->ptr2_, FusedCompSet->id_, FusedCompSet->type_,
-        InTensor->NumThreads);
-
+        InTensor->NumThreads, TilesTime);
     t.stop();
     return t;
   }
 
 public:
+  double* TilesTime;
   SpMMSpMMFusedConditional(TensorInputs<double> *In1, Stats *Stat1,
                           sym_lib::ScheduleParameters SpIn)
       : SpMMSpMMUnFused(In1, Stat1), Sp(SpIn) {}
 
-  ~SpMMSpMMFusedConditional() { delete FusedCompSet; }
+  std::string printTilesHeaders(std::string Sep = ","){
+    std::string header = "";
+    for (int i = 0; i < FusedCompSet->ptr1_[FusedCompSet->n1_]; i++){
+      header +=  "tile_" + std::to_string(i) + "loop_1" + Sep;
+      header +=  "tile_" + std::to_string(i) + "loop_2" + Sep;
+    }
+    return header;
+  }
+  std::string printTilesTimings(std::string Sep = ","){
+    std::string timings = "";
+    for (int i = 0; i < FusedCompSet->ptr1_[FusedCompSet->n1_]*2; i++){
+      timings += std::to_string(TilesTime[i]) + Sep;
+    }
+    return timings;
+  }
+
+  ~SpMMSpMMFusedConditional() {
+    delete FusedCompSet;
+    delete[] TilesTime;
+  }
 };
 #ifdef __AVX2__
 class SpMMSpMMFusedInterLayerVectorizedAvx256 : public SpMMSpMMFusedConditional {
@@ -481,7 +501,7 @@ protected:
                                             double *,
                                             int , const int *, const int *,
                                             const int *, const int *,
-                                            int );
+                                            int ,double*);
   Timer execute() override {
     //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
     //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
@@ -494,8 +514,7 @@ protected:
         InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Bx, OutTensor->Xx,
         OutTensor->ACx, FusedCompSet->n1_, FusedCompSet->ptr1_,
         FusedCompSet->ptr2_, FusedCompSet->id_, FusedCompSet->type_,
-        InTensor->NumThreads);
-
+        InTensor->NumThreads, tilesTime);
     t.stop();
     return t;
   }
@@ -702,7 +721,7 @@ protected:
         InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Bx, OutTensor->Xx,
         OutTensor->ACx, FusedCompSet->n1_, FusedCompSet->ptr1_,
         FusedCompSet->ptr2_, FusedCompSet->id_, FusedCompSet->type_,
-        InTensor->NumThreads);
+        InTensor->NumThreads, new double[1]);
 
     t.stop();
     return t;
