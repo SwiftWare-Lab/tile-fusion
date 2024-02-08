@@ -72,7 +72,7 @@ void spmmCsrSpmmCsrFusedVectorized8Avx512(int M, int N, int K, int L,
                                     double *ACx,
                                     int LevelNo, const int *LevelPtr, const int *ParPtr,
                                     const int *Partition, const int *ParType,
-                                    int NThreads, double* TilesTime, double* TilesTime);
+                                    int NThreads, double* TilesTime);
 void spmmCsrSpmmCsrFusedVectorized64Avx512(int M, int N, int K, int L,
                                     const int *Ap, const int *Ai, const double *Ax,
                                     const int *Bp, const int *Bi,const double *Bx,
@@ -98,7 +98,7 @@ void spmmCsrSpmmCsrFusedVectorized2_32Avx512(
     int M, int N, int K, int L, const int *Ap, const int *Ai, const double *Ax,
     const int *Bp, const int *Bi, const double *Bx, const double *Cx,
     double *Dx, double *ACx, int LevelNo, const int *LevelPtr,
-    const int *ParPtr, const int *Partition, const int *ParType, int NThreads);
+    const int *ParPtr, const int *Partition, const int *ParType, int NThreads, double* TilesTime);
 #endif
 #if defined(__AVX2__)
 void spmmCsrSpmmCsrFusedVectorized2_16(int M, int N, int K, int L,
