@@ -574,7 +574,7 @@ void spmmCsrSpmmCsrFusedVectorized8Avx512(
         for (int k1 = ParPtr[j1]; k1 < ParPtr[j1 + 1]; ++k1) {
           int i = Partition[k1];
           int t = ParType[k1];
-          Timer ti;
+          benchmark::Timer ti;
           if (t == 0) {
             ti.start();
             int j = Ap[i];
