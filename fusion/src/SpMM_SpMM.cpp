@@ -245,7 +245,7 @@ void spmmCsrInnerProductTiledCParallel(int M, int N, int K, const int *Ap,
 #ifdef __AVX512F__
 
 inline void vectorCrossProduct8Avx512(double Ax, int Ai, const double *B,
-                                      double *C, int N, int I, double* TilesTimes) {
+                                      double *C, int N, int I) {
   int bij = Ai * N;
   auto bxV = _mm512_set1_pd(Ax);
   int offset = N * I;
@@ -460,7 +460,7 @@ void spmmCsrSpmmCsrFusedVectorized2_32Avx512(
     int M, int N, int K, int L, const int *Ap, const int *Ai, const double *Ax,
     const int *Bp, const int *Bi, const double *Bx, const double *Cx,
     double *Dx, double *ACx, int LevelNo, const int *LevelPtr,
-    const int *ParPtr, const int *Partition, const int *ParType, int NThreads, double* TilesTimes, double* TilesTime) {
+    const int *ParPtr, const int *Partition, const int *ParType, int NThreads, double* TilesTimes) {
   pw_init_instruments;
   for (int i1 = 0; i1 < LevelNo; ++i1) {
 #pragma omp parallel num_threads(NThreads)
