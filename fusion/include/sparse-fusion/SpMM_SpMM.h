@@ -36,7 +36,7 @@ void spmmCsrParallelTiled(int M, int N, int K,
                           int MTile, int NTile);
 
 
-    /// D = B*A*C where A (MxK) and B (LxM) are sparse and C (KxN) and D (LxN) are dense
+    /// D = B*A*C where A (MxK) and B (LxM) are sparse and C (KxN) and D (LxN) are de
 /// \param M
 /// \param N
 /// \param K
