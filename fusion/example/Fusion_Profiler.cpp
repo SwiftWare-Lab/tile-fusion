@@ -36,17 +36,17 @@ int main(const int argc, const char *argv[]){
     alCSC = orderedVec[0];
   }
   //print_csc(1,"",aCSC);
-  int numThread = sp._num_threads, numTrial = 7; std::string expName = "SpMM_SpMM_Demo";
+  int numThread = sp._num_threads, numTrial = 1; std::string expName = "SpMM_SpMM_Demo";
   auto *inSpMM = new TensorInputs<double>(aCSC->m,  tp._b_cols, aCSC->n,
                                           bCSC->m, aCSC, bCSC,
                                           numThread, numTrial, expName);
 
-  stats = new swiftware::benchmark::Stats("SpMM_SpMM_Demo", "SpMM", 7, tp._matrix_name, numThread);
+  stats = new swiftware::benchmark::Stats("SpMM_SpMM_Demo", "SpMM", 1, tp._matrix_name, numThread);
   stats->OtherStats["PackingType"] = {Interleaved};
   auto *fusionProfiler = new SpMMSpMMFusionProfiler(inSpMM, stats, sp);
   fusionProfiler->run();
   //unfused->OutTensor->printDx();
-  inSpMM->CorrectSol = std::copy(fusionProfiler->OutTensor->Xx,
+  std::copy(fusionProfiler->OutTensor->Xx,
                 fusionProfiler->OutTensor->Xx +
                     fusionProfiler->OutTensor->M * fusionProfiler->OutTensor->N, inSpMM->CorrectSol);
   inSpMM->IsSolProvided = true;
@@ -55,7 +55,10 @@ int main(const int argc, const char *argv[]){
   delete fusionProfiler;
   delete stats;
 
-
+  if(tp.print_header){
+    std::cout << headerStat << std::endl;
+  }
+  std::cout << baselineStat << std::endl;
   delete aCSC;
   delete bCSC;
   delete alCSC;
