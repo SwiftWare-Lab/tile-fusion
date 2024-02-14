@@ -74,10 +74,18 @@ int main(const int argc, const char *argv[]){
   delete fusionProfiler;
   delete stats;
 
+  auto csvInfo = sp.print_csv(true);
+  std::string spHeader = std::get<0>(csvInfo);
+  std::string spStat = std::get<1>(csvInfo);
+
+  auto tpCsv = tp.print_csv(true);
+  std::string tpHeader = std::get<0>(tpCsv);
+  std::string tpStat = std::get<1>(tpCsv);
+
   if(tp.print_header){
-    std::cout << headerStat << std::endl;
+    std::cout << headerStat << spHeader+tpHeader << std::endl;
   }
-  std::cout << baselineStat << std::endl;
+  std::cout << baselineStat << spStat+tpStat << std::endl;
   delete inSpMM;
 
   return 0;

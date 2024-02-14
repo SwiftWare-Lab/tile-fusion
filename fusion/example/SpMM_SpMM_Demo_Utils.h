@@ -952,21 +952,23 @@ protected:
     // sym_lib::ScheduleParameters sp;
     // sp._num_threads = InTensor->NumThreads;
     //  create the fused set
-    Sp._num_w_partition = std::max<int>(InTensor->ACsr->m / Sp._num_w_partition,
+
+    Sp._num_w_partition = std::max<int>(InTensor->ACsr->m / Sp.IterPerPartition,
                                         2 * Sp._num_threads);
     auto *sf01 = new sym_lib::SparseFusion(&Sp, 2);
     auto *mvDAG = sym_lib::diagonal(InTensor->ACsr->m, 1.0);
-    sf01->fuse(0, mvDAG, NULLPNTR);
     auto *tmpCSCCSR = new sym_lib::CSC(InTensor->BCsr->m, InTensor->BCsr->n,
                                        InTensor->BCsr->nnz, InTensor->BCsr->p,
                                        InTensor->BCsr->i, InTensor->BCsr->x);
+    auto *Di = InTensor->BCsr;
+    // sym_lib::print_csc(1, "Di", 6, Di->p, Di->i, Di->x);
+    sf01->fuse(0, mvDAG, tmpCSCCSR);
+
     // sf01->print_final_list();
     sf01->fuse(1, mvDAG, tmpCSCCSR);
     // sf01->print_final_list();
-    SpInfo = sf01->measureReuse(tmpCSCCSR);
-    // std::cout<<" -> "<<spi.TotalReuseC<<std::endl;
     auto pt = St->OtherStats["PackingType"];
-    FusedCompSet = sf01->getFusedCompressed((int) pt[0]);
+    FusedCompSet = sf01->getFusedCompressed((int)pt[0]);
     int fusedNodesNum = FusedCompSet->getNumberOfFusedNodes();
     int fusedNnzNum = FusedCompSet->getFusedNnzNum(InTensor->ACsr);
     this->St->OtherStats["Number of Fused Nodes"] = {(double)fusedNodesNum};
