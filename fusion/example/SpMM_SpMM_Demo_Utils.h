@@ -16,6 +16,7 @@
 #include "sparse-fusion/SparseFusionWithRedundancy.h"
 #include <omp.h>
 #include <cmath>
+#include <numeric>
 
 using namespace swiftware::benchmark;
 
@@ -106,6 +107,8 @@ protected:
     this->St->OtherStats["NTile"] = {4};
     this->St->OtherStats["Number of Fused Nodes"] = {0.};
     this->St->OtherStats["Number of Fused nnz"] = {0.};
+    this->St->OtherStats["Tile Size Mean"] = {0.};
+    this->St->OtherStats["Tile Size STD"] = {0.};
   }
 
   void preExecute() override {}
@@ -468,6 +471,7 @@ protected:
         }
       }
     }
+    extractTilesSizeData(tilesStart);
     int numTiles = tilesStart.size();
     fusedIters.resize(numTiles, std::vector<int>());
     tilesStart.push_back(InTensor->M);
@@ -523,6 +527,10 @@ protected:
       }
       FusedCompSet->ptr2_[i+1] = cnt;
     }
+    int fusedNodesNum = FusedCompSet->getNumberOfFusedNodes();
+    int fusedNnzNum = FusedCompSet->getFusedNnzNum(InTensor->ACsr);
+    this->St->OtherStats["Number of Fused Nodes"] = {(double)fusedNodesNum};
+    this->St->OtherStats["Number of Fused nnz"] = {(double)fusedNnzNum};
     //    FusedCompSet->print_3d();
     t1.stop();
     return t1;
@@ -544,6 +552,24 @@ protected:
 
     t.stop();
     return t;
+  }
+
+  void extractTilesSizeData(std::vector<int> &tilesPtr){
+    std::vector<int> tileSizes;
+    for (int i = 0; i < tilesPtr.size()-1; i++){
+      tileSizes.push_back(tilesPtr[i+1]-tilesPtr[i]);
+    }
+    float average = std::accumulate(tileSizes.begin(), tileSizes.end(),0.0) / tileSizes.size();
+    float var = 0;
+    for( int i = 0; i < tileSizes.size(); i++ )
+    {
+      var += (tileSizes[i] - average) * (tileSizes[i] - average);
+    }
+    var /= tileSizes.size();
+    float sd = sqrt(var);
+    this->St->OtherStats["Tile Size Mean"] = {average};
+    this->St->OtherStats["Tile Size STD"] = {sd};
+
   }
 
   int calculateWorkingSetSize(int Nnz, int UniqueColsNum, int Bcols, int TileSize){
