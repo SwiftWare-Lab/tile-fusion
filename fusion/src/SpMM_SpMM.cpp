@@ -312,6 +312,32 @@ inline void vectorCrossProduct64Avx512(double Ax, int Ai, const double *B,
   }
 }
 
+inline void vectorCrossProduct32Avx512(double Ax, int Ai, const double *B,
+                                       double *C, int N, int I) {
+  int bij = Ai * N;
+  auto bxV = _mm512_set1_pd(Ax);
+  int offset = N * I;
+
+  for (int kk = 0; kk < N; kk += 32) {
+    auto acxV1 = _mm512_loadu_pd(B + bij + kk);
+    auto dxV1 = _mm512_loadu_pd(C + offset + kk);
+    auto acxV2 = _mm512_loadu_pd(B + bij + kk + 8);
+    auto dxV2 = _mm512_loadu_pd(C + offset + kk + 8);
+    auto acxV3 = _mm512_loadu_pd(B + bij + kk + 16);
+    auto dxV3 = _mm512_loadu_pd(C + offset + kk + 16);
+    auto acxV4 = _mm512_loadu_pd(B + bij + kk + 24);
+    auto dxV4 = _mm512_loadu_pd(C + offset + kk + 24);
+    dxV1 = _mm512_fmadd_pd(bxV, acxV1, dxV1);
+    dxV2 = _mm512_fmadd_pd(bxV, acxV2, dxV2);
+    dxV3 = _mm512_fmadd_pd(bxV, acxV3, dxV3);
+    dxV4 = _mm512_fmadd_pd(bxV, acxV4, dxV4);
+    _mm512_storeu_pd(C + offset + kk, dxV1);
+    _mm512_storeu_pd(C + offset + kk + 8, dxV2);
+    _mm512_storeu_pd(C + offset + kk + 16, dxV3);
+    _mm512_storeu_pd(C + offset + kk + 24, dxV4);
+  }
+}
+
 inline void vectorCrossProduct2_32Avx512(const double* Ax, const int* Ai, const double *B,
                                        double *C, int N, int I) {
   int bij0 = Ai[0] * N;
@@ -471,7 +497,7 @@ void spmmCsrSpmmCsrFusedVectorized2_32Avx512(
               vectorCrossProduct2_32Avx512(Ax + j, Ai + j, Cx, ACx, N, i);
             }
             for (;j < Ap[i + 1]; j++){
-              vectorCrossProduct64Avx512(Ax[j], Ai[j], Cx, ACx, N, i);
+              vectorCrossProduct32Avx512(Ax[j], Ai[j], Cx, ACx, N, i);
             }
           } else {
             int k = Bp[i];
@@ -479,7 +505,7 @@ void spmmCsrSpmmCsrFusedVectorized2_32Avx512(
               vectorCrossProduct2_32Avx512(Bx + k, Bi + k, ACx, Dx, N, i);
             }
             for (;k < Bp[i + 1]; k++){
-              vectorCrossProduct64Avx512(Bx[k], Bi[k], ACx, Dx, N, i);
+              vectorCrossProduct32Avx512(Bx[k], Bi[k], ACx, Dx, N, i);
             }
           }
         }
