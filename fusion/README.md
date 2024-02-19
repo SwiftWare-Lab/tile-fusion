@@ -116,4 +116,9 @@ python scripts/plotter/plot_gcn.py ~/where/logs/ scripts/plotter/single_layer_co
 First argument is the folder containing the logs and the second argument is the config file. There is a sample config 
 file for single layer experiments in the script/plotter folder. You can generate config file for different experiments 
 based on the sample config file.
-Plots will be stored in the same folder as the log folder. 
+Plots will be stored in the same folder as the log folder.
+
+
+## Profiling with PAPI
+You will need to build the code with PAPI support. Please check the 
+swiftware benchmark repo for details. 

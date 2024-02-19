@@ -9,6 +9,11 @@ add_subdirectory(aggregation)
 
 add_subdirectory(benchmark)
 
+if(PROFILING_WITH_PAPI)
+    message(STATUS "Profiling with PAPI")
+    add_definitions(-DPROF_WITH_PAPI)
+endif()
+
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native")
 

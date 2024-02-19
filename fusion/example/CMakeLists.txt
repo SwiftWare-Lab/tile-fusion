@@ -38,6 +38,19 @@ if(TARGET MKL::MKL)
             $<LINK_ONLY:MKL::MKL>
             swbench::swbench
     )
+
+    add_executable(spmm_spmm_papi_profiler
+            SpMM_SpMM_PAPI_Demo.cpp
+            )
+    target_link_libraries(spmm_spmm_papi_profiler
+            fusion
+            $<LINK_ONLY:MKL::MKL>
+            swbench::swbench
+            OpenMP::OpenMP_CXX
+            )
+    target_include_directories(spmm_spmm_papi_profiler PRIVATE
+            $<TARGET_PROPERTY:MKL::MKL,INTERFACE_INCLUDE_DIRECTORIES>
+            )
 else()
 add_executable(spmm_spmm_fusion
         SpMM_SpMM_Demo.cpp
@@ -64,6 +77,8 @@ add_executable(dag_decomp
 target_link_libraries(dag_decomp
         fusion
 )
+
+
 
 
 #target_compile_options(dag_decomp PRIVATE
