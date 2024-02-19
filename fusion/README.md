@@ -121,4 +121,5 @@ Plots will be stored in the same folder as the log folder.
 
 ## Profiling with PAPI
 You will need to build the code with PAPI support. Please check the 
-swiftware benchmark repo for details. 
+swiftware benchmark repo for details. The 'test_papi.sh' script provides
+an example for running papi.
