@@ -1,17 +1,21 @@
 cmake_minimum_required( VERSION 3.20)
 
 
-
-
 project(sparse_fusion CXX C )
+
+if(PROFILING_WITH_PAPI)
+    message(STATUS "Profiling with PAPI")
+    add_definitions(-DPROF_WITH_PAPI)
+endif()
 
 add_subdirectory(aggregation)
 
 add_subdirectory(benchmark)
 
 if(PROFILING_WITH_PAPI)
-    message(STATUS "Profiling with PAPI")
-    add_definitions(-DPROF_WITH_PAPI)
+    include_directories(
+	${PAPI_INCLUDE_DIRS} 
+	)
 endif()
 
 set(CMAKE_CXX_STANDARD 11)
