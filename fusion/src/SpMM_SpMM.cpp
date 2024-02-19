@@ -242,7 +242,6 @@ inline void vectorCrossProduct8Avx512(double Ax, int Ai, const double *B,
                                       __m512d Xv, int N, int I) {
   int bij = Ai * N;
   auto bxV = _mm512_set1_pd(Ax);
-  int offset = N * I;
   auto acxV1 = _mm512_loadu_pd(B + bij);
   Xv = _mm512_fmadd_pd(bxV, acxV1, Xv);
 }
@@ -266,7 +265,7 @@ inline void vectorCrossProduct2_8Avx512(const double* Ax, const int* Ai, const d
 }
 
 inline void vectorCrossProduct4_8Avx512(const double* Ax, const int* Ai, const double *B,
-                                        __mm512d Xv, int N, int I) {
+                                        __m512d Xv, int N, int I) {
   int bij0 = Ai[0] * N;
   int bij1 = Ai[1] * N;
   int bij2 = Ai[2] * N;
@@ -605,6 +604,7 @@ void spmmCsrSpmmCsrFusedVectorized8Avx512(
         for (int k1 = ParPtr[j1]; k1 < ParPtr[j1 + 1]; ++k1) {
           int i = Partition[k1];
           int t = ParType[k1];
+          int offset = N * i;
           if (t == 0) {
             auto xv = _mm512_loadu_pd(ACx + offset);
             int j = Ap[i];
