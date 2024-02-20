@@ -6,7 +6,8 @@ EXP="spmm_spmm"
 THRD=20
 DOWNLOAD=0
 ID=0
-while getopts ":t:dc:m:i:e:" arg; do
+USE_PAPI=0
+while getopts ":t:dc:m:i:e:p" arg; do
 
   case "${arg}" in
     c)
@@ -26,6 +27,9 @@ while getopts ":t:dc:m:i:e:" arg; do
       ;;
     e)
       EXP=$OPTARG
+      ;;
+    p)
+      USE_PAPI=1
       ;;
     *) echo "Usage:
     -c BCOL=4                                         num of the columns of the dense matrix
@@ -73,7 +77,11 @@ cd build
 #make clean
 #rm -rf *.txt
 echo $MKL_DIR
-cmake -DCMAKE_PREFIX_PATH="$MKL_DIR/lib/intel64;$MKL_DIR/include;$MKL_DIR/../compiler/lib/intel64;_deps/openblas-build/lib/;/home/m/mmehride/kazem/programs/metis-5.1.0/libmetis;/home/m/mmehride/kazem/programs/metis-5.1.0/include/;"  -DCMAKE_BUILD_TYPE=Release ..
+if [ $USE_PAPI -eq 1 ]; then
+  cmake -DCMAKE_PREFIX_PATH="$MKL_DIR/lib/intel64;$MKL_DIR/include;$MKL_DIR/../compiler/lib/intel64;_deps/openblas-build/lib/;${HOME}/programs/papi/include/;"  -DPROFILING_WITH_PAPI=ON -DCMAKE_BUILD_TYPE=Release -DPAPI_PREFIX=${HOME}/programs/papi/  ..
+else
+  cmake -DCMAKE_PREFIX_PATH="$MKL_DIR/lib/intel64;$MKL_DIR/include;$MKL_DIR/../compiler/lib/intel64;_deps/openblas-build/lib/;/home/m/mmehride/kazem/programs/metis-5.1.0/libmetis;/home/m/mmehride/kazem/programs/metis-5.1.0/include/;"  -DCMAKE_BUILD_TYPE=Release ..
+fi
 make -j 40
 
 

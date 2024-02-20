@@ -20,7 +20,7 @@ module load cmake
 
 
 PAPI_INSTALL=0
-if [ ${PAPI_INSTALL} -eq 1]; then
+if [ ${PAPI_INSTALL} -eq 1 ]; then
 	echo "---- Installing PAPI ----"
 	# Install PAPI library
 	#git clone https://bitbucket.org/icl/papi.git  
@@ -50,7 +50,7 @@ cd build
 make clean
 #rm -rf *.txt
 echo $MKL_DIR
-cmake -DCMAKE_PREFIX_PATH="$MKL_DIR/lib/intel64;$MKL_DIR/include;$MKL_DIR/../compiler/lib/intel64;_deps/openblas-build/lib/;/home/k/kazem/kazem/programs/papi/include/;"  -DPROFILING_WITH_PAPI=ON -DCMAKE_BUILD_TYPE=Release -DPAPI_PREFIX=${HOME}/programs/papi/  ..
+cmake -DCMAKE_PREFIX_PATH="$MKL_DIR/lib/intel64;$MKL_DIR/include;$MKL_DIR/../compiler/lib/intel64;_deps/openblas-build/lib/;${HOME}/programs/papi/include/;"  -DPROFILING_WITH_PAPI=ON -DCMAKE_BUILD_TYPE=Release -DPAPI_PREFIX=${HOME}/programs/papi/  ..
 #make -j 40
 
 make -j 40  spmm_spmm_papi_profiler
