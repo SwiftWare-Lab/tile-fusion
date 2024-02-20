@@ -47,6 +47,9 @@ elif [ $EXP == "jacobi" ]; then
   BINPATH=./build/jacobi/
   BINFILE="jacobi_demo"
   MODE=4
+elif [ $EXP == "profiling" ]; then
+  BINPATH=./build/example/
+  BINFILE="fusion_profiler"
 else
   echo "Wrong experiment name"
   exit 0
