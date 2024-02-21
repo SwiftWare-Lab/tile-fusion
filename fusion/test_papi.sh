@@ -20,10 +20,10 @@ module load cmake
 
 
 PAPI_INSTALL=0
-if [ ${PAPI_INSTALL} -eq 1]; then
+if [ ${PAPI_INSTALL} -eq 1 ]; then
 	echo "---- Installing PAPI ----"
 	# Install PAPI library
-	#git clone https://bitbucket.org/icl/papi.git  
+	#git clone https://bitbucket.org/icl/papi.git
 	git clone https://github.com/icl-utk-edu/papi.git
 	cd papi/src
 	mkdir -p -- ${HOME}/programs/papi
@@ -57,4 +57,3 @@ make -j 40  spmm_spmm_papi_profiler
 ./example/spmm_spmm_papi_profiler -ah
 
 cd ..
-

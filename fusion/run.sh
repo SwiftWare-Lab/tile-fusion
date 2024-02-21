@@ -6,6 +6,8 @@ EXP="spmm_spmm"
 THRD=20
 DOWNLOAD=0
 ID=0
+BINPATH="./build/example"
+USE_PAPI=0
 while getopts ":t:dc:m:i:e:" arg; do
 
   case "${arg}" in
@@ -39,17 +41,21 @@ done
 MODE=3
 if [ $EXP == "spmm_spmm" ]; then
   BINFILE="spmm_spmm_fusion"
-  BINPATH=./build/example/
+  BINPATH="./build/example/"
 elif [ $EXP == "spmv_spmv" ]; then
-  BINPATH=./build/spmv-spmv/
+  BINPATH="./build/spmv-spmv/"
   BINFILE="spmv_spmv_demo"
 elif [ $EXP == "jacobi" ]; then
-  BINPATH=./build/jacobi/
+  BINPATH="./build/jacobi/"
   BINFILE="jacobi_demo"
   MODE=4
-elif [ $EXP == "profiling" ]; then
-  BINPATH=./build/example/
+elif [ $EXP == "inspector" ]; then
+  BINPATH="./build/example/"
   BINFILE="fusion_profiler"
+elif [ $EXP == "profiling" ]; then
+  BINPATH="./build/example/"
+  BINFILE="spmm_spmm_papi_profiler"
+  USE_PAPI=1
 else
   echo "Wrong experiment name"
   exit 0
@@ -73,7 +79,11 @@ cd build
 #make clean
 #rm -rf *.txt
 echo $MKL_DIR
-cmake -DCMAKE_PREFIX_PATH="$MKL_DIR/lib/intel64;$MKL_DIR/include;$MKL_DIR/../compiler/lib/intel64;_deps/openblas-build/lib/;/home/m/mmehride/kazem/programs/metis-5.1.0/libmetis;/home/m/mmehride/kazem/programs/metis-5.1.0/include/;"  -DCMAKE_BUILD_TYPE=Release ..
+if [ $USE_PAPI -eq 1 ]; then
+  cmake -DCMAKE_PREFIX_PATH="$MKL_DIR/lib/intel64;$MKL_DIR/include;$MKL_DIR/../compiler/lib/intel64;_deps/openblas-build/lib/;${SCRATCH}/programs/papi/include/;"  -DPROFILING_WITH_PAPI=ON -DCMAKE_BUILD_TYPE=Release -DPAPI_PREFIX=${SCRATCH}/programs/papi/  ..
+else
+  cmake -DCMAKE_PREFIX_PATH="$MKL_DIR/lib/intel64;$MKL_DIR/include;$MKL_DIR/../compiler/lib/intel64;_deps/openblas-build/lib/;"  -DCMAKE_BUILD_TYPE=Release ..
+fi
 make -j 40
 
 

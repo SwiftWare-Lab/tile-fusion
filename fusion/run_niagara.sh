@@ -17,6 +17,7 @@ UFDB=$SCRATCH/data/graphs/
 EXP=spmv_spmv
 BCOL=32
 ID=0
+USE_PAPI=0
 while getopts ":lm:c:i:e:" arg; do
   case "${arg}" in
     l)
@@ -49,7 +50,7 @@ module load cmake
 #module load gcc
 
 if [ $TEST -eq 1 ]; then
-  bash run.sh -m $UFDB -c 8 -i $ID -e $EXP
+    bash run.sh -m $UFDB -c 8 -i $ID -e $EXP -t 8
 else
   bash run.sh -t 20 -m $UFDB -c $BCOL -i $ID  -e $EXP
 fi

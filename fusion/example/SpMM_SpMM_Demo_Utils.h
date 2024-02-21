@@ -12,9 +12,12 @@
 #include "sparse-fusion/Fusion_Utils.h"
 #include "sparse-fusion/MultiDimensionalSet.h"
 #include "sparse-fusion/SpMM_SpMM.h"
+#include "sparse-fusion/SpMM_SpMM_vectorized.h"
 #include "sparse-fusion/SparseFusion.h"
 #include "sparse-fusion/SparseFusionWithRedundancy.h"
 #include <omp.h>
+#include <cmath>
+#include <numeric>
 
 using namespace swiftware::benchmark;
 
@@ -105,6 +108,8 @@ protected:
     this->St->OtherStats["NTile"] = {4};
     this->St->OtherStats["Number of Fused Nodes"] = {0.};
     this->St->OtherStats["Number of Fused nnz"] = {0.};
+    this->St->OtherStats["Tile Size Mean"] = {0.};
+    this->St->OtherStats["Tile Size STD"] = {0.};
   }
 
   void preExecute() override {}
@@ -425,70 +430,120 @@ public:
 
   ~SpMMSpMMFusedInterLayer() { delete FusedCompSet; }
 };
-#ifdef __AVX2__
-class SpMMSpMMFusedInterLayerVectorizedAvx256 : public SpMMSpMMFusedInterLayer {
+
+class SpMMSpMMFusedVariableTileSize: public SpMMSpMMFusedInterLayer{
 protected:
-  void (*spmmCsrSpmmCsrFusedVectorizedFunc)(int , int , int , int ,
-                                            const int *, const int *, const double *,
-                                            const int *, const int *,const double *,
-                                            const double *,
-                                            double *,
-                                            double *,
-                                            int , const int *, const int *,
-                                            const int *, const int *,
-                                            int );
+  Timer analysis() override{
+    Timer t1;
+    t1.start();
+    int CACHESIZE = Sp.IterPerPartition;
+    int* ap = InTensor->ACsr->p;
+    int* ai = InTensor->ACsr->i;
+    std::vector<int> tilesStart;
+    std::set<int> uniqueColumns;
+    std::vector<std::vector<int>> fusedIters;
+    std::vector<int> unfusedIters;
+    bool tileEnd = true;
+    int i = 0;
+    int tileNnzCount = 0;
+    while(i < InTensor->M){
+      if (tileEnd){
+        tilesStart.push_back(i);
+        uniqueColumns.clear();
+        for (int j = ap[i]; j < ap[i+1]; j++){
+          uniqueColumns.insert(ai[j]);
+        }
+        tileNnzCount = ap[i+1]-ap[i];
+        i++;
+        tileEnd = false;
+      }
+      else{
+        for (int j = ap[i]; j < ap[i+1]; j++){
+          uniqueColumns.insert(ai[j]);
+        }
+        tileNnzCount += ap[i+1]-ap[i];
+        int tileSize = i - *tilesStart.rbegin();
+        int bCols = InTensor->N;
+        if (calculateWorkingSetSize(tileNnzCount,uniqueColumns.size(), bCols, tileSize) < CACHESIZE){
+          i++;
+        }
+        else{
+          tileEnd = true;
+        }
+      }
+    }
+    extractTilesSizeData(tilesStart);
+    int numTiles = tilesStart.size();
+    fusedIters.resize(numTiles, std::vector<int>());
+    tilesStart.push_back(InTensor->M);
+    //    for (auto ts: tilesStart){
+    //      std::cout << ts << std::endl;
+    //    }
+    for (i = 0; i < InTensor->M; i++){
+      bool isFused = false;
+      for (int p = 0; p < numTiles; p++){
+        int tStart = tilesStart[p];
+        int tEnd = tilesStart[p+1];
+        if(ai[ap[i]] >= tStart && ai[ap[i+1]-1] < tEnd){
+          fusedIters[p].push_back(i);
+          isFused = true;
+          break;
+        }
+      }
+      if (!isFused)
+        unfusedIters.push_back(i);
+    }
+    FusedCompSet = new sym_lib::MultiDimensionalSet();
+    FusedCompSet->n1_=2;
+    FusedCompSet->ptr1_=new int[3];
+    FusedCompSet->ptr1_[0] = 0;
+    FusedCompSet->ptr1_[1] = numTiles;
+    FusedCompSet->ptr1_[2] = numTiles+Sp._num_threads;
+    FusedCompSet->ptr2_ = new int[numTiles+Sp._num_threads+1];
+    FusedCompSet->id_ = new int[2*InTensor->M];
+    FusedCompSet->type_ = new int[2*InTensor->M];
+    FusedCompSet->ptr2_[0] = 0;
+    int cnt = 0;
+    for (i = 0; i < numTiles; i++) {
+      for (int j = tilesStart[i]; j < tilesStart[i + 1]; j++) {
+        FusedCompSet->id_[cnt] = j;
+        FusedCompSet->type_[cnt] = 0;
+        cnt++;
+      }
+      for (int fi : fusedIters[i]) {
+        FusedCompSet->id_[cnt] = fi;
+        FusedCompSet->type_[cnt] = 1;
+        cnt++;
+      }
+      FusedCompSet->ptr2_[i + 1] = cnt;
+    }
+    int unfusedPerPart = ceil(unfusedIters.size()/float(Sp._num_threads));
+    for (i = numTiles; i < numTiles+Sp._num_threads; i++){
+      int p = i - numTiles;
+      int partEnd = std::min((p+1)*unfusedPerPart, int(unfusedIters.size()));
+      for (int j = p*unfusedPerPart; j < partEnd; j++){
+        FusedCompSet->id_[cnt] = unfusedIters[j];
+        FusedCompSet->type_[cnt] = 1;
+        cnt++;
+      }
+      FusedCompSet->ptr2_[i+1] = cnt;
+    }
+    int fusedNodesNum = FusedCompSet->getNumberOfFusedNodes();
+    int fusedNnzNum = FusedCompSet->getFusedNnzNum(InTensor->ACsr);
+    this->St->OtherStats["Number of Fused Nodes"] = {(double)fusedNodesNum};
+    this->St->OtherStats["Number of Fused nnz"] = {(double)fusedNnzNum};
+    //    FusedCompSet->print_3d();
+    t1.stop();
+    return t1;
+  }
+
   Timer execute() override {
-    //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->Xx, InTensor->L * InTensor->N, 0.0);
     //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
     OutTensor->reset();
     Timer t;
     t.start();
-    spmmCsrSpmmCsrFusedVectorizedFunc(
-        InTensor->M, InTensor->N, InTensor->K, InTensor->L, InTensor->ACsr->p,
-        InTensor->ACsr->i, InTensor->ACsr->x, InTensor->ACsr->p,
-        InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Bx, OutTensor->Xx,
-        OutTensor->ACx, FusedCompSet->n1_, FusedCompSet->ptr1_,
-        FusedCompSet->ptr2_, FusedCompSet->id_, FusedCompSet->type_,
-        InTensor->NumThreads);
-
-    t.stop();
-    return t;
-  }
-
-public:
-  SpMMSpMMFusedInterLayerVectorizedAvx256(TensorInputs<double> *In1, Stats *Stat1,
-                          sym_lib::ScheduleParameters SpIn)
-      : SpMMSpMMFusedInterLayer(In1, Stat1, SpIn) {
-    if(this->InTensor->N == 8){
-      this->spmmCsrSpmmCsrFusedVectorizedFunc = swiftware::sparse::spmmCsrSpmmCsrFusedVectorized2_8;
-    }
-    else{
-      this->spmmCsrSpmmCsrFusedVectorizedFunc = swiftware::sparse::spmmCsrSpmmCsrFusedVectorized2_16;
-    }
-  }
-
-};
-#endif
-
-#ifdef __AVX512F__
-class SpMMSpMMFusedInterLayerVectorizedAvx512 : public SpMMSpMMFusedInterLayer {
-protected:
-  void (*spmmCsrSpmmCsrFusedVectorizedFunc)(int , int , int , int ,
-                                            const int *, const int *, const double *,
-                                            const int *, const int *,const double *,
-                                            const double *,
-                                            double *,
-                                            double *,
-                                            int , const int *, const int *,
-                                            const int *, const int *,
-                                            int );
-  Timer execute() override {
-    //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
-    //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
-    OutTensor->reset();
-    Timer t;
-    t.start();
-    spmmCsrSpmmCsrFusedVectorizedFunc(
+    swiftware::sparse::spmmCsrSpmmCsrFused(
         InTensor->M, InTensor->N, InTensor->K, InTensor->L, InTensor->ACsr->p,
         InTensor->ACsr->i, InTensor->ACsr->x, InTensor->BCsr->p,
         InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Bx, OutTensor->Xx,
@@ -500,20 +555,32 @@ protected:
     return t;
   }
 
-public:
-  SpMMSpMMFusedInterLayerVectorizedAvx512(TensorInputs<double> *In1, Stats *Stat1,
-                          sym_lib::ScheduleParameters SpIn)
-      : SpMMSpMMFusedInterLayer(In1, Stat1, SpIn) {
-    if(In1->N==8) {
-      spmmCsrSpmmCsrFusedVectorizedFunc = swiftware::sparse::spmmCsrSpmmCsrFusedVectorized8Avx512;
+  void extractTilesSizeData(std::vector<int> &tilesPtr){
+    std::vector<int> tileSizes;
+    for (int i = 0; i < tilesPtr.size()-1; i++){
+      tileSizes.push_back(tilesPtr[i+1]-tilesPtr[i]);
     }
-    else {
-      spmmCsrSpmmCsrFusedVectorizedFunc = swiftware::sparse::spmmCsrSpmmCsrFusedVectorized2_32Avx512;
+    float average = std::accumulate(tileSizes.begin(), tileSizes.end(),0.0) / tileSizes.size();
+    float var = 0;
+    for( int i = 0; i < tileSizes.size(); i++ )
+    {
+      var += (tileSizes[i] - average) * (tileSizes[i] - average);
     }
+    var /= tileSizes.size();
+    float sd = sqrt(var);
+    this->St->OtherStats["Tile Size Mean"] = {average};
+    this->St->OtherStats["Tile Size STD"] = {sd};
+
   }
 
+  int calculateWorkingSetSize(int Nnz, int UniqueColsNum, int Bcols, int TileSize){
+    return Nnz + UniqueColsNum*Bcols + TileSize*Bcols * 8;
+  }
+public:
+  SpMMSpMMFusedVariableTileSize(TensorInputs<double> *In1, Stats *Stat1,
+                                sym_lib::ScheduleParameters SpIn)
+      : SpMMSpMMFusedInterLayer(In1, Stat1, SpIn){}
 };
-#endif
 
 class SpMMSpMMFusedInterLayerKTiled : public SpMMSpMMUnFused {
 protected:
@@ -1218,6 +1285,50 @@ public:
 
 
 #ifdef __AVX2__
+
+class SpMMSpMMFusedInterLayerVectorizedAvx256 : public SpMMSpMMFusedVariableTileSize {
+protected:
+  void (*spmmCsrSpmmCsrFusedVectorizedFunc)(int , int , int , int ,
+                                            const int *, const int *, const double *,
+                                            const int *, const int *,const double *,
+                                            const double *,
+                                            double *,
+                                            double *,
+                                            int , const int *, const int *,
+                                            const int *, const int *,
+                                            int );
+  Timer execute() override {
+    //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
+    OutTensor->reset();
+    Timer t;
+    t.start();
+    spmmCsrSpmmCsrFusedVectorizedFunc(
+        InTensor->M, InTensor->N, InTensor->K, InTensor->L, InTensor->ACsr->p,
+        InTensor->ACsr->i, InTensor->ACsr->x, InTensor->ACsr->p,
+        InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Bx, OutTensor->Xx,
+        OutTensor->ACx, FusedCompSet->n1_, FusedCompSet->ptr1_,
+        FusedCompSet->ptr2_, FusedCompSet->id_, FusedCompSet->type_,
+        InTensor->NumThreads);
+
+    t.stop();
+    return t;
+  }
+
+public:
+  SpMMSpMMFusedInterLayerVectorizedAvx256(TensorInputs<double> *In1, Stats *Stat1,
+                                          sym_lib::ScheduleParameters SpIn)
+      : SpMMSpMMFusedVariableTileSize(In1, Stat1, SpIn) {
+    if(this->InTensor->N == 8){
+      this->spmmCsrSpmmCsrFusedVectorizedFunc = swiftware::sparse::spmmCsrSpmmCsrFusedVectorized2_8;
+    }
+    else{
+      this->spmmCsrSpmmCsrFusedVectorizedFunc = swiftware::sparse::spmmCsrSpmmCsrFusedVectorized2_16;
+    }
+  }
+
+};
+
 class SpMMCSRSpMMCSCFusedColoringVectorized : public SpMMSpMMUnFused {
 protected:
   sym_lib::MultiDimensionalSet *FusedCompSet;
@@ -1331,6 +1442,50 @@ public:
 #endif
 
 #ifdef __AVX512F__
+
+class SpMMSpMMFusedInterLayerVectorizedAvx512 : public SpMMSpMMFusedVariableTileSize {
+protected:
+  void (*spmmCsrSpmmCsrFusedVectorizedFunc)(int , int , int , int ,
+                                            const int *, const int *, const double *,
+                                            const int *, const int *,const double *,
+                                            const double *,
+                                            double *,
+                                            double *,
+                                            int , const int *, const int *,
+                                            const int *, const int *,
+                                            int );
+  Timer execute() override {
+    //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
+    OutTensor->reset();
+    Timer t;
+    t.start();
+    spmmCsrSpmmCsrFusedVectorizedFunc(
+        InTensor->M, InTensor->N, InTensor->K, InTensor->L, InTensor->ACsr->p,
+        InTensor->ACsr->i, InTensor->ACsr->x, InTensor->BCsr->p,
+        InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Bx, OutTensor->Xx,
+        OutTensor->ACx, FusedCompSet->n1_, FusedCompSet->ptr1_,
+        FusedCompSet->ptr2_, FusedCompSet->id_, FusedCompSet->type_,
+        InTensor->NumThreads);
+
+    t.stop();
+    return t;
+  }
+
+public:
+  SpMMSpMMFusedInterLayerVectorizedAvx512(TensorInputs<double> *In1, Stats *Stat1,
+                                          sym_lib::ScheduleParameters SpIn)
+      : SpMMSpMMFusedVariableTileSize(In1, Stat1, SpIn) {
+    if(In1->N==8) {
+      spmmCsrSpmmCsrFusedVectorizedFunc = swiftware::sparse::spmmCsrSpmmCsrFusedVectorized8Avx512;
+    }
+    else {
+      spmmCsrSpmmCsrFusedVectorizedFunc = swiftware::sparse::spmmCsrSpmmCsrFusedVectorized2_32Avx512;
+    }
+  }
+
+};
+
 class SpMMCSRSpMMCSCFusedColoringAvx512 : public SpMMSpMMUnFused {
 protected:
   sym_lib::MultiDimensionalSet *FusedCompSet;
@@ -1554,30 +1709,6 @@ public:
 //      : SpMMSpMMUnFused(In1, Stat1) {}
 //};
 
-#ifdef __AVX512F__
-class SpMMParallelVectorizedAVX512_128: public SpMMSpMMUnFused {
-protected:
-  sym_lib::ScheduleParameters Sp;
-  Timer execute() override {
-    //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
-    //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
-    OutTensor->reset();
-    Timer t;
-    t.start();
-    swiftware::sparse::spmmCsrVectorized128Avx512(InTensor->M, InTensor->N,
-                                                  InTensor->ACsr->p, InTensor->ACsr->i,
-                                                  InTensor->ACsr->x, InTensor->Bx,
-                                                  OutTensor->ACx, Sp.TileM, InTensor->NumThreads);
-    t.stop();
-    return t;
-  }
-
-public:
-  SpMMParallelVectorizedAVX512_128(TensorInputs<double> *In1, Stats *Stat1, sym_lib::ScheduleParameters Sp1)
-      : SpMMSpMMUnFused(In1, Stat1), Sp(Sp1) {}
-};
-
-#endif
 #ifdef __AVX2__
 class SpMMParallelVectorizedUnroll48: public SpMMSpMMUnFused {
 protected:

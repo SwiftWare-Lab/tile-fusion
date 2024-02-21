@@ -7,3 +7,4 @@ lib/
 venv/
 .DS_Store
 plots/
+papi/

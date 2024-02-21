@@ -9,7 +9,66 @@
 #SBATCH --mem=254000M
 #SBATCH -t 47:59:00
 
+UFDB="./data/ss-graphs/"
+BCOL=4
+EXP="spmm_spmm"
+THRD=20
+DOWNLOAD=0
+ID=0
+BINPATH="./build/example"
+USE_PAPI=0
+while getopts ":t:dc:m:i:e:" arg; do
 
+  case "${arg}" in
+    c)
+      BCOL=$OPTARG
+      ;;
+    t)
+      THRD=$OPTARG
+      ;;
+    m)
+      UFDB=$OPTARG
+      ;;
+    d)
+      DOWNLOAD=1
+      ;;
+    i)
+      ID=$OPTARG
+      ;;
+    e)
+      EXP=$OPTARG
+      ;;
+    *) echo "Usage:
+    -c BCOL=4                                         num of the columns of the dense matrix
+    -t THRD=40                                        num of threads
+    -m UFDB=./data                                    path of matrices data
+    -d DOWNLOAD=TRUE                                  Set if you want to download matrices under fusion folder"
+
+      exit 0
+  esac
+done
+MODE=3
+if [ $EXP == "spmm_spmm" ]; then
+  BINFILE="spmm_spmm_fusion"
+  BINPATH="./build/example/"
+elif [ $EXP == "spmv_spmv" ]; then
+  BINPATH="./build/spmv-spmv/"
+  BINFILE="spmv_spmv_demo"
+elif [ $EXP == "jacobi" ]; then
+  BINPATH="./build/jacobi/"
+  BINFILE="jacobi_demo"
+  MODE=4
+elif [ $EXP == "inspector" ]; then
+  BINPATH="./build/example/"
+  BINFILE="fusion_profiler"
+elif [ $EXP == "profiling" ]; then
+  BINPATH="./build/example/"
+  BINFILE="spmm_spmm_papi_profiler"
+  USE_PAPI=1
+else
+  echo "Wrong experiment name"
+  exit 0
+fi
 
 
 #module load NiaEnv/.2022a
@@ -25,15 +84,15 @@ export MKL_DIR=$MKLROOT
 
 
 
-PAPI_INSTALL=#1
+PAPI_INSTALL=0
 if [ ${PAPI_INSTALL} -eq 1 ]; then
 	echo "---- Installing PAPI ----"
 	# Install PAPI library
 	#git clone https://bitbucket.org/icl/papi.git  
 	git clone https://github.com/icl-utk-edu/papi.git
 	cd papi/src
-	mkdir -p -- ${HOME}/programs/papi
-	./configure --prefix=${HOME}/programs/papi/
+	mkdir -p -- ${SCRATCH}/programs/papi
+	./configure --prefix=${SCRATCH}/programs/papi/
 	make
 	make install
 	cd ../../
@@ -56,7 +115,7 @@ cd build
 make clean
 #rm -rf *.txt
 echo $MKL_DIR
-cmake -DCMAKE_CXX_COMPILER=icc -DCMAKE_C_COMPILER=icc -DCMAKE_PREFIX_PATH="$MKL_DIR/lib/intel64;$MKL_DIR/include;$MKL_DIR/../compiler/lib/intel64;_deps/openblas-build/lib/;${HOME}/programs/papi/include/;"  -DPROFILING_WITH_PAPI=ON -DCMAKE_BUILD_TYPE=Release -DPAPI_PREFIX=${HOME}/programs/papi/  ..
+cmake -DCMAKE_CXX_COMPILER=icc -DCMAKE_C_COMPILER=icc -DCMAKE_PREFIX_PATH="$MKL_DIR/lib/intel64;$MKL_DIR/include;$MKL_DIR/../compiler/lib/intel64;_deps/openblas-build/lib/;${SCRATCH}/programs/papi/include/;"  -DPROFILING_WITH_PAPI=ON -DCMAKE_BUILD_TYPE=Release -DPAPI_PREFIX=${SCRATCH}/programs/papi/  ..
 #make -j 40
 
 make -j 40  spmm_spmm_papi_profiler
