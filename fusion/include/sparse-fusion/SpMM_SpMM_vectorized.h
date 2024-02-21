@@ -46,19 +46,25 @@ inline void vectorCrossProduct64Avx512(double Ax, int Ai, const double *B,
                                        double *C, int N, int I);
 inline void vectorCrossProduct32Avx512(double Ax, int Ai, const double *B,
                                        double *C, int N, int I);
-inline void vectorCrossProduct2_32Avx512(const double* Ax, const int* Ai, const double *B,
-                                         double *C, int N, int I);
+inline void vectorCrossProduct2_32Avx512(const double *Ax, const int *Ai,
+                                         const double *B, double *C, int N,
+                                         int I);
 inline void vectorCrossProduct128Avx512(double Ax, int Ai, const double *B,
                                         double *C, int N, int I);
 #endif
 #if defined(__AVX2__)
 
-    void spmmCsrSpmmCsrFusedVectorized2_16(
-        int M, int N, int K, int L, const int *Ap, const int *Ai,
-        const double *Ax, const int *Bp, const int *Bi, const double *Bx,
-        const double *Cx, double *Dx, double *ACx, int LevelNo,
-        const int *LevelPtr, const int *ParPtr, const int *Partition,
-        const int *ParType, int NThreads);
+void spmmCsrSpmmCsrFusedKTiled8Vectorized(
+    int M, int N, int K, int L, const int *Ap, const int *Ai, const double *Ax,
+    const int *Bp, const int *Bi, const double *Bx, const double *Cx,
+    double *Dx, double *ACx, int LevelNo, const int *LevelPtr,
+    const int *ParPtr, const int *Partition, const int *ParType, int NThreads);
+
+void spmmCsrSpmmCsrFusedVectorized2_16(
+    int M, int N, int K, int L, const int *Ap, const int *Ai, const double *Ax,
+    const int *Bp, const int *Bi, const double *Bx, const double *Cx,
+    double *Dx, double *ACx, int LevelNo, const int *LevelPtr,
+    const int *ParPtr, const int *Partition, const int *ParType, int NThreads);
 
 void spmmCsrSpmmCsrFusedVectorized2_8(
     int M, int N, int K, int L, const int *Ap, const int *Ai, const double *Ax,

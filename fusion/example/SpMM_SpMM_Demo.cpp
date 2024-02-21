@@ -452,6 +452,18 @@ int main(const int argc, const char *argv[]) {
     fusedParallelVectorized256->printStats(); delete
     fusedParallelVectorized256; delete stats;
     std::cout<<fusedParallelVectorized256Stat<<spStat+tpStat+profStat<<std::endl;
+
+    stats = new
+        swiftware::benchmark::Stats("SpMM_SpMM_FusedParallelKTiledAvx256","SpMM",
+                                    7,tp._matrix_name,numThread); stats->OtherStats["PackingType"] =
+        {Interleaved}; auto *fusedParallelVectorizedKTiled256 = new
+        SpMMSpMMFusedInterLayerKTiled8VectorizedAvx256(inSpMM, stats, sp);
+    fusedParallelVectorizedKTiled256->run();
+    //fusedParallel->OutTensor->printDx();
+    auto fusedParallelVectorizedKTiled256Stat =
+        fusedParallelVectorizedKTiled256->printStats(); delete fusedParallelVectorizedKTiled256; delete stats;
+    std::cout<<fusedParallelVectorizedKTiled256Stat<<spStat+tpStat+profStat<<std::endl;
+
    #endif
 
    #ifdef __AVX512F__

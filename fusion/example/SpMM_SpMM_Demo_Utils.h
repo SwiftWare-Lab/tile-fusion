@@ -573,8 +573,8 @@ protected:
 
   }
 
-  int calculateWorkingSetSize(int Nnz, int UniqueColsNum, int Bcols, int TileSize){
-    return Nnz + UniqueColsNum*Bcols + TileSize*Bcols * 8;
+  virtual int calculateWorkingSetSize(int Nnz, int UniqueColsNum, int Bcols, int TileSize){
+    return (Nnz + UniqueColsNum*Bcols + TileSize*Bcols) * 8;
   }
 public:
   SpMMSpMMFusedVariableTileSize(TensorInputs<double> *In1, Stats *Stat1,
@@ -1285,6 +1285,36 @@ public:
 
 
 #ifdef __AVX2__
+
+class SpMMSpMMFusedInterLayerKTiled8VectorizedAvx256: public SpMMSpMMFusedVariableTileSize{
+protected:
+  Timer execute() override {
+    //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
+    OutTensor->reset();
+    Timer t;
+    t.start();
+    swiftware::sparse::spmmCsrSpmmCsrFusedKTiled8Vectorized(
+        InTensor->M, InTensor->N, InTensor->K, InTensor->L, InTensor->ACsr->p,
+        InTensor->ACsr->i, InTensor->ACsr->x, InTensor->ACsr->p,
+        InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Bx, OutTensor->Xx,
+        OutTensor->ACx, FusedCompSet->n1_, FusedCompSet->ptr1_,
+        FusedCompSet->ptr2_, FusedCompSet->id_, FusedCompSet->type_,
+        InTensor->NumThreads);
+    t.stop();
+    return t;
+  }
+
+  int calculateWorkingSetSize(int Nnz, int UniqueColsNum, int Bcols, int TileSize) override{
+    return (Nnz + UniqueColsNum*16 + TileSize*16) * 8;
+  }
+
+public:
+  SpMMSpMMFusedInterLayerKTiled8VectorizedAvx256(TensorInputs<double> *In1, Stats *Stat1,
+sym_lib::ScheduleParameters SpIn)
+: SpMMSpMMFusedVariableTileSize(In1, Stat1, SpIn) {
+  }
+};
 
 class SpMMSpMMFusedInterLayerVectorizedAvx256 : public SpMMSpMMFusedVariableTileSize {
 protected:
