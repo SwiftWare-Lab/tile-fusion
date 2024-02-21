@@ -6,6 +6,7 @@ EXP="spmm_spmm"
 THRD=20
 DOWNLOAD=0
 ID=0
+BINPATH="./build/example"
 USE_PAPI=0
 while getopts ":t:dc:m:i:e:" arg; do
 
@@ -40,19 +41,19 @@ done
 MODE=3
 if [ $EXP == "spmm_spmm" ]; then
   BINFILE="spmm_spmm_fusion"
-  BINPATH=./build/example/
+  BINPATH="./build/example/"
 elif [ $EXP == "spmv_spmv" ]; then
-  BINPATH=./build/spmv-spmv/
+  BINPATH="./build/spmv-spmv/"
   BINFILE="spmv_spmv_demo"
 elif [ $EXP == "jacobi" ]; then
-  BINPATH=./build/jacobi/
+  BINPATH="./build/jacobi/"
   BINFILE="jacobi_demo"
   MODE=4
 elif [ $EXP == "inspector" ]; then
-  BINPATH=./build/example/
+  BINPATH="./build/example/"
   BINFILE="fusion_profiler"
 elif [ $EXP == "profiling" ]; then
-  BINPATH=./build/example/
+  BINPATH="./build/example/"
   BINFILE="spmm_spmm_papi_profiler"
   USE_PAPI=1
 else

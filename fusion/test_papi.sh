@@ -13,6 +13,45 @@
 #SBATCH --constraint=cascade
 
 
+UFDB="./data/ss-graphs/"
+BCOL=4
+EXP="spmm_spmm"
+THRD=20
+DOWNLOAD=0
+ID=0
+BINPATH="./build/example"
+USE_PAPI=0
+while getopts ":t:dc:m:i:e:" arg; do
+
+  case "${arg}" in
+    c)
+      BCOL=$OPTARG
+      ;;
+    t)
+      THRD=$OPTARG
+      ;;
+    m)
+      UFDB=$OPTARG
+      ;;
+    d)
+      DOWNLOAD=1
+      ;;
+    i)
+      ID=$OPTARG
+      ;;
+    e)
+      EXP=$OPTARG
+      ;;
+    *) echo "Usage:
+    -c BCOL=4                                         num of the columns of the dense matrix
+    -t THRD=40                                        num of threads
+    -m UFDB=./data                                    path of matrices data
+    -d DOWNLOAD=TRUE                                  Set if you want to download matrices under fusion folder"
+
+      exit 0
+  esac
+done
+
 module load NiaEnv/.2022a
 module load intel/2022u2
 export MKL_DIR=$MKLROOT
@@ -52,9 +91,20 @@ make clean
 echo $MKL_DIR
 cmake -DCMAKE_PREFIX_PATH="$MKL_DIR/lib/intel64;$MKL_DIR/include;$MKL_DIR/../compiler/lib/intel64;_deps/openblas-build/lib/;${HOME}/programs/papi/include/;"  -DPROFILING_WITH_PAPI=ON -DCMAKE_BUILD_TYPE=Release -DPAPI_PREFIX=${HOME}/programs/papi/  ..
 #make -j 40
-
 make -j 40  spmm_spmm_papi_profiler
-./example/spmm_spmm_papi_profiler -ah
 
 cd ..
+
+DATE=$(date -d "today" +"%Y%m%d%H%M")
+LOGS="./build/logs-${DATE}/"
+SCRIPTPATH=./scripts/
+if [ $ID -eq 0 ]; then
+  MATLIST=$UFDB/mat_list.txt
+else
+  MATLIST=$UFDB/mat_list$ID.txt
+fi
+
+mkdir $LOGS
+MODE=3
+bash $SCRIPTPATH/run_exp.sh ./build/example/spmm_spmm_papi_profiler $UFDB $MODE $THRD $MATLIST $BCOL $LOGS -ah
 
