@@ -119,19 +119,7 @@ cmake -DCMAKE_CXX_COMPILER=icc -DCMAKE_C_COMPILER=icc -DCMAKE_PREFIX_PATH="$MKL_
 #make -j 40
 
 make -j 40  spmm_spmm_papi_profiler
+./example/spmm_spmm_papi_profiler -ah
+
 cd ..
-
-DATE=$(date -d "today" +"%Y%m%d%H%M")
-LOGS="./build/logs-${DATE}/"
-SCRIPTPATH=./scripts/
-if [ $ID -eq 0 ]; then
-  MATLIST=$UFDB/mat_list.txt
-else
-  MATLIST=$UFDB/mat_list$ID.txt
-fi
-
-mkdir $LOGS
-
-bash $SCRIPTPATH/run_exp.sh ./build/example/spmm_spmm_papi_profiler $UFDB $MODE $THRD $MATLIST $BCOL $LOGS
-
 
