@@ -18,7 +18,7 @@ EXP=spmv_spmv
 BCOL=32
 ID=0
 USE_PAPI=0
-while getopts ":lm:c:i:e:p" arg; do
+while getopts ":lm:c:i:e:" arg; do
   case "${arg}" in
     l)
       TEST=1
@@ -35,9 +35,6 @@ while getopts ":lm:c:i:e:p" arg; do
     i)
       ID=$OPTARG
       ;;
-    p)
-      USE_PAPI=1
-      ;;
     *) echo "Usage:
     -l TEST=FALSE                                     Set if you want to run the script for one b_col
     -m UFDB=$SCRATCH/UFDB/AM/                        path of matrices data"
@@ -53,15 +50,7 @@ module load cmake
 #module load gcc
 
 if [ $TEST -eq 1 ]; then
-  if [ $USE_PAPI -eq 1 ]; then
-    bash run.sh -m $UFDB -c 8 -i $ID -e $EXP -t 8 -p
-  else
     bash run.sh -m $UFDB -c 8 -i $ID -e $EXP -t 8
-  fi
 else
-  if [ $USE_PAPI -eq 1 ]; then
-    bash run.sh -t 20 -m $UFDB -c $BCOL -i $ID  -e $EXP -p
-  else
   bash run.sh -t 20 -m $UFDB -c $BCOL -i $ID  -e $EXP
-  fi
 fi

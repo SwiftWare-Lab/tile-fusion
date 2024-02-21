@@ -7,7 +7,7 @@ THRD=20
 DOWNLOAD=0
 ID=0
 USE_PAPI=0
-while getopts ":t:dc:m:i:e:p" arg; do
+while getopts ":t:dc:m:i:e:" arg; do
 
   case "${arg}" in
     c)
@@ -27,9 +27,6 @@ while getopts ":t:dc:m:i:e:p" arg; do
       ;;
     e)
       EXP=$OPTARG
-      ;;
-    p)
-      USE_PAPI=1
       ;;
     *) echo "Usage:
     -c BCOL=4                                         num of the columns of the dense matrix
@@ -51,9 +48,13 @@ elif [ $EXP == "jacobi" ]; then
   BINPATH=./build/jacobi/
   BINFILE="jacobi_demo"
   MODE=4
-elif [ $EXP == "profiling" ]; then
+elif [ $EXP == "inspector" ]; then
   BINPATH=./build/example/
   BINFILE="fusion_profiler"
+elif [ $EXP == "profiling" ]; then
+  BINPATH=./build/example/
+  BINFILE="spmm_spmm_papi_profiler"
+  USE_PAPI=1
 else
   echo "Wrong experiment name"
   exit 0
