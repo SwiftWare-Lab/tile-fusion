@@ -9,7 +9,66 @@
 #SBATCH --mem=254000M
 #SBATCH -t 47:59:00
 
+UFDB="./data/ss-graphs/"
+BCOL=4
+EXP="spmm_spmm"
+THRD=20
+DOWNLOAD=0
+ID=0
+BINPATH="./build/example"
+USE_PAPI=0
+while getopts ":t:dc:m:i:e:" arg; do
 
+  case "${arg}" in
+    c)
+      BCOL=$OPTARG
+      ;;
+    t)
+      THRD=$OPTARG
+      ;;
+    m)
+      UFDB=$OPTARG
+      ;;
+    d)
+      DOWNLOAD=1
+      ;;
+    i)
+      ID=$OPTARG
+      ;;
+    e)
+      EXP=$OPTARG
+      ;;
+    *) echo "Usage:
+    -c BCOL=4                                         num of the columns of the dense matrix
+    -t THRD=40                                        num of threads
+    -m UFDB=./data                                    path of matrices data
+    -d DOWNLOAD=TRUE                                  Set if you want to download matrices under fusion folder"
+
+      exit 0
+  esac
+done
+MODE=3
+if [ $EXP == "spmm_spmm" ]; then
+  BINFILE="spmm_spmm_fusion"
+  BINPATH="./build/example/"
+elif [ $EXP == "spmv_spmv" ]; then
+  BINPATH="./build/spmv-spmv/"
+  BINFILE="spmv_spmv_demo"
+elif [ $EXP == "jacobi" ]; then
+  BINPATH="./build/jacobi/"
+  BINFILE="jacobi_demo"
+  MODE=4
+elif [ $EXP == "inspector" ]; then
+  BINPATH="./build/example/"
+  BINFILE="fusion_profiler"
+elif [ $EXP == "profiling" ]; then
+  BINPATH="./build/example/"
+  BINFILE="spmm_spmm_papi_profiler"
+  USE_PAPI=1
+else
+  echo "Wrong experiment name"
+  exit 0
+fi
 
 
 #module load NiaEnv/.2022a
@@ -60,7 +119,19 @@ cmake -DCMAKE_CXX_COMPILER=icc -DCMAKE_C_COMPILER=icc -DCMAKE_PREFIX_PATH="$MKL_
 #make -j 40
 
 make -j 40  spmm_spmm_papi_profiler
-./example/spmm_spmm_papi_profiler -ah
-
 cd ..
+
+DATE=$(date -d "today" +"%Y%m%d%H%M")
+LOGS="./build/logs-${DATE}/"
+SCRIPTPATH=./scripts/
+if [ $ID -eq 0 ]; then
+  MATLIST=$UFDB/mat_list.txt
+else
+  MATLIST=$UFDB/mat_list$ID.txt
+fi
+
+mkdir $LOGS
+
+bash $SCRIPTPATH/run_exp.sh ./build/example/spmm_spmm_papi_profiler $UFDB $MODE $THRD $MATLIST $BCOL $LOGS
+
 
