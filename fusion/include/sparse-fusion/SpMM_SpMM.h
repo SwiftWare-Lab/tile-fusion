@@ -63,68 +63,6 @@ void spmmCsrSpmmCsrFused(int M, int N, int K,
                          int LevelNo, const int *LevelPtr, const int *ParPtr,
                          const int *Partition, const int *ParType,
                          int NThreads);
-#ifdef __AVX512F__
-void spmmCsrSpmmCsrFusedVectorized8Avx512(int M, int N, int K, int L,
-                                    const int *Ap, const int *Ai, const double *Ax,
-                                    const int *Bp, const int *Bi,const double *Bx,
-                                    const double *Cx,
-                                    double *Dx,
-                                    double *ACx,
-                                    int LevelNo, const int *LevelPtr, const int *ParPtr,
-                                    const int *Partition, const int *ParType,
-                                    int NThreads);
-void spmmCsrSpmmCsrFusedVectorized64Avx512(int M, int N, int K, int L,
-                                    const int *Ap, const int *Ai, const double *Ax,
-                                    const int *Bp, const int *Bi,const double *Bx,
-                                    const double *Cx,
-                                    double *Dx,
-                                    double *ACx,
-                                    int LevelNo, const int *LevelPtr, const int *ParPtr,
-                                    const int *Partition, const int *ParType,
-                                    int NThreads);
-void spmmCsrSpmmCsrFusedVectorized128Avx512(int M, int N, int K, int L,
-                                    const int *Ap, const int *Ai, const double *Ax,
-                                    const int *Bp, const int *Bi,const double *Bx,
-                                    const double *Cx,
-                                    double *Dx,
-                                    double *ACx,
-                                    int LevelNo, const int *LevelPtr, const int *ParPtr,
-                                    const int *Partition, const int *ParType,
-                                    int NThreads);
-void spmmCsrVectorized128Avx512(int M, int N, const int *Ap, const int *Ai,
-                                const double *Ax, const double *Cx, double *ACx,
-                                int TileSize, int NThreads);
-void spmmCsrSpmmCsrFusedVectorized2_32Avx512(
-    int M, int N, int K, int L, const int *Ap, const int *Ai, const double *Ax,
-    const int *Bp, const int *Bi, const double *Bx, const double *Cx,
-    double *Dx, double *ACx, int LevelNo, const int *LevelPtr,
-    const int *ParPtr, const int *Partition, const int *ParType, int NThreads);
-#endif
-#if defined(__AVX2__)
-void spmmCsrSpmmCsrFusedVectorized2_16(int M, int N, int K, int L,
-                                   const int *Ap, const int *Ai, const double *Ax,
-                                   const int *Bp, const int *Bi,const double *Bx,
-                                   const double *Cx,
-                                   double *Dx,
-                                   double *ACx,
-                                   int LevelNo, const int *LevelPtr, const int *ParPtr,
-                                   const int *Partition, const int *ParType,
-                                   int NThreads);
-void spmmCsrSpmmCsrFusedVectorized2_8(
-    int M, int N, int K, int L, const int *Ap, const int *Ai, const double *Ax,
-    const int *Bp, const int *Bi, const double *Bx, const double *Cx,
-    double *Dx, double *ACx, int LevelNo, const int *LevelPtr,
-    const int *ParPtr, const int *Partition, const int *ParType, int NThreads);
-void spmm8CsrVectorizedUnrollJ4(int M, int N,const int *Ap,
-                                const int *Ai, const double *Ax, const double *Cx,
-                                double *ACx, int TileSize, int NThreads);
-void spmm16CsrVectorizedUnrollJ2(int M, int N, const int *Ap,
-                                const int *Ai, const double *Ax, const double *Cx,
-                                double *ACx, int TileSize, int NThreads);
-void spmm16CsrVectorized(int M, int N, const int *Ap,
-                                const int *Ai, const double *Ax, const double *Cx,
-                                double *ACx, int TileSize, int NThreads);
-#endif
 void spmmCsrSpmmCsrFusedKTiled(int M, int N, int K, int L,
                                const int *Ap, const int *Ai, const double *Ax,
                                const int *Bp, const int *Bi,const double *Bx,
@@ -221,28 +159,6 @@ void spmmCsrSpmmCscFusedColored(int M, int N, int K, int L,
                                 int LevelNo, const int *LevelPtr,
                                 const int *Id, int TileSize,
                                 int NThreads);
-#ifdef __AVX2__
-void spmmCsrSpmmCscFusedColoredAvx256(int M, int N, int K, int L, const int *Ap,
-                                          const int *Ai, const double *Ax, const int *Bp,
-                                          const int *Bi, const double *Bx,
-                                          const double *Cx, double *Dx, double *ACx,
-                                          int LevelNo, const int *LevelPtr, const int *Id,
-                                          int TileSize, int NThreads);
-void spmmCsrSpmmCscFusedColoredAvx256Packed(int M, int N, int K, int L, const int *Ap,
-                                            const int *Ai, const double *Ax, const int *Bp,
-                                            const int *Bi, const double *Bx,
-                                            const double *Cx, double *Dx, double *ACx,
-                                            int LevelNo, const int *LevelPtr, const int *Id,
-                                            int TileSize, int NThreads);
-#endif
-#ifdef __AVX512F__
-void spmmCsrSpmmCscFusedColoredAvx512(int M, int N, int K, int L, const int *Ap,
-                                      const int *Ai, const double *Ax, const int *Bp,
-                                      const int *Bi, const double *Bx,
-                                      const double *Cx, double *Dx, double *ACx,
-                                      int LevelNo, const int *LevelPtr, const int *Id,
-                                      int TileSize, int NThreads);
-#endif
 void spmmCsrSpmmCscFusedColoredNTiling(int M, int N, int K, int L, const int *Ap,
                                        const int *Ai, const double *Ax, const int *Bp,
                                        const int *Bi, const double *Bx,

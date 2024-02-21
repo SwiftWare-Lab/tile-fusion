@@ -20,7 +20,7 @@ module load cmake
 
 
 PAPI_INSTALL=0
-if [ ${PAPI_INSTALL} -eq 1]; then
+if [ ${PAPI_INSTALL} -eq 1 ]; then
 	echo "---- Installing PAPI ----"
 	# Install PAPI library
 	#git clone https://bitbucket.org/icl/papi.git
