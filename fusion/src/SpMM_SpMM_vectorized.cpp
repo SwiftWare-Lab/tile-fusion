@@ -380,8 +380,9 @@ void spmmCsrSpmmCsrFusedKTiled8Vectorized(int M, int N, int K, int L, const int 
                                            const int *Bp, const int *Bi, const double *Bx, const double *Cx,
                                            double *Dx, double *ACx, int LevelNo, const int *LevelPtr,
                                            const int *ParPtr, const int *Partition, const int *ParType, int NThreads) {
-  pw_init_instruments;
+
   for (int l1 = 0; l1 < LevelNo; ++l1) {
+    pw_init_instruments;
 #pragma omp parallel num_threads(NThreads)
     {
       pw_start_instruments_loop(omp_get_thread_num());
@@ -460,8 +461,9 @@ void spmmCsrSpmmCsrFusedVectorized2_8(
     const int *Bp, const int *Bi, const double *Bx, const double *Cx,
     double *Dx, double *ACx, int LevelNo, const int *LevelPtr,
     const int *ParPtr, const int *Partition, const int *ParType, int NThreads) {
-  pw_init_instruments;
+
   for (int i1 = 0; i1 < LevelNo; ++i1) {
+    pw_init_instruments;
 #pragma omp parallel num_threads(NThreads)
     {
       pw_start_instruments_loop(omp_get_thread_num());
@@ -555,8 +557,8 @@ void spmmCsrSpmmCsrFusedVectorized2_16(
     const int *Bp, const int *Bi, const double *Bx, const double *Cx,
     double *Dx, double *ACx, int LevelNo, const int *LevelPtr,
     const int *ParPtr, const int *Partition, const int *ParType, int NThreads) {
-  pw_init_instruments;
   for (int i1 = 0; i1 < LevelNo; ++i1) {
+    pw_init_instruments;
 #pragma omp parallel num_threads(NThreads)
     {
       pw_start_instruments_loop(omp_get_thread_num());

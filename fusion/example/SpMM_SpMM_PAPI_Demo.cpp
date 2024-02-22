@@ -73,6 +73,8 @@ int main(const int argc, const char *argv[]) {
   delete fusedParallel;
   delete stats;
 
+
+
   std::string profHeader = "";
   std::string profStat = "";
 
@@ -90,6 +92,32 @@ int main(const int argc, const char *argv[]) {
   //  std::cout<<baselineStat<<spStat+tpStat+profStat<<std::endl;
   std::cout << fusedParallelStat << spStat + tpStat + profStat << std::endl;
 
+
+#ifdef __AVX2__
+  stats = new
+      swiftware::benchmark::Stats("SpMM_SpMM_FusedParallelAvx256","SpMM",
+                                  7,tp._matrix_name,numThread); stats->OtherStats["PackingType"] =
+      {Interleaved}; auto *fusedParallelVectorized256 = new
+      SpMMSpMMFusedInterLayerVectorizedAvx256(inSpMM, stats, sp);
+  fusedParallelVectorized256->run();
+  //fusedParallel->OutTensor->printDx();
+  auto fusedParallelVectorized256Stat =
+      fusedParallelVectorized256->printStats(); delete
+      fusedParallelVectorized256; delete stats;
+  std::cout<<fusedParallelVectorized256Stat<<spStat+tpStat+profStat<<std::endl;
+
+  stats = new
+      swiftware::benchmark::Stats("SpMM_SpMM_FusedParallelKTiledAvx256","SpMM",
+                                  7,tp._matrix_name,numThread); stats->OtherStats["PackingType"] =
+      {Interleaved}; auto *fusedParallelVectorizedKTiled256 = new
+      SpMMSpMMFusedInterLayerKTiled8VectorizedAvx256(inSpMM, stats, sp);
+  fusedParallelVectorizedKTiled256->run();
+  //fusedParallel->OutTensor->printDx();
+  auto fusedParallelVectorizedKTiled256Stat =
+      fusedParallelVectorizedKTiled256->printStats(); delete fusedParallelVectorizedKTiled256; delete stats;
+  std::cout<<fusedParallelVectorizedKTiled256Stat<<spStat+tpStat+profStat<<std::endl;
+
+#endif
 
   delete inSpMM;
   //  delete dsaturColoring;
