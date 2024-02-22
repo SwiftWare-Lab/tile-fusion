@@ -81,6 +81,18 @@ int main(const int argc, const char *argv[]) {
   std::string fusedRetValue = std::to_string(fused->OutTensor->RetValue);
   delete fused;
   delete stats;
+#ifdef MKL
+  stats = new swiftware::benchmark::Stats("Jacobi_MKL_Demo", "Jacobi CSR", 1,
+                                          tp._matrix_name, numThread);
+  stats->OtherStats["PackingType"] = {Interleaved};
+  auto *jacobiMKL = new JacobiCSRUnfusedMKL(inJacobi, stats);
+  jacobiMKL->run();
+  //  fused->OutTensor->printDx();
+  auto jacobiMKLStat = jacobiMKL->printStats();
+  std::string mklRetValue = std::to_string(jacobiMKL->OutTensor->RetValue);
+  delete jacobiMKL;
+  delete stats;
+#endif
 
   auto csvInfo = sp.print_csv(true);
   std::string spHeader = std::get<0>(csvInfo);
@@ -95,6 +107,9 @@ int main(const int argc, const char *argv[]) {
   }
   std::cout << baselineStat+spStat+tpStat+','+unfusedRetValue+',' << std::endl;
   std::cout << fusedStat+spStat+tpStat+','+fusedRetValue+',' << std::endl;
+#ifdef MKL
+  std::cout << jacobiMKLStat+spStat+tpStat+','+mklRetValue+',' << std::endl;
+#endif
 
   delete aCSC;
   delete aCSCFull;
