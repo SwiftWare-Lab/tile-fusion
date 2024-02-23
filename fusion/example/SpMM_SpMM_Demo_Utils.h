@@ -1493,6 +1493,10 @@ protected:
     return t;
   }
 
+  int calculateWorkingSetSize(int Nnz, int UniqueColsNum, int Bcols, int TileSize) override{
+    return (Nnz + UniqueColsNum*16 + TileSize*16) * 8;
+  }
+
 public:
   SpMMSpMMFusedInterLayerKTiled8VectorizedAvx512(TensorInputs<double> *In1, Stats *Stat1,
                                           sym_lib::ScheduleParameters SpIn)

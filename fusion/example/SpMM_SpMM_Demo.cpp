@@ -454,7 +454,7 @@ int main(const int argc, const char *argv[]) {
     std::cout<<fusedParallelVectorized256Stat<<spStat+tpStat+profStat<<std::endl;
 
     stats = new
-        swiftware::benchmark::Stats("SpMM_SpMM_FusedParallelKTiledAvx256","SpMM",
+        swiftware::benchmark::Stats("SpMM_SpMM_FusedParallelKTiled8Avx256","SpMM",
                                     7,tp._matrix_name,numThread); stats->OtherStats["PackingType"] =
         {Interleaved}; auto *fusedParallelVectorizedKTiled256 = new
         SpMMSpMMFusedInterLayerKTiled8VectorizedAvx256(inSpMM, stats, sp);
@@ -480,7 +480,7 @@ int main(const int argc, const char *argv[]) {
      std::cout<<fusedParallelVectorized512Stat<<spStat+tpStat+profStat<<std::endl;
 
      stats = new
-         swiftware::benchmark::Stats("SpMM_SpMM_FusedParallelAvx512","SpMM",
+         swiftware::benchmark::Stats("SpMM_SpMM_FusedParallelKTiled8Avx512","SpMM",
                                      7,tp._matrix_name,numThread); stats->OtherStats["PackingType"] =
          {Separated}; auto *fusedParallelKTiledVectorized512 = new
          SpMMSpMMFusedInterLayerKTiled8VectorizedAvx512(inSpMM, stats, sp);
