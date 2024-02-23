@@ -138,7 +138,7 @@ int main(const int argc, const char *argv[]) {
 
   std::vector<std::string> variableTileSizeLogs;
   std::vector<std::string> variableTileSizeAvx2Logs;
-  std::vector<int> wsParameters = {20000,32000,500000,1000000};
+  std::vector<int> wsParameters = {10000,15000,20000,32000,50000,100000,500000,1000000};
 for (auto param: wsParameters){
     ScheduleParameters spTemp(sp);
     spTemp.IterPerPartition = param;
