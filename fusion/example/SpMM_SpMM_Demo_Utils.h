@@ -1471,7 +1471,7 @@ public:
 };
 #endif
 
-#ifdef __AVX512F__
+//#ifdef __AVX512F__
 
 class SpMMSpMMFusedInterLayerKTiled8VectorizedAvx512 : public SpMMSpMMFusedVariableTileSize {
 protected:
@@ -1494,7 +1494,7 @@ protected:
   }
 
 public:
-  SpMMSpMMFusedInterLayerVectorizedAvx512(TensorInputs<double> *In1, Stats *Stat1,
+  SpMMSpMMFusedInterLayerKTiled8VectorizedAvx512(TensorInputs<double> *In1, Stats *Stat1,
                                           sym_lib::ScheduleParameters SpIn)
       : SpMMSpMMFusedVariableTileSize(In1, Stat1, SpIn) {
   }
@@ -1592,7 +1592,7 @@ public:
   ~SpMMCSRSpMMCSCFusedColoringAvx512() { delete FusedCompSet; }
   sym_lib::SparsityProfileInfo getSpInfo() { return SpInfo; }
 };
-#endif
+//#endif
 
 class SpMMCSRSpMMCSCFusedColoringRowTiling: public SpMMSpMMUnFused {
 protected:

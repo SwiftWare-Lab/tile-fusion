@@ -8,7 +8,7 @@
 namespace swiftware {
 namespace sparse {
 
-#ifdef __AVX512F__
+//#ifdef __AVX512F__
 void spmmCsrSpmmCsrFusedVectorizedKTiled8Avx512(
     int M, int N, int K, int L, const int *Ap, const int *Ai, const double *Ax,
     const int *Bp, const int *Bi, const double *Bx, const double *Cx,
@@ -56,7 +56,7 @@ inline void vectorCrossProduct2_32Avx512(const double *Ax, const int *Ai,
                                          int I);
 inline void vectorCrossProduct128Avx512(double Ax, int Ai, const double *B,
                                         double *C, int N, int I);
-#endif
+//#endif
 #if defined(__AVX2__)
 
 void spmmCsrSpmmCsrFusedKTiled8Vectorized(
