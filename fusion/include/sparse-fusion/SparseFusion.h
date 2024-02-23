@@ -20,6 +20,11 @@ namespace sym_lib{
     Tiled
   };
 
+  enum TilingMethod{
+    Fixed,
+    Variable
+  };
+
   struct SparsityProfileInfo {
     int TotalReuseC{}, RedundantIterations{}, RedundantOperations{},
         UniqueIterations{};

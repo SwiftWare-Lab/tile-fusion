@@ -35,6 +35,18 @@ struct ScheduleParameters {
   explicit ScheduleParameters(int nt) : ScheduleParameters() {
     _num_threads = nt;
   }
+  ScheduleParameters(ScheduleParameters &sp){
+    this->_num_threads=sp._num_threads;
+    this->IterPerPartition=sp.IterPerPartition;
+    this->TileM = sp.TileM;
+    this->TileN = sp.TileN;
+    this->TileK = sp.TileK;
+    this->_min_workload_size = sp._min_workload_size;
+    this->_lbc_agg = sp._lbc_agg;
+    this->_lbc_initial_cut = sp._lbc_initial_cut;
+    this->_num_w_partition = sp._num_w_partition;
+    this->SeedPartitioningParallelism = sp.SeedPartitioningParallelism;
+  }
 
   /*
    * Prints header and info in csv format
