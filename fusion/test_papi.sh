@@ -26,8 +26,8 @@ if [ ${PAPI_INSTALL} -eq 1 ]; then
 	#git clone https://bitbucket.org/icl/papi.git
 	git clone https://github.com/icl-utk-edu/papi.git
 	cd papi/src
-	mkdir -p -- ${HOME}/programs/papi
-	./configure --prefix=${HOME}/programs/papi/
+	mkdir -p -- ${SCRATCH}/programs/papi
+	./configure --prefix=${SCRATCH}/programs/papi/
 	make
 	make install
 	cd ../../
@@ -50,7 +50,7 @@ cd build
 make clean
 #rm -rf *.txt
 echo $MKL_DIR
-cmake -DCMAKE_PREFIX_PATH="$MKL_DIR/lib/intel64;$MKL_DIR/include;$MKL_DIR/../compiler/lib/intel64;_deps/openblas-build/lib/;/home/k/kazem/kazem/programs/papi/include/;"  -DPROFILING_WITH_PAPI=ON -DCMAKE_BUILD_TYPE=Release -DPAPI_PREFIX=${HOME}/programs/papi/  ..
+cmake -DCMAKE_PREFIX_PATH="$MKL_DIR/lib/intel64;$MKL_DIR/include;$MKL_DIR/../compiler/lib/intel64;_deps/openblas-build/lib/;$SCRATCH/programs/papi/include/;"  -DPROFILING_WITH_PAPI=ON -DCMAKE_BUILD_TYPE=Release -DPAPI_PREFIX=${SCRATCH}/programs/papi/  ..
 #make -j 40
 
 make -j 40  spmm_spmm_papi_profiler

@@ -55,6 +55,7 @@ elif [ $EXP == "inspector" ]; then
 elif [ $EXP == "profiling" ]; then
   BINPATH="./build/example/"
   BINFILE="spmm_spmm_papi_profiler"
+  MODE=5
   USE_PAPI=1
 else
   echo "Wrong experiment name"

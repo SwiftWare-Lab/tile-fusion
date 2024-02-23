@@ -92,4 +92,17 @@ if [ "$TUNED" ==  4 ]; then
   done < ${MATLIST}
 fi
 
+if [ "$TUNED" == 5 ]; then
+    while read line; do
+       mat=$line
+        echo "for $mat $ntile"
+        if [ $header -eq 1 ]; then
+          $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -ah -bc $BCOL > $LOGS/spmv_spmv_$BCOL.csv
+          header=0
+        else
+          $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -bc $BCOL >> $LOGS/spmv_spmv_$BCOL.csv
+        fi
+    done < ${MATLIST}
+  fi
+
 # shellcheck disable=SC2039
