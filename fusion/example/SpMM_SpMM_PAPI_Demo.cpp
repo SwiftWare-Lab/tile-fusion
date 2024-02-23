@@ -47,7 +47,7 @@ int main(const int argc, const char *argv[]) {
   //  }
 
   // print_csc(1,"",aCSC);
-  int numThread = sp._num_threads, numTrial = 7;
+  int numThread = sp._num_threads, numTrial = 1;
   std::string expName = "SpMM_SpMM_Demo";
   auto *inSpMM =
       new TensorInputs<double>(aCSCFull->m, tp._b_cols, aCSCFull->n, bCSC->m,
@@ -63,7 +63,7 @@ int main(const int argc, const char *argv[]) {
 
 
   stats = new swiftware::benchmark::Stats(
-      "SpMM_SpMM_Demo_UnFusedParallel", "SpMM", 7, tp._matrix_name, numThread);
+      "SpMM_SpMM_Demo_UnFusedParallel", "SpMM", numTrial, tp._matrix_name, numThread);
   stats->OtherStats["PackingType"] = {Separated};
   stats->OtherStats["TilingMethod"] = {Fixed};
   auto *unfusedParallel = new SpMMSpMMUnFusedParallel(inSpMM, stats);
@@ -103,7 +103,7 @@ int main(const int argc, const char *argv[]) {
     auto csvTempInfo = spTemp.print_csv(true);
     std::string spTempStat = std::get<1>(csvTempInfo);
     stats = new swiftware::benchmark::Stats("SpMM_SpMM_FusedParallel_FixedTile","SpMM",
-                                            7,tp._matrix_name,numThread);
+                                            numTrial,tp._matrix_name,numThread);
     stats->OtherStats["PackingType"] ={Separated};
     stats->OtherStats["TilingMethod"] = {Fixed};
     auto *fusedParallel = new SpMMSpMMFusedInterLayer(inSpMM,
@@ -118,7 +118,7 @@ int main(const int argc, const char *argv[]) {
 #ifdef __AVX2__
     stats = new
         swiftware::benchmark::Stats("SpMM_SpMM_FusedParallelAvx256_FixedTile","SpMM",
-                                    7,tp._matrix_name,numThread);
+                                    numTrial,tp._matrix_name,numThread);
     stats->OtherStats["PackingType"] ={Separated};
     stats->OtherStats["TilingMethod"] = {Fixed};
     auto *fusedParallelVectorized256 = new
@@ -146,7 +146,7 @@ for (auto param: wsParameters){
     auto csvTempInfo = spTemp.print_csv(true);
     std::string spTempStat = std::get<1>(csvTempInfo);
     stats = new swiftware::benchmark::Stats("SpMM_SpMM_FusedParallel_VariableTileSize","SpMM",
-                                            7,tp._matrix_name,numThread);
+                                            numTrial,tp._matrix_name,numThread);
     stats->OtherStats["PackingType"] ={Separated};
     stats->OtherStats["TilingMethod"] = {Variable};
     auto *fusedParallelVT = new SpMMSpMMFusedVariableTileSize(inSpMM,stats, spTemp);
@@ -159,7 +159,7 @@ for (auto param: wsParameters){
 #ifdef __AVX2__
     stats = new
         swiftware::benchmark::Stats("SpMM_SpMM_FusedParallelAvx256_VariableTile","SpMM",
-                                    7,tp._matrix_name,numThread);
+                                    numTrial,tp._matrix_name,numThread);
     stats->OtherStats["PackingType"] = {Separated};
     stats->OtherStats["TilingMethod"] = {Variable};
     auto *fusedParallelVectorized256 = new
@@ -173,7 +173,7 @@ for (auto param: wsParameters){
 
     stats = new
         swiftware::benchmark::Stats("SpMM_SpMM_FusedParallelKTiledAvx256_VariableTile","SpMM",
-                                    7,tp._matrix_name,numThread);
+                                    numTrial,tp._matrix_name,numThread);
     stats->OtherStats["PackingType"] = {Separated};
     stats->OtherStats["TilingMethod"] = {Variable};
     auto *fusedParallelVectorizedKTiled256 = new
