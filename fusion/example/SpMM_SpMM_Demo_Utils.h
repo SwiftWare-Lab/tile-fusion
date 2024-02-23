@@ -1473,6 +1473,34 @@ public:
 
 #ifdef __AVX512F__
 
+class SpMMSpMMFusedInterLayerKTiled8VectorizedAvx512 : public SpMMSpMMFusedVariableTileSize {
+protected:
+  Timer execute() override {
+    //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
+    OutTensor->reset();
+    Timer t;
+    t.start();
+    swiftware::sparse::spmmCsrSpmmCsrFusedVectorizedKTiled8Avx512(
+        InTensor->M, InTensor->N, InTensor->K, InTensor->L, InTensor->ACsr->p,
+        InTensor->ACsr->i, InTensor->ACsr->x, InTensor->BCsr->p,
+        InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Bx, OutTensor->Xx,
+        OutTensor->ACx, FusedCompSet->n1_, FusedCompSet->ptr1_,
+        FusedCompSet->ptr2_, FusedCompSet->id_, FusedCompSet->type_,
+        InTensor->NumThreads);
+
+    t.stop();
+    return t;
+  }
+
+public:
+  SpMMSpMMFusedInterLayerVectorizedAvx512(TensorInputs<double> *In1, Stats *Stat1,
+                                          sym_lib::ScheduleParameters SpIn)
+      : SpMMSpMMFusedVariableTileSize(In1, Stat1, SpIn) {
+  }
+
+};
+
 class SpMMSpMMFusedInterLayerVectorizedAvx512 : public SpMMSpMMFusedVariableTileSize {
 protected:
   void (*spmmCsrSpmmCsrFusedVectorizedFunc)(int , int , int , int ,

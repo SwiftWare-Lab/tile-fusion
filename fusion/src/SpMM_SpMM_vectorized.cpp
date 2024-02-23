@@ -223,6 +223,52 @@ void spmmCsrSpmmCsrFusedVectorized64Avx512(
   }
 }
 
+void spmmCsrSpmmCsrFusedVectorizedKTiled8Avx512(
+    int M, int N, int K, int L, const int *Ap, const int *Ai, const double *Ax,
+    const int *Bp, const int *Bi, const double *Bx, const double *Cx,
+    double *Dx, double *ACx, int LevelNo, const int *LevelPtr,
+    const int *ParPtr, const int *Partition, const int *ParType, int NThreads)
+  for (int i1 = 0; i1 < LevelNo; ++i1) {
+  pw_init_instruments;
+#pragma omp parallel num_threads(NThreads)
+    {
+      pw_start_instruments_loop(omp_get_thread_num());
+#pragma omp for
+      for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; ++j1) {
+        for (int k = 0; k < N; k+=8) {
+          for (int k1 = ParPtr[j1]; k1 < ParPtr[j1 + 1]; ++k1) {
+            int i = Partition[k1];
+            int t = ParType[k1];
+            int offset = N * i;
+            if (t == 0) {
+              auto xv = _mm512_loadu_pd(ACx + offset + k);
+              int j = Ap[i];
+              for (; j < Ap[i + 1] - 3; j += 4) {
+                vectorCrossProduct4_8Avx512(Ax + j, Ai + j, Cx + k, xv, N, i);
+              }
+              for (; j < Ap[i + 1]; j++) {
+                vectorCrossProduct8Avx512(Ax[j], Ai[j], Cx + k, xv, N, i);
+              }
+              _mm512_storeu_pd(ACx + offset + k, xv);
+            } else {
+              auto xv = _mm512_loadu_pd(Dx + offset);
+              int j = Bp[i];
+              for (; j < Bp[i + 1] - 3; j += 4) {
+                vectorCrossProduct4_8Avx512(Bx + j, Bi + j, ACx + k, xv, N, i);
+              }
+              for (; j < Bp[i + 1]; j++) {
+                vectorCrossProduct8Avx512(Bx[j], Bi[j], ACx + k, xv, N, i);
+              }
+              _mm512_storeu_pd(Dx + offset, xv);
+            }
+          }
+        }
+      }
+      pw_stop_instruments_loop(omp_get_thread_num());
+    }
+  }
+}
+
 void spmmCsrSpmmCsrFusedVectorized8Avx512(
     int M, int N, int K, int L, const int *Ap, const int *Ai, const double *Ax,
     const int *Bp, const int *Bi, const double *Bx, const double *Cx,
