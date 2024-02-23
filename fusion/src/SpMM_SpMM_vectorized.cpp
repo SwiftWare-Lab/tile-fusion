@@ -251,7 +251,7 @@ void spmmCsrSpmmCsrFusedVectorizedKTiled8Avx512(
               }
               _mm512_storeu_pd(ACx + offset + k, xv);
             } else {
-              auto xv = _mm512_loadu_pd(Dx + offset);
+              auto xv = _mm512_loadu_pd(Dx + k + offset);
               int j = Bp[i];
               for (; j < Bp[i + 1] - 3; j += 4) {
                 vectorCrossProduct4_8Avx512(Bx + j, Bi + j, ACx + k, xv, N, i);
@@ -259,7 +259,7 @@ void spmmCsrSpmmCsrFusedVectorizedKTiled8Avx512(
               for (; j < Bp[i + 1]; j++) {
                 vectorCrossProduct8Avx512(Bx[j], Bi[j], ACx + k, xv, N, i);
               }
-              _mm512_storeu_pd(Dx + offset, xv);
+              _mm512_storeu_pd(Dx + k + offset, xv);
             }
           }
         }
