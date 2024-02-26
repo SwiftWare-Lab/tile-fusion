@@ -104,7 +104,8 @@ protected:
   TensorInputs<double> *InTensor;
 
   void setup() override {
-    this->St->OtherStats["NTile"] = {4};
+//    this->St->OtherStats["NTile"] = {4};
+    this->St->OtherStats["Loop 1 Itarations"] = {0.};
     this->St->OtherStats["Number of Fused Nodes"] = {0.};
     this->St->OtherStats["Number of Fused nnz"] = {0.};
     this->St->OtherStats["Tile Size Mean"] = {0.};
@@ -1836,6 +1837,16 @@ class SpMMSpMMUnFusedParallelVectorized16
     : public SpMMParallelVectorizedUnroll48 {
 protected:
   int SampleNum;
+
+  void setup() override {
+    //    this->St->OtherStats["NTile"] = {4};
+    this->St->OtherStats["Loop 1 Itarations"] = {(double)Sp.TileM};
+    this->St->OtherStats["Number of Fused Nodes"] = {0.};
+    this->St->OtherStats["Number of Fused nnz"] = {0.};
+    this->St->OtherStats["Tile Size Mean"] = {0.};
+    this->St->OtherStats["Tile Size STD"] = {0.};
+  }
+
   Timer execute() override {
     //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
     //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
