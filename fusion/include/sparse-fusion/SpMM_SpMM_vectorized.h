@@ -81,9 +81,9 @@ void spmm8CsrVectorizedUnrollJ4(int M, int N, const int *Ap, const int *Ai,
                                 const double *Ax, const double *Cx, double *ACx,
                                 int TileSize, int NThreads);
 
-void spmm16CsrVectorizedUnrollJ2(int M, int N, const int *Ap, const int *Ai,
+void spmmCsr2_16VectorizedSample(int M, int N, const int *Ap, const int *Ai,
                                  const double *Ax, const double *Cx,
-                                 double *ACx, int TileSize, int NThreads);
+                                 double *ACx, int TileSize, int NThreads, int SampleNum);
 void spmm16CsrVectorized(int M, int N, const int *Ap, const int *Ai,
                          const double *Ax, const double *Cx, double *ACx,
                          int TileSize, int NThreads);

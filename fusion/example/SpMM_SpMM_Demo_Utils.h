@@ -432,14 +432,15 @@ public:
 
 class SpMMSpMMFusedVariableTileSize: public SpMMSpMMFusedInterLayer{
 protected:
+  int SampleNum;
   Timer analysis() override{
     Timer t1;
+    t1.start();
     auto tm = St->OtherStats["TilingMethod"];
     if(tm[0] == sym_lib::Fixed){
       SpMMSpMMFusedInterLayer::analysis();
     }
     else {
-      t1.start();
       int CACHESIZE = Sp.IterPerPartition;
       int *ap = InTensor->ACsr->p;
       int *ai = InTensor->ACsr->i;
@@ -544,14 +545,14 @@ protected:
     newPtr1[0] = 0;
     newPtr1[1] = 1;
     newPtr2[0] = 0;
-    int tileSize = FusedCompSet->ptr2_[2] - FusedCompSet->ptr2_[1];
+    int tileSize = FusedCompSet->ptr2_[SampleNum+1] - FusedCompSet->ptr2_[SampleNum];
     newPtr2[1] = tileSize;
     int *newId = new int[tileSize];
     int *newType = new int[tileSize];
     int loop1TileSize = 0;
     for (int i = 0; i < tileSize; i++){
-      newId[i] = FusedCompSet->id_[newPtr2[0]+i];
-      newType[i] =FusedCompSet->type_[newPtr2[0]+i];
+      newId[i] = FusedCompSet->id_[FusedCompSet->ptr2_[SampleNum]+i];
+      newType[i] =FusedCompSet->type_[FusedCompSet->ptr2_[SampleNum]+i];
       if (newType[i] == 0){
         loop1TileSize += 1;
       }
@@ -615,8 +616,8 @@ protected:
   }
 public:
   SpMMSpMMFusedVariableTileSize(TensorInputs<double> *In1, Stats *Stat1,
-                                sym_lib::ScheduleParameters SpIn)
-      : SpMMSpMMFusedInterLayer(In1, Stat1, SpIn){}
+                                sym_lib::ScheduleParameters SpIn, int SampleNum1)
+      : SpMMSpMMFusedInterLayer(In1, Stat1, SpIn), SampleNum(SampleNum1){}
 };
 
 class SpMMSpMMFusedInterLayerKTiled : public SpMMSpMMUnFused {
@@ -1348,8 +1349,8 @@ protected:
 
 public:
   SpMMSpMMFusedInterLayerKTiled8VectorizedAvx256(TensorInputs<double> *In1, Stats *Stat1,
-sym_lib::ScheduleParameters SpIn)
-: SpMMSpMMFusedVariableTileSize(In1, Stat1, SpIn) {
+sym_lib::ScheduleParameters SpIn, int sampleNum)
+: SpMMSpMMFusedVariableTileSize(In1, Stat1, SpIn, sampleNum) {
   }
 };
 
@@ -1384,8 +1385,8 @@ protected:
 
 public:
   SpMMSpMMFusedInterLayerVectorizedAvx256(TensorInputs<double> *In1, Stats *Stat1,
-                                          sym_lib::ScheduleParameters SpIn)
-      : SpMMSpMMFusedVariableTileSize(In1, Stat1, SpIn) {
+                                          sym_lib::ScheduleParameters SpIn, int sampleNum)
+      : SpMMSpMMFusedVariableTileSize(In1, Stat1, SpIn, sampleNum) {
     if(this->InTensor->N == 8){
       this->spmmCsrSpmmCsrFusedVectorizedFunc = swiftware::sparse::spmmCsrSpmmCsrFusedVectorized2_8;
     }
@@ -1536,8 +1537,8 @@ protected:
 
 public:
   SpMMSpMMFusedInterLayerKTiled8VectorizedAvx512(TensorInputs<double> *In1, Stats *Stat1,
-                                          sym_lib::ScheduleParameters SpIn)
-      : SpMMSpMMFusedVariableTileSize(In1, Stat1, SpIn) {
+                                          sym_lib::ScheduleParameters SpIn, int sampleNum)
+      : SpMMSpMMFusedVariableTileSize(In1, Stat1, SpIn, sampleNum) {
   }
 
 };
@@ -1573,8 +1574,8 @@ protected:
 
 public:
   SpMMSpMMFusedInterLayerVectorizedAvx512(TensorInputs<double> *In1, Stats *Stat1,
-                                          sym_lib::ScheduleParameters SpIn)
-      : SpMMSpMMFusedVariableTileSize(In1, Stat1, SpIn) {
+                                          sym_lib::ScheduleParameters SpIn, int sampleNum)
+      : SpMMSpMMFusedVariableTileSize(In1, Stat1, SpIn, sampleNum) {
     if(In1->N==8) {
       spmmCsrSpmmCsrFusedVectorizedFunc = swiftware::sparse::spmmCsrSpmmCsrFusedVectorized8Avx512;
     }
@@ -1831,25 +1832,29 @@ public:
       : SpMMSpMMUnFused(In1, Stat1), Sp(Sp1) {}
 };
 
-class SpMMParallelVectorizedUnroll216: public SpMMParallelVectorizedUnroll48 {
+class SpMMSpMMUnFusedParallelVectorized16
+    : public SpMMParallelVectorizedUnroll48 {
 protected:
+  int SampleNum;
   Timer execute() override {
     //    std::fill_n(OutTensor->Dx, InTensor->L * InTensor->N, 0.0);
     //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
     OutTensor->reset();
     Timer t;
     t.start();
-    swiftware::sparse::spmm16CsrVectorizedUnrollJ2(InTensor->M, InTensor->N,
-                                       InTensor->ACsr->p, InTensor->ACsr->i,
-                                       InTensor->ACsr->x, InTensor->Bx,
-                                       OutTensor->ACx, Sp.TileM, InTensor->NumThreads);
+    swiftware::sparse::spmmCsr2_16VectorizedSample(
+        InTensor->M, InTensor->N, InTensor->ACsr->p, InTensor->ACsr->i,
+        InTensor->ACsr->x, InTensor->Bx, OutTensor->ACx, Sp.TileM,
+        InTensor->NumThreads, SampleNum);
     t.stop();
     return t;
   }
 
 public:
-  SpMMParallelVectorizedUnroll216(TensorInputs<double> *In1, Stats *Stat1, sym_lib::ScheduleParameters Sp1)
-      : SpMMParallelVectorizedUnroll48(In1, Stat1, Sp1) {}
+  SpMMSpMMUnFusedParallelVectorized16(TensorInputs<double> *In1, Stats *Stat1,
+                                      sym_lib::ScheduleParameters Sp1,
+                                      int SampleNum1)
+      : SpMMParallelVectorizedUnroll48(In1, Stat1, Sp1), SampleNum(1) {}
 };
 
 class SpMMParallelVectorizedUnroll16: public SpMMParallelVectorizedUnroll48 {
