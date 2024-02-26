@@ -433,12 +433,12 @@ public:
 class SpMMSpMMFusedVariableTileSize: public SpMMSpMMFusedInterLayer{
 protected:
   Timer analysis() override{
+    Timer t1;
     auto tm = St->OtherStats["TilingMethod"];
     if(tm[0] == sym_lib::Fixed){
-      return SpMMSpMMFusedInterLayer::analysis();
+      SpMMSpMMFusedInterLayer::analysis();
     }
     else {
-      Timer t1;
       t1.start();
       int CACHESIZE = Sp.IterPerPartition;
       int *ap = InTensor->ACsr->p;
@@ -532,14 +532,46 @@ protected:
         }
         FusedCompSet->ptr2_[i + 1] = cnt;
       }
-      int fusedNodesNum = FusedCompSet->getNumberOfFusedNodes();
-      int fusedNnzNum = FusedCompSet->getFusedNnzNum(InTensor->ACsr);
-      this->St->OtherStats["Number of Fused Nodes"] = {(double)fusedNodesNum};
-      this->St->OtherStats["Number of Fused nnz"] = {(double)fusedNnzNum};
-      //    FusedCompSet->print_3d();
-      t1.stop();
-      return t1;
+//      int fusedNodesNum = FusedCompSet->getNumberOfFusedNodes();
+//      int fusedNnzNum = FusedCompSet->getFusedNnzNum(InTensor->ACsr);
+//      this->St->OtherStats["Number of Fused Nodes"] = {(double)fusedNodesNum};
+//      this->St->OtherStats["Number of Fused nnz"] = {(double)fusedNnzNum};
+      //    FusedCompSet->print_3d()
     }
+    /// save one tile only
+    int *newPtr1 = new int[2];
+    int *newPtr2 = new int[2];
+    newPtr1[0] = 0;
+    newPtr1[1] = 1;
+    newPtr2[0] = 0;
+    int tileSize = FusedCompSet->ptr2_[2] - FusedCompSet->ptr2_[1];
+    newPtr2[1] = tileSize;
+    int *newId = new int[tileSize];
+    int *newType = new int[tileSize];
+    int loop1TileSize = 0;
+    for (int i = 0; i < tileSize; i++){
+      newId[i] = FusedCompSet->id_[newPtr2[0]+i];
+      newType[i] =FusedCompSet->type_[newPtr2[0]+i];
+      if (newType[i] == 0){
+        loop1TileSize += 1;
+      }
+    }
+    FusedCompSet->n1_ = 1;
+    delete[] FusedCompSet->ptr1_;
+    delete[] FusedCompSet->ptr2_;
+    delete[] FusedCompSet->id_;
+    delete[] FusedCompSet->type_;
+    FusedCompSet->ptr1_ = newPtr1;
+    FusedCompSet->ptr2_ = newPtr2;
+    FusedCompSet->id_ = newId;
+    FusedCompSet->type_ = newType;
+    int fusedNodesNum = FusedCompSet->getNumberOfFusedNodes();
+    int fusedNnzNum = FusedCompSet->getFusedNnzNum(InTensor->ACsr);
+    this->St->OtherStats["Loop 1 Itarations"] = {double(loop1TileSize)};
+    this->St->OtherStats["Number of Fused Nodes"] = {(double)fusedNodesNum};
+    this->St->OtherStats["Number of Fused nnz"] = {(double)fusedNnzNum};
+    t1.stop();
+    return t1;
   }
 
   Timer execute() override {

@@ -22,7 +22,8 @@ namespace sym_lib{
 
   enum TilingMethod{
     Fixed,
-    Variable
+    Variable,
+    Single,
   };
 
   struct SparsityProfileInfo {

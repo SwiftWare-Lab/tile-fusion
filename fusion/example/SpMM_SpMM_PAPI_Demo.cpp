@@ -10,6 +10,7 @@
 #include "sparse-fusion/Fusion_Utils.h"
 #include "sparse-fusion/SparseFusion.h"
 #include <fstream>
+#include <set>
 
 using namespace sym_lib;
 
@@ -47,7 +48,7 @@ int main(const int argc, const char *argv[]) {
   //  }
 
   // print_csc(1,"",aCSC);
-  int numThread = sp._num_threads, numTrial = 1;
+  int numThread = sp._num_threads, numTrial = 7;
   std::string expName = "SpMM_SpMM_Demo";
   auto *inSpMM =
       new TensorInputs<double>(aCSCFull->m, tp._b_cols, aCSCFull->n, bCSC->m,
@@ -65,7 +66,7 @@ int main(const int argc, const char *argv[]) {
   stats = new swiftware::benchmark::Stats(
       "SpMM_SpMM_Demo_UnFusedParallel", "SpMM", numTrial, tp._matrix_name, numThread);
   stats->OtherStats["PackingType"] = {Separated};
-  stats->OtherStats["TilingMethod"] = {Fixed};
+  stats->OtherStats["TilingMethod"] = {Single};
   auto *unfusedParallel = new SpMMSpMMUnFusedParallel(inSpMM, stats);
   unfusedParallel->run();
   //  unfusedParallel->OutTensor->printDx();
@@ -79,6 +80,7 @@ int main(const int argc, const char *argv[]) {
   delete unfusedParallel;
   delete stats;
 
+  
 
   auto csvInfo = sp.print_csv(true);
   std::string spHeader = std::get<0>(csvInfo);
@@ -94,7 +96,7 @@ int main(const int argc, const char *argv[]) {
 
   std::vector<std::string> fixedTileSizeLogs;
   std::vector<std::string> fixedTileSizeAvx2Logs;
-  std::vector<int> mTileParameters = {8,16,32,64,128,256,512,1024,2048};
+  std::vector<int> mTileParameters = {16,32,64,128,256,512,1024,2048};
 
   for (auto param: mTileParameters){
     ScheduleParameters spTemp(sp);
@@ -105,8 +107,8 @@ int main(const int argc, const char *argv[]) {
     stats = new swiftware::benchmark::Stats("SpMM_SpMM_FusedParallel_FixedTile","SpMM",
                                             numTrial,tp._matrix_name,numThread);
     stats->OtherStats["PackingType"] ={Separated};
-    stats->OtherStats["TilingMethod"] = {Fixed};
-    auto *fusedParallel = new SpMMSpMMFusedInterLayer(inSpMM,
+    stats->OtherStats["TilingMethod"] = {Single};
+    auto *fusedParallel = new SpMMSpMMFusedVariableTileSize(inSpMM,
                                                       stats, spTemp);
     fusedParallel->run();
     //fusedParallel->OutTensor->printDx();
@@ -120,7 +122,7 @@ int main(const int argc, const char *argv[]) {
         swiftware::benchmark::Stats("SpMM_SpMM_FusedParallelAvx256_FixedTile","SpMM",
                                     numTrial,tp._matrix_name,numThread);
     stats->OtherStats["PackingType"] ={Separated};
-    stats->OtherStats["TilingMethod"] = {Fixed};
+    stats->OtherStats["TilingMethod"] = {Single};
     auto *fusedParallelVectorized256 = new
         SpMMSpMMFusedInterLayerVectorizedAvx256(inSpMM, stats, spTemp);
     fusedParallelVectorized256->run();
@@ -136,58 +138,58 @@ int main(const int argc, const char *argv[]) {
 #endif
   }
 
-  std::vector<std::string> variableTileSizeLogs;
-  std::vector<std::string> variableTileSizeAvx2Logs;
-  std::vector<int> wsParameters = {10000,15000,20000,32000,50000,100000,500000,1000000};
-for (auto param: wsParameters){
-    ScheduleParameters spTemp(sp);
-    spTemp.IterPerPartition = param;
-    spTemp.TileM = param;
-    auto csvTempInfo = spTemp.print_csv(true);
-    std::string spTempStat = std::get<1>(csvTempInfo);
-    stats = new swiftware::benchmark::Stats("SpMM_SpMM_FusedParallel_VariableTileSize","SpMM",
-                                            numTrial,tp._matrix_name,numThread);
-    stats->OtherStats["PackingType"] ={Separated};
-    stats->OtherStats["TilingMethod"] = {Variable};
-    auto *fusedParallelVT = new SpMMSpMMFusedVariableTileSize(inSpMM,stats, spTemp);
-    fusedParallelVT->run();
-    //fusedParallel->OutTensor->printDx();
-    auto fusedParallelVTStat = fusedParallelVT->printStats();
-    std::cout << fusedParallelVTStat << spTempStat + tpStat<< std::endl;
-    delete fusedParallelVT;
-    delete stats;
-#ifdef __AVX2__
-    stats = new
-        swiftware::benchmark::Stats("SpMM_SpMM_FusedParallelAvx256_VariableTile","SpMM",
-                                    numTrial,tp._matrix_name,numThread);
-    stats->OtherStats["PackingType"] = {Separated};
-    stats->OtherStats["TilingMethod"] = {Variable};
-    auto *fusedParallelVectorized256 = new
-        SpMMSpMMFusedInterLayerVectorizedAvx256(inSpMM, stats, spTemp);
-    fusedParallelVectorized256->run();
-    //fusedParallel->OutTensor->printDx();
-    auto fusedParallelVectorized256Stat = fusedParallelVectorized256->printStats();
-    delete fusedParallelVectorized256;
-    delete stats;
-    std::cout<<fusedParallelVectorized256Stat<<spTempStat+tpStat<<std::endl;
-
-    stats = new
-        swiftware::benchmark::Stats("SpMM_SpMM_FusedParallelKTiledAvx256_VariableTile","SpMM",
-                                    numTrial,tp._matrix_name,numThread);
-    stats->OtherStats["PackingType"] = {Separated};
-    stats->OtherStats["TilingMethod"] = {Variable};
-    auto *fusedParallelVectorizedKTiled256 = new
-        SpMMSpMMFusedInterLayerKTiled8VectorizedAvx256(inSpMM, stats, spTemp);
-    fusedParallelVectorizedKTiled256->run();
-    //fusedParallel->OutTensor->printDx();
-    auto fusedParallelVectorizedKTiled256Stat =
-        fusedParallelVectorizedKTiled256->printStats();
-    delete fusedParallelVectorizedKTiled256;
-    delete stats;
-    std::cout<<fusedParallelVectorizedKTiled256Stat<<spTempStat+tpStat<<std::endl;
-
-#endif
-}
+//  std::vector<std::string> variableTileSizeLogs;
+//  std::vector<std::string> variableTileSizeAvx2Logs;
+//  std::vector<int> wsParameters = {10000,15000,20000,32000,50000,100000,500000,1000000};
+//for (auto param: wsParameters){
+//    ScheduleParameters spTemp(sp);
+//    spTemp.IterPerPartition = param;
+//    spTemp.TileM = param;
+//    auto csvTempInfo = spTemp.print_csv(true);
+//    std::string spTempStat = std::get<1>(csvTempInfo);
+//    stats = new swiftware::benchmark::Stats("SpMM_SpMM_FusedParallel_VariableTileSize","SpMM",
+//                                            numTrial,tp._matrix_name,numThread);
+//    stats->OtherStats["PackingType"] ={Separated};
+//    stats->OtherStats["TilingMethod"] = {Variable};
+//    auto *fusedParallelVT = new SpMMSpMMFusedVariableTileSize(inSpMM,stats, spTemp);
+//    fusedParallelVT->run();
+//    //fusedParallel->OutTensor->printDx();
+//    auto fusedParallelVTStat = fusedParallelVT->printStats();
+//    std::cout << fusedParallelVTStat << spTempStat + tpStat<< std::endl;
+//    delete fusedParallelVT;
+//    delete stats;
+//#ifdef __AVX2__
+//    stats = new
+//        swiftware::benchmark::Stats("SpMM_SpMM_FusedParallelAvx256_VariableTile","SpMM",
+//                                    numTrial,tp._matrix_name,numThread);
+//    stats->OtherStats["PackingType"] = {Separated};
+//    stats->OtherStats["TilingMethod"] = {Variable};
+//    auto *fusedParallelVectorized256 = new
+//        SpMMSpMMFusedInterLayerVectorizedAvx256(inSpMM, stats, spTemp);
+//    fusedParallelVectorized256->run();
+//    //fusedParallel->OutTensor->printDx();
+//    auto fusedParallelVectorized256Stat = fusedParallelVectorized256->printStats();
+//    delete fusedParallelVectorized256;
+//    delete stats;
+//    std::cout<<fusedParallelVectorized256Stat<<spTempStat+tpStat<<std::endl;
+//
+//    stats = new
+//        swiftware::benchmark::Stats("SpMM_SpMM_FusedParallelKTiledAvx256_VariableTile","SpMM",
+//                                    numTrial,tp._matrix_name,numThread);
+//    stats->OtherStats["PackingType"] = {Separated};
+//    stats->OtherStats["TilingMethod"] = {Variable};
+//    auto *fusedParallelVectorizedKTiled256 = new
+//        SpMMSpMMFusedInterLayerKTiled8VectorizedAvx256(inSpMM, stats, spTemp);
+//    fusedParallelVectorizedKTiled256->run();
+//    //fusedParallel->OutTensor->printDx();
+//    auto fusedParallelVectorizedKTiled256Stat =
+//        fusedParallelVectorizedKTiled256->printStats();
+//    delete fusedParallelVectorizedKTiled256;
+//    delete stats;
+//    std::cout<<fusedParallelVectorizedKTiled256Stat<<spTempStat+tpStat<<std::endl;
+//
+//#endif
+//}
 
   delete inSpMM;
   //  delete dsaturColoring;
