@@ -796,7 +796,6 @@ void spmm8CsrVectorizedUnrollJ4(int M, int N, const int *Ap, const int *Ai,
     }
     pw_stop_instruments_loop(omp_get_thread_num());
   }
-  pw_init_instruments;
 }
 
 void spmmCsr2_16VectorizedSample(int M, int N, const int *Ap, const int *Ai,
@@ -870,7 +869,6 @@ void spmmCsr2_16VectorizedSample(int M, int N, const int *Ap, const int *Ai,
 //    }
     pw_stop_instruments_loop(omp_get_thread_num());
   }
-  pw_init_instruments;
 }
 
 void spmm16CsrVectorized(int M, int N, const int *Ap, const int *Ai,
@@ -910,7 +908,6 @@ void spmm16CsrVectorized(int M, int N, const int *Ap, const int *Ai,
     }
     pw_stop_instruments_loop(omp_get_thread_num());
   }
-  pw_init_instruments;
 }
 
 void spmmCsrSpmmCscFusedColoredAvx256(int M, int N, int K, int L, const int *Ap,

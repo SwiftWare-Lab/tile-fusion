@@ -68,15 +68,15 @@ int main(const int argc, const char *argv[]) {
   stats->OtherStats["PackingType"] = {Separated};
   stats->OtherStats["TilingMethod"] = {Single};
   auto *unfusedParallel = new SpMMSpMMUnFusedParallel(inSpMM, stats);
-  unfusedParallel->run();
-  //  unfusedParallel->OutTensor->printDx();
+//  unfusedParallel->run();
+//  //  unfusedParallel->OutTensor->printDx();
 //  std::copy(unfusedParallel->OutTensor->Xx,
 //            unfusedParallel->OutTensor->Xx +
 //                unfusedParallel->OutTensor->M * unfusedParallel->OutTensor->N,
 //            inSpMM->CorrectSol);
 //  inSpMM->IsSolProvided = true;
   auto headerStat = unfusedParallel->printStatsHeader();
-  auto unfusedParallelStat = unfusedParallel->printStats();
+//  auto unfusedParallelStat = unfusedParallel->printStats();
   delete unfusedParallel;
   delete stats;
 
@@ -92,7 +92,7 @@ int main(const int argc, const char *argv[]) {
 
   if (tp.print_header)
     std::cout << headerStat + spHeader + tpHeader << std::endl;
-  std::cout<<unfusedParallelStat << spStat + tpStat <<std::endl;
+//  std::cout<<unfusedParallelStat << spStat + tpStat <<std::endl;
   //5 samples
   for (int i = 1; i < 6; i++){
 
@@ -115,7 +115,7 @@ int main(const int argc, const char *argv[]) {
       //fusedParallel->OutTensor->printDx();
       auto fusedParallelStats = fusedParallel->printStats();
       std::cout << fusedParallelStats << spTempStat + tpStat<< std::endl;
-
+      auto* fixedTileSchedule= fusedParallel->getSchedule();
       delete fusedParallel;
       delete stats;
 #ifdef __AVX2__
@@ -126,6 +126,7 @@ int main(const int argc, const char *argv[]) {
       stats->OtherStats["TilingMethod"] = {Fixed};
       auto *fusedParallelVectorized256 = new
           SpMMSpMMFusedInterLayerVectorizedAvx256(inSpMM, stats, spTemp, i);
+      fusedParallelVectorized256->setSchedule(fixedTileSchedule);
       fusedParallelVectorized256->run();
       //fusedParallel->OutTensor->printDx();
       auto fusedParallelVectorized256Stats = fusedParallelVectorized256->printStats();
@@ -166,6 +167,7 @@ int main(const int argc, const char *argv[]) {
       fusedParallelVT->run();
       //fusedParallel->OutTensor->printDx();
       auto fusedParallelVTStat = fusedParallelVT->printStats();
+      auto *varTileSchedule = fusedParallelVT->getSchedule();
       std::cout << fusedParallelVTStat << spTempStat + tpStat<< std::endl;
       delete fusedParallelVT;
       delete stats;
@@ -177,6 +179,7 @@ int main(const int argc, const char *argv[]) {
       stats->OtherStats["TilingMethod"] = {Variable};
       auto *fusedParallelVectorized256 = new
           SpMMSpMMFusedInterLayerVectorizedAvx256(inSpMM, stats, spTemp, i);
+      fusedParallelVectorized256->setSchedule(varTileSchedule);
       fusedParallelVectorized256->run();
       //fusedParallel->OutTensor->printDx();
       auto fusedParallelVectorized256Stat = fusedParallelVectorized256->printStats();
@@ -191,6 +194,7 @@ int main(const int argc, const char *argv[]) {
       stats->OtherStats["TilingMethod"] = {Variable};
       auto *fusedParallelVectorizedKTiled256 = new
           SpMMSpMMFusedInterLayerKTiled8VectorizedAvx256(inSpMM, stats, spTemp, i);
+      fusedParallelVectorizedKTiled256->setSchedule(varTileSchedule);
       fusedParallelVectorizedKTiled256->run();
       //fusedParallel->OutTensor->printDx();
       auto fusedParallelVectorizedKTiled256Stat =
@@ -198,7 +202,7 @@ int main(const int argc, const char *argv[]) {
       delete fusedParallelVectorizedKTiled256;
       delete stats;
       std::cout<<fusedParallelVectorizedKTiled256Stat<<spTempStat+tpStat<<std::endl;
-
+      delete varTileSchedule;
 #endif
     }
   }

@@ -426,9 +426,11 @@ protected:
 public:
   SpMMSpMMFusedInterLayer(TensorInputs<double> *In1, Stats *Stat1,
                           sym_lib::ScheduleParameters SpIn)
-      : SpMMSpMMUnFused(In1, Stat1), Sp(SpIn) {}
+      : SpMMSpMMUnFused(In1, Stat1), Sp(SpIn) {
+    FusedCompSet = NULLPNTR;
+  }
 
-  ~SpMMSpMMFusedInterLayer() { delete FusedCompSet; }
+//  ~SpMMSpMMFusedInterLayer() { delete FusedCompSet; }
 };
 
 class SpMMSpMMFusedVariableTileSize: public SpMMSpMMFusedInterLayer{
@@ -437,142 +439,144 @@ protected:
   Timer analysis() override{
     Timer t1;
     t1.start();
-    auto tm = St->OtherStats["TilingMethod"];
-    if(tm[0] == sym_lib::Fixed){
-      SpMMSpMMFusedInterLayer::analysis();
-    }
-    else {
-      int CACHESIZE = Sp.IterPerPartition;
-      int *ap = InTensor->ACsr->p;
-      int *ai = InTensor->ACsr->i;
-      std::vector<int> tilesStart;
-      std::set<int> uniqueColumns;
-      std::vector<std::vector<int>> fusedIters;
-      std::vector<int> unfusedIters;
-      bool tileEnd = true;
-      int i = 0;
-      int tileNnzCount = 0;
-      while (i < InTensor->M) {
-        if (tileEnd) {
-          tilesStart.push_back(i);
-          uniqueColumns.clear();
-          for (int j = ap[i]; j < ap[i + 1]; j++) {
-            uniqueColumns.insert(ai[j]);
-          }
-          tileNnzCount = ap[i + 1] - ap[i];
-          i++;
-          tileEnd = false;
-        } else {
-          for (int j = ap[i]; j < ap[i + 1]; j++) {
-            uniqueColumns.insert(ai[j]);
-          }
-          tileNnzCount += ap[i + 1] - ap[i];
-          int tileSize = i - *tilesStart.rbegin();
-          int bCols = InTensor->N;
-          if (calculateWorkingSetSize(tileNnzCount, uniqueColumns.size(), bCols,
-                                      tileSize) < CACHESIZE) {
+    if (FusedCompSet == NULLPNTR) {
+      auto tm = St->OtherStats["TilingMethod"];
+      if (tm[0] == sym_lib::Fixed) {
+        SpMMSpMMFusedInterLayer::analysis();
+      } else {
+        int CACHESIZE = Sp.IterPerPartition;
+        int *ap = InTensor->ACsr->p;
+        int *ai = InTensor->ACsr->i;
+        std::vector<int> tilesStart;
+        std::set<int> uniqueColumns;
+        std::vector<std::vector<int>> fusedIters;
+        std::vector<int> unfusedIters;
+        bool tileEnd = true;
+        int i = 0;
+        int tileNnzCount = 0;
+        while (i < InTensor->M) {
+          if (tileEnd) {
+            tilesStart.push_back(i);
+            uniqueColumns.clear();
+            for (int j = ap[i]; j < ap[i + 1]; j++) {
+              uniqueColumns.insert(ai[j]);
+            }
+            tileNnzCount = ap[i + 1] - ap[i];
             i++;
+            tileEnd = false;
           } else {
-            tileEnd = true;
+            for (int j = ap[i]; j < ap[i + 1]; j++) {
+              uniqueColumns.insert(ai[j]);
+            }
+            tileNnzCount += ap[i + 1] - ap[i];
+            int tileSize = i - *tilesStart.rbegin();
+            int bCols = InTensor->N;
+            if (calculateWorkingSetSize(tileNnzCount, uniqueColumns.size(),
+                                        bCols, tileSize) < CACHESIZE) {
+              i++;
+            } else {
+              tileEnd = true;
+            }
           }
         }
-      }
-      extractTilesSizeData(tilesStart);
-      int numTiles = tilesStart.size();
-      fusedIters.resize(numTiles, std::vector<int>());
-      tilesStart.push_back(InTensor->M);
-      //    for (auto ts: tilesStart){
-      //      std::cout << ts << std::endl;
-      //    }
-      for (i = 0; i < InTensor->M; i++) {
-        bool isFused = false;
-        for (int p = 0; p < numTiles; p++) {
-          int tStart = tilesStart[p];
-          int tEnd = tilesStart[p + 1];
-          if (ai[ap[i]] >= tStart && ai[ap[i + 1] - 1] < tEnd) {
-            fusedIters[p].push_back(i);
-            isFused = true;
-            break;
+        extractTilesSizeData(tilesStart);
+        int numTiles = tilesStart.size();
+        fusedIters.resize(numTiles, std::vector<int>());
+        tilesStart.push_back(InTensor->M);
+        //    for (auto ts: tilesStart){
+        //      std::cout << ts << std::endl;
+        //    }
+        for (i = 0; i < InTensor->M; i++) {
+          bool isFused = false;
+          for (int p = 0; p < numTiles; p++) {
+            int tStart = tilesStart[p];
+            int tEnd = tilesStart[p + 1];
+            if (ai[ap[i]] >= tStart && ai[ap[i + 1] - 1] < tEnd) {
+              fusedIters[p].push_back(i);
+              isFused = true;
+              break;
+            }
           }
+          if (!isFused)
+            unfusedIters.push_back(i);
         }
-        if (!isFused)
-          unfusedIters.push_back(i);
+        FusedCompSet = new sym_lib::MultiDimensionalSet();
+        FusedCompSet->n1_ = 2;
+        FusedCompSet->ptr1_ = new int[3];
+        FusedCompSet->ptr1_[0] = 0;
+        FusedCompSet->ptr1_[1] = numTiles;
+        FusedCompSet->ptr1_[2] = numTiles + Sp._num_threads;
+        FusedCompSet->ptr2_ = new int[numTiles + Sp._num_threads + 1];
+        FusedCompSet->id_ = new int[2 * InTensor->M];
+        FusedCompSet->type_ = new int[2 * InTensor->M];
+        FusedCompSet->ptr2_[0] = 0;
+        int cnt = 0;
+        for (i = 0; i < numTiles; i++) {
+          for (int j = tilesStart[i]; j < tilesStart[i + 1]; j++) {
+            FusedCompSet->id_[cnt] = j;
+            FusedCompSet->type_[cnt] = 0;
+            cnt++;
+          }
+          for (int fi : fusedIters[i]) {
+            FusedCompSet->id_[cnt] = fi;
+            FusedCompSet->type_[cnt] = 1;
+            cnt++;
+          }
+          FusedCompSet->ptr2_[i + 1] = cnt;
+        }
+        int unfusedPerPart = ceil(unfusedIters.size() / float(Sp._num_threads));
+        for (i = numTiles; i < numTiles + Sp._num_threads; i++) {
+          int p = i - numTiles;
+          int partEnd =
+              std::min((p + 1) * unfusedPerPart, int(unfusedIters.size()));
+          for (int j = p * unfusedPerPart; j < partEnd; j++) {
+            FusedCompSet->id_[cnt] = unfusedIters[j];
+            FusedCompSet->type_[cnt] = 1;
+            cnt++;
+          }
+          FusedCompSet->ptr2_[i + 1] = cnt;
+        }
+        //      int fusedNodesNum = FusedCompSet->getNumberOfFusedNodes();
+        //      int fusedNnzNum = FusedCompSet->getFusedNnzNum(InTensor->ACsr);
+        //      this->St->OtherStats["Number of Fused Nodes"] = {(double)fusedNodesNum}; this->St->OtherStats["Number of Fused nnz"] = {(double)fusedNnzNum};
+        //    FusedCompSet->print_3d()
       }
-      FusedCompSet = new sym_lib::MultiDimensionalSet();
-      FusedCompSet->n1_ = 2;
-      FusedCompSet->ptr1_ = new int[3];
-      FusedCompSet->ptr1_[0] = 0;
-      FusedCompSet->ptr1_[1] = numTiles;
-      FusedCompSet->ptr1_[2] = numTiles + Sp._num_threads;
-      FusedCompSet->ptr2_ = new int[numTiles + Sp._num_threads + 1];
-      FusedCompSet->id_ = new int[2 * InTensor->M];
-      FusedCompSet->type_ = new int[2 * InTensor->M];
-      FusedCompSet->ptr2_[0] = 0;
-      int cnt = 0;
-      for (i = 0; i < numTiles; i++) {
-        for (int j = tilesStart[i]; j < tilesStart[i + 1]; j++) {
-          FusedCompSet->id_[cnt] = j;
-          FusedCompSet->type_[cnt] = 0;
-          cnt++;
+      /// save one tile only
+      int *newPtr1 = new int[2];
+      int *newPtr2 = new int[2];
+      newPtr1[0] = 0;
+      newPtr1[1] = 1;
+      newPtr2[0] = 0;
+      int tileSize =
+          FusedCompSet->ptr2_[SampleNum + 1] - FusedCompSet->ptr2_[SampleNum];
+      newPtr2[1] = tileSize;
+      int *newId = new int[tileSize];
+      int *newType = new int[tileSize];
+      int loop1TileSize = 0;
+      for (int i = 0; i < tileSize; i++) {
+        newId[i] = FusedCompSet->id_[FusedCompSet->ptr2_[SampleNum] + i];
+        newType[i] = FusedCompSet->type_[FusedCompSet->ptr2_[SampleNum] + i];
+        if (newType[i] == 0) {
+          loop1TileSize += 1;
         }
-        for (int fi : fusedIters[i]) {
-          FusedCompSet->id_[cnt] = fi;
-          FusedCompSet->type_[cnt] = 1;
-          cnt++;
-        }
-        FusedCompSet->ptr2_[i + 1] = cnt;
       }
-      int unfusedPerPart = ceil(unfusedIters.size() / float(Sp._num_threads));
-      for (i = numTiles; i < numTiles + Sp._num_threads; i++) {
-        int p = i - numTiles;
-        int partEnd =
-            std::min((p + 1) * unfusedPerPart, int(unfusedIters.size()));
-        for (int j = p * unfusedPerPart; j < partEnd; j++) {
-          FusedCompSet->id_[cnt] = unfusedIters[j];
-          FusedCompSet->type_[cnt] = 1;
-          cnt++;
-        }
-        FusedCompSet->ptr2_[i + 1] = cnt;
-      }
-//      int fusedNodesNum = FusedCompSet->getNumberOfFusedNodes();
-//      int fusedNnzNum = FusedCompSet->getFusedNnzNum(InTensor->ACsr);
-//      this->St->OtherStats["Number of Fused Nodes"] = {(double)fusedNodesNum};
-//      this->St->OtherStats["Number of Fused nnz"] = {(double)fusedNnzNum};
-      //    FusedCompSet->print_3d()
+      FusedCompSet->n1_ = 1;
+      delete[] FusedCompSet->ptr1_;
+      delete[] FusedCompSet->ptr2_;
+      delete[] FusedCompSet->id_;
+      delete[] FusedCompSet->type_;
+      FusedCompSet->ptr1_ = newPtr1;
+      FusedCompSet->ptr2_ = newPtr2;
+      FusedCompSet->id_ = newId;
+      FusedCompSet->type_ = newType;
+      int fusedNodesNum = FusedCompSet->getNumberOfFusedNodes();
+      int fusedNnzNum = FusedCompSet->getFusedNnzNum(InTensor->ACsr);
+      this->St->OtherStats["Loop 1 Itarations"] = {double(loop1TileSize)};
+      this->St->OtherStats["Number of Fused Nodes"] = {(double)fusedNodesNum};
+      this->St->OtherStats["Number of Fused nnz"] = {(double)fusedNnzNum};
     }
-    /// save one tile only
-    int *newPtr1 = new int[2];
-    int *newPtr2 = new int[2];
-    newPtr1[0] = 0;
-    newPtr1[1] = 1;
-    newPtr2[0] = 0;
-    int tileSize = FusedCompSet->ptr2_[SampleNum+1] - FusedCompSet->ptr2_[SampleNum];
-    newPtr2[1] = tileSize;
-    int *newId = new int[tileSize];
-    int *newType = new int[tileSize];
-    int loop1TileSize = 0;
-    for (int i = 0; i < tileSize; i++){
-      newId[i] = FusedCompSet->id_[FusedCompSet->ptr2_[SampleNum]+i];
-      newType[i] =FusedCompSet->type_[FusedCompSet->ptr2_[SampleNum]+i];
-      if (newType[i] == 0){
-        loop1TileSize += 1;
-      }
-    }
-    FusedCompSet->n1_ = 1;
-    delete[] FusedCompSet->ptr1_;
-    delete[] FusedCompSet->ptr2_;
-    delete[] FusedCompSet->id_;
-    delete[] FusedCompSet->type_;
-    FusedCompSet->ptr1_ = newPtr1;
-    FusedCompSet->ptr2_ = newPtr2;
-    FusedCompSet->id_ = newId;
-    FusedCompSet->type_ = newType;
-    int fusedNodesNum = FusedCompSet->getNumberOfFusedNodes();
-    int fusedNnzNum = FusedCompSet->getFusedNnzNum(InTensor->ACsr);
-    this->St->OtherStats["Loop 1 Itarations"] = {double(loop1TileSize)};
-    this->St->OtherStats["Number of Fused Nodes"] = {(double)fusedNodesNum};
-    this->St->OtherStats["Number of Fused nnz"] = {(double)fusedNnzNum};
     t1.stop();
+
     return t1;
   }
 
@@ -616,6 +620,12 @@ protected:
     return (Nnz + UniqueColsNum*Bcols + TileSize*Bcols) * 8;
   }
 public:
+  sym_lib::MultiDimensionalSet* getSchedule(){
+    return FusedCompSet;
+  }
+  void setSchedule(sym_lib::MultiDimensionalSet* S){
+    FusedCompSet = S;
+  }
   SpMMSpMMFusedVariableTileSize(TensorInputs<double> *In1, Stats *Stat1,
                                 sym_lib::ScheduleParameters SpIn, int SampleNum1)
       : SpMMSpMMFusedInterLayer(In1, Stat1, SpIn), SampleNum(SampleNum1){}
