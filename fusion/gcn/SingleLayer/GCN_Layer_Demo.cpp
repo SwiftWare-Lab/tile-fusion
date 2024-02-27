@@ -134,19 +134,19 @@ int main(const int argc, const char *argv[]) {
   delete stats;
   delete gcnSingleLayerUnfusedCsc;
 
-  stats = new swiftware::benchmark::Stats(
-      "GCN_SingleLayerTiledFusedCSCParallelAtomic", "GCN", 7, tp._matrix_name,
-      numThread);
-  stats->OtherStats["PackingType"] = {Separated};
-  GCNSingleLayerTiledFusedCSCParallelAtomic
-      *gcnSingleLayerTiledFusedCSCParallelAtomic =
-          new GCNSingleLayerTiledFusedCSCParallelAtomic(inputs, stats,
-                                                        tileSize);
-  gcnSingleLayerTiledFusedCSCParallelAtomic->run();
-  auto gcnSingleLayerTiledFusedCSCParallelAtomicStats =
-      gcnSingleLayerTiledFusedCSCParallelAtomic->printStats();
-  delete stats;
-  delete gcnSingleLayerTiledFusedCSCParallelAtomic;
+//  stats = new swiftware::benchmark::Stats(
+//      "GCN_SingleLayerTiledFusedCSCParallelAtomic", "GCN", 7, tp._matrix_name,
+//      numThread);
+//  stats->OtherStats["PackingType"] = {Separated};
+//  GCNSingleLayerTiledFusedCSCParallelAtomic
+//      *gcnSingleLayerTiledFusedCSCParallelAtomic =
+//          new GCNSingleLayerTiledFusedCSCParallelAtomic(inputs, stats,
+//                                                        tileSize);
+//  gcnSingleLayerTiledFusedCSCParallelAtomic->run();
+//  auto gcnSingleLayerTiledFusedCSCParallelAtomicStats =
+//      gcnSingleLayerTiledFusedCSCParallelAtomic->printStats();
+//  delete stats;
+//  delete gcnSingleLayerTiledFusedCSCParallelAtomic;
   /*
    * Method that iterates over columns of Adjacency matrix and by doing the
    * corresponding GeMV to each nonzero, calculates the partial products of that
@@ -171,11 +171,11 @@ int main(const int argc, const char *argv[]) {
   DsaturColoringForConflictGraphWithKTiling *dsaturColoringWithKTiling =
       new DsaturColoringForConflictGraphWithKTiling();
   std::map<int, std::vector<int>> colorToTiles =
-      dsaturColoring->generateGraphColoringForConflictGraphOf(
-          aCSCFull->m, aCSCFull->p, aCSCFull->i, tileSize);
+      dsaturColoring->generateGraphColoringForConflictGraphOf(aCSCFull,
+                                                              tileSize, false);
   std::map<int, std::vector<int>> colorToTilesForKTiling =
       dsaturColoringWithKTiling->generateGraphColoringForConflictGraphOf(
-          aCSCFull, tileSize, inputs->Weight1->row, kTileSize);
+          aCSCFull, tileSize, inputs->Weight1->row, kTileSize, false);
 
   /*
    * Method that iterates over tiles of columns of Adjacency matrix in
@@ -381,7 +381,7 @@ int main(const int argc, const char *argv[]) {
 
   std::cout << gcnOneLayerMKLStat << spStat + tpStat << std::endl;
   std::cout << gcnSingleLayerUnfusedCscStat << spStat + tpStat << std::endl;
-  std::cout << gcnSingleLayerTiledFusedCSCParallelAtomicStats << spStat + tpStat << std::endl;
+//  std::cout << gcnSingleLayerTiledFusedCSCParallelAtomicStats << spStat + tpStat << std::endl;
   //  std::cout << gcnTiledFusedSingleLayerStat << spStat + tpStat << std::endl;
   //  std::cout << gcnSingleLayerTiledFusedParallelStat << spStat + tpStat
   //            << std::endl;

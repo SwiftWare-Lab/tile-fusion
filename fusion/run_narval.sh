@@ -1,24 +1,25 @@
 #!/bin/bash
 
 
-#SBATCH --cpus-per-task=40
+#SBATCH --cpus-per-task=64
 #SBATCH --export=ALL
 #SBATCH --job-name="fusion"
 #SBATCH --mail-type=begin  # email me when the job starts
 #SBATCH --mail-type=end    # email me when the job finishes
-#SBATCH --mail-user=msalehid20@gmail.com
+#SBATCH --mail-user=msalehi20@gmail.com
 #SBATCH --nodes=1
 #SBATCH --output="fusion.%j.%N.out"
-#SBATCH -t 11:59:00
-#SBATCH --constraint=cascade
+#SBATCH --constraint=rome
+#SBATCH --mem=254000M
+#SBATCH -t 47:59:00
+
+
 
 UFDB=$SCRATCH/data/graphs/
 #UFDB=$HOME/UFDB/tri-banded/
 EXP=spmv_spmv
 BCOL=32
-ID=0
-USE_PAPI=0
-while getopts ":lm:c:i:e:" arg; do
+while getopts ":lm:c:e:" arg; do
   case "${arg}" in
     l)
       TEST=1
@@ -32,9 +33,6 @@ while getopts ":lm:c:i:e:" arg; do
     e)
       EXP=$OPTARG
       ;;
-    i)
-      ID=$OPTARG
-      ;;
     *) echo "Usage:
     -l TEST=FALSE                                     Set if you want to run the script for one b_col
     -m UFDB=$SCRATCH/UFDB/AM/                        path of matrices data"
@@ -43,14 +41,24 @@ while getopts ":lm:c:i:e:" arg; do
 done
 
 
-module load NiaEnv/.2022a
-module load intel/2022u2
+#module load NiaEnv/.2022a
+#module load StdEnv/2023
+module load StdEnv/2020
+#module load intel/2023.2.1
+module load intel/2022.1.0
+echo "========> ${MKLROOT}"
+echo " -------> ${MKL_DIR}"
 export MKL_DIR=$MKLROOT
-module load cmake
-#module load gcc
 
-if [ $TEST -eq 1 ]; then
-    bash run.sh -m $UFDB -c 8 -i $ID -e $EXP -t 8
+module load cmake
+#module load gcc #we need to add -march=core-avx2 to CXXFLAGS
+
+if [[ $TEST -eq 1 ]]; then
+  bash run.sh -m $UFDB -c 8 -e $EXP
 else
-  bash run.sh -t 20 -m $UFDB -c $BCOL -i $ID  -e $EXP
+  bash run.sh -t 32 -m $UFDB -c $BCOL -e $EXP
 fi
+
+
+
+

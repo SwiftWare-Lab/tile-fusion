@@ -1,11 +1,10 @@
 //
-// Created by kazem on 08/07/23.
+// Created by kazem on 19/02/24.
 //
 
 
-
-#include "aggregation/def.h"
 #include "SpMM_SpMM_Demo_Utils.h"
+#include "aggregation/def.h"
 #include "aggregation/sparse_io.h"
 #include "aggregation/sparse_utilities.h"
 #include "sparse-fusion/Fusion_Utils.h"
@@ -13,8 +12,9 @@
 #include <fstream>
 
 using namespace sym_lib;
+
 // A is MxK, C is KxN, B is LxM, and D is LxN; AC is MxN
-int main(const int argc, const char *argv[]){
+int main(const int argc, const char *argv[]) {
   TestParameters tp;
   tp._order_method = SYM_ORDERING::NONE;
   ScheduleParameters sp;
@@ -35,6 +35,7 @@ int main(const int argc, const char *argv[]){
   tp._dim2 = aCSCFull->n;
   tp._nnz = aCSCFull->nnz;
   tp._density = (double)tp._nnz / (double)(tp._dim1 * tp._dim2);
+  CSC *bCSC = sym_lib::copy_sparse(aCSCFull);
   //  delete aCSC;
   //  auto *alCSC = make_half(aCSC->n, aCSC->p, aCSC->i, aCSC->x);
   //  std::vector<CSC*> orderedVec;
@@ -46,33 +47,35 @@ int main(const int argc, const char *argv[]){
   //  }
 
   // print_csc(1,"",aCSC);
-  int numThread = sp._num_threads, numTrial = 1;
+  int numThread = sp._num_threads, numTrial = 7;
   std::string expName = "SpMM_SpMM_Demo";
   auto *inSpMM =
-      new TensorInputs<double>(aCSCFull->m, tp._b_cols, aCSCFull->n, aCSCFull->m,
-                               aCSCFull, aCSCFull, numThread, numTrial, expName);
+      new TensorInputs<double>(aCSCFull->m, tp._b_cols, aCSCFull->n, bCSC->m,
+                               aCSCFull, bCSC, numThread, numTrial, expName);
   //  DsaturColoringForConflictGraph *dsaturColoring =
   //      new DsaturColoringForConflictGraph();
   //  std::map<int, std::vector<int>> colorToTiles =
   //      dsaturColoring->generateGraphColoringForConflictGraphOf(
   //          aCSCFull, sp.IterPerPartition, true);
   delete aCSCFull;
+  delete bCSC;
   delete aCSC;
-  //print_csc(1,"",aCSC);
 
-  stats = new swiftware::benchmark::Stats("SpMM_SpMM_Demo", "SpMM", numTrial, tp._matrix_name, numThread);
-  stats->OtherStats["PackingType"] = {Interleaved};
-  auto *fusionProfiler = new SpMMSpMMFusionProfiler(inSpMM, stats, sp);
-  fusionProfiler->run();
-  //unfused->OutTensor->printDx();
-  std::copy(fusionProfiler->OutTensor->Xx,
-                fusionProfiler->OutTensor->Xx +
-                    fusionProfiler->OutTensor->M * fusionProfiler->OutTensor->N, inSpMM->CorrectSol);
-  inSpMM->IsSolProvided = true;
-  auto headerStat = fusionProfiler->printStatsHeader();
-  auto baselineStat = fusionProfiler->printStats();
-  delete fusionProfiler;
+
+  stats = new swiftware::benchmark::Stats("SpMM_SpMM_FusedParallel","SpMM",
+                                          7,tp._matrix_name,numThread);
+  stats->OtherStats["PackingType"] ={Interleaved};
+  auto *fusedParallel = new SpMMSpMMFusedInterLayer(inSpMM,
+                                                    stats, sp); fusedParallel->run();
+  //fusedParallel->OutTensor->printDx();
+  auto fusedParallelStat = fusedParallel->printStats();
+  auto headerStat = fusedParallel->printStatsHeader();
+  delete fusedParallel;
   delete stats;
+
+  std::string profHeader = "";
+  std::string profStat = "";
+
 
   auto csvInfo = sp.print_csv(true);
   std::string spHeader = std::get<0>(csvInfo);
@@ -82,11 +85,15 @@ int main(const int argc, const char *argv[]){
   std::string tpHeader = std::get<0>(tpCsv);
   std::string tpStat = std::get<1>(tpCsv);
 
-  if(tp.print_header){
-    std::cout << headerStat << spHeader+tpHeader << std::endl;
-  }
-  std::cout << baselineStat << spStat+tpStat << std::endl;
+  if (tp.print_header)
+    std::cout << headerStat + spHeader + tpHeader + profHeader << std::endl;
+  //  std::cout<<baselineStat<<spStat+tpStat+profStat<<std::endl;
+  std::cout << fusedParallelStat << spStat + tpStat + profStat << std::endl;
+
+
   delete inSpMM;
+  //  delete dsaturColoring;
+  //  delete dsaturColoringWithKTiling;
 
   return 0;
 }

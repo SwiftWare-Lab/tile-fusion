@@ -63,7 +63,7 @@ MKL_NUM_THREADS=$NUM_THREAD; export MKL_NUM_THREADS
 export MKL_DYNAMIC=FALSE;
 export OMP_DYNAMIC=FALSE;
 
-#if ! [ -d $DATA ]; then # if data folder does not exist(not applicable for experiments with banded matrices)
+#if ! [ -d $DATA ]; then # if data folder does not exist(not applicable for experiments with tri-banded matrices)
 #  mkdir $DATA
 # python ./scripts/pyg_data_exporter.py ./pyg
 # echo "TEST"

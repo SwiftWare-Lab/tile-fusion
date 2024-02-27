@@ -69,6 +69,10 @@ argparse::ArgumentParser* addArguments() {
       .help("Specify number of tiles for N.")
       .scan<'i', int>();
 
+  program->add_argument("-tm", "--tile-m")
+      .help("Specify number of tiles for M.")
+      .scan<'i', int>();
+
   program->add_argument("-sr", "--sampling-ratio")
       .default_value(float(0.2))
       .help("Specify ratio of sampling")
@@ -167,6 +171,8 @@ void parse_args(const int Argc, const char **Argv, ScheduleParameters *Sp,
     Sp->IterPerPartition = iterPerPart.value();
   if (auto tileN = program->present<int>("-tn"))
     Sp->TileN = tileN.value();
+  if (auto tileM = program->present<int>("-tm"))
+    Sp->TileM = tileM.value();
 
   delete program;
 

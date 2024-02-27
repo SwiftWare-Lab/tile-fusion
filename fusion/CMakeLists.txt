@@ -1,13 +1,22 @@
 cmake_minimum_required( VERSION 3.20)
 
 
-
-
 project(sparse_fusion CXX C )
+
+if(PROFILING_WITH_PAPI)
+    message(STATUS "Profiling with PAPI")
+    add_definitions(-DPROF_WITH_PAPI)
+endif()
 
 add_subdirectory(aggregation)
 
 add_subdirectory(benchmark)
+
+if(PROFILING_WITH_PAPI)
+    include_directories(
+	${PAPI_INCLUDE_DIRS}
+	)
+endif()
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native")
@@ -62,4 +71,6 @@ target_link_libraries(fusion PRIVATE
 
 add_subdirectory(example)
 add_subdirectory(gcn)
+add_subdirectory(jacobi)
+add_subdirectory(spmv-spmv)
 add_subdirectory(torch)

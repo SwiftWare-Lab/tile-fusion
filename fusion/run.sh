@@ -1,17 +1,16 @@
 #!/bin/bash
 
-BASELINE="SpMM_SpMM_Demo_UnFusedParallel"
 UFDB="./data/ss-graphs/"
 BCOL=4
-
-THRD=40
+EXP="spmm_spmm"
+THRD=20
 DOWNLOAD=0
-while getopts ":b:t:dc:m:" arg; do
+ID=0
+BINPATH="./build/example"
+USE_PAPI=0
+while getopts ":t:dc:m:i:e:" arg; do
 
   case "${arg}" in
-    b)
-      BASELINE=$OPTARG
-      ;;
     c)
       BCOL=$OPTARG
       ;;
@@ -24,9 +23,13 @@ while getopts ":b:t:dc:m:" arg; do
     d)
       DOWNLOAD=1
       ;;
+    i)
+      ID=$OPTARG
+      ;;
+    e)
+      EXP=$OPTARG
+      ;;
     *) echo "Usage:
-    -b BASELINE=SpMM_SpMM_Demo_UnFusedParallel        Choose a baseline to compare with Fused SpMM SpMM(Current base lines: SpMM_SpMM_Demo_UnFusedParallel,SpMM_SpMM_MKL)
-
     -c BCOL=4                                         num of the columns of the dense matrix
     -t THRD=40                                        num of threads
     -m UFDB=./data                                    path of matrices data
@@ -35,23 +38,40 @@ while getopts ":b:t:dc:m:" arg; do
       exit 0
   esac
 done
-BINFILE="spmm_spmm_fusion"
-if [ $BASELINE = "SpMM_SpMM_MKL" ]; then
-  BINFILE="fused_vs_mkl"
+MODE=3
+if [ $EXP == "spmm_spmm" ]; then
+  BINFILE="spmm_spmm_fusion"
+  BINPATH="./build/example/"
+elif [ $EXP == "spmv_spmv" ]; then
+  BINPATH="./build/spmv-spmv/"
+  BINFILE="spmv_spmv_demo"
+elif [ $EXP == "jacobi" ]; then
+  BINPATH="./build/jacobi/"
+  BINFILE="jacobi_demo"
+  MODE=4
+elif [ $EXP == "inspector" ]; then
+  BINPATH="./build/example/"
+  BINFILE="fusion_profiler"
+elif [ $EXP == "profiling" ]; then
+  BINPATH="./build/example/"
+  BINFILE="spmm_spmm_papi_profiler"
+  USE_PAPI=1
 else
-  BINFILE="gcn_demo"
+  echo "Wrong experiment name"
+  exit 0
 fi
 
-
-
-export MKL_DIR=$MKLROOT
 
 which cmake
 which gcc
 which g++
 which gdb
 which make
-
+if [ -z "${MKL_DIR}" ]; then
+  echo "MKL_DIR is already  set to: ${MKL_DIR}"
+else
+  export MKL_DIR=$MKLROOT
+fi
 #### Build
 mkdir build
 # shellcheck disable=SC2164
@@ -59,20 +79,27 @@ cd build
 #make clean
 #rm -rf *.txt
 echo $MKL_DIR
-cmake -DCMAKE_PREFIX_PATH="$MKL_DIR/lib/intel64;$MKL_DIR/include;$MKL_DIR/../compiler/lib/intel64;_deps/openblas-build/lib/;/home/m/mmehride/kazem/programs/metis-5.1.0/libmetis;/home/m/mmehride/kazem/programs/metis-5.1.0/include/;"  -DCMAKE_BUILD_TYPE=Release ..
+if [ $USE_PAPI -eq 1 ]; then
+  cmake -DCMAKE_PREFIX_PATH="$MKL_DIR/lib/intel64;$MKL_DIR/include;$MKL_DIR/../compiler/lib/intel64;_deps/openblas-build/lib/;${SCRATCH}/programs/papi/include/;"  -DPROFILING_WITH_PAPI=ON -DCMAKE_BUILD_TYPE=Release -DPAPI_PREFIX=${SCRATCH}/programs/papi/  ..
+else
+  cmake -DCMAKE_PREFIX_PATH="$MKL_DIR/lib/intel64;$MKL_DIR/include;$MKL_DIR/../compiler/lib/intel64;_deps/openblas-build/lib/;"  -DCMAKE_BUILD_TYPE=Release ..
+fi
 make -j 40
 
 
 cd ..
 
-BINPATH=./build/example/
-LOGS=./build/logs/
+#BINPATH=./build/example/
+DATE=$(date -d "today" +"%Y%m%d%H%M")
+LOGS="./build/logs-${DATE}/"
 SCRIPTPATH=./scripts/
-MATLIST=$UFDB/mat_list.txt
+if [ $ID -eq 0 ]; then
+  MATLIST=$UFDB/mat_list.txt
+else
+  MATLIST=$UFDB/mat_list$ID.txt
+fi
 
 mkdir $LOGS
-
-MODE=4
 # performing the experiments
 if [ $DOWNLOAD -eq 1 ]; then
     python3 $SCRIPTPATH/dl_matrix.py $UFDB $MATLIST
@@ -85,7 +112,7 @@ export MKL_DYNAMIC=FALSE;
 export OMP_DYNAMIC=FALSE;
 #export MKL_VERBOSE=1
 
-bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE $THRD $MATLIST $BCOL > $LOGS/spmv_spmv_$BCOL.csv
+bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE $THRD $MATLIST $BCOL $LOGS
   # plotting
 #  python3 $SCRIPTPATH/plot.py $LOGS $BASELINE
 #else
@@ -95,5 +122,3 @@ bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE $THRD $MATLIST $BCOL >
 #  bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE $THRD $MATLIST 128 > $LOGS/spmv_spmv_128.csv
 #  bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE $THRD $MATLIST 256 > $LOGS/spmv_spmv_256.csv
 #fi
-
-
