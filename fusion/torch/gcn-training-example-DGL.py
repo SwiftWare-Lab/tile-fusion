@@ -11,26 +11,28 @@ from torch_geometric.datasets import Planetoid
 import torch_geometric.datasets as datasets
 from torch_geometric.logging import init_wandb, log
 from torch_geometric.nn import GCNConv
+from dgl.nn.pytorch.conv import GraphConv
+from torch_geometric.utils.convert import to_dgl
 import numpy as np
 
-class GCN(torch.nn.Module):
+class DGLGCN(torch.nn.Module):
     def __init__(self, in_channels, hidden_channels, out_channels):
         super().__init__()
-        self.conv1 = GCNConv(in_channels, hidden_channels,
-                             bias=False)
-        self.conv2 = GCNConv(hidden_channels, out_channels, bias=False)
+        self.conv1 = GraphConv(in_channels, hidden_channels,
+                                bias=False)
+        self.conv2 = GraphConv(hidden_channels, out_channels, bias=False)
         self.conv1_time = 0
         self.conv2_time = 0
 
     def forward(self, x, edge_index, edge_weight=None):
         # x = F.dropout(x, p=0.5, training=self.training)
-        x = self.conv1(x, edge_index, edge_weight)
+        x = self.conv1(edge_index, x)
         # for param in self.conv1.parameters():
         #     mmwrite('weight1.mtx', param.data.detach().numpy())
         x = x.relu()
         # mmwrite('output1.mtx', x.detach().numpy())
         # x = F.dropout(x, p=0.5, training=self.training)x = F.dropout(x, p=0.5, training=self.training)
-        x = self.conv2(x, edge_index, edge_weight)
+        x = self.conv2(edge_index,x)
         # for param in self.conv2.parameters():
         #     mmwrite('weight2.mtx', param.data.detach().numpy())
         # mmwrite('output2.mtx',x.detach().numpy() )
@@ -40,7 +42,7 @@ class GCN(torch.nn.Module):
 def train():
     model.train()
     optimizer.zero_grad()
-    out = model(data.x, data.edge_index)
+    out = model(data.x, dgl_graph)
     loss = F.cross_entropy(out[train_mask], data.y[train_mask])
     loss.backward()
     optimizer.step()
@@ -72,7 +74,7 @@ train_mask = range(200)
 #     hidden_channels=args.hidden_channels,
 #     device=device,
 # )
-raw_folder_name = osp.join(osp.dirname(osp.realpath(__file__)), '..', 'data')
+raw_folder_name = osp.join(osp.dirname(osp.realpath(__file__)), '../../modeling', 'data')
 dataset_list = [
     datasets.Coauthor(root=raw_folder_name + '/coauthor_cs/', name='CS', transform=None),
     datasets.Coauthor(root=raw_folder_name + '/coauthor_physics/', name='Physics', transform=None),
@@ -89,8 +91,7 @@ dataset_list = [
 for dataset in dataset_list:
     name = dataset.root.split('/')[-1]
     data = dataset[0].to(device)
-    print(data)
-    print(args.use_gdc)
+    dgl_graph = to_dgl(data)
     if args.use_gdc:
         transform = T.GDC(
             self_loop_weight=1,
@@ -104,8 +105,7 @@ for dataset in dataset_list:
 
 
 
-
-    model = GCN(
+    model = DGLGCN(
         in_channels=dataset.num_features,
         hidden_channels=args.hidden_channels,
         out_channels=dataset.num_classes,
@@ -137,7 +137,7 @@ for dataset in dataset_list:
         times.append(time.time() - start)
         # log(Epoch=epoch, Loss=loss1)
     # print(f'Median time per epoch: {torch.tensor(times).median():.4f}s')
-    print(f'torch_geometric, {name}, {torch.tensor(times).sum():.4f}s')
+    print(f'DGL GraphConv,{name},{torch.tensor(times).sum():.4f}')
 
     # print('total conv1 time: ', model.conv1_time)
     # print('total conv2 time: ', model.conv2_time)

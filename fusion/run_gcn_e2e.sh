@@ -13,8 +13,8 @@ DATA="./data/planetoid-graphs/"
 MODE="GCNWithDifferentFusionLevels"
 THREADS=8
 BCOL=100
-
-while getopts ":t:e:m:" arg; do
+BASELINE="pyg"
+while getopts ":t:e:m:b:" arg; do
 
   case "${arg}" in
     e)
@@ -25,6 +25,9 @@ while getopts ":t:e:m:" arg; do
       ;;
     m)
       DATA=$OPTARG
+      ;;
+    b)
+      BASELINE=$OPTARG
       ;;
     *) echo "Usage:
     -e Experiment=tri-banded        Choose a baseline to compare with Fused SpMM SpMM(Current base lines: SpMM_SpMM_Demo_UnFusedParallel,SpMM_SpMM_MKL)
@@ -84,5 +87,6 @@ for ED in {16,128,256,512}; do
   done
   source $SCRATCH/.virtualenvs/end2end/bin/activate
   python ./torch/gcn-training-example-pyg.py --hidden_channels $ED --threads $THREADS >> ./build/logs/gcn_end2end_$ED.csv
+  python ./torch/gcn-training-example-DGL.py --hidden_channels $ED --threads $THREADS > ./build/logs/gcn_end2end_$ED.csv
   deactivate
 done < $MATLIST
