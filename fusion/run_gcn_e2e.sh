@@ -40,7 +40,7 @@ MATLIST="$DATA/mat_list.txt"
 module load NiaEnv/.2022a
 module load intel/2022u2
 export MKL_DIR=$MKLROOT
-module load gcc
+#module load gcc
 module load cmake
 module load python
 
