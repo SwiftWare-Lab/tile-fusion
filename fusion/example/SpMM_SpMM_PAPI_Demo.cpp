@@ -68,8 +68,8 @@ int main(const int argc, const char *argv[]) {
   stats->OtherStats["PackingType"] = {Separated};
   stats->OtherStats["TilingMethod"] = {Single};
   auto *unfusedParallel = new SpMMSpMMUnFusedParallel(inSpMM, stats);
-//  unfusedParallel->run();
-//  //  unfusedParallel->OutTensor->printDx();
+  unfusedParallel->run();
+  //  unfusedParallel->OutTensor->printDx();
 //  std::copy(unfusedParallel->OutTensor->Xx,
 //            unfusedParallel->OutTensor->Xx +
 //                unfusedParallel->OutTensor->M * unfusedParallel->OutTensor->N,
