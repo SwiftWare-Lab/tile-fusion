@@ -83,6 +83,6 @@ for ED in {16,128,256,512}; do
   done
   source $SCRATCH/.virtualenvs/end2end/bin/activate
   python ./torch/gcn-training-example-pyg.py --hidden_channels $ED --threads $THREADS >> ./build/logs/gcn_end2end_$ED.csv
-  python ./torch/gcn-training-example-DGL.py --hidden_channels $ED --threads $THREADS > ./build/logs/gcn_end2end_$ED.csv
+  python ./torch/gcn-training-example-DGL.py --hidden_channels $ED --threads $THREADS >> ./build/logs/gcn_end2end_$ED.csv
   deactivate
 done < $MATLIST
