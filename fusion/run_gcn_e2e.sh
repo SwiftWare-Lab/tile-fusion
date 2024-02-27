@@ -13,8 +13,7 @@ DATA="./data/planetoid-graphs/"
 MODE="GCNWithDifferentFusionLevels"
 THREADS=8
 BCOL=100
-BASELINE="pyg"
-while getopts ":t:e:m:b:" arg; do
+while getopts ":t:e:m:" arg; do
 
   case "${arg}" in
     e)
@@ -25,9 +24,6 @@ while getopts ":t:e:m:b:" arg; do
       ;;
     m)
       DATA=$OPTARG
-      ;;
-    b)
-      BASELINE=$OPTARG
       ;;
     *) echo "Usage:
     -e Experiment=tri-banded        Choose a baseline to compare with Fused SpMM SpMM(Current base lines: SpMM_SpMM_Demo_UnFusedParallel,SpMM_SpMM_MKL)
@@ -51,7 +47,7 @@ module load python
 mkdir build
 # shellcheck disable=SC2164
 cd build
-TORCH_LIB=/home/salehm32/pytorch
+TORCH_LIB=$SCRATCH/pytorch
 cmake -DCMAKE_PREFIX_PATH="$TORCH_LIB;$MKL_DIR/lib/intel64;$MKL_DIR/include;$MKL_DIR/../compiler/lib/intel64;_deps/openblas-build/lib/"  -DCMAKE_BUILD_TYPE=Release ..
 make
 mkdir logs
