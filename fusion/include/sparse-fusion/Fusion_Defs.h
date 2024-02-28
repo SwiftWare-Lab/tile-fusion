@@ -48,7 +48,8 @@ struct ScheduleParameters {
 struct TestParameters {
   SYM_ORDERING _order_method; // type of reordering
   std::string _matrix_name{}, _matrix_path{}, _feature_matrix_path{},
-      _weight1_matrix_path{}, _weight2_matrix_path{}, _result_matrix_path{};
+      _weight1_matrix_path{}, _weight2_matrix_path{}, _result_matrix_path{}
+      , e2e_data_path{}; // matrix name and path
   float _sampling_ratio{};
   std::string expariment_name{};
   std::string _mode{};                //"Random" or "MTX"

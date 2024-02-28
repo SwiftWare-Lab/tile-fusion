@@ -134,6 +134,19 @@ int main(const int argc, const char *argv[]) {
   delete stats;
   delete gcnSingleLayerUnfusedCsc;
 
+//  stats = new swiftware::benchmark::Stats(
+//      "GCN_SingleLayerTiledFusedCSCParallelAtomic", "GCN", 7, tp._matrix_name,
+//      numThread);
+//  stats->OtherStats["PackingType"] = {Separated};
+//  GCNSingleLayerTiledFusedCSCParallelAtomic
+//      *gcnSingleLayerTiledFusedCSCParallelAtomic =
+//          new GCNSingleLayerTiledFusedCSCParallelAtomic(inputs, stats,
+//                                                        tileSize);
+//  gcnSingleLayerTiledFusedCSCParallelAtomic->run();
+//  auto gcnSingleLayerTiledFusedCSCParallelAtomicStats =
+//      gcnSingleLayerTiledFusedCSCParallelAtomic->printStats();
+//  delete stats;
+//  delete gcnSingleLayerTiledFusedCSCParallelAtomic;
   /*
    * Method that iterates over columns of Adjacency matrix and by doing the
    * corresponding GeMV to each nonzero, calculates the partial products of that
@@ -238,9 +251,10 @@ int main(const int argc, const char *argv[]) {
      * parallel(using scheduling based on conflict graph coloring) and by doing
      * the corresponding GeMM to each tile, then doing SpMM on midway result,
      * calculates the output.
-     * some tiles are ran in parallel region and some are ran in sequential region,
-     * The inspector prunes tiles that are in smaller workloads and merges them
-     * so that new big tiles are ran in sequential region but with parallelized GeMMs.
+     * some tiles are ran in parallel region and some are ran in sequential
+     * region, The inspector prunes tiles that are in smaller workloads and
+     * merges them so that new big tiles are ran in sequential region but with
+     * parallelized GeMMs.
      */
     stats =
         new swiftware::benchmark::Stats("GCN_SingleLayerTiledFusedCSCCombined",
@@ -261,10 +275,11 @@ int main(const int argc, const char *argv[]) {
      * parallel(using scheduling based on conflict graph coloring) and by doing
      * the corresponding GeMM to each tile, then doing SpMM on midway result,
      * calculates the output.
-     * some tiles are ran in parallel region and some are ran in sequential region,
-     * The inspector prunes tiles that are in smaller workloads and merges them
-     * so that new big tiles are ran in sequential region but with parallelized GeMMs.
-     * This implementation also includes unrolling and vectorization.
+     * some tiles are ran in parallel region and some are ran in sequential
+     * region, The inspector prunes tiles that are in smaller workloads and
+     * merges them so that new big tiles are ran in sequential region but with
+     * parallelized GeMMs. This implementation also includes unrolling and
+     * vectorization.
      */
     stats = new swiftware::benchmark::Stats(
         "GCN_SingleLayerTiledFusedCSCCombinedVectorized", "GCN", 7,
@@ -366,6 +381,7 @@ int main(const int argc, const char *argv[]) {
 
   std::cout << gcnOneLayerMKLStat << spStat + tpStat << std::endl;
   std::cout << gcnSingleLayerUnfusedCscStat << spStat + tpStat << std::endl;
+//  std::cout << gcnSingleLayerTiledFusedCSCParallelAtomicStats << spStat + tpStat << std::endl;
   //  std::cout << gcnTiledFusedSingleLayerStat << spStat + tpStat << std::endl;
   //  std::cout << gcnSingleLayerTiledFusedParallelStat << spStat + tpStat
   //            << std::endl;

@@ -14,7 +14,7 @@ add_subdirectory(benchmark)
 
 if(PROFILING_WITH_PAPI)
     include_directories(
-	${PAPI_INCLUDE_DIRS} 
+	${PAPI_INCLUDE_DIRS}
 	)
 endif()
 
@@ -73,4 +73,4 @@ add_subdirectory(example)
 add_subdirectory(gcn)
 add_subdirectory(jacobi)
 add_subdirectory(spmv-spmv)
-
+add_subdirectory(torch)

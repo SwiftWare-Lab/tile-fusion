@@ -490,27 +490,7 @@ void forwardForOneLayerFromCSCTiledParallel(int M, int *Ap, int *Ai, double *Ax,
   {
     int threadId = omp_get_thread_num();
 #pragma omp for
-    for (int i = 0; i < lastCompleteTileEnd; i += 2 * TileSize) {
-      double *tcache = cache + threadId * TileSize * OutputChannelDim;
-      cblas_dgemm(CblasRowMajor, CblasTrans, CblasNoTrans, TileSize,
-                  OutputChannelDim, InputChannelDim, 1.,
-                  Features + i * InputChannelDim, InputChannelDim, Weight,
-                  InputChannelDim, 0., tcache, OutputChannelDim);
-      for (int ii = 0; ii < TileSize; ii++) {
-        for (int j = Ap[i + ii]; j < Ap[i + ii + 1]; j++) {
-          for (int k = 0; k < OutputChannelDim; k++) {
-            Output[Ai[j] * OutputChannelDim + k] +=
-                Ax[j] * tcache[ii * OutputChannelDim + k];
-          }
-        }
-      }
-    }
-  }
-#pragma omp parallel num_threads(NumThreads)
-  {
-    int threadId = omp_get_thread_num();
-#pragma omp for
-    for (int i = TileSize; i < lastCompleteTileEnd; i += 2 * TileSize) {
+    for (int i = 0; i < lastCompleteTileEnd; i += TileSize) {
       double *tcache = cache + threadId * TileSize * OutputChannelDim;
       cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasTrans, TileSize,
                   OutputChannelDim, InputChannelDim, 1.,
@@ -519,6 +499,7 @@ void forwardForOneLayerFromCSCTiledParallel(int M, int *Ap, int *Ai, double *Ax,
       for (int ii = 0; ii < TileSize; ii++) {
         for (int j = Ap[i + ii]; j < Ap[i + ii + 1]; j++) {
           for (int k = 0; k < OutputChannelDim; k++) {
+#pragma omp atomic
             Output[Ai[j] * OutputChannelDim + k] +=
                 Ax[j] * tcache[ii * OutputChannelDim + k];
           }
