@@ -457,13 +457,9 @@ protected:
       newPtr2[1] = tileSize;
       int *newId = new int[tileSize];
       int *newType = new int[tileSize];
-      int loop1TileSize = 0;
       for (int i = 0; i < tileSize; i++) {
         newId[i] = FusedCompSet->id_[FusedCompSet->ptr2_[SampleNum] + i];
         newType[i] = FusedCompSet->type_[FusedCompSet->ptr2_[SampleNum] + i];
-        if (newType[i] == 0) {
-          loop1TileSize += 1;
-        }
       }
       FusedCompSet->n1_ = 1;
       delete[] FusedCompSet->ptr1_;
@@ -474,14 +470,15 @@ protected:
       FusedCompSet->ptr2_ = newPtr2;
       FusedCompSet->id_ = newId;
       FusedCompSet->type_ = newType;
-      int fusedNodesNum = FusedCompSet->getNumberOfFusedNodes();
-      int fusedNnzNum = FusedCompSet->getFusedNnzNum(InTensor->ACsr);
-      this->St->OtherStats["Loop 1 Itarations"] = {double(loop1TileSize)};
-      this->St->OtherStats["Number of Fused Nodes"] = {(double)fusedNodesNum};
-      this->St->OtherStats["Number of Fused nnz"] = {(double)fusedNnzNum};
     }
+    int fusedNodesNum = FusedCompSet->getNumberOfFusedNodes();
+    int fusedNnzNum = FusedCompSet->getFusedNnzNum(InTensor->ACsr);
+    int tileSize = FusedCompSet->ptr2_[1] - FusedCompSet->ptr2_[0];
+    int loop1TileSize = tileSize -fusedNodesNum;
+    this->St->OtherStats["Loop 1 Itarations"] = {double(loop1TileSize)};
+    this->St->OtherStats["Number of Fused Nodes"] = {(double)fusedNodesNum};
+    this->St->OtherStats["Number of Fused nnz"] = {(double)fusedNnzNum};
     t1.stop();
-
     return t1;
   }
   struct VariableTile{
@@ -600,7 +597,7 @@ protected:
     int CACHE_SIZE = Sp.IterPerPartition;
     int *ai = InTensor->ACsr->i;
     int *ap = InTensor->ACsr->p;
-    int initialTileSize = 512;
+    int initialTileSize = 4096;
     int extraIters = InTensor->M % initialTileSize;
     int extraRemoved = 0;
     int numOfTiles = InTensor->M / initialTileSize;
