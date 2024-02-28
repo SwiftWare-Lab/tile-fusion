@@ -1498,6 +1498,10 @@ protected:
     return (Nnz + UniqueColsNum*16 + TileSize*16) * 8;
   }
 
+  int calculateWorkingSetSize2(int Nnz, int UniqueColsNum, int Bcols, int TileSize, int fusedItersNum) override{
+    return (Nnz + UniqueColsNum*16 + TileSize*16 + fusedItersNum*16) * 8 + Nnz*4;
+  }
+
 public:
   SpMMSpMMFusedInterLayerKTiled8VectorizedAvx256(TensorInputs<double> *In1, Stats *Stat1,
 sym_lib::ScheduleParameters SpIn, int sampleNum)
