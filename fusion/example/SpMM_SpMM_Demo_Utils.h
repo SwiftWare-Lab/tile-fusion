@@ -444,102 +444,7 @@ protected:
       if (tm[0] == sym_lib::Fixed) {
         SpMMSpMMFusedInterLayer::analysis();
       } else {
-        int CACHESIZE = Sp.IterPerPartition;
-        int *ap = InTensor->ACsr->p;
-        int *ai = InTensor->ACsr->i;
-        std::vector<int> tilesStart;
-        std::set<int> uniqueColumns;
-        std::vector<std::vector<int>> fusedIters;
-        std::vector<int> unfusedIters;
-        bool tileEnd = true;
-        int i = 0;
-        int tileNnzCount = 0;
-        while (i < InTensor->M) {
-          if (tileEnd) {
-            tilesStart.push_back(i);
-            uniqueColumns.clear();
-            for (int j = ap[i]; j < ap[i + 1]; j++) {
-              uniqueColumns.insert(ai[j]);
-            }
-            tileNnzCount = ap[i + 1] - ap[i];
-            i++;
-            tileEnd = false;
-          } else {
-            for (int j = ap[i]; j < ap[i + 1]; j++) {
-              uniqueColumns.insert(ai[j]);
-            }
-            tileNnzCount += ap[i + 1] - ap[i];
-            int tileSize = i - *tilesStart.rbegin();
-            int bCols = InTensor->N;
-            if (calculateWorkingSetSize(tileNnzCount, uniqueColumns.size(),
-                                        bCols, tileSize) < CACHESIZE) {
-              i++;
-            } else {
-              tileEnd = true;
-            }
-          }
-        }
-        extractTilesSizeData(tilesStart);
-        int numTiles = tilesStart.size();
-        fusedIters.resize(numTiles, std::vector<int>());
-        tilesStart.push_back(InTensor->M);
-        //    for (auto ts: tilesStart){
-        //      std::cout << ts << std::endl;
-        //    }
-        for (i = 0; i < InTensor->M; i++) {
-          bool isFused = false;
-          for (int p = 0; p < numTiles; p++) {
-            int tStart = tilesStart[p];
-            int tEnd = tilesStart[p + 1];
-            if (ai[ap[i]] >= tStart && ai[ap[i + 1] - 1] < tEnd) {
-              fusedIters[p].push_back(i);
-              isFused = true;
-              break;
-            }
-          }
-          if (!isFused)
-            unfusedIters.push_back(i);
-        }
-        FusedCompSet = new sym_lib::MultiDimensionalSet();
-        FusedCompSet->n1_ = 2;
-        FusedCompSet->ptr1_ = new int[3];
-        FusedCompSet->ptr1_[0] = 0;
-        FusedCompSet->ptr1_[1] = numTiles;
-        FusedCompSet->ptr1_[2] = numTiles + Sp._num_threads;
-        FusedCompSet->ptr2_ = new int[numTiles + Sp._num_threads + 1];
-        FusedCompSet->id_ = new int[2 * InTensor->M];
-        FusedCompSet->type_ = new int[2 * InTensor->M];
-        FusedCompSet->ptr2_[0] = 0;
-        int cnt = 0;
-        for (i = 0; i < numTiles; i++) {
-          for (int j = tilesStart[i]; j < tilesStart[i + 1]; j++) {
-            FusedCompSet->id_[cnt] = j;
-            FusedCompSet->type_[cnt] = 0;
-            cnt++;
-          }
-          for (int fi : fusedIters[i]) {
-            FusedCompSet->id_[cnt] = fi;
-            FusedCompSet->type_[cnt] = 1;
-            cnt++;
-          }
-          FusedCompSet->ptr2_[i + 1] = cnt;
-        }
-        int unfusedPerPart = ceil(unfusedIters.size() / float(Sp._num_threads));
-        for (i = numTiles; i < numTiles + Sp._num_threads; i++) {
-          int p = i - numTiles;
-          int partEnd =
-              std::min((p + 1) * unfusedPerPart, int(unfusedIters.size()));
-          for (int j = p * unfusedPerPart; j < partEnd; j++) {
-            FusedCompSet->id_[cnt] = unfusedIters[j];
-            FusedCompSet->type_[cnt] = 1;
-            cnt++;
-          }
-          FusedCompSet->ptr2_[i + 1] = cnt;
-        }
-        //      int fusedNodesNum = FusedCompSet->getNumberOfFusedNodes();
-        //      int fusedNnzNum = FusedCompSet->getFusedNnzNum(InTensor->ACsr);
-        //      this->St->OtherStats["Number of Fused Nodes"] = {(double)fusedNodesNum}; this->St->OtherStats["Number of Fused nnz"] = {(double)fusedNnzNum};
-        //    FusedCompSet->print_3d()
+        newVariableTileSizeSchedule();
       }
       /// save one tile only
       int *newPtr1 = new int[2];
@@ -578,6 +483,238 @@ protected:
     t1.stop();
 
     return t1;
+  }
+  struct VariableTile{
+    int Start;
+    int End;
+    std::vector<int> fusedIters;
+    VariableTile* next;
+    VariableTile(int Start, int End){
+      this->Start = Start;
+      this->End = End;
+      this->next = NULLPNTR;
+    }
+  };
+
+  void VariableTileSizeSchule(){
+    int CACHESIZE = Sp.IterPerPartition;
+    int *ap = InTensor->ACsr->p;
+    int *ai = InTensor->ACsr->i;
+    std::vector<int> tilesStart;
+    std::set<int> uniqueColumns;
+    std::vector<std::vector<int>> fusedIters;
+    std::vector<int> unfusedIters;
+    bool tileEnd = true;
+    int i = 0;
+    int tileNnzCount = 0;
+    while (i < InTensor->M) {
+      if (tileEnd) {
+        tilesStart.push_back(i);
+        uniqueColumns.clear();
+        for (int j = ap[i]; j < ap[i + 1]; j++) {
+          uniqueColumns.insert(ai[j]);
+        }
+        tileNnzCount = ap[i + 1] - ap[i];
+        i++;
+        tileEnd = false;
+      } else {
+        for (int j = ap[i]; j < ap[i + 1]; j++) {
+          uniqueColumns.insert(ai[j]);
+        }
+        tileNnzCount += ap[i + 1] - ap[i];
+        int tileSize = i - *tilesStart.rbegin();
+        int bCols = InTensor->N;
+        if (calculateWorkingSetSize(tileNnzCount, uniqueColumns.size(),
+                                    bCols, tileSize) < CACHESIZE) {
+          i++;
+        } else {
+          tileEnd = true;
+        }
+      }
+    }
+    extractTilesSizeData(tilesStart);
+    int numTiles = tilesStart.size();
+    fusedIters.resize(numTiles, std::vector<int>());
+    tilesStart.push_back(InTensor->M);
+    //    for (auto ts: tilesStart){
+    //      std::cout << ts << std::endl;
+    //    }
+    for (i = 0; i < InTensor->M; i++) {
+      bool isFused = false;
+      for (int p = 0; p < numTiles; p++) {
+        int tStart = tilesStart[p];
+        int tEnd = tilesStart[p + 1];
+        if (ai[ap[i]] >= tStart && ai[ap[i + 1] - 1] < tEnd) {
+          fusedIters[p].push_back(i);
+          isFused = true;
+          break;
+        }
+      }
+      if (!isFused)
+        unfusedIters.push_back(i);
+    }
+    FusedCompSet = new sym_lib::MultiDimensionalSet();
+    FusedCompSet->n1_ = 2;
+    FusedCompSet->ptr1_ = new int[3];
+    FusedCompSet->ptr1_[0] = 0;
+    FusedCompSet->ptr1_[1] = numTiles;
+    FusedCompSet->ptr1_[2] = numTiles + Sp._num_threads;
+    FusedCompSet->ptr2_ = new int[numTiles + Sp._num_threads + 1];
+    FusedCompSet->id_ = new int[2 * InTensor->M];
+    FusedCompSet->type_ = new int[2 * InTensor->M];
+    FusedCompSet->ptr2_[0] = 0;
+    int cnt = 0;
+    for (i = 0; i < numTiles; i++) {
+      for (int j = tilesStart[i]; j < tilesStart[i + 1]; j++) {
+        FusedCompSet->id_[cnt] = j;
+        FusedCompSet->type_[cnt] = 0;
+        cnt++;
+      }
+      for (int fi : fusedIters[i]) {
+        FusedCompSet->id_[cnt] = fi;
+        FusedCompSet->type_[cnt] = 1;
+        cnt++;
+      }
+      FusedCompSet->ptr2_[i + 1] = cnt;
+    }
+    int unfusedPerPart = ceil(unfusedIters.size() / float(Sp._num_threads));
+    for (i = numTiles; i < numTiles + Sp._num_threads; i++) {
+      int p = i - numTiles;
+      int partEnd =
+          std::min((p + 1) * unfusedPerPart, int(unfusedIters.size()));
+      for (int j = p * unfusedPerPart; j < partEnd; j++) {
+        FusedCompSet->id_[cnt] = unfusedIters[j];
+        FusedCompSet->type_[cnt] = 1;
+        cnt++;
+      }
+      FusedCompSet->ptr2_[i + 1] = cnt;
+    }
+    //      int fusedNodesNum = FusedCompSet->getNumberOfFusedNodes();
+    //      int fusedNnzNum = FusedCompSet->getFusedNnzNum(InTensor->ACsr);
+    //      this->St->OtherStats["Number of Fused Nodes"] = {(double)fusedNodesNum}; this->St->OtherStats["Number of Fused nnz"] = {(double)fusedNnzNum};
+    //    FusedCompSet->print_3d()
+  }
+  void newVariableTileSizeSchedule() {
+    std::vector<VariableTile> pTiles;
+    std::vector<int> unfusedIters;
+    int CACHE_SIZE = Sp.IterPerPartition;
+    int *ai = InTensor->ACsr->i;
+    int *ap = InTensor->ACsr->p;
+    int initialTileSize = 512;
+    int extraIters = InTensor->M % initialTileSize;
+    int extraRemoved = 0;
+    int numOfTiles = InTensor->M / initialTileSize;
+    VariableTile* head = new VariableTile(0,0);
+    VariableTile* curr = head;
+    //create initial tiles
+    for (int i = 0; i < numOfTiles; i++) {
+      int start = initialTileSize * i + extraRemoved;
+      int end = start + initialTileSize;
+      if (extraIters != extraRemoved) {
+        end += 1;
+        extraRemoved += 1;
+      }
+      auto *vt = new VariableTile(start, end);
+      curr->next = vt;
+      curr = curr->next;
+    }
+    // create initial tiles fused iterations
+    for (int i = 0; i < InTensor->M; i++) {
+      bool isFused = false;
+      curr = head;
+      while (curr->next != NULLPNTR){
+        curr = curr->next;
+        if (ai[ap[i]] >= curr->Start && ai[ap[i + 1] - 1] < curr->End) {
+          curr->fusedIters.push_back(i);
+          isFused = true;
+          break;
+        }
+      }
+      if (!isFused)
+        unfusedIters.push_back(i);
+    }
+    // shrinking tiles
+    curr = head;
+    while(curr->next != NULLPNTR){
+      auto *prev = curr;
+      curr = curr->next;
+      int tileSize = curr->End - curr->Start;
+      int* firstColPtr = ai + ap[curr->Start];
+      int* lastColPtr = ai + ap[curr->End];
+      int nnzNum = ap[curr->End]-ap[curr->Start];
+      std::set<int> uniqueColumns(firstColPtr,lastColPtr);
+      int workingSet = calculateWorkingSetSize2(nnzNum, uniqueColumns.size(), InTensor->N, tileSize, curr->fusedIters.size());
+      if (workingSet > CACHE_SIZE){
+        int separator = tileSize/2 + curr->Start;
+        auto *vt1 = new VariableTile(curr->Start, separator);
+        auto *vt2 = new VariableTile(separator, curr->End);
+        for (auto fi: curr->fusedIters){
+          if (ai[ap[fi+1]-1] < separator){
+            vt1->fusedIters.push_back(fi);
+          }
+          else if(ai[ap[fi]] >= separator){
+            vt2->fusedIters.push_back(fi);
+          }
+          else{
+            unfusedIters.push_back(fi);
+          }
+        }
+        vt1->next = vt2;
+        vt2->next = curr->next;
+        prev->next = vt1;
+        numOfTiles += 1;
+        delete curr;
+        curr = prev;
+      }
+    }
+    // creating schedule multi dimensional set
+    FusedCompSet = new sym_lib::MultiDimensionalSet();
+    FusedCompSet->n1_ = 2;
+    FusedCompSet->ptr1_ = new int[3];
+    FusedCompSet->ptr1_[0] = 0;
+    FusedCompSet->ptr1_[1] = numOfTiles;
+    FusedCompSet->ptr1_[2] = numOfTiles + Sp._num_threads;
+    FusedCompSet->ptr2_ = new int[numOfTiles + Sp._num_threads + 1];
+    FusedCompSet->id_ = new int[2 * InTensor->M];
+    FusedCompSet->type_ = new int[2 * InTensor->M];
+    FusedCompSet->ptr2_[0] = 0;
+    int cnt = 0;
+    int pCounter = 0;
+    curr = head;
+    while(curr->next != NULLPNTR){
+      curr = curr->next;
+      for (int j = curr->Start; j < curr->End; j++) {
+        FusedCompSet->id_[cnt] = j;
+        FusedCompSet->type_[cnt] = 0;
+        cnt++;
+      }
+      for (int fi : curr->fusedIters) {
+        FusedCompSet->id_[cnt] = fi;
+        FusedCompSet->type_[cnt] = 1;
+        cnt++;
+      }
+      FusedCompSet->ptr2_[pCounter + 1] = cnt;
+      pCounter+=1;
+    }
+    // delete the tile tree
+    curr = head->next;
+    while(curr != NULLPNTR){
+      auto *tmp = curr;
+      curr = curr->next;
+      delete tmp;
+    }
+    int unfusedPerPart = ceil(unfusedIters.size() / float(Sp._num_threads));
+    for (int i = numOfTiles; i < numOfTiles + Sp._num_threads; i++) {
+      int p = i - numOfTiles;
+      int partEnd =
+          std::min((p + 1) * unfusedPerPart, int(unfusedIters.size()));
+      for (int j = p * unfusedPerPart; j < partEnd; j++) {
+        FusedCompSet->id_[cnt] = unfusedIters[j];
+        FusedCompSet->type_[cnt] = 1;
+        cnt++;
+      }
+      FusedCompSet->ptr2_[i + 1] = cnt;
+    }
   }
 
   Timer execute() override {
@@ -618,6 +755,9 @@ protected:
 
   virtual int calculateWorkingSetSize(int Nnz, int UniqueColsNum, int Bcols, int TileSize){
     return (Nnz + UniqueColsNum*Bcols + TileSize*Bcols) * 8;
+  }
+  virtual int calculateWorkingSetSize2(int Nnz, int UniqueColsNum, int Bcols, int TileSize, int fusedIters){
+    return (Nnz + UniqueColsNum*Bcols + TileSize*Bcols + fusedIters*Bcols) * 8 + Nnz*4;
   }
 public:
   sym_lib::MultiDimensionalSet* getSchedule(){

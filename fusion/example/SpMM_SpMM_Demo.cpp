@@ -126,7 +126,7 @@ int main(const int argc, const char *argv[]) {
                                             7,tp._matrix_name,numThread);
     stats->OtherStats["PackingType"] ={Separated};
     stats->OtherStats["TilingMethod"] = {Variable};
-    auto *fusedParallelVT = new SpMMSpMMFusedVariableTileSize(inSpMM,stats, sp);
+    auto *fusedParallelVT = new SpMMSpMMFusedVariableTileSize(inSpMM,stats, sp,1);
     fusedParallelVT->run();
     //fusedParallel->OutTensor->printDx();
     auto fusedParallelVTStat = fusedParallelVT->printStats();
@@ -451,7 +451,7 @@ int main(const int argc, const char *argv[]) {
     stats->OtherStats["PackingType"] ={Separated};
     stats->OtherStats["TilingMethod"] = {Variable};
     auto *fusedParallelVectorized256 = new
-    SpMMSpMMFusedInterLayerVectorizedAvx256(inSpMM, stats, sp);
+    SpMMSpMMFusedInterLayerVectorizedAvx256(inSpMM, stats, sp,1);
     fusedParallelVectorized256->run();
     //fusedParallel->OutTensor->printDx();
     auto fusedParallelVectorized256Stat =
@@ -466,7 +466,7 @@ int main(const int argc, const char *argv[]) {
     stats->OtherStats["PackingType"] = {Separated};
     stats->OtherStats["TilingMethod"] = {Variable};
     auto *fusedParallelVectorizedKTiled256 = new
-        SpMMSpMMFusedInterLayerKTiled8VectorizedAvx256(inSpMM, stats, sp);
+        SpMMSpMMFusedInterLayerKTiled8VectorizedAvx256(inSpMM, stats, sp,1);
     fusedParallelVectorizedKTiled256->run();
     //fusedParallel->OutTensor->printDx();
     auto fusedParallelVectorizedKTiled256Stat =
