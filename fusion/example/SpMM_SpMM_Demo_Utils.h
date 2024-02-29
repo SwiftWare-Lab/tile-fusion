@@ -106,6 +106,7 @@ protected:
   void setup() override {
 //    this->St->OtherStats["NTile"] = {4};
     this->St->OtherStats["Loop 1 Itarations"] = {0.};
+    this->St->OtherStats["Loop 1 NNZ"] = {0.};
     this->St->OtherStats["Number of Fused Nodes"] = {0.};
     this->St->OtherStats["Number of Fused nnz"] = {0.};
     this->St->OtherStats["Tile Size Mean"] = {0.};
@@ -475,7 +476,10 @@ protected:
     int fusedNnzNum = FusedCompSet->getFusedNnzNum(InTensor->ACsr);
     int tileSize = FusedCompSet->ptr2_[1] - FusedCompSet->ptr2_[0];
     int loop1TileSize = tileSize -fusedNodesNum;
+    int lastLoop1Index = FusedCompSet->ptr2_[0] + loop1TileSize;
+    int nnzNum = InTensor->ACsr->p[lastLoop1Index] - InTensor->ACsr->p[FusedCompSet->ptr2_[0]];
     this->St->OtherStats["Loop 1 Itarations"] = {double(loop1TileSize)};
+    this->St->OtherStats["Loop 1 NNZ"] = {double(nnzNum)};
     this->St->OtherStats["Number of Fused Nodes"] = {(double)fusedNodesNum};
     this->St->OtherStats["Number of Fused nnz"] = {(double)fusedNnzNum};
     t1.stop();
@@ -1991,7 +1995,11 @@ protected:
 
   void setup() override {
     //    this->St->OtherStats["NTile"] = {4};
+    int start = SampleNum*Sp.TileM;
+    int end = SampleNum*Sp.TileM + Sp.TileM;
+    int nnzNum = InTensor->ACsr->p[end] - InTensor->ACsr->p[start];
     this->St->OtherStats["Loop 1 Itarations"] = {(double)Sp.TileM};
+    this->St->OtherStats["Loop 1 NNZ"] = {double(nnzNum)};
     this->St->OtherStats["Number of Fused Nodes"] = {0.};
     this->St->OtherStats["Number of Fused nnz"] = {0.};
     this->St->OtherStats["Tile Size Mean"] = {0.};
