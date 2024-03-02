@@ -3,6 +3,9 @@
 //
 
 #include <immintrin.h>
+#ifdef MKL
+#include <mkl.h>
+#endif
 
 #ifndef SPARSE_FUSION_JACOBI_H
 #define SPARSE_FUSION_JACOBI_H
@@ -41,7 +44,7 @@ inline void jacobiIterationCsr(int m, const int *Ap, const int *Ai, const double
   }
 }
 
-void jacobiTwoIterationsFusedCsr(int M, const int *Ap, const int *Ai,
+inline void jacobiTwoIterationsFusedCsr(int M, const int *Ap, const int *Ai,
                                  const double *Ax, const double *Bx, int BCol, double* XIn,
                                  double *X1, double *X2, double *Diags,
                                  int LevelNo, const int *LevelPtr,
@@ -105,18 +108,18 @@ inline int jacobiCSR(int m, int k, const int *Ap, const int *Ai, const double *A
   double *xp = WS+m; // previous X
   double *r = WS+ m + (m*k);
 
-  for (int i = 0; i < m; ++i) {
-    for (int j = Ap[i]; j < Ap[i+1]; ++j) {
-      if(Ai[j] == i) {
-        // D = diag(A)
-        diagVals[i] = Ax[j];
-        r[j] = 0;
-      } else {
-        // R = A - diagflat(D)
-        r[j] = Ax[j];
-      }
-    }
-  }
+//  for (int i = 0; i < m; ++i) {
+//    for (int j = Ap[i]; j < Ap[i+1]; ++j) {
+//      if(Ai[j] == i) {
+//        // D = diag(A)
+//        diagVals[i] = Ax[j];
+//        r[j] = 0;
+//      } else {
+//        // R = A - diagflat(D)
+//        r[j] = Ax[j];
+//      }
+//    }
+//  }
   // x = (b - dot(R,x)) / D
   jacobiIterationCsr(m, Ap, Ai, r, diagVals, X, xp, B, BCol);
   //sym_lib::print_dense(m, BCol, 1, B);
@@ -133,6 +136,55 @@ inline int jacobiCSR(int m, int k, const int *Ap, const int *Ai, const double *A
   }
   return 0;
 }
+#ifdef MKL
+
+inline void jacobiIterationMKL(int M, sparse_matrix_t A, double *Diags,
+                         double *Xx, double *XxIn, const double *B, int BCol, matrix_descr Descr){
+  mkl_sparse_d_mm(SPARSE_OPERATION_NON_TRANSPOSE, 1, A, Descr, SPARSE_LAYOUT_ROW_MAJOR, XxIn, BCol, BCol,0, Xx, BCol);
+  for (int j = 0; j < M; j++){
+    for (int i = 0; i < BCol; i++) {
+      Xx[j*BCol + i] = (B[j*BCol + i] - Xx[j*BCol + i]) / Diags[j];
+    }
+  }
+}
+
+inline int jacobiMKLSpMM(int m, int k, sparse_matrix_t A,matrix_descr Descr,
+                         double *X, const double *B, int BCol,
+                         double &Eps, int NIter, double *WS){
+  double *diagVals = WS;
+  double *xp = WS+m; // previous X
+  double *r = WS + m + (m*k);
+
+  //  for (int i = 0; i < m; ++i) {
+  //    for (int j = Ap[i]; j < Ap[i+1]; ++j) {
+  //      if(Ai[j] == i) {
+  //        // D = diag(A)
+  //        diagVals[i] = Ax[j];
+  //        r[j] = 0;
+  //      } else {
+  //        // R = A - diagflat(D)
+  //        r[j] = Ax[j];
+  //      }
+  //    }
+  //  }
+  // x = (b - dot(R,x)) / D
+  jacobiIterationMKL(m, A, diagVals, X, xp, B, BCol, Descr);
+  //sym_lib::print_dense(m, BCol, 1, B);
+  //std::cout<<" \n ==== \n";
+  //sym_lib::print_dense(m, BCol, 1, X);
+  // copy X to xp
+  std::memcpy(xp, X, sizeof(double)*m*k);
+  for (int i = 0; i < NIter; ++i) {
+    jacobiIterationMKL(m, A, diagVals, X, xp, B, BCol, Descr);
+    double res = ResidualMutipleCols(m, k, xp, X);
+    if(res < Eps)
+      return i+1;
+    std::memcpy(xp, X, sizeof(double)*m*k);
+  }
+  return 0;
+}
+
+#endif
 
 inline int jacobiBiIterationFusedCSR(int m, int k, const int *Ap, const int *Ai,
                                      const double *Ax, double *X1, double *X2,
@@ -145,18 +197,18 @@ inline int jacobiBiIterationFusedCSR(int m, int k, const int *Ap, const int *Ai,
   double *xp = WS + m; // previous X2
   double *r = WS + m + (m * k);
 
-  for (int i = 0; i < m; ++i) {
-    for (int j = Ap[i]; j < Ap[i + 1]; ++j) {
-      if (Ai[j] == i) {
-        // D = diag(A)
-        diagVals[i] = Ax[j];
-        r[j] = 0;
-      } else {
-        // R = A - diagflat(D)
-        r[j] = Ax[j];
-      }
-    }
-  }
+//  for (int i = 0; i < m; ++i) {
+//    for (int j = Ap[i]; j < Ap[i + 1]; ++j) {
+//      if (Ai[j] == i) {
+//        // D = diag(A)
+//        diagVals[i] = Ax[j];
+//        r[j] = 0;
+//      } else {
+//        // R = A - diagflat(D)
+//        r[j] = Ax[j];
+//      }
+//    }
+//  }
   // x = (b - dot(R,x)) / D
   jacobiIterationCsr(m, Ap, Ai, r, diagVals, X2, xp, B, BCol);
   //sym_lib::print_dense(m, BCol, 1, B);

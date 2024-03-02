@@ -48,6 +48,8 @@ argparse::ArgumentParser* addArguments() {
 
   program->add_argument("-w2", "--weight2-matrix-path")
       .help("Specify weight matrix for layer 1 when applicable");
+  program->add_argument("-dp", "--data-path")
+      .help("specify data path for end to end experiments");
 
   program->add_argument("-ah", "--add-header")
       .default_value(false)
@@ -102,7 +104,15 @@ void parse_args(const int Argc, const char **Argv, ScheduleParameters *Sp,
     std::cerr << program;
     std::exit(1);
   }
-  if (!program->is_used("-sm")) {
+  if(program->is_used("-dp")){
+    Tp->e2e_data_path = program->get("-dp");
+    Tp->_mode = "MTX";
+    Tp->_matrix_name =
+        Tp->e2e_data_path.substr(Tp->e2e_data_path.find_last_of("/\\") + 1);
+    Tp->_matrix_path = Tp->e2e_data_path + "/" + Tp->_matrix_name + ".mtx";
+    Tp->_gnn_parameters_mode = "MTX";
+  }
+  else if (!program->is_used("-sm")) {
     Tp->_mode = "Random";
     Tp->_dim1 = Tp->_dim2 = 10;
     Tp->_dim1 = Tp->_dim2 = 10;
@@ -111,7 +121,9 @@ void parse_args(const int Argc, const char **Argv, ScheduleParameters *Sp,
     Tp->print_header = true;
     Sp->_num_w_partition = Sp->_num_threads;
     Sp->_lbc_agg = Sp->_lbc_initial_cut = 4;
-  } else {
+  }
+  else {
+    Tp->_gnn_parameters_mode= "Random";
     Tp->_matrix_path = program->get("-sm");
     Tp->_mode = "MTX";
     Tp->_matrix_name =
@@ -121,30 +133,30 @@ void parse_args(const int Argc, const char **Argv, ScheduleParameters *Sp,
   int useLevelCoarsening = 1;
   useLevelCoarsening = 4;
   Sp->_lbc_agg = 4;
-  if (auto featMtxPath = program->present("-fm")) {
-    Tp->_gnn_parameters_mode = "MTX";
-    Tp->_feature_matrix_path = featMtxPath.value();
-  } else {
-    Tp->_gnn_parameters_mode = "Random";
-  }
-  if (auto weightMtxPath = program->present("-w1")) {
-    Tp->_gnn_parameters_mode = "MTX";
-    Tp->_weight1_matrix_path = weightMtxPath.value();
-  } else {
-    Tp->_gnn_parameters_mode = "Random";
-  }
-  if (auto weightMtxPath = program->present("-w2")) {
-    Tp->_gnn_parameters_mode = "MTX";
-    Tp->_weight2_matrix_path = weightMtxPath.value();
-  } else {
-    Tp->_gnn_parameters_mode = "Random";
-  }
-  if (auto resultMtxPath = program->present("-rm")) {
-    Tp->_gnn_parameters_mode = "MTX";
-    Tp->_weight2_matrix_path = resultMtxPath.value();
-  } else {
-    Tp->_gnn_parameters_mode = "Random";
-  }
+//  if (auto featMtxPath = program->present("-fm")) {
+//    Tp->_gnn_parameters_mode = "MTX";
+//    Tp->_feature_matrix_path = featMtxPath.value();
+//  } else {
+//    Tp->_gnn_parameters_mode = "Random";
+//  }
+//  if (auto weightMtxPath = program->present("-w1")) {
+//    Tp->_gnn_parameters_mode = "MTX";
+//    Tp->_weight1_matrix_path = weightMtxPath.value();
+//  } else {
+//    Tp->_gnn_parameters_mode = "Random";
+//  }
+//  if (auto weightMtxPath = program->present("-w2")) {
+//    Tp->_gnn_parameters_mode = "MTX";
+//    Tp->_weight2_matrix_path = weightMtxPath.value();
+//  } else {
+//    Tp->_gnn_parameters_mode = "Random";
+//  }
+//  if (auto resultMtxPath = program->present("-rm")) {
+//    Tp->_gnn_parameters_mode = "MTX";
+//    Tp->_weight2_matrix_path = resultMtxPath.value();
+//  } else {
+//    Tp->_gnn_parameters_mode = "Random";
+//  }
   Tp->_sampling_ratio = program->get<float>("-sr");
   Tp->expariment_name = program->get("-en");
 
@@ -237,7 +249,7 @@ sym_lib::CSR *readSparseMatrix(const std::string &Path) {
   return csr;
 }
 
-CSC *get_matrix_from_parameter(const TestParameters *TP) {
+CSC *get_matrix_from_parameter(const TestParameters *TP, bool AddSelfLoops) {
   CSC *aCSC = NULLPNTR;
   if (TP->_mode == "Random") {
     aCSC = random_square_sparse(TP->_dim1, TP->_density);
@@ -250,7 +262,7 @@ CSC *get_matrix_from_parameter(const TestParameters *TP) {
       delete tmpCsr;
     } else if (fileExt == "mtx") {
       std::ifstream fin(TP->_matrix_path);
-      sym_lib::read_mtx_csc_real(fin, aCSC);
+      sym_lib::read_mtx_csc_real(fin, aCSC, false);
     } else {
       std::cout << "File extension is not supported" << std::endl;
       exit(1);

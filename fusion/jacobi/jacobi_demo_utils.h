@@ -125,15 +125,28 @@ protected:
   int WSSize = 0;
 
   void setup() override {
-    this->St->OtherStats["NTile"] = {4};
 //    Threshold *= InTensor->MaxVal; //normalize
+    double *r = WS + InTensor->M + (InTensor->M*InTensor->K);
+    double *diagVals = WS;
+    for (int i = 0; i < InTensor->M; ++i) {
+      for (int j = InTensor->ACsr->p[i]; j < InTensor->ACsr->p[i+1]; ++j) {
+        if(InTensor->ACsr->i[j] == i) {
+          // D = diag(A)
+          diagVals[i] = InTensor->ACsr->x[j];
+          r[j] = 0;
+        } else {
+          // R = A - diagflat(D)
+          r[j] = InTensor->ACsr->x[j];
+        }
+      }
+    }
   }
 
   void preExecute() override {}
 
   Timer execute() override {
     //    std::fill_n(OutTensor->Xx, InTensor->L * InTensor->N, 0.0);
-    std::fill_n(WS, WSSize, 0.0);
+    std::fill_n(WS + InTensor->M, InTensor->M*InTensor->K, 0.0);
     OutTensor->reset();
     Timer t;
     t.start();
@@ -219,7 +232,7 @@ protected:
   }
   Timer execute() override {
     //    std::fill_n(OutTensor->Xx2, InTensor->L * InTensor->N, 0.0);
-    std::fill_n(WS, WSSize, 0.0);
+    std::fill_n(WS + InTensor->M, InTensor->M*InTensor->K, 0.0);
     OutTensor->reset();
     Timer t;
     t.start();
@@ -241,5 +254,60 @@ public:
 
   ~JacobiCSRFused() { delete FusedCompSet; }
 };
+
+#ifdef MKL
+class JacobiCSRUnfusedMKL : public JacobiCSRUnfused {
+protected:
+  sparse_matrix_t MKLACsr;
+  matrix_descr MatDescr;
+  void setup() override {
+    //    Threshold *= InTensor->MaxVal; //normalize
+    double *r = WS+ InTensor->M + (InTensor->M*InTensor->K);
+    double *diagVals = WS;
+    for (int i = 0; i < InTensor->M; ++i) {
+      for (int j = InTensor->ACsr->p[i]; j < InTensor->ACsr->p[i+1]; ++j) {
+        if(InTensor->ACsr->i[j] == i) {
+          // D = diag(A)
+          diagVals[i] = InTensor->ACsr->x[j];
+          r[j] = 0;
+        } else {
+          // R = A - diagflat(D)
+          r[j] = InTensor->ACsr->x[j];
+        }
+      }
+    }
+    mkl_sparse_d_create_csr(&MKLACsr, SPARSE_INDEX_BASE_ZERO, InTensor->M,
+                            InTensor->M, InTensor->ACsr->p, InTensor->ACsr->p + 1,
+                            InTensor->ACsr->i, r);
+    MatDescr.type = SPARSE_MATRIX_TYPE_GENERAL;
+    mkl_set_num_threads(InTensor->NumThreads);
+  }
+
+  void preExecute() override {
+  }
+
+  Timer execute() override {
+    //    std::fill_n(OutTensor->Xx, InTensor->L * InTensor->N, 0.0);
+    std::fill_n(WS + InTensor->M, InTensor->M*InTensor->K, 0.0);
+    OutTensor->reset();
+    Timer t;
+    t.start();
+    OutTensor->RetValue = sym_lib::jacobiMKLSpMM(
+        InTensor->M, InTensor->K, MKLACsr, MatDescr, OutTensor->Xx2,
+        InTensor->Bx, InTensor->K, Threshold, MaxIters, WS);
+    t.stop();
+    return t;
+  }
+
+public:
+  JacobiCSRUnfusedMKL(TensorInputs<double> *In1, Stats *Stat1)
+      : JacobiCSRUnfused(In1, Stat1) {
+  }
+
+  ~JacobiCSRUnfusedMKL() {
+    mkl_free(MKLACsr);
+  }
+};
+#endif
 
 #endif // SPARSE_FUSION_JACOBI_DEMO_UTILS_H
