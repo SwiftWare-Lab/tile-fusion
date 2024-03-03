@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD 17)
 #    set(CMAKE_CUDA_ARCHITECTURES 61)
 #endif()
 find_package(Python OPTIONAL_COMPONENTS Development)
-find_package(Torch REQUIRED)
+find_package(Torch OPTIONAL_COMPONENTS)
 find_package( OpenMP REQUIRED)
 include_directories(
         ${SYM_AGG}/include
