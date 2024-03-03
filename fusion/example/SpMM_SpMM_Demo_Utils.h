@@ -513,7 +513,7 @@ protected:
       int nnzNum = ap[curr->End]-ap[curr->Start];
       std::set<int> uniqueColumns(firstColPtr,lastColPtr);
       int workingSet = calculateWorkingSetSize2(nnzNum, uniqueColumns.size(), InTensor->N, tileSize, curr->fusedIters.size());
-      if (workingSet > CACHE_SIZE){
+      if (workingSet > CACHE_SIZE && tileSize > 1){
         int separator = tileSize/2 + curr->Start;
         auto *vt1 = new VariableTile(curr->Start, separator);
         auto *vt2 = new VariableTile(separator, curr->End);
