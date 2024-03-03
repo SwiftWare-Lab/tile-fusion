@@ -588,6 +588,10 @@ protected:
       }
       FusedCompSet->ptr2_[i + 1] = cnt;
     }
+    int fusedNodesNum = FusedCompSet->getNumberOfFusedNodes();
+    int fusedNnzNum = FusedCompSet->getFusedNnzNum(InTensor->ACsr);
+    this->St->OtherStats["Number of Fused Nodes"] = {(double)fusedNodesNum};
+    this->St->OtherStats["Number of Fused nnz"] = {(double)fusedNnzNum};
 //    FusedCompSet->print_3d();
   }
 
