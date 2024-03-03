@@ -61,7 +61,7 @@ if [ "$TUNED" ==  3 ]; then
     # shellcheck disable=SC2039
 #    for w in {100,1000,5000,10000,500000}; do
       k=4
-      for ntile in {32000,1000000,2000000}; do
+      for ntile in {15000,32000,100000,500000,1000000,2600000}; do
 #        if [ $ntile -gt $BCOL ]; then
 #          continue
 #        fi
