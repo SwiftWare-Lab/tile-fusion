@@ -177,10 +177,10 @@ void spmmCsrSpmmCsrFusedVectorized2_32Avx512(
                 vectorCrossProduct32Avx512(Bx[k], Bi[k], ACx + kk, Dx + kk, N,
                                            dxV1, dxV2, dxV3, dxV4);
               }
-              _mm512_storeu_pd(ACx + offset + kk, dxV1);
-              _mm512_storeu_pd(ACx + offset + kk + 8, dxV2);
-              _mm512_storeu_pd(ACx + offset + kk + 16, dxV3);
-              _mm512_storeu_pd(ACx + offset + kk + 24, dxV4);
+              _mm512_storeu_pd(Dx + offset + kk, dxV1);
+              _mm512_storeu_pd(Dx + offset + kk + 8, dxV2);
+              _mm512_storeu_pd(Dx + offset + kk + 16, dxV3);
+              _mm512_storeu_pd(Dx + offset + kk + 24, dxV4);
             }
           }
         }
@@ -659,10 +659,6 @@ void spmmCsrSpmmCsrFusedVectorized2_16(
                 acxV2 = _mm256_fmadd_pd(axv0, cxV12, acxV2);
                 acxV3 = _mm256_fmadd_pd(axv0, cxV13, acxV3);
                 acxV4 = _mm256_fmadd_pd(axv0, cxV14, acxV4);
-                _mm256_storeu_pd(ACx + i * N + kk, acxV1);
-                _mm256_storeu_pd(ACx + i * N + kk + 4, acxV2);
-                _mm256_storeu_pd(ACx + i * N + kk + 8, acxV3);
-                _mm256_storeu_pd(ACx + i * N + kk + 12, acxV4);
               }
               _mm256_storeu_pd(ACx + i * N + kk, acxV1);
               _mm256_storeu_pd(ACx + i * N + kk + 4, acxV2);
