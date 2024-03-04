@@ -90,10 +90,10 @@ inline void vectorCrossProduct32Avx512(double Ax, int Ai,
                                        __m512d &dxV3,  __m512d &dxV4) {
   int bij = Ai * N;
   auto bxV = _mm512_set1_pd(Ax);
-  auto acxV1 = _mm512_loadu_pd(B + bij + kk);
-  auto acxV2 = _mm512_loadu_pd(B + bij + kk + 8);
-  auto acxV3 = _mm512_loadu_pd(B + bij + kk + 16);
-  auto acxV4 = _mm512_loadu_pd(B + bij + kk + 24);
+  auto acxV1 = _mm512_loadu_pd(B + bij);
+  auto acxV2 = _mm512_loadu_pd(B + bij + 8);
+  auto acxV3 = _mm512_loadu_pd(B + bij + 16);
+  auto acxV4 = _mm512_loadu_pd(B + bij + 24);
   dxV1 = _mm512_fmadd_pd(bxV, acxV1, dxV1);
   dxV2 = _mm512_fmadd_pd(bxV, acxV2, dxV2);
   dxV3 = _mm512_fmadd_pd(bxV, acxV3, dxV3);
@@ -108,14 +108,14 @@ inline void vectorCrossProduct2_32Avx512(const double* Ax, const int* Ai,
   int bij1 = Ai[1] * N;
   auto bxV0 = _mm512_set1_pd(Ax[0]);
   auto bxV1 = _mm512_set1_pd(Ax[1]);
-  auto acxV11 = _mm512_loadu_pd(B + bij0 + kk);
-  auto acxV12 = _mm512_loadu_pd(B + bij0 + kk + 8);
-  auto acxV13 = _mm512_loadu_pd(B + bij0 + kk + 16);
-  auto acxV14 = _mm512_loadu_pd(B + bij0 + kk + 24);
-  auto acxV21 = _mm512_loadu_pd(B + bij1 + kk + 0);
-  auto acxV22 = _mm512_loadu_pd(B + bij1 + kk + 8);
-  auto acxV23 = _mm512_loadu_pd(B + bij1 + kk + 16);
-  auto acxV24 = _mm512_loadu_pd(B + bij1 + kk + 24);
+  auto acxV11 = _mm512_loadu_pd(B + bij0);
+  auto acxV12 = _mm512_loadu_pd(B + bij0 + 8);
+  auto acxV13 = _mm512_loadu_pd(B + bij0 + 16);
+  auto acxV14 = _mm512_loadu_pd(B + bij0 + 24);
+  auto acxV21 = _mm512_loadu_pd(B + bij1);
+  auto acxV22 = _mm512_loadu_pd(B + bij1 + 8);
+  auto acxV23 = _mm512_loadu_pd(B + bij1 + 16);
+  auto acxV24 = _mm512_loadu_pd(B + bij1 + 24);
   dxV1 = _mm512_fmadd_pd(bxV0, acxV11, dxV1);
   dxV1 = _mm512_fmadd_pd(bxV1, acxV21, dxV1);
   dxV2 = _mm512_fmadd_pd(bxV0, acxV12, dxV2);
@@ -150,11 +150,11 @@ void spmmCsrSpmmCsrFusedVectorized2_32Avx512(
               auto axV4 = _mm512_loadu_pd(ACx + offset + kk + 24);
               int j = Ap[i];
               for (; j < Ap[i + 1] - 1; j += 2) {
-                vectorCrossProduct2_32Avx512(Ax + j, Ai + j, Cx + kk, ACx, N,
+                vectorCrossProduct2_32Avx512(Ax + j, Ai + j, Cx + kk, ACx + kk, N,
                                              axV1, axV2, axV3, axV4);
               }
               for (; j < Ap[i + 1]; j++) {
-                vectorCrossProduct32Avx512(Ax[j], Ai[j], Cx + kk, ACx, N,
+                vectorCrossProduct32Avx512(Ax[j], Ai[j], Cx + kk, ACx + kk, N,
                                            axV1, axV2, axV3, axV4);
               }
               _mm512_storeu_pd(ACx + offset + kk, axV1);
@@ -170,11 +170,11 @@ void spmmCsrSpmmCsrFusedVectorized2_32Avx512(
               auto dxV4 = _mm512_loadu_pd(Dx + offset + kk + 24);
               int k = Bp[i];
               for (; k < Bp[i + 1]-1; k+=2) {
-                vectorCrossProduct2_32Avx512(Bx + k, Bi + k, ACx + kk, Dx, N,
+                vectorCrossProduct2_32Avx512(Bx + k, Bi + k, ACx + kk, Dx + kk, N,
                                              dxV1, dxV2, dxV3, dxV4);
               }
               for (;k < Bp[i + 1]; k++){
-                vectorCrossProduct32Avx512(Bx[k], Bi[k], ACx + kk, Dx, N,
+                vectorCrossProduct32Avx512(Bx[k], Bi[k], ACx + kk, Dx + kk, N,
                                            dxV1, dxV2, dxV3, dxV4);
               }
               _mm512_storeu_pd(ACx + offset + kk, dxV1);
