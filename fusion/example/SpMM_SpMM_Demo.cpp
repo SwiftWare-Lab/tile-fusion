@@ -79,7 +79,7 @@ int main(const int argc, const char *argv[]) {
   stats->OtherStats["TilingMethod"] = {Fixed};
   auto *unfusedParallel = new SpMMSpMMUnFusedParallel(inSpMM, stats);
   unfusedParallel->run();
-    unfusedParallel->OutTensor->printDx();
+//    unfusedParallel->OutTensor->printDx();
   std::copy(unfusedParallel->OutTensor->Xx,
             unfusedParallel->OutTensor->Xx +
                 unfusedParallel->OutTensor->M * unfusedParallel->OutTensor->N,
@@ -453,7 +453,7 @@ int main(const int argc, const char *argv[]) {
     auto *fusedParallelVectorized256 = new
     SpMMSpMMFusedInterLayerVectorizedAvx256(inSpMM, stats, sp);
     fusedParallelVectorized256->run();
-    fusedParallelVectorized256->OutTensor->printDx();
+//    fusedParallelVectorized256->OutTensor->printDx();
     auto fusedParallelVectorized256Stat =
     fusedParallelVectorized256->printStats();
     delete fusedParallelVectorized256;
