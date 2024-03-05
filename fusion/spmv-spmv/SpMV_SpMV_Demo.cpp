@@ -2,7 +2,7 @@
 // Created by salehm32 on 08/12/23.
 //
 
-#include "../gcn/Inspection/GraphColoring.h"
+#include "sparse-fusion/GraphColoring.h"
 #include "SWTensorBench.h"
 #include "SpMV_SpMV_Demo_Utils.h"
 #include "aggregation/def.h"
