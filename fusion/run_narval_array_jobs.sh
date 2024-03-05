@@ -9,10 +9,10 @@
 #SBATCH --mail-user=msalehi20@gmail.com
 #SBATCH --nodes=1
 #SBATCH --output="fusion.%j.%N.out"
-#SBATCH --array=0-29%6  # Allows no more than 6 of the jobs to run simultaneously
+#SBATCH --array=0-29%10  # Allows no more than 6 of the jobs to run simultaneously
 #SBATCH --constraint=rome
 #SBATCH --mem=254000M
-#SBATCH -t 47:59:00
+#SBATCH -t 11:59:00
 
 if [ -z "$SLURM_ARRAY_TASK_ID" ]; then
   SLURM_ARRAY_TASK_ID=""
@@ -51,7 +51,7 @@ module load cmake
 #module load gcc
 
 if [ $TEST -eq 1 ]; then
-    bash run.sh -m $UFDB -c 8 -i $MAT_ID -e $EXP -t 8 -l $MATLIST_FOLDER -j $SLURM_JOB_ID
+    bash run.sh -m $UFDB -c 8 -i $MAT_ID -e $EXP -t 8 -l $MATLIST_FOLDER -j $SLURM_ARRAY_JOB_ID
 else
-  bash run.sh -t 20 -m $UFDB -c $BCOL -i $MAT_ID  -e $EXP -l $MATLIST_FOLDER -j $SLURM_JOB_ID
+  bash run.sh -t 20 -m $UFDB -c $BCOL -i $MAT_ID  -e $EXP -l $MATLIST_FOLDER -j $SLURM_ARRAY_JOB_ID
 fi
