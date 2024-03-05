@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <climits>
 #include <cmath>
+#include <numeric>
 #include <set>
 
 using namespace swiftware::benchmark;
@@ -499,6 +500,191 @@ public:
     }
     return fusedCompSet;
   }
+};
+
+class InspectorForTileFusedCSRVariableTileSize{
+protected:
+  sym_lib::ScheduleParameters Sp;
+  Stats *St;
+  struct VariableTile{
+    int Start;
+    int End;
+    std::vector<int> FusedIters;
+    VariableTile* Next;
+    VariableTile(int Start, int End){
+      this->Start = Start;
+      this->End = End;
+      this->Next = NULLPNTR;
+    }
+  };
+public:
+  InspectorForTileFusedCSRVariableTileSize(sym_lib::ScheduleParameters Sp1, Stats *St1)
+      : Sp(Sp1), St(St1) {}
+  sym_lib::MultiDimensionalSet* generateVariableTileSizeSchedule(sym_lib::CSR *ACsr, int BCol){
+    std::vector<VariableTile> pTiles;
+    std::vector<int> unfusedIters;
+    int CACHE_SIZE = Sp.IterPerPartition;
+    int *ai = ACsr->i;
+    int *ap = ACsr->p;
+    int initialTileSize = std::min(4096,int(ACsr->m));
+    int extraIters = ACsr->m % initialTileSize;
+    int extraRemoved = 0;
+    int numOfTiles = ACsr->m / initialTileSize;
+
+    int extraIterPerTile = std::ceil(extraIters / double(numOfTiles));
+    VariableTile* head = new VariableTile(0,0);
+    VariableTile* curr = head;
+    //create initial tiles
+    for (int i = 0; i < numOfTiles; i++) {
+      int start = initialTileSize * i + extraRemoved;
+      int end = start + initialTileSize;
+      if (extraIters > extraRemoved) {
+        int ext = std::min(extraIters-extraRemoved, extraIterPerTile);
+        end += ext;
+        extraRemoved += ext;
+      }
+      auto *vt = new VariableTile(start, end);
+      curr->Next = vt;
+      curr = curr->Next;
+    }
+    //    std::cout << extraIters << " " << extraRemoved << std::endl;
+    // create initial tiles fused iterations
+    for (int i = 0; i < ACsr->m; i++) {
+      bool isFused = false;
+      curr = head;
+      while (curr->Next != NULLPNTR){
+        curr = curr->Next;
+        if (ai[ap[i]] >= curr->Start && ai[ap[i + 1] - 1] < curr->End) {
+          curr->FusedIters.push_back(i);
+          isFused = true;
+          break;
+        }
+      }
+      if (!isFused)
+        unfusedIters.push_back(i);
+    }
+    // shrinking tiles
+    curr = head;
+    while(curr->Next != NULLPNTR){
+      auto *prev = curr;
+      curr = curr->Next;
+      int tileSize = curr->End - curr->Start;
+      int* firstColPtr = ai + ap[curr->Start];
+      int* lastColPtr = ai + ap[curr->End];
+      int nnzNum = ap[curr->End]-ap[curr->Start];
+      std::set<int> uniqueColumns(firstColPtr,lastColPtr);
+      int workingSet = calculateWorkingSetSize(nnzNum, uniqueColumns.size(), BCol, tileSize, curr->FusedIters.size());
+      if (workingSet > CACHE_SIZE && tileSize > 1){
+        int separator = tileSize/2 + curr->Start;
+        auto *vt1 = new VariableTile(curr->Start, separator);
+        auto *vt2 = new VariableTile(separator, curr->End);
+        for (auto fi: curr->FusedIters){
+          if (ai[ap[fi+1]-1] < separator){
+            vt1->FusedIters.push_back(fi);
+          }
+          else if(ai[ap[fi]] >= separator){
+            vt2->FusedIters.push_back(fi);
+          }
+          else{
+            unfusedIters.push_back(fi);
+          }
+        }
+        vt1->Next = vt2;
+        vt2->Next = curr->Next;
+        prev->Next = vt1;
+        numOfTiles += 1;
+        delete curr;
+        curr = prev;
+      }
+    }
+    // creating schedule multi dimensional set
+    sym_lib::MultiDimensionalSet* fusedCompSet = new sym_lib::MultiDimensionalSet();
+    fusedCompSet->n1_ = 2;
+    fusedCompSet->ptr1_ = new int[3];
+    fusedCompSet->ptr1_[0] = 0;
+    fusedCompSet->ptr1_[1] = numOfTiles;
+    fusedCompSet->ptr1_[2] = numOfTiles + Sp._num_threads;
+    fusedCompSet->ptr2_ = new int[numOfTiles + Sp._num_threads + 1];
+    fusedCompSet->id_ = new int[2 * ACsr->m];
+    fusedCompSet->type_ = new int[2 * ACsr->m];
+    fusedCompSet->ptr2_[0] = 0;
+    int cnt = 0;
+    int pCounter = 0;
+    curr = head;
+    while(curr->Next != NULLPNTR){
+      curr = curr->Next;
+      for (int j = curr->Start; j < curr->End; j++) {
+        fusedCompSet->id_[cnt] = j;
+        fusedCompSet->type_[cnt] = 0;
+        cnt++;
+      }
+      for (int fi : curr->FusedIters) {
+        fusedCompSet->id_[cnt] = fi;
+        fusedCompSet->type_[cnt] = 1;
+        cnt++;
+      }
+      fusedCompSet->ptr2_[pCounter + 1] = cnt;
+      pCounter+=1;
+    }
+    extractTilesSizeData(head);
+    // delete the tile tree
+    curr = head->Next;
+    while(curr != NULLPNTR){
+      auto *tmp = curr;
+      curr = curr->Next;
+      delete tmp;
+    }
+    int unfusedPerPart = ceil(unfusedIters.size() / float(Sp._num_threads));
+    for (int i = numOfTiles; i < numOfTiles + Sp._num_threads; i++) {
+      int p = i - numOfTiles;
+      int partEnd =
+          std::min((p + 1) * unfusedPerPart, int(unfusedIters.size()));
+      for (int j = p * unfusedPerPart; j < partEnd; j++) {
+        fusedCompSet->id_[cnt] = unfusedIters[j];
+        fusedCompSet->type_[cnt] = 1;
+        cnt++;
+      }
+      fusedCompSet->ptr2_[i + 1] = cnt;
+    }
+    int fusedNodesNum = fusedCompSet->getNumberOfFusedNodes();
+    int fusedNnzNum = fusedCompSet->getFusedNnzNum(ACsr);
+    this->St->OtherStats["Number of Fused Nodes"] = {(double)fusedNodesNum};
+    this->St->OtherStats["Number of Fused nnz"] = {(double)fusedNnzNum};
+    return fusedCompSet;
+  }
+
+  virtual int calculateWorkingSetSize(int Nnz, int UniqueColsNum, int BCol, int TileSize, int FusedIters){
+    return (Nnz + UniqueColsNum * BCol + TileSize* BCol + FusedIters* BCol) * 8 + Nnz*4;
+  }
+
+  void extractTilesSizeData(VariableTile* Head){
+    std::vector<int> tileSizes;
+    VariableTile* curr = Head;
+    while(curr->Next != NULLPNTR){
+      curr = curr->Next;
+      tileSizes.push_back(curr->End - curr->Start);
+    }
+    float average = std::accumulate(tileSizes.begin(), tileSizes.end(),0.0) / tileSizes.size();
+    float var = 0;
+    for( int i = 0; i < tileSizes.size(); i++ )
+    {
+      var += (tileSizes[i] - average) * (tileSizes[i] - average);
+    }
+    var /= tileSizes.size();
+    float sd = sqrt(var);
+    this->St->OtherStats["Tile Size Mean"] = {average};
+    this->St->OtherStats["Tile Size STD"] = {sd};
+  }
+};
+
+class InspectorForTileFusedCSRVariableTileSizeWithKTiles8: public InspectorForTileFusedCSRVariableTileSize{
+protected:
+  int calculateWorkingSetSize(int Nnz, int UniqueColsNum, int BCol, int TileSize, int FusedIters) override{
+    return (Nnz + UniqueColsNum * 16 + TileSize* 16 + FusedIters* 16) * 8 + Nnz*4;
+  }
+public:
+  InspectorForTileFusedCSRVariableTileSizeWithKTiles8(sym_lib::ScheduleParameters Sp1, Stats *St1)
+      : InspectorForTileFusedCSRVariableTileSize(Sp1, St1) {}
 };
 
 #endif // SPARSE_FUSION_FUSIONINSPECTOR_H
