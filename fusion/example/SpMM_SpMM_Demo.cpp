@@ -464,7 +464,7 @@ int main(const int argc, const char *argv[]) {
 //        swiftware::benchmark::Stats("SpMM_SpMM_FusedParallelKTiled8Avx256","SpMM",
 //                                    7,tp._matrix_name,numThread);
 //    stats->OtherStats["PackingType"] = {Separated};
-//    stats->OtherStats["TilingMethod"] = {Variable};
+//    stats->OtherStats["TilingMethod"] = {Fixed};
 //    auto *fusedParallelVectorizedKTiled256 = new
 //        SpMMSpMMFusedInterLayerKTiled8VectorizedAvx256(inSpMM, stats, sp);
 //    fusedParallelVectorizedKTiled256->run();
@@ -482,7 +482,7 @@ int main(const int argc, const char *argv[]) {
      swiftware::benchmark::Stats("SpMM_SpMM_FusedParallelAvx512","SpMM",
      7,tp._matrix_name,numThread);
      stats->OtherStats["PackingType"] ={Separated};
-     stats->OtherStats["TilingMethod"] = {Variable};
+     stats->OtherStats["TilingMethod"] = {Fixed};
      auto *fusedParallelVectorized512 = new SpMMSpMMFusedInterLayerVectorizedAvx512(inSpMM, stats, sp);
      fusedParallelVectorized512->run();
      //fusedParallel->OutTensor->printDx();
