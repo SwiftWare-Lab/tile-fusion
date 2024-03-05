@@ -13,8 +13,6 @@
 #SBATCH --constraint=cascade
 #SBATCH --array=0-29%6  # Allows no more than 6 of the jobs to run simultaneously
 
-#SLURM_ARRAY_TASK_ID=9
-#SLURM_JOB_ID=123
 if [ -z "$SLURM_ARRAY_TASK_ID" ]; then
   SLURM_ARRAY_TASK_ID=""
 fi
