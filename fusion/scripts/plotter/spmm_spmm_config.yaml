@@ -1,48 +1,160 @@
 experiment_name: "spmm_spmm"
 implementations:
-#  - name: "SpMM_SpMM_CSC_Interleaved_Atomic_FusedParallel"
-#    color: "green"
+  #  - name: "SpMM_SpMM_CSC_Interleaved_Atomic_FusedParallel"
+  #    color: "green"
+  #    tuned: True
+  #    tune_parameter: "Iter Per Partition"
+  #  - name: "SpMM_SpMM_CSC_Separated_FusedParallel"
+  #    color: "blue"
+  #    tuned: True
+  #    tune_parameter: "Iter Per Partition"
+#  - name: "SpMM_SpMM_CSC_Interleaved_Coloring_FusedParallel"
+#    representation: "Tile Fused CSC"
+#    color: "red"
 #    tuned: True
-#    tune_parameter: "Iter Per Partition"
-#  - name: "SpMM_SpMM_CSC_Separated_FusedParallel"
+#    tune_parameters:
+#      - "Iter Per Partition"
+#  - name: "SpMM_SpMM_CSC_Interleaved_Coloring_FusedParallel_Vectorized_Packed"
+#    representation: "Tile Fused CSC Avx2 Packed"
+#    color: "dodgerblue"
+#    tuned: True
+#    tune_parameters:
+#      - "Iter Per Partition"
+#  - name: "SpMM_SpMM_CSC_Interleaved_Coloring_FusedParallel_Vectorized"
+#    representation: "Tile Fused CSC Avx2"
+#    color: "red"
+#    tuned: True
+#    tune_parameters:
+#      - "Iter Per Partition"
+#  - name: "SpMM_SpMM_CSC_Interleaved_Coloring_FusedParallel_Avx512"
+#    representation: "Tile Fused CSC Avx512"
 #    color: "blue"
 #    tuned: True
-#    tune_parameter: "Iter Per Partition"
-  - name: "SpMM_SpMM_CSC_Interleaved_Coloring_FusedParallel"
-    color: "red"
-    tuned: True
-    tune_parameters:
-    - "MTile"
-  - name: "SpMM_SpMM_CSC_Interleaved_Coloring_FusedParallel_KTiling"
-    color: "red"
-    tuned: True
-    tune_parameters:
-      - "MTile"
-      - "NTile0"
-  - name: "SpMM_SpMM_CSC_Interleaved_Coloring_FusedParallel_KTiling"
-    color: "red"
-    tuned: True
-    tune_parameter: "MTile"
+#    tune_parameters:
+#      - "Iter Per Partition"
+#  - name: "SpMM_SpMM_CSC_Interleaved_Coloring_IterationTiled_FusedParallel"
+#    representation: "Tile Fused CSC MTile"
+#    color: "blue"
+#    tuned: True
+#    tune_parameters:
+#      - "Iter Per Partition"
+#  - name: "SpMM_SpMM_CSC_Interleaved_Coloring_NTiled_FusedParallel"
+#    representation: "Tile Fused CSC NTile"
+#    color: "lightblue"
+#    tuned: True
+#    tune_parameters:
+#      - "Iter Per Partition"
+#  - name: "SpMM_SpMM_CSC_Interleaved_Coloring_FusedParallel_ReplicatedKTiling"
+#    color: "red"
+#    tuned: True
+#    tune_parameters:
+#      - "MTile"
+#      - "NTile0"
+#  - name: "SpMM_SpMM_CSC_Interleaved_Coloring_FusedParallel_ScheduledKTiling"
+#    color: "red"
+#    tuned: True
+#    tune_parameters:
+#      - "MTile"
+#      - "NTile0"
   - name: "SpMM_SpMM_Demo_UnFusedParallel"
-    color: "orange"
+    representation: "Unfused Loops"
+    color: "maroon"
     tuned: False
 #  - name: "SpMM_SpMM_Separated_FusedParallel"
+#    representation: "Tile Fused Seperated"
 #    color: "purple"
 #    tuned: True
-#    tune_parameter: "Iter Per Partition"
-#  - name: "SpMM_SpMM_Mixed_FusedParallel"
-#    color: "brown"
+#    tune_parameters:
+#      - "Iter Per Partition"
+  - name: "SpMM_SpMM_MKL"
+    representation: "MKL"
+    color: "black"
+    tuned: False
+#  - name: "SpMM_SpMM_FusedParallel"
+#    representation: "Tile Fused"
+#    color: "green"
 #    tuned: True
-#    tune_parameter: "Iter Per Partition"
-  - name: "SpMM_SpMM_FusedParallel"
-    color: "gray"
+#    tune_parameters:
+#      - "Iter Per Partition"
+#  - name: "SpMM_SpMM_FusedParallel_Conditional_Interleaved_Avx256"
+#    representation: "Tile Fused AVX2"
+#    color: "gray"
+#    tuned: True
+#    tune_parameters:
+#      - "Iter Per Partition"
+#  - name: "SpMM_SpMM_FusedParallel_Conditional_Interleaved_Avx512"
+#    representation: "Tile Fused Avx512 interleaved"
+#    color: "goldenrod"
+#    tuned: True
+#    tune_parameters:
+#      - "Iter Per Partition"
+#  - name: "SpMM_SpMM_FusedParallel_Separated"
+#    representation: "Tile Fused Seperated (no conditional)"
+#    color: "red"
+#    tuned: True
+#    tune_parameters:
+#      - "Iter Per Partition"
+#  - name: "SpMM_SpMM_FusedParallel_BFS"
+#    representation: "Tile Fused BFS"
+#    color: "red"
+#    tuned: True
+#    tune_parameters:
+#      - "Iter Per Partition"
+#  - name: "SpMM_SpMM_FusedParallelAvx512"
+#    representation: "Tile Fused Avx512 variable tile size"
+#    color: "blue"
+#    tuned: True
+#    tune_parameters:
+#      - "Iter Per Partition"
+  - name: "SpMM_SpMM_FusedParallelAvx256"
+    representation: "Tile Fused Avx2 Fixed tile size"
+    color: "goldenrod"
     tuned: True
     tune_parameters:
-    - "Iter Per Partition"
+      - "Iter Per Partition"
+#  - name: "SpMM_SpMM_FusedParallel_Conditional_Interleaved_Avx512"
+#    representation: "Fused Conditional Interleaved"
+#    color: "goldenrod"
+#    tuned: True
+#    tune_parameters:
+#      - "Iter Per Partition"
+#  - name: "SpMM_SpMM_FusedParallel_Conditional_Separated_Avx512"
+#    representation: "Fused Conditional Interleaved"
+#    color: "lightblue"
+#    tuned: True
+#    tune_parameters:
+#      - "Iter Per Partition"
+#  - name: "SpMM_SpMM_Mixed_FusedParallel"
+#    color: "red"
+#    tuned: True
+#    tune_parameters:
+#      - "Iter Per Partition"
+#  - name: "SpMM_MKL"
+#    color: "brown"
+#    tuned: False
+#  - name: "SpMM_Vectorized_2_16"
+#    color: "red"
+#    tuned: True
+#    tune_parameters:
+#      - "MTile"
+#  - name: "SpMM_Vectorized_4_8"
+#    color: "red"
+#    tuned: True
+#    tune_parameters:
+#      - "MTile"
+#  - name: "SpMM_Vectorized_16"
+#    color: "red"
+#    tuned: True
+#    tune_parameters:
+#      - "MTile"
+#  - name: "SpMM_Vectorized_AVX512"
+#    color: "red"
+#    tuned: True
+#    tune_parameters:
+#      - "MTile"
 feature_sizes:
   - 64
 matrices:
-  - "pubmed_ordered.mtx"
-  - "cora_ordered.mtx"
-  - "cora_full_ordered.mtx"
-baseline: "SpMM_SpMM_Demo_UnFusedParallel"
+  - "tri-banded-10000.mtx"
+  - "tri-banded.mtx"
+baseline: "SpMM_SpMM_MKL"
