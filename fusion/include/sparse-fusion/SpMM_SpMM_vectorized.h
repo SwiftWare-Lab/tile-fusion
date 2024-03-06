@@ -29,14 +29,14 @@ void spmmCsrSpmmCsrFusedVectorized8Avx512(
 
 inline void vectorCrossProduct32Avx512SP(float Ax, int Ai,
                                          const float *B, float *C, int N,
-                                         __m512s &dxV1,  __m512s &dxV2);
+                                         __m512 &dxV1,  __m512 &dxV2);
 
 inline void vectorCrossProduct32Avx512(double Ax, int Ai, const double *B,
                                        double *C, int N, int I);
 
 inline void vectorCrossProduct2_32Avx512SP(const float* Ax, const int* Ai,
                                            const float *B,float *C, int N,
-                                           __m512s &dxV1,  __m512s &dxV2);
+                                           __m512 &dxV1,  __m512 &dxV2);
 
 void spmmCsrSpmmCsrFusedVectorized2_32Avx512(
     int M, int N, int K, int L, const int *Ap, const int *Ai, const double *Ax,

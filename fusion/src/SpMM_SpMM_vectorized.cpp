@@ -102,7 +102,7 @@ inline void vectorCrossProduct32Avx512(double Ax, int Ai,
 
 inline void vectorCrossProduct32Avx512SP(float Ax, int Ai,
                                        const float *B, float *C, int N,
-                                       __m512s &dxV1,  __m512s &dxV2) {
+                                       __m512 &dxV1,  __m512 &dxV2) {
   int bij = Ai * N;
   auto bxV = _mm512_set1_ps(Ax);
   auto acxV1 = _mm512_loadu_ps(B + bij);
@@ -139,7 +139,7 @@ inline void vectorCrossProduct2_32Avx512(const double* Ax, const int* Ai,
 
 inline void vectorCrossProduct2_32Avx512SP(const float* Ax, const int* Ai,
                                          const float *B,float *C, int N,
-                                         __m512s &dxV1,  __m512s &dxV2) {
+                                         __m512 &dxV1,  __m512 &dxV2) {
   int bij0 = Ai[0] * N;
   int bij1 = Ai[1] * N;
   auto bxV0 = _mm512_set1_ps(Ax[0]);
