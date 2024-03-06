@@ -1189,6 +1189,33 @@ public:
 
 #ifdef __AVX2__
 
+class SpMMSpMMUnFusedParallelVectorizedAVX2 : public SpMMSpMMUnFused {
+protected:
+  sym_lib::ScheduleParameters Sp;
+  Timer execute() override {
+    //    std::fill_n(OutTensor->Xx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
+    OutTensor->reset();
+    Timer t;
+    t.start();
+    swiftware::sparse::spmmCsrVectorized2_16(InTensor->M, InTensor->N,
+                                       InTensor->ACsr->p, InTensor->ACsr->i,
+                                       InTensor->ACsr->x, InTensor->Bx,
+                                       OutTensor->ACx, Sp.IterPerPartition,InTensor->NumThreads);
+    swiftware::sparse::spmmCsrVectorized2_16(InTensor->M, InTensor->N,
+                                       InTensor->BCsr->p, InTensor->BCsr->i,
+                                       InTensor->BCsr->x, OutTensor->ACx,
+                                       OutTensor->Xx, Sp.IterPerPartition,InTensor->NumThreads);
+    t.stop();
+    return t;
+  }
+
+public:
+  SpMMSpMMUnFusedParallelVectorizedAVX2(TensorInputs<double> *In1, Stats *Stat1, sym_lib::ScheduleParameters SpIn)
+      : SpMMSpMMUnFused(In1, Stat1), Sp(SpIn) {}
+};
+
+
 class SpMMSpMMFusedInterLayerKTiled8VectorizedAvx256: public SpMMSpMMFusedVariableTileSize{
 protected:
   Timer execute() override {
@@ -1373,6 +1400,32 @@ public:
 #endif
 
 #ifdef __AVX512F__
+
+class SpMMSpMMUnFusedParallelVectorizedAvx512 : public SpMMSpMMUnFused {
+protected:
+  sym_lib::ScheduleParameters Sp;
+  Timer execute() override {
+    //    std::fill_n(OutTensor->Xx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
+    OutTensor->reset();
+    Timer t;
+    t.start();
+    swiftware::sparse::spmmCsrVectorized2_32Avx512(InTensor->M, InTensor->N,
+                                             InTensor->ACsr->p, InTensor->ACsr->i,
+                                             InTensor->ACsr->x, InTensor->Bx,
+                                             OutTensor->ACx, Sp.IterPerPartition,InTensor->NumThreads);
+    swiftware::sparse::spmmCsrVectorized2_32Avx512(InTensor->M, InTensor->N,
+                                             InTensor->BCsr->p, InTensor->BCsr->i,
+                                             InTensor->BCsr->x, OutTensor->ACx,
+                                             OutTensor->Xx, Sp.IterPerPartition,InTensor->NumThreads);
+    t.stop();
+    return t;
+  }
+
+public:
+  SpMMSpMMUnFusedParallelVectorizedAvx512(TensorInputs<double> *In1, Stats *Stat1, sym_lib::ScheduleParameters SpIn)
+      : SpMMSpMMUnFused(In1, Stat1), Sp(SpIn) {}
+};
 
 class SpMMSpMMFusedInterLayerKTiled8VectorizedAvx512 : public SpMMSpMMFusedVariableTileSize {
 protected:
@@ -1698,10 +1751,10 @@ protected:
     OutTensor->reset();
     Timer t;
     t.start();
-    swiftware::sparse::spmm16CsrVectorizedUnrollJ2(InTensor->M, InTensor->N,
-                                       InTensor->ACsr->p, InTensor->ACsr->i,
-                                       InTensor->ACsr->x, InTensor->Bx,
-                                       OutTensor->ACx, Sp.TileM, InTensor->NumThreads);
+    swiftware::sparse::spmmCsrVectorized2_16(
+        InTensor->M, InTensor->N, InTensor->ACsr->p, InTensor->ACsr->i,
+        InTensor->ACsr->x, InTensor->Bx, OutTensor->ACx, Sp.TileM,
+        InTensor->NumThreads);
     t.stop();
     return t;
   }

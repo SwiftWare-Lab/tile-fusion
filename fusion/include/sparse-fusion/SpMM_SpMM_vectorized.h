@@ -50,6 +50,14 @@ void spmmCsrSpmmCsrFusedVectorized2_32Avx512SP(
     float *Dx, float *ACx, int LevelNo, const int *LevelPtr,
     const int *ParPtr, const int *Partition, const int *ParType, int NThreads);
 
+void spmmCsrVectorized2_32Avx512(int M, int N, const int *Ap, const int *Ai,
+                                 const double *Ax, const double *Cx,
+                                 double *ACx, int TileSize, int NThreads);
+
+void spmmCsrVectorized2_32Avx512SP(int M, int N, const int *Ap, const int *Ai,
+                                 const float *Ax, const float *Cx,
+                                 float *ACx, int TileSize, int NThreads);
+
 void spmmCsrSpmmCscFusedColoredAvx512(int M, int N, int K, int L, const int *Ap,
                                       const int *Ai, const double *Ax,
                                       const int *Bp, const int *Bi,
@@ -111,9 +119,14 @@ void spmm8CsrVectorizedUnrollJ4(int M, int N, const int *Ap, const int *Ai,
                                 const double *Ax, const double *Cx, double *ACx,
                                 int TileSize, int NThreads);
 
-void spmm16CsrVectorizedUnrollJ2(int M, int N, const int *Ap, const int *Ai,
+void spmmCsrVectorized2_16(int M, int N, const int *Ap, const int *Ai,
                                  const double *Ax, const double *Cx,
                                  double *ACx, int TileSize, int NThreads);
+
+void spmmCsrVectorized2_32SP(int M, int N, const int *Ap, const int *Ai,
+                             const float *Ax, const float *Cx,
+                             float *ACx, int TileSize, int NThreads);
+
 void spmm16CsrVectorized(int M, int N, const int *Ap, const int *Ai,
                          const double *Ax, const double *Cx, double *ACx,
                          int TileSize, int NThreads);

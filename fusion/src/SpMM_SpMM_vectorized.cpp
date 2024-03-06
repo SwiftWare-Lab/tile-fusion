@@ -274,6 +274,74 @@ void spmmCsrSpmmCsrFusedVectorized2_32Avx512SP(
   }
 }
 
+void spmmCsrVectorized2_32Avx512(int M, int N, const int *Ap, const int *Ai,
+                                 const double *Ax, const double *Cx,
+                                 double *ACx, int TileSize, int NThreads) {
+  pw_init_instruments;
+#pragma omp parallel num_threads(NThreads)
+  {
+    pw_start_instruments_loop(omp_get_thread_num());
+#pragma omp for
+    for (int ii = 0; ii < M; ii += TileSize) {
+      for (int i = ii; i < ii + TileSize && i < M; i++) {
+        for (int kk = 0; kk < N; kk += 32) {
+          auto axV1 = _mm512_loadu_pd(ACx + offset + kk);
+          auto axV2 = _mm512_loadu_pd(ACx + offset + kk + 8);
+          auto axV3 = _mm512_loadu_pd(ACx + offset + kk + 16);
+          auto axV4 = _mm512_loadu_pd(ACx + offset + kk + 24);
+          int j = Ap[i];
+          for (; j < Ap[i + 1] - 1; j += 2) {
+            vectorCrossProduct2_32Avx512(Ax + j, Ai + j, Cx + kk, ACx + kk, N,
+                                         axV1, axV2, axV3, axV4);
+          }
+          for (; j < Ap[i + 1]; j++) {
+            vectorCrossProduct32Avx512(Ax[j], Ai[j], Cx + kk, ACx + kk, N,
+                                       axV1, axV2, axV3, axV4);
+          }
+          _mm512_storeu_pd(ACx + offset + kk, axV1);
+          _mm512_storeu_pd(ACx + offset + kk + 8, axV2);
+          _mm512_storeu_pd(ACx + offset + kk + 16, axV3);
+          _mm512_storeu_pd(ACx + offset + kk + 24, axV4);
+        }
+      }
+    }
+    pw_stop_instruments_loop(omp_get_thread_num());
+  }
+  pw_init_instruments;
+}
+
+void spmmCsrVectorized2_32Avx512SP(int M, int N, const int *Ap, const int *Ai,
+                                   const float *Ax, const float *Cx,
+                                   float *ACx, int TileSize, int NThreads){
+  pw_init_instruments;
+#pragma omp parallel num_threads(NThreads)
+  {
+    pw_start_instruments_loop(omp_get_thread_num());
+#pragma omp for
+    for (int ii = 0; ii < M; ii += TileSize) {
+      for (int i = ii; i < ii + TileSize && i < M; i++) {
+        for (int kk = 0; kk < N; kk += 32) {
+          auto axV1 = _mm512_loadu_ps(ACx + offset + kk);
+          auto axV2 = _mm512_loadu_ps(ACx + offset + kk + 16);
+          int j = Ap[i];
+          for (; j < Ap[i + 1] - 1; j += 2) {
+            vectorCrossProduct2_32Avx512SP(Ax + j, Ai + j, Cx + kk, ACx + kk, N,
+                                           axV1, axV2);
+          }
+          for (; j < Ap[i + 1]; j++) {
+            vectorCrossProduct32Avx512SP(Ax[j], Ai[j], Cx + kk, ACx + kk, N,
+                                         axV1, axV2);
+          }
+          _mm512_storeu_ps(ACx + offset + kk, axV1);
+          _mm512_storeu_ps(ACx + offset + kk + 16, axV2);
+        }
+      }
+    }
+    pw_stop_instruments_loop(omp_get_thread_num());
+  }
+  pw_init_instruments;
+}
+
 //void spmmCsrSpmmCsrFusedVectorized64Avx512(
 //    int M, int N, int K, int L, const int *Ap, const int *Ai, const double *Ax,
 //    const int *Bp, const int *Bi, const double *Bx, const double *Cx,
@@ -984,7 +1052,7 @@ void spmm8CsrVectorizedUnrollJ4(int M, int N, const int *Ap, const int *Ai,
   pw_init_instruments;
 }
 
-void spmm16CsrVectorizedUnrollJ2(int M, int N, const int *Ap, const int *Ai,
+void spmmCsrVectorized2_16(int M, int N, const int *Ap, const int *Ai,
                                  const double *Ax, const double *Cx,
                                  double *ACx, int TileSize, int NThreads) {
   pw_init_instruments;
@@ -994,13 +1062,17 @@ void spmm16CsrVectorizedUnrollJ2(int M, int N, const int *Ap, const int *Ai,
 #pragma omp for
     for (int ii = 0; ii < M; ii += TileSize) {
       for (int i = ii; i < ii + TileSize && i < M; i++) {
+        for (int kk = 0; kk < N; kk += 16) {
         int j = Ap[i];
+        auto acxV = _mm256_loadu_pd(ACx + i * N + kk);
+        auto acxV2 = _mm256_loadu_pd(ACx + i * N + kk + 4);
+        auto acxV3 = _mm256_loadu_pd(ACx + i * N + kk + 8);
+        auto acxV4 = _mm256_loadu_pd(ACx + i * N + kk + 12);
         for (; j < Ap[i + 1] - 1; j += 2) {
           int aij = Ai[j] * N;
           int aij2 = Ai[j + 1] * N;
           auto axv0 = _mm256_set1_pd(Ax[j]);
           auto axv1 = _mm256_set1_pd(Ax[j + 1]);
-          for (int kk = 0; kk < N; kk += 16) {
             auto cxV11 = _mm256_loadu_pd(Cx + aij + kk);
             auto cxV12 = _mm256_loadu_pd(Cx + aij + kk + 4);
             auto cxV13 = _mm256_loadu_pd(Cx + aij + kk + 8);
@@ -1009,10 +1081,6 @@ void spmm16CsrVectorizedUnrollJ2(int M, int N, const int *Ap, const int *Ai,
             auto cxV22 = _mm256_loadu_pd(Cx + aij2 + kk + 4);
             auto cxV23 = _mm256_loadu_pd(Cx + aij2 + kk + 8);
             auto cxV24 = _mm256_loadu_pd(Cx + aij2 + kk + 12);
-            auto acxV = _mm256_loadu_pd(ACx + i * N + kk);
-            auto acxV2 = _mm256_loadu_pd(ACx + i * N + kk + 4);
-            auto acxV3 = _mm256_loadu_pd(ACx + i * N + kk + 8);
-            auto acxV4 = _mm256_loadu_pd(ACx + i * N + kk + 12);
             acxV = _mm256_fmadd_pd(axv0, cxV11, acxV);
             acxV = _mm256_fmadd_pd(axv1, cxV21, acxV);
             acxV2 = _mm256_fmadd_pd(axv0, cxV12, acxV2);
@@ -1021,33 +1089,85 @@ void spmm16CsrVectorizedUnrollJ2(int M, int N, const int *Ap, const int *Ai,
             acxV3 = _mm256_fmadd_pd(axv1, cxV23, acxV3);
             acxV4 = _mm256_fmadd_pd(axv0, cxV14, acxV4);
             acxV4 = _mm256_fmadd_pd(axv1, cxV24, acxV4);
-            _mm256_storeu_pd(ACx + i * N + kk, acxV);
-            _mm256_storeu_pd(ACx + i * N + kk + 4, acxV2);
-            _mm256_storeu_pd(ACx + i * N + kk + 8, acxV3);
-            _mm256_storeu_pd(ACx + i * N + kk + 12, acxV3);
           }
-        }
         for (; j < Ap[i + 1]; ++j) {
-          int aij = Ai[j] * N;
-          auto axv0 = _mm256_set1_pd(Ax[j]);
-          for (int kk = 0; kk < N; kk += 16) {
-            auto cxV11 = _mm256_loadu_pd(Cx + aij + kk);
-            auto cxV12 = _mm256_loadu_pd(Cx + aij + kk + 4);
-            auto cxV13 = _mm256_loadu_pd(Cx + aij + kk + 8);
-            auto cxV14 = _mm256_loadu_pd(Cx + aij + kk + 12);
-            auto acxV = _mm256_loadu_pd(ACx + i * N + kk);
-            auto acxV2 = _mm256_loadu_pd(ACx + i * N + kk + 4);
-            auto acxV3 = _mm256_loadu_pd(ACx + i * N + kk + 8);
-            auto acxV4 = _mm256_loadu_pd(ACx + i * N + kk + 12);
-            acxV = _mm256_fmadd_pd(axv0, cxV11, acxV);
-            acxV2 = _mm256_fmadd_pd(axv0, cxV12, acxV2);
-            acxV3 = _mm256_fmadd_pd(axv0, cxV13, acxV3);
-            acxV4 = _mm256_fmadd_pd(axv0, cxV14, acxV4);
-            _mm256_storeu_pd(ACx + i * N + kk, acxV);
-            _mm256_storeu_pd(ACx + i * N + kk + 4, acxV2);
-            _mm256_storeu_pd(ACx + i * N + kk + 8, acxV3);
-            _mm256_storeu_pd(ACx + i * N + kk + 12, acxV4);
+            int aij = Ai[j] * N;
+            auto axv0 = _mm256_set1_pd(Ax[j]);
+              auto cxV11 = _mm256_loadu_pd(Cx + aij + kk);
+              auto cxV12 = _mm256_loadu_pd(Cx + aij + kk + 4);
+              auto cxV13 = _mm256_loadu_pd(Cx + aij + kk + 8);
+              auto cxV14 = _mm256_loadu_pd(Cx + aij + kk + 12);
+              acxV = _mm256_fmadd_pd(axv0, cxV11, acxV);
+              acxV2 = _mm256_fmadd_pd(axv0, cxV12, acxV2);
+              acxV3 = _mm256_fmadd_pd(axv0, cxV13, acxV3);
+              acxV4 = _mm256_fmadd_pd(axv0, cxV14, acxV4);
           }
+          _mm256_storeu_pd(ACx + i * N + kk, acxV);
+          _mm256_storeu_pd(ACx + i * N + kk + 4, acxV2);
+          _mm256_storeu_pd(ACx + i * N + kk + 8, acxV3);
+          _mm256_storeu_pd(ACx + i * N + kk + 12, acxV3);
+        }
+      }
+    }
+    pw_stop_instruments_loop(omp_get_thread_num());
+  }
+  pw_init_instruments;
+}
+
+void spmmCsrVectorized2_32SP(int M, int N, const int *Ap, const int *Ai,
+                           const float *Ax, const float *Cx,
+                           float *ACx, int TileSize, int NThreads) {
+  pw_init_instruments;
+#pragma omp parallel num_threads(NThreads)
+  {
+    pw_start_instruments_loop(omp_get_thread_num());
+#pragma omp for
+    for (int ii = 0; ii < M; ii += TileSize) {
+      for (int i = ii; i < ii + TileSize && i < M; i++) {
+        for (int kk = 0; kk < N; kk += 32) {
+          int j = Ap[i];
+          auto acxV = _mm256_loadu_ps(ACx + i * N + kk);
+          auto acxV2 = _mm256_loadu_ps(ACx + i * N + kk + 8);
+          auto acxV3 = _mm256_loadu_ps(ACx + i * N + kk + 16);
+          auto acxV4 = _mm256_loadu_ps(ACx + i * N + kk + 24);
+          for (; j < Ap[i + 1] - 1; j += 2) {
+              int aij = Ai[j] * N;
+              int aij2 = Ai[j + 1] * N;
+              auto axv0 = _mm256_set1_ps(Ax[j]);
+              auto axv1 = _mm256_set1_ps(Ax[j + 1]);
+              auto cxV11 = _mm256_loadu_ps(Cx + aij + kk);
+              auto cxV12 = _mm256_loadu_ps(Cx + aij + kk + 8);
+              auto cxV13 = _mm256_loadu_ps(Cx + aij + kk + 16);
+              auto cxV14 = _mm256_loadu_ps(Cx + aij + kk + 24);
+              auto cxV21 = _mm256_loadu_ps(Cx + aij2 + kk);
+              auto cxV22 = _mm256_loadu_ps(Cx + aij2 + kk + 8);
+              auto cxV23 = _mm256_loadu_ps(Cx + aij2 + kk + 16);
+              auto cxV24 = _mm256_loadu_ps(Cx + aij2 + kk + 24);
+              acxV = _mm256_fmadd_ps(axv0, cxV11, acxV);
+              acxV = _mm256_fmadd_ps(axv1, cxV21, acxV);
+              acxV2 = _mm256_fmadd_ps(axv0, cxV12, acxV2);
+              acxV2 = _mm256_fmadd_ps(axv1, cxV22, acxV2);
+              acxV3 = _mm256_fmadd_ps(axv0, cxV13, acxV3);
+              acxV3 = _mm256_fmadd_ps(axv1, cxV23, acxV3);
+              acxV4 = _mm256_fmadd_ps(axv0, cxV14, acxV4);
+              acxV4 = _mm256_fmadd_ps(axv1, cxV24, acxV4);
+          }
+          for (; j < Ap[i + 1]; ++j) {
+              int aij = Ai[j] * N;
+              auto axv0 = _mm256_set1_ps(Ax[j]);
+              auto cxV11 = _mm256_loadu_ps(Cx + aij + kk);
+              auto cxV12 = _mm256_loadu_ps(Cx + aij + kk + 8);
+              auto cxV13 = _mm256_loadu_ps(Cx + aij + kk + 16);
+              auto cxV14 = _mm256_loadu_ps(Cx + aij + kk + 24);
+              acxV = _mm256_fmadd_ps(axv0, cxV11, acxV);
+              acxV2 = _mm256_fmadd_ps(axv0, cxV12, acxV2);
+              acxV3 = _mm256_fmadd_ps(axv0, cxV13, acxV3);
+              acxV4 = _mm256_fmadd_ps(axv0, cxV14, acxV4);
+          }
+          _mm256_storeu_ps(ACx + i * N + kk, acxV);
+          _mm256_storeu_ps(ACx + i * N + kk + 8, acxV2);
+          _mm256_storeu_ps(ACx + i * N + kk + 16, acxV3);
+          _mm256_storeu_ps(ACx + i * N + kk + 24, acxV3);
         }
       }
     }
