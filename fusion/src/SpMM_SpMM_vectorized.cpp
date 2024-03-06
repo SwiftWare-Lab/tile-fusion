@@ -284,6 +284,7 @@ void spmmCsrVectorized2_32Avx512(int M, int N, const int *Ap, const int *Ai,
 #pragma omp for
     for (int ii = 0; ii < M; ii += TileSize) {
       for (int i = ii; i < ii + TileSize && i < M; i++) {
+        int offset = N * i;
         for (int kk = 0; kk < N; kk += 32) {
           auto axV1 = _mm512_loadu_pd(ACx + offset + kk);
           auto axV2 = _mm512_loadu_pd(ACx + offset + kk + 8);
@@ -320,6 +321,7 @@ void spmmCsrVectorized2_32Avx512SP(int M, int N, const int *Ap, const int *Ai,
 #pragma omp for
     for (int ii = 0; ii < M; ii += TileSize) {
       for (int i = ii; i < ii + TileSize && i < M; i++) {
+        int offset = N * i;
         for (int kk = 0; kk < N; kk += 32) {
           auto axV1 = _mm512_loadu_ps(ACx + offset + kk);
           auto axV2 = _mm512_loadu_ps(ACx + offset + kk + 16);
