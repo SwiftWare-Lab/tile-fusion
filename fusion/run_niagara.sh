@@ -32,6 +32,9 @@ while getopts ":lm:c:i:e:" arg; do
     e)
       EXP=$OPTARG
       ;;
+    i)
+      ID=$OPTARG
+      ;;
     *) echo "Usage:
     -l TEST=FALSE                                     Set if you want to run the script for one b_col
     -m UFDB=$SCRATCH/UFDB/AM/                        path of matrices data"
