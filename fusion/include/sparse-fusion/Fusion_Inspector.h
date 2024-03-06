@@ -520,7 +520,7 @@ protected:
 public:
   InspectorForTileFusedCSRVariableTileSize(sym_lib::ScheduleParameters Sp1, Stats *St1)
       : Sp(Sp1), St(St1) {}
-  sym_lib::MultiDimensionalSet* generateVariableTileSizeSchedule(sym_lib::CSR *ACsr, int BCol){
+  sym_lib::MultiDimensionalSet* generateVariableTileSizeSchedule(sym_lib::CSR *ACsr, int BCol, int DataSize=8){
     std::vector<VariableTile> pTiles;
     std::vector<int> unfusedIters;
     int CACHE_SIZE = Sp.IterPerPartition;
@@ -573,7 +573,7 @@ public:
       int* lastColPtr = ai + ap[curr->End];
       int nnzNum = ap[curr->End]-ap[curr->Start];
       std::set<int> uniqueColumns(firstColPtr,lastColPtr);
-      int workingSet = calculateWorkingSetSize(nnzNum, uniqueColumns.size(), BCol, tileSize, curr->FusedIters.size());
+      int workingSet = calculateWorkingSetSize(nnzNum, uniqueColumns.size(), BCol, tileSize, curr->FusedIters.size(), DataSize);
       if (workingSet > CACHE_SIZE && tileSize > 1){
         int separator = tileSize/2 + curr->Start;
         auto *vt1 = new VariableTile(curr->Start, separator);
@@ -653,8 +653,8 @@ public:
     return fusedCompSet;
   }
 
-  virtual int calculateWorkingSetSize(int Nnz, int UniqueColsNum, int BCol, int TileSize, int FusedIters){
-    return (Nnz + UniqueColsNum * BCol + TileSize* BCol + FusedIters* BCol) * 8 + Nnz*4;
+  virtual int calculateWorkingSetSize(int Nnz, int UniqueColsNum, int BCol, int TileSize, int FusedIters, int DataSize = 8){
+    return (Nnz + UniqueColsNum * BCol + TileSize* BCol + FusedIters* BCol) * DataSize + Nnz*4;
   }
 
   void extractTilesSizeData(VariableTile* Head){
@@ -679,8 +679,8 @@ public:
 
 class InspectorForTileFusedCSRVariableTileSizeWithKTiles8: public InspectorForTileFusedCSRVariableTileSize{
 protected:
-  int calculateWorkingSetSize(int Nnz, int UniqueColsNum, int BCol, int TileSize, int FusedIters) override{
-    return (Nnz + UniqueColsNum * 16 + TileSize* 16 + FusedIters* 16) * 8 + Nnz*4;
+  int calculateWorkingSetSize(int Nnz, int UniqueColsNum, int BCol, int TileSize, int FusedIters, int DataSize=8) override{
+    return (Nnz + UniqueColsNum * 16 + TileSize* 16 + FusedIters* 16) * DataSize + Nnz*4;
   }
 public:
   InspectorForTileFusedCSRVariableTileSizeWithKTiles8(sym_lib::ScheduleParameters Sp1, Stats *St1)

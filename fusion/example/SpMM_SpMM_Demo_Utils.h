@@ -40,7 +40,7 @@ template <typename T> struct TensorInputs : public Inputs<T> {
   T *CorrectSol;
   bool IsSolProvided;
 
-  TensorInputs(int M1, int N1, int K1, int L1, sym_lib::CSC *A1,
+  TensorInputs<T>(int M1, int N1, int K1, int L1, sym_lib::CSC *A1,
                sym_lib::CSC *B1, int NumThreads1, int NumTrial1,
                std::string ExpN)
       : Inputs<T>(NumTrial1, NumThreads1, ExpN) {
@@ -52,12 +52,12 @@ template <typename T> struct TensorInputs : public Inputs<T> {
 //    B = sym_lib::copy_sparse(B1);
     ACsr = sym_lib::csc_to_csr(A1);
     BCsr = ACsr;
-    Bx = new double[K * N]();
+    Bx = new T[K * N]();
     // randomly initialize the input
     for (int i = 0; i < K * N; ++i) {
       Bx[i] = 1.0; //(double)rand()/RAND_MAX;
     }
-    CorrectSol = new double[L * N](); // the correct solution
+    CorrectSol = new T[L * N](); // the correct solution
     IsSolProvided = false;
     Inputs<T>::Threshold = 1e-6;
   }
@@ -119,10 +119,10 @@ protected:
     OutTensor->reset();
     Timer t;
     t.start();
-    swiftware::sparse::spmmCsrSequential(
+    swiftware::sparse::spmmCsrSequential<double>(
         InTensor->M, InTensor->N, InTensor->K, InTensor->ACsr->p,
         InTensor->ACsr->i, InTensor->ACsr->x, InTensor->Bx, OutTensor->ACx);
-    swiftware::sparse::spmmCsrSequential(
+    swiftware::sparse::spmmCsrSequential<double>(
         InTensor->L, InTensor->N, InTensor->M, InTensor->BCsr->p,
         InTensor->BCsr->i, InTensor->BCsr->x, OutTensor->ACx, OutTensor->Xx);
     t.stop();
@@ -410,7 +410,7 @@ protected:
     OutTensor->reset();
     Timer t;
     t.start();
-    swiftware::sparse::spmmCsrSpmmCsrFused(
+    swiftware::sparse::spmmCsrSpmmCsrFused<double>(
         InTensor->M, InTensor->N, InTensor->K, InTensor->L, InTensor->ACsr->p,
         InTensor->ACsr->i, InTensor->ACsr->x, InTensor->BCsr->p,
         InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Bx, OutTensor->Xx,
@@ -431,8 +431,9 @@ public:
 };
 
 class SpMMSpMMFusedVariableTileSize: public SpMMSpMMFusedInterLayer{
-  InspectorForTileFusedCSRVariableTileSize *inspector;
 protected:
+  InspectorForTileFusedCSRVariableTileSize *inspector;
+
   Timer analysis() override{
     auto tm = St->OtherStats["TilingMethod"];
     if(tm[0] == sym_lib::Fixed){
@@ -454,7 +455,7 @@ protected:
     OutTensor->reset();
     Timer t;
     t.start();
-    swiftware::sparse::spmmCsrSpmmCsrFused(
+    swiftware::sparse::spmmCsrSpmmCsrFused<double>(
         InTensor->M, InTensor->N, InTensor->K, InTensor->L, InTensor->ACsr->p,
         InTensor->ACsr->i, InTensor->ACsr->x, InTensor->BCsr->p,
         InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Bx, OutTensor->Xx,
@@ -665,7 +666,7 @@ protected:
     OutTensor->reset();
     Timer t;
     t.start();
-    swiftware::sparse::spmmCsrSpmmCsrFused(
+    swiftware::sparse::spmmCsrSpmmCsrFused<double>(
         InTensor->M, InTensor->N, InTensor->K, InTensor->L, InTensor->ACsr->p,
         InTensor->ACsr->i, InTensor->ACsr->x, InTensor->BCsr->p,
         InTensor->BCsr->i, InTensor->BCsr->x, InTensor->Bx, OutTensor->Xx,
