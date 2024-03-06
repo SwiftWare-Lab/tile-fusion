@@ -342,10 +342,6 @@ public:
                                             sym_lib::ScheduleParameters SpIn)
       : SpMMSpMMFusedVariableTileSizeSP(In1, Stat1, SpIn){
   }
-
-  ~SpMMSpMMFusedInterLayerVectorizedAvx512SP(){
-    delete inspector;
-  }
 };
 #endif
 
