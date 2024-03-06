@@ -40,14 +40,11 @@ while getopts ":lm:c:i:e:" arg; do
 done
 
 
-#module load NiaEnv/.2022a
-#module load StdEnv/2023
-module load StdEnv/2020
-#module load intel/2023.2.1
-module load intel/2022.1.0
-echo "========> ${MKLROOT}"
-echo " -------> ${MKL_DIR}"
+module load NiaEnv/.2022a
+module load intel/2022u2
 export MKL_DIR=$MKLROOT
+module load cmake
+#module load gcc
 
 module load cmake
 #module load gcc
