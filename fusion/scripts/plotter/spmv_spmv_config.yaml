@@ -1,0 +1,48 @@
+experiment_name: "spmv_spmv"
+implementations:
+#  - name: "SpMV_SpMV_UnFusedSequential"
+#    color: "orange"
+#    tuned: False
+#  - name: "SpMV_SpMV_CSC_Interleaved_Coloring_FusedParallel"
+#    color: "red"
+#    tuned: True
+#    tune_parameters:
+#      - "MTile"
+  - name: "SpMV_SpMV_FusedParallel_Redundant_General"
+    color: "red"
+    tuned: True
+    tune_parameters:
+      - "Iter Per Partition"
+#  - name: "SpMV_SpMV_FusedParallel_Redundant_BandedSpecific"
+#    color: "red"
+#    tuned: True
+#    tune_parameters:
+#      - "Iter Per Partition"
+  - name: "SpMV_SpMV_UnFusedParallel"
+    color: "orange"
+    tuned: False
+  - name: "SpMV_SpMV_UnFusedMKL"
+    color: "brown"
+    tuned: False
+  - name: "SpMV_SpMV_FusedParallel"
+    color: "gray"
+    tuned: True
+    tune_parameters:
+      - "Iter Per Partition"
+  - name: "SpMV_SpMV_FusedParallel_Separated"
+    color: "gray"
+    tuned: True
+    tune_parameters:
+      - "Iter Per Partition"
+#  - name: "SpMV_SpMV_FusedParallel_RegisterReuse_BandedSpecific"
+#    color: "gray"
+#    tuned: False
+feature_sizes:
+  - 32
+matrices:
+  - "cora_ordered.mtx"
+  - "pubmed_ordered.mtx"
+  - "cora_full_ordered.mtx"
+  - "github_ordered.mtx"
+  - "coauthor_cs_ordered.mtx"
+baseline: "SpMV_SpMV_UnFusedMKL"

@@ -4,27 +4,73 @@ implementations:
 #    color: "yellow"
 #    tuned: False
   - name: "GCN_SingleLayerMKL"
-    color: "green"
+    representation: "MKL"
+    color: "black"
     tuned: False
-  - name: "GCN_SingleLayerTiledFused"
-    color: "blue"
-    tuned: True
-    tune_parameter: "NTile"
-  - name: "GCN_SingleLayerTiledFusedParallel"
-    color: "red"
-    tuned: True
-    tune_parameter: "NTile"
+#  - name: "GCN_SingleLayerUnfusedCSC"
+#    color: "green"
+#    tuned: False
+#  - name: "GCN_SingleLayerTiledFused"
+#    color: "blue"
+#    tuned: True
+#    tune_parameters:
+#      - "NTile"
+#  - name: "GCN_SingleLayerTiledFusedParallel"
+#    color: "red"
+#    tuned: True
+#    tune_parameters:
+#      - "NTile"
 #  - name: "GCN_SingleLayerFusedCSC"
 #    color: "orange"
 #    tuned: False
-  - name: "GCN_SingleLayerTiledFusedCSCParallel"
-    color: "purple"
+#  - name: "GCN_SingleLayerTiledFusedCSCParallel"
+#    representation: "Single Layer Fused CSC"
+#    color: "purple"
+#    tuned: True
+#    tune_parameters:
+#     - "NTile"
+##  - name: "GCN_SingleLayerTiledFusedCSCParallelWithKTiling"
+#    color: "purple"
+#    tuned: True
+#    tune_parameters:
+#      - "NTile"
+#  - name: "GCN_SingleLayerTiledFusedCSC"
+#    color: "brown"
+#    tuned: True
+#    tune_parameters:
+#     - "NTile"
+#  - name: "GCN_SingleLayerTiledFusedCSCCombined"
+#    representation: "Single Layer Fused CSC With Pruning"
+#    color: "brown"
+#    tuned: True
+#    tune_parameters:
+#      - "NTile"
+#      - "Min Workload Size0"
+#  - name: "GCN_SingleLayerTiledFusedCSCCombinedVectorized"
+#    representation: "Single Layer Fused CSC With Pruning and Vectorization"
+#    color: "brown"
+#    tuned: True
+#    tune_parameters:
+#      - "NTile"
+#      - "Min Workload Size0"
+#  - name: "GCN_SingleLayerTiledFusedCSCCombinedWithKTiling"
+#    color: "brown"
+#    tuned: True
+#    tune_parameters:
+#      - "NTile"
+#      - "Min Workload Size0"
+#  - name: "GCN_SingleLayerFused"
+#    representation: "Single Layer Fused Using CSR Using GemV"
+#    color: "purple"
+#    tuned: True
+#    tune_parameters:
+#      - "Iter Per Partition"
+  - name: "GCN_SingleLayerFusedSeperated"
+    representation: "TiledFused"
+    color: "goldenrod"
     tuned: True
-    tune_parameter: "NTile"
-  - name: "GCN_SingleLayerTiledFusedCSC"
-    color: "brown"
-    tuned: True
-    tune_parameter: "NTile"
+    tune_parameters:
+      - "Iter Per Partition"
 #  - name: "GCN_SingleLayerFusedParallel"
 #    color: "black"
 #    tuned: False
@@ -36,14 +82,18 @@ implementations:
 #    tuned: True
 #    tune_parameter: "NTile"
 feature_sizes:
-  - 500
-  - 1000
-  - 3000
+  - 8
+  - 128
+  - 512
 embed_dimensions:
   - 8
   - 64
   - 128
 matrices:
-  - "Cora_Ordered.mtx"
-  - "PubMed_Ordered.mtx"
+  - "pubmed_ordered.mtx"
+  - "cora_full_ordered.mtx"
+  - "github_ordered.mtx"
+  - "coauthor_cs_ordered.mtx"
+  - "deezer_europe_ordered.mtx"
+  - "facebook_page_page_ordered.mtx"
 baseline: "GCN_SingleLayerMKL"
