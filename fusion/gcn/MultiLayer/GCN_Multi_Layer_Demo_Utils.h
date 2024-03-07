@@ -173,10 +173,10 @@ class GCNIntraFusedSequential : public SWTensorBench<double> {
 protected:
   GnnTensorInputs *InTensor;
   void setup() override {
-    this->St->OtherStats["Number of Sampled Nodes"] = {
-        double(InTensor->LayerMasks[1].size())};
-    this->St->OtherStats["Number of First Layer Nodes"] = {
-        double(InTensor->LayerMasks[0].size())};
+//    this->St->OtherStats["Number of Sampled Nodes"] = {
+//        double(InTensor->LayerMasks[1].size())};
+//    this->St->OtherStats["Number of First Layer Nodes"] = {
+//        double(InTensor->LayerMasks[0].size())};
     this->St->OtherStats["FusedIterations"] = {0.};
     this->St->OtherStats["Min Workload Size"] = {10.};
   }

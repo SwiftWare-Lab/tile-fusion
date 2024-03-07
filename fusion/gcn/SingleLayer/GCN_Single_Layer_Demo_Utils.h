@@ -111,7 +111,7 @@ public:
   ~GCNSingleLayerMKL() { mkl_free(MKLAdj); }
 };
 
-class GCNSingleLayerUnfusedCSRMKLGeMM : public GCNSingleLayerFused {
+class GCNSingleLayerUnFusedCSRMKLGeMM : public GCNSingleLayerFused {
 
 protected:
   Timer execute() override {
@@ -132,7 +132,7 @@ protected:
   }
 
 public:
-  GCNSingleLayerUnfusedCSRMKLGeMM(GnnTensorInputs *In1, Stats *Stat1)
+  GCNSingleLayerUnFusedCSRMKLGeMM(GnnTensorInputs *In1, Stats *Stat1)
       : GCNSingleLayerFused(In1, Stat1) {}
 };
 

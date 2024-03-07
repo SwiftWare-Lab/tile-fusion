@@ -147,8 +147,8 @@ int main(const int argc, const char *argv[]) {
   stats = new swiftware::benchmark::Stats("GCN_SingleLayer_UnFused", "GCN", 7,
                                           tp._matrix_name, numThread);
   stats->OtherStats["PackingType"] = {Separated};
-  GCNSingleLayerUnfusedCSRMKLGeMM *gcnSingleLayerUnFused =
-      new GCNSingleLayerUnfusedCSRMKLGeMM(inputs, stats);
+  GCNSingleLayerUnFusedCSRMKLGeMM *gcnSingleLayerUnFused =
+      new GCNSingleLayerUnFusedCSRMKLGeMM(inputs, stats);
   gcnSingleLayerUnFused->run();
   auto gcnSingleLayerUnFusedStat = gcnSingleLayerUnFused->printStats();
   delete stats;
