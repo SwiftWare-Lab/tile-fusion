@@ -83,7 +83,7 @@ The plot should be modified to save a graph
 First you need to create matrices using this script
 
 ```bash
-python scripts/gen_matrix_folder.py -sl 1000 5000 10000 100000 -f ./data/banded -b 3
+python scripts/gen_matrix_folder.py -sl 1000 5000 10000 100000 -f ./data/tri-banded -b 3
 ```
 
 ### experiment on torch-geometric Graph Adjacency Matrices
@@ -98,7 +98,7 @@ Make sure you have mkl installed and setup its environment variables.
 Then run the code using:
 
 ```bash
-bash run_gcn_demo.sh -t 8 -m ./data/banded -e GCNSingleLayerCompare
+bash run_gcn_demo.sh -t 8 -m ./data/tri-banded -e GCNSingleLayerCompare
 ```
 
 set the thread number using -t, matrices folder using -m, and name of experiment using -e.
@@ -116,4 +116,10 @@ python scripts/plotter/plot_gcn.py ~/where/logs/ scripts/plotter/single_layer_co
 First argument is the folder containing the logs and the second argument is the config file. There is a sample config 
 file for single layer experiments in the script/plotter folder. You can generate config file for different experiments 
 based on the sample config file.
-Plots will be stored in the same folder as the log folder. 
+Plots will be stored in the same folder as the log folder.
+
+
+## Profiling with PAPI
+You will need to build the code with PAPI support. Please check the 
+swiftware benchmark repo for details. The 'test_papi.sh' script provides
+an example for running papi.

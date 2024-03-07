@@ -6,7 +6,7 @@
 #include "../GCN_Layer_MKL_Forward_Utils.h"
 #include "../Inspection/Fusion_Inspector.h"
 #else
-#include "GCN_Layer_Forward_Utils.h"
+#include "../GCN_Layer_Forward_Utils.h"
 #endif
 #include "../MultiLayer/GCN_Multi_Layer_Demo_Utils.h"
 #include "SWTensorBench.h"
@@ -262,6 +262,30 @@ public:
       : GCNSingleLayerFused(In1, Stat1) {}
 };
 
+class GCNSingleLayerTiledFusedCSCParallelAtomic : public GCNSingleLayerFused {
+protected:
+  int TileSize;
+  Timer execute() override {
+    OutTensor->reset();
+    mkl_set_num_threads(1);
+    Timer t;
+    t.start();
+    forwardForOneLayerFromCSCTiledParallel(
+        InTensor->AdjacencyMatrixCSC->m, InTensor->AdjacencyMatrixCSC->p,
+        InTensor->AdjacencyMatrixCSC->i, InTensor->AdjacencyMatrixCSC->x,
+        InTensor->FeatureMatrix->col, InTensor->Weight1->row, InTensor->Degrees,
+        InTensor->FeatureMatrix->a, InTensor->Weight1->a,
+        OutTensor->FirstLayerOutput, TileSize, InTensor->NumThreads);
+    t.stop();
+    return t;
+  }
+public:
+  GCNSingleLayerTiledFusedCSCParallelAtomic(
+      GnnTensorInputs *In1, Stats *Stat1, int TileSize1)
+      : GCNSingleLayerFused(In1, Stat1), TileSize(TileSize1)
+         {}
+};
+
 class GCNSingleLayerTiledFusedCSCParallel : public GCNSingleLayerFused {
 protected:
   int TileSize;
@@ -361,7 +385,7 @@ class GCNSingleLayerTiledFusedCSCParallelWithSchedulingKTiling
 protected:
   int TileSize;
   sym_lib::MultiDimensionalSet *FusedCompSet;
-  InspectorForSingleLayerTiledFusedCSCParallelWithKTiling *Inspector;
+  InspectorForSingleLayerTiledFusedCSCParallelWithSchedulingKTiles *Inspector;
   std::map<int, std::vector<int>> ConflictGraphColoring;
   int KTileSize;
 
@@ -397,7 +421,7 @@ public:
       std::map<int, std::vector<int>> ConflictGraphColoring1, int KTileSize1)
       : GCNSingleLayerFused(In1, Stat1), TileSize(TileSize1),
         ConflictGraphColoring(ConflictGraphColoring1), KTileSize(KTileSize1) {
-    Inspector = new InspectorForSingleLayerTiledFusedCSCParallelWithKTiling();
+    Inspector = new InspectorForSingleLayerTiledFusedCSCParallelWithSchedulingKTiles();
   }
   ~GCNSingleLayerTiledFusedCSCParallelWithSchedulingKTiling() {
     delete FusedCompSet;

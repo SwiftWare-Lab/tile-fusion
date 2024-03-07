@@ -6,6 +6,7 @@ TUNED=$3
 THRDS=$4
 MATLIST=$5
 BCOL=$6
+LOGS=$7
 
 
 #echo $BINLIB $PATHMAIN
@@ -21,11 +22,11 @@ if [ "$TUNED" ==  1 ]; then
     mat=$line
     k=4
     if [ $header -eq 1 ]; then
-      $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -ah -bc $BCOL -ip 1000
+      $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -ah -bc $BCOL -ip 1000 > $LOGS/spmv_spmv_$BCOL.csv
       echo "TEST1"
       header=0
     else
-      $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -bc $BCOL -ip 1000
+      $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -bc $BCOL -ip 1000 >> $LOGS/spmv_spmv_$BCOL.csv
       echo "TEST2"
     fi
   done < ${MATLIST}
@@ -41,11 +42,11 @@ if [ "$TUNED" ==  2 ]; then
     for w in {10,50,100,1000,5000}; do
       k=4
       if [ $header -eq 1 ]; then
-        $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -ah -bc $BCOL -ip $w
+        $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -ah -bc $BCOL -ip $w > $LOGS/spmv_spmv_$BCOL.csv
         echo ""
         header=0
       else
-        $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -bc $BCOL -ip $w
+        $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -bc $BCOL -ip $w >> $LOGS/spmv_spmv_$BCOL.csv
         echo ""
       fi
     done
@@ -58,42 +59,37 @@ if [ "$TUNED" ==  3 ]; then
   while read line; do
     mat=$line
     # shellcheck disable=SC2039
-    for w in {100,1000,5000,10000,500000}; do
+#    for w in {100,1000,5000,10000,500000}; do
       k=4
-      for ntile in {8,16,32,64,128}; do
-        if [ $ntile -gt $BCOL ]; then
-          continue
-        fi
-
+      for ntile in {32000,1000000,2000000}; do
+#        if [ $ntile -gt $BCOL ]; then
+#          continue
+#        fi
+      echo "for $line $BCOL $w $ntile"
       if [ $header -eq 1 ]; then
-        $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -ah -bc $BCOL -ip $w -tn $ntile
-        echo ""
+        $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -ah -bc $BCOL -ip $ntile -tm $ntile -tn 32 > $LOGS/spmv_spmv_$BCOL.csv
         header=0
       else
-        $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -bc $BCOL -ip $w -tn $ntile
-
+        $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -bc $BCOL -ip $ntile -tm $ntile -tn 32 >> $LOGS/spmv_spmv_$BCOL.csv
       fi
       done
-    done
+#    done
+  done < ${MATLIST}
+fi
+
+if [ "$TUNED" ==  4 ]; then
+  while read line; do
+    tokens=$(echo $line | tr "," "\n")
+    mat=$(echo $tokens | awk '{print $1}')
+    ntile=$(echo $tokens | awk '{print $2}')
+      echo "for $mat $ntile"
+      if [ $header -eq 1 ]; then
+        $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -ah -bc $BCOL -ip $ntile -tm $ntile -tn 64 > $LOGS/spmv_spmv_$BCOL.csv
+        header=0
+      else
+        $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -bc $BCOL -ip $ntile -tm $ntile -tn 64 >> $LOGS/spmv_spmv_$BCOL.csv
+      fi
   done < ${MATLIST}
 fi
 
 # shellcheck disable=SC2039
-if [ "$TUNED" ==  4 ]; then
-  while read line; do
-    mat=$line
-    # shellcheck disable=SC2039
-    for w in {100,1000,5000,10000,500000}; do
-      k=4
-      for sample_ratio in {0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9}; do
-      if [ $header -eq 1 ]; then
-        $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -ah -bc $BCOL -ip $w -sr $sample_ratio
-        echo ""
-        header=0
-      else
-        $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -bc $BCOL -ip $w -sr $sample_ratio
-      fi
-      done
-    done
-  done < ${MATLIST}
-fi

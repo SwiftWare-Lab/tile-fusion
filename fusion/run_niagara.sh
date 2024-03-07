@@ -12,16 +12,14 @@
 #SBATCH -t 11:59:00
 #SBATCH --constraint=cascade
 
-BASE_LINE="SpMM_SpMM_Demo_UnFusedParallel"
-UFDB=$SCRATCH/UFDB/graphs/
-#UFDB=$HOME/UFDB/banded/
-
+UFDB=$SCRATCH/data/graphs/
+#UFDB=$HOME/UFDB/tri-banded/
+EXP=spmv_spmv
 BCOL=32
-while getopts ":b:lm:c:" arg; do
+ID=0
+USE_PAPI=0
+while getopts ":lm:c:i:e:" arg; do
   case "${arg}" in
-    b)
-      BASE_LINE=$OPTARG
-      ;;
     l)
       TEST=1
       ;;
@@ -31,8 +29,13 @@ while getopts ":b:lm:c:" arg; do
     c)
       BCOL=$OPTARG
       ;;
+    e)
+      EXP=$OPTARG
+      ;;
+    i)
+      ID=$OPTARG
+      ;;
     *) echo "Usage:
-    -b BASELINE=SpMM_SpMM_Demo_UnFusedParallel        Choose a baseline to compare with Fused SpMM SpMM(Current base lines: SpMM_SpMM_Demo_UnFusedParallel,SpMM_SpMM_MKL)
     -l TEST=FALSE                                     Set if you want to run the script for one b_col
     -m UFDB=$SCRATCH/UFDB/AM/                        path of matrices data"
       exit 0
@@ -44,10 +47,10 @@ module load NiaEnv/.2022a
 module load intel/2022u2
 export MKL_DIR=$MKLROOT
 module load cmake
-module load gcc
+#module load gcc
 
 if [ $TEST -eq 1 ]; then
-  bash run.sh -b $BASE_LINE -m $UFDB -c 8
+    bash run.sh -m $UFDB -c 8 -i $ID -e $EXP -t 8
 else
-  bash run.sh -b $BASE_LINE -t 40 -m $UFDB -c BCOL
+  bash run.sh -t 20 -m $UFDB -c $BCOL -i $ID  -e $EXP
 fi

@@ -1,6 +1,10 @@
 //
 // Created by salehm32 on 03/11/23.
 //
+
+#ifndef SPARSE_FUSION_FUSIONINSPECTOR_H
+#define SPARSE_FUSION_FUSIONINSPECTOR_H
+
 #include "Stats.h"
 #include "aggregation/def.h"
 #include "aggregation/sparse_utilities.h"
@@ -10,8 +14,6 @@
 #include <climits>
 #include <cmath>
 #include <set>
-#ifndef SPARSE_FUSION_FUSIONINSPECTOR_H
-#define SPARSE_FUSION_FUSIONINSPECTOR_H
 
 using namespace swiftware::benchmark;
 
@@ -252,7 +254,44 @@ protected:
 // conflict graph to generate create wave fronts. This class implements kTiling
 // on the ordinary conflict graph and generates new copies from each computation
 // in the same wavefront to have kTiles.
-class InspectorForSingleLayerTiledFusedCSCParallelWithKTiling
+class InspectorForSingleLayerTiledFusedCSCParallelWithReplicatedKTiles
+    : public InspectorForSingleLayerTiledFusedCSCParallel {
+public:
+  sym_lib::MultiDimensionalSet *generateScheduleBasedOnConflictGraphColoring(
+      std::map<int, std::vector<int>> ColorToTiles, int NumOfNodes,
+      int TileSize, int OutputSize, int KTileSize) {
+    int numOfTiles = (int)ceil((double)NumOfNodes / TileSize);
+    int numOfKTiles = OutputSize / KTileSize;
+    sym_lib::MultiDimensionalSet *fusedCompSet =
+        new sym_lib::MultiDimensionalSet();
+    fusedCompSet->n1_ = ColorToTiles.rbegin()->first + 1;
+    fusedCompSet->ptr1_ = new int[fusedCompSet->n1_ + 1];
+    fusedCompSet->ptr1_[0] = 0;
+    fusedCompSet->id_ = new int[numOfTiles * numOfKTiles];
+    for (std::map<int, std::vector<int>>::iterator it = ColorToTiles.begin();
+         it != ColorToTiles.end(); ++it) {
+      fusedCompSet->ptr1_[it->first + 1] =
+          fusedCompSet->ptr1_[it->first] + it->second.size() * numOfKTiles;
+      for (int i = 0; i < it->second.size(); i++) {
+        for (int k = 0; k < numOfKTiles; k++){
+          fusedCompSet->id_[fusedCompSet->ptr1_[it->first] + i*numOfKTiles + k] = it->second[i];
+        }
+      }
+    }
+    fusedCompSet->type_ = new int[numOfTiles];
+    for (int i = 0; i < numOfTiles - 1; i++) {
+      fusedCompSet->type_[i] = TileSize;
+    }
+    if (NumOfNodes % TileSize == 0) {
+      fusedCompSet->type_[numOfTiles - 1] = TileSize;
+    } else {
+      fusedCompSet->type_[numOfTiles - 1] = NumOfNodes % TileSize;
+    }
+    return fusedCompSet;
+  }
+};
+
+class InspectorForSingleLayerTiledFusedCSCParallelWithSchedulingKTiles
     : public InspectorForSingleLayerTiledFusedCSCParallel {
 public:
   sym_lib::MultiDimensionalSet *generateScheduleBasedOnConflictGraphColoring(

@@ -27,7 +27,8 @@ struct ScheduleParameters {
   int TileM{}, TileN{}, TileK{};
   SeedPartType SeedPartitioningParallelism{};
 
-  ScheduleParameters() : _lbc_agg(2), _lbc_initial_cut(2), _num_threads(20) {
+  ScheduleParameters() : _lbc_agg(2), _lbc_initial_cut(2), _num_threads(1),
+  TileK(1), TileM(1), TileN(1), IterPerPartition(1), _min_workload_size(1){
     _num_w_partition = _num_threads;
   }
 
@@ -47,7 +48,8 @@ struct ScheduleParameters {
 struct TestParameters {
   SYM_ORDERING _order_method; // type of reordering
   std::string _matrix_name{}, _matrix_path{}, _feature_matrix_path{},
-      _weight1_matrix_path{}, _weight2_matrix_path{}, _result_matrix_path{};
+      _weight1_matrix_path{}, _weight2_matrix_path{}, _result_matrix_path{}
+      , e2e_data_path{}; // matrix name and path
   float _sampling_ratio{};
   std::string expariment_name{};
   std::string _mode{};                //"Random" or "MTX"
