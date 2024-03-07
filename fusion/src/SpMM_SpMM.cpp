@@ -17,8 +17,8 @@ namespace swiftware {
 namespace sparse {
 
 /// C = A*B, where A is sparse CSR MxK and B (K x N) and C (MxN) are Dense
-void spmmCsrSequential(int M, int N, int K, const int *Ap, const int *Ai,
-                       const double *Ax, const double *Bx, double *Cx) {
+template <class T> void spmmCsrSequential(int M, int N, int K, const int *Ap, const int *Ai,
+                       const T *Ax, const T *Bx, T *Cx) {
   for (int i = 0; i < M; ++i) {
     for (int j = Ap[i]; j < Ap[i + 1]; ++j) {
       int aij = Ai[j] * N;
@@ -29,9 +29,13 @@ void spmmCsrSequential(int M, int N, int K, const int *Ap, const int *Ai,
     }
   }
 }
+template void spmmCsrSequential<float>(int M, int N, int K, const int *Ap, const int *Ai,
+                       const float *Ax, const float *Bx, float *Cx);
+template void spmmCsrSequential<double>(int M, int N, int K, const int *Ap, const int *Ai,
+                       const double *Ax, const double *Bx, double *Cx);
 
-void spmmCsrParallel(int M, int N, int K, const int *Ap, const int *Ai,
-                     const double *Ax, const double *Bx, double *Cx,
+template<class T> void spmmCsrParallel(int M, int N, int K, const int *Ap, const int *Ai,
+                     const T *Ax, const T *Bx, T *Cx,
                      int NThreads) {
   pw_init_instruments;
 #pragma omp parallel num_threads(NThreads)
@@ -49,6 +53,13 @@ void spmmCsrParallel(int M, int N, int K, const int *Ap, const int *Ai,
     pw_stop_instruments_loop(omp_get_thread_num());
   }
 }
+
+template void spmmCsrParallel<double>(int M, int N, int K, const int *Ap, const int *Ai,
+                     const double *Ax, const double *Bx, double *Cx,
+                     int NThreads);
+template void spmmCsrParallel<float>(int M, int N, int K, const int *Ap, const int *Ai,
+                     const float *Ax, const float *Bx, float *Cx,
+                     int NThreads);
 
 void spmmCsrParallelTiled(int M, int N, int K, const int *Ap, const int *Ai,
                           const double *Ax, const double *Bx, double *Cx,
@@ -197,10 +208,10 @@ void spmmCsrInnerProductTiledCParallel(int M, int N, int K, const int *Ap,
 }
 
 /// D = B*A*C
-void spmmCsrSpmmCsrFused(int M, int N, int K, int L, const int *Ap,
-                         const int *Ai, const double *Ax, const int *Bp,
-                         const int *Bi, const double *Bx, const double *Cx,
-                         double *Dx, double *ACx, int LevelNo,
+template<class T> void spmmCsrSpmmCsrFused(int M, int N, int K, int L, const int *Ap,
+                         const int *Ai, const T *Ax, const int *Bp,
+                         const int *Bi, const T *Bx, const T *Cx,
+                         T *Dx, T *ACx, int LevelNo,
                          const int *LevelPtr, const int *ParPtr,
                          const int *Partition, const int *ParType,
                          int NThreads) {
@@ -235,6 +246,22 @@ void spmmCsrSpmmCsrFused(int M, int N, int K, int L, const int *Ap,
     }
   }
 }
+
+template void spmmCsrSpmmCsrFused<float>(int M, int N, int K, int L, const int *Ap,
+                         const int *Ai, const float *Ax, const int *Bp,
+                         const int *Bi, const float *Bx, const float *Cx,
+                         float *Dx, float *ACx, int LevelNo,
+                         const int *LevelPtr, const int *ParPtr,
+                         const int *Partition, const int *ParType,
+                         int NThreads);
+
+template void spmmCsrSpmmCsrFused<double> (int M, int N, int K, int L, const int *Ap,
+                         const int *Ai, const double *Ax, const int *Bp,
+                         const int *Bi, const double *Bx, const double *Cx,
+                         double *Dx, double *ACx, int LevelNo,
+                         const int *LevelPtr, const int *ParPtr,
+                         const int *Partition, const int *ParType,
+                         int NThreads);
 /// D = B*A*C
 void spmmCsrSpmmCsrFusedKTiled(int M, int N, int K, int L, const int *Ap,
                                const int *Ai, const double *Ax, const int *Bp,

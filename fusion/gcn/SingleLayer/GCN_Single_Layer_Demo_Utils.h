@@ -4,7 +4,7 @@
 
 #ifdef MKL
 #include "../GCN_Layer_MKL_Forward_Utils.h"
-#include "../Inspection/Fusion_Inspector.h"
+#include "sparse-fusion/Fusion_Inspector.h"
 #else
 #include "../GCN_Layer_Forward_Utils.h"
 #endif

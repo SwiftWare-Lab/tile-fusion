@@ -5,10 +5,11 @@ BCOL=4
 EXP="spmm_spmm"
 THRD=20
 DOWNLOAD=0
-ID=0
 BINPATH="./build/example"
 USE_PAPI=0
-while getopts ":t:dc:m:i:e:" arg; do
+MATLIST_FOLDER=""
+OUTPUT_FOLDER=""
+while getopts ":t:dc:m:i:e:l:j:" arg; do
 
   case "${arg}" in
     c)
@@ -29,6 +30,12 @@ while getopts ":t:dc:m:i:e:" arg; do
     e)
       EXP=$OPTARG
       ;;
+    l)
+      MATLIST_FOLDER=$OPTARG
+      ;;
+    j)
+      JOB_ID=$OPTARG
+      ;;
     *) echo "Usage:
     -c BCOL=4                                         num of the columns of the dense matrix
     -t THRD=40                                        num of threads
@@ -41,6 +48,9 @@ done
 MODE=3
 if [ $EXP == "spmm_spmm" ]; then
   BINFILE="spmm_spmm_fusion"
+  BINPATH="./build/example/"
+elif [ $EXP == "spmm_spmm_sp" ]; then
+  BINFILE="spmm_spmm_fusion_sp"
   BINPATH="./build/example/"
 elif [ $EXP == "gemm_spmm" ]; then
   BINFILE="gcn_layer_demo"
@@ -58,6 +68,7 @@ elif [ $EXP == "inspector" ]; then
 elif [ $EXP == "profiling" ]; then
   BINPATH="./build/example/"
   BINFILE="spmm_spmm_papi_profiler"
+  MODE=5
   USE_PAPI=1
 else
   echo "Wrong experiment name"
@@ -94,12 +105,20 @@ cd ..
 
 #BINPATH=./build/example/
 DATE=$(date -d "today" +"%Y%m%d%H%M")
-LOGS="./build/logs-${DATE}/"
-SCRIPTPATH=./scripts/
-if [ $ID -eq 0 ]; then
-  MATLIST=$UFDB/mat_list.txt
+if [ -z $JOB_ID ]; then
+  LOGS="./build/logs/"
 else
-  MATLIST=$UFDB/mat_list$ID.txt
+  LOGS="./build/logs-$JOB_ID"
+fi
+#LOGS="./build/logs-${DATE}/"
+SCRIPTPATH=./scripts/
+if [ -z "$MATLIST_FOLDER" ]; then
+  MATLIST_FOLDER=$UFDB
+fi
+if [ -z $ID ]; then
+  MATLIST=$MATLIST_FOLDER/mat_list.txt
+else
+  MATLIST=$MATLIST_FOLDER/mat_list$ID.txt
 fi
 
 mkdir $LOGS
@@ -115,7 +134,7 @@ export MKL_DYNAMIC=FALSE;
 export OMP_DYNAMIC=FALSE;
 #export MKL_VERBOSE=1
 
-bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE $THRD $MATLIST $BCOL $LOGS
+bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE $THRD $MATLIST $BCOL $LOGS $ID
   # plotting
 #  python3 $SCRIPTPATH/plot.py $LOGS $BASELINE
 #else

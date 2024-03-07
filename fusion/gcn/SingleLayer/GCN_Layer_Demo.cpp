@@ -1,7 +1,7 @@
 //
 // Created by salehm32 on 12/10/23.
 //
-#include "../Inspection/GraphColoring.h"
+#include "sparse-fusion/GraphColoring.h"
 #include "GCN_Single_Layer_Demo_Utils.h"
 #include "aggregation/sparse_utilities.h"
 #include "sparse-fusion/Fusion_Utils.h"

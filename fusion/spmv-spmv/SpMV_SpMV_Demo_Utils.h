@@ -4,7 +4,7 @@
 
 #ifndef SPARSE_FUSION_SPMV_SPMV_MKL_DEMO_UTILS_H
 #define SPARSE_FUSION_SPMV_SPMV_MKL_DEMO_UTILS_H
-#include "../gcn/Inspection/Fusion_Inspector.h"
+#include "sparse-fusion/Fusion_Inspector.h"
 #include "SWTensorBench.h"
 #include "SpMV_SpMV.h"
 #include "aggregation/sparse_io.h"
