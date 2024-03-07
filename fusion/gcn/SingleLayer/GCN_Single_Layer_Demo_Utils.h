@@ -83,28 +83,56 @@ public:
 class GCNSingleLayerMKL : public GCNSingleLayerFused {
 
 protected:
+  sparse_matrix_t MKLAdj;
   Timer execute() override {
     OutTensor->reset();
     mkl_set_num_threads(InTensor->NumThreads);
-    sparse_matrix_t MKLAdj;
-    mkl_sparse_d_create_csr(
-        &MKLAdj, SPARSE_INDEX_BASE_ZERO, this->InTensor->NumOfNodes,
-        this->InTensor->NumOfNodes, InTensor->AdjacencyMatrix->p,
-        InTensor->AdjacencyMatrix->p + 1, this->InTensor->AdjacencyMatrix->i,
-        this->InTensor->AdjacencyMatrix->x);
     Timer t;
+    double *intermediateResult = new double[InTensor->NumOfNodes * InTensor->Weight1->row]{};
     t.start();
-    forwardForOneLayerWithGeMMAndSpMM(
+    forwardForOneLayerWithMKLGeMMAndMKLSpMM(
         InTensor->NumOfNodes, MKLAdj, InTensor->FeatureMatrix->a,
         InTensor->FeatureMatrix->col, InTensor->Weight1->a,
-        InTensor->Weight1->row, OutTensor->FirstLayerOutput);
+        InTensor->Weight1->row, OutTensor->FirstLayerOutput, intermediateResult);
     t.stop();
-    mkl_free(MKLAdj);
+    delete[] intermediateResult;
     return t;
   }
 
 public:
   GCNSingleLayerMKL(GnnTensorInputs *In1, Stats *Stat1)
+      : GCNSingleLayerFused(In1, Stat1) {
+    mkl_sparse_d_create_csr(
+        &MKLAdj, SPARSE_INDEX_BASE_ZERO, this->InTensor->NumOfNodes,
+        this->InTensor->NumOfNodes, InTensor->AdjacencyMatrix->p,
+        InTensor->AdjacencyMatrix->p + 1, this->InTensor->AdjacencyMatrix->i,
+        this->InTensor->AdjacencyMatrix->x);
+  }
+  ~GCNSingleLayerMKL() { mkl_free(MKLAdj); }
+};
+
+class GCNSingleLayerUnfusedCSRMKLGeMM : public GCNSingleLayerFused {
+
+protected:
+  Timer execute() override {
+    OutTensor->reset();
+    double *intermediateResult = new double[InTensor->NumOfNodes * InTensor->Weight1->row]{};
+    mkl_set_num_threads(InTensor->NumThreads);
+    Timer t;
+    t.start();
+    forwardForOneLayerWithMKLGeMMAndSpMM(
+        InTensor->NumOfNodes, InTensor->AdjacencyMatrixCSC->p,
+        InTensor->AdjacencyMatrixCSC->i, InTensor->AdjacencyMatrixCSC->x,
+        InTensor->FeatureMatrix->a, InTensor->FeatureMatrix->col,
+        InTensor->Weight1->a, InTensor->Weight1->row,
+        OutTensor->FirstLayerOutput, intermediateResult, InTensor->NumThreads);
+    t.stop();
+    delete[] intermediateResult;
+    return t;
+  }
+
+public:
+  GCNSingleLayerUnfusedCSRMKLGeMM(GnnTensorInputs *In1, Stats *Stat1)
       : GCNSingleLayerFused(In1, Stat1) {}
 };
 
@@ -586,6 +614,7 @@ protected:
   }
 
   Timer execute() override {
+    double *intermediateResult = new double[InTensor->NumOfNodes*InTensor->Weight1->row];
     Timer t;
     St->OtherStats["FusedIterations"] = {(double)FusedCompSet->getNumberOfFusedNodes()};
     mkl_set_num_threads(1);
@@ -596,10 +625,11 @@ protected:
         InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x,
         InTensor->FeatureMatrix->col, InTensor->Weight1->row, InTensor->Degrees,
         InTensor->FeatureMatrix->a, InTensor->Weight1->a,
-        OutTensor->FirstLayerOutput, InTensor->NumThreads, FusedCompSet->n1_,
+        OutTensor->FirstLayerOutput, intermediateResult, InTensor->NumThreads, FusedCompSet->n1_,
         FusedCompSet->ptr1_, FusedCompSet->ptr2_, FusedCompSet->ker_begin_,
         FusedCompSet->id_, FusedCompSet->type_);
     t.stop();
+    delete[] intermediateResult;
     return t;
   }
 

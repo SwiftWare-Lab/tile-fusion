@@ -313,17 +313,19 @@ protected:
   Timer execute() override {
     OutTensor->reset();
     mkl_set_num_threads(InTensor->NumThreads);
+    double *intermediateResult = new double[InTensor->NumOfNodes * InTensor->Weight1->row]{};
     Timer t;
     t.start();
-    forwardForOneLayerWithGeMMAndSpMM(
+    forwardForOneLayerWithMKLGeMMAndMKLSpMM(
         InTensor->NumOfNodes, MKLFirstLayerAdj, InTensor->FeatureMatrix->a,
-        InTensor->FeatureMatrix->col, InTensor->Weight1->a, InTensor->Weight1->col,
-        OutTensor->FirstLayerOutput);
-    forwardForOneLayerWithGeMMAndSpMM(
+        InTensor->FeatureMatrix->col, InTensor->Weight1->a,
+        InTensor->Weight1->col, OutTensor->FirstLayerOutput, intermediateResult);
+    forwardForOneLayerWithMKLGeMMAndMKLSpMM(
         InTensor->NumOfNodes, MKLSecondLayerAdj, OutTensor->FirstLayerOutput,
         InTensor->Weight2->col, InTensor->Weight2->a, InTensor->Weight2->row,
-        OutTensor->SecondLayerOutput);
+        OutTensor->SecondLayerOutput, intermediateResult);
     t.stop();
+    delete[] intermediateResult;
     return t;
   }
 

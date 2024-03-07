@@ -74,14 +74,52 @@ void forwardForOneLayerFusedParallel(int M, int *Ap, int *Ai, double *Ax,
   }
 }
 
+void forwardForOneLayerFusedParallelSeparatedSP(
+    int M, int *Ap, int *Ai, float *Ax, int InputChannelDim,
+    int OutputChannelDim, float *Features, float *Weight, float *Output,
+    int NumThreads, int LevelNo, const int *LevelPtr, const int *ParPtr,
+    const int *MixPtr, const int *Partition) {
+  float *intermediateResult = new float[M * OutputChannelDim];
+  int numKernels = 2;
+  for (int i1 = 0; i1 < LevelNo; i1++) {
+#pragma omp parallel num_threads(NumThreads)
+    {
+#pragma omp for
+      for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; j1++) {
+        int kBeginL1 = ParPtr[j1];
+        int kEndL1 = MixPtr[j1 * numKernels];
+        int iL1 = Partition[kBeginL1];
+        int tileSize = kEndL1 - kBeginL1;
+        cblas_sgemm(
+            CblasRowMajor, CblasNoTrans, CblasTrans, tileSize, OutputChannelDim,
+            InputChannelDim, 1., Features + iL1 * InputChannelDim,
+            InputChannelDim, Weight, InputChannelDim, 0.,
+            intermediateResult + iL1 * OutputChannelDim, OutputChannelDim);
+        int kEndL2 = MixPtr[j1 * numKernels + 1];
+        for (int k1 = kEndL1; k1 < kEndL2; ++k1) {
+          int i = Partition[k1];
+          for (int j = Ap[i]; j < Ap[i + 1]; j++) {
+            int ip = OutputChannelDim * i;
+            for (int k = 0; k < OutputChannelDim; k++) {
+              Output[ip + k] +=
+                  Ax[j] * intermediateResult[Ai[j] * OutputChannelDim + k];
+            }
+          }
+        }
+      }
+    }
+  }
+  delete[] intermediateResult;
+}
+
 void forwardForOneLayerFusedParallelSeparated(int M, int *Ap, int *Ai, double *Ax,
                                      int InputChannelDim, int OutputChannelDim,
                                      int *Degrees, double *Features,
-                                     double *Weight, double *Output,
+                                     double *Weight, double *Output, double *IntermediateResult,
                                      int NumThreads, int LevelNo,
                                      const int *LevelPtr, const int *ParPtr, const int* MixPtr,
                                      const int *Partition, const int *ParType) {
-  double *intermediateResult = new double[M*OutputChannelDim];
+
   int numKernels = 2;
   for (int i1 = 0; i1 < LevelNo; i1++) {
 #pragma omp parallel num_threads(NumThreads)
@@ -95,7 +133,7 @@ void forwardForOneLayerFusedParallelSeparated(int M, int *Ap, int *Ai, double *A
         cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasTrans, tileSize,
                     OutputChannelDim, InputChannelDim, 1.,
                     Features + iL1 * InputChannelDim,
-                    InputChannelDim, Weight, InputChannelDim, 0., intermediateResult + iL1*OutputChannelDim,
+                    InputChannelDim, Weight, InputChannelDim, 0., IntermediateResult + iL1*OutputChannelDim,
                     OutputChannelDim);
         int kEndL2 = MixPtr[j1*numKernels + 1];
         for (int k1 = kEndL1; k1 < kEndL2; ++k1) {
@@ -103,7 +141,7 @@ void forwardForOneLayerFusedParallelSeparated(int M, int *Ap, int *Ai, double *A
           for (int j = Ap[i]; j < Ap[i + 1]; j++) {
             int ip = OutputChannelDim * i;
             for (int k = 0; k < OutputChannelDim; k++) {
-              Output[ip + k] += Ax[j] * intermediateResult[Ai[j] * OutputChannelDim + k];
+              Output[ip + k] += Ax[j] * IntermediateResult[Ai[j] * OutputChannelDim + k];
             }
           }
         }
@@ -335,22 +373,70 @@ void forwardForFusedLayersWithBatchingRegisterReuse(
   }
 }
 
-void forwardForOneLayerWithGeMMAndSpMM(int NumOfNodes,
+void forwardForOneLayerWithMKLGeMMAndMKLSpMM(int NumOfNodes,
                                        sparse_matrix_t AdjMatrix,
                                        double *Features, int FeatDim,
                                        double *Weight, int OutDim,
-                                       double *Output) {
-  double *temp = new double[NumOfNodes * OutDim]{};
+                                       double *Output, double* IntermediateResult) {
   matrix_descr d;
   d.type = SPARSE_MATRIX_TYPE_GENERAL;
   cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasTrans, NumOfNodes, OutDim,
-              FeatDim, 1., Features, FeatDim, Weight, FeatDim, 0., temp,
+              FeatDim, 1., Features, FeatDim, Weight, FeatDim, 0.,
+              IntermediateResult,
               OutDim);
   mkl_sparse_d_mm(SPARSE_OPERATION_NON_TRANSPOSE, 1, AdjMatrix, d,
-                  SPARSE_LAYOUT_ROW_MAJOR, temp, OutDim, OutDim, 0, Output,
+                  SPARSE_LAYOUT_ROW_MAJOR, IntermediateResult, OutDim, OutDim, 0, Output,
                   OutDim);
-  delete[] temp;
 }
+
+void forwardForOneLayerWithMKLGeMMAndSpMM(int NumOfNodes, int *Ap, int *Ai,
+                                          double *Ax, double *Features,
+                                          int FeatDim, double *Weight,
+                                          int OutDim, double *Output, double *IntermediateResult,int NumThreads) {
+  matrix_descr d;
+  d.type = SPARSE_MATRIX_TYPE_GENERAL;
+  cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasTrans, NumOfNodes, OutDim,
+              FeatDim, 1., Features, FeatDim, Weight, FeatDim, 0.,
+              IntermediateResult,
+              OutDim);
+#pragma omp parallel num_threads(NumThreads)
+  {
+#pragma omp for
+    for (int i = 0; i < NumOfNodes; i++) {
+      for (int j = Ap[i]; j < Ap[i + 1]; j++) {
+        int ip = OutDim * i;
+        for (int k = 0; k < OutDim; k++) {
+          Output[ip + k] += Ax[j] * IntermediateResult[Ai[j] * OutDim + k];
+        }
+      }
+    }
+  }
+}
+
+void forwardForOneLayerWithMKLGeMMAndSpMMSP(int NumOfNodes, int *Ap, int *Ai,
+                                          float *Ax, float *Features,
+                                          int FeatDim, float *Weight,
+                                          int OutDim, float *Output, float *IntermediateResult,int NumThreads) {
+  matrix_descr d;
+  d.type = SPARSE_MATRIX_TYPE_GENERAL;
+  cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, NumOfNodes, OutDim,
+              FeatDim, 1., Features, FeatDim, Weight, FeatDim, 0.,
+              IntermediateResult,
+              OutDim);
+#pragma omp parallel num_threads(NumThreads)
+  {
+#pragma omp for
+    for (int i = 0; i < NumOfNodes; i++) {
+      for (int j = Ap[i]; j < Ap[i + 1]; j++) {
+        int ip = OutDim * i;
+        for (int k = 0; k < OutDim; k++) {
+          Output[ip + k] += Ax[j] * IntermediateResult[Ai[j] * OutDim + k];
+        }
+      }
+    }
+  }
+}
+
 
 void forwardForOneLayerUnfusedCSC(int NumOfNodes, int *Ap, int *Ai, double *Ax,
                                   double *Features, int FeatDim, double *Weight,
