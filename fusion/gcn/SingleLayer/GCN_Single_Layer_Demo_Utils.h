@@ -121,8 +121,8 @@ protected:
     Timer t;
     t.start();
     forwardForOneLayerWithMKLGeMMAndSpMM(
-        InTensor->NumOfNodes, InTensor->AdjacencyMatrixCSC->p,
-        InTensor->AdjacencyMatrixCSC->i, InTensor->AdjacencyMatrixCSC->x,
+        InTensor->NumOfNodes, InTensor->AdjacencyMatrix->p,
+        InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x,
         InTensor->FeatureMatrix->a, InTensor->FeatureMatrix->col,
         InTensor->Weight1->a, InTensor->Weight1->row,
         OutTensor->FirstLayerOutput, intermediateResult, InTensor->NumThreads);
