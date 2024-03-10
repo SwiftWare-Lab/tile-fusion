@@ -77,9 +77,8 @@ void forwardForOneLayerFusedParallel(int M, int *Ap, int *Ai, double *Ax,
 void forwardForOneLayerFusedParallelSeparatedSP(
     int M, int *Ap, int *Ai, float *Ax, int InputChannelDim,
     int OutputChannelDim, float *Features, float *Weight, float *Output,
-    int NumThreads, int LevelNo, const int *LevelPtr, const int *ParPtr,
-    const int *MixPtr, const int *Partition) {
-  float *intermediateResult = new float[M * OutputChannelDim];
+    float *IntermediateResult, int NumThreads, int LevelNo, const int *LevelPtr,
+    const int *ParPtr, const int *MixPtr, const int *Partition) {
   int numKernels = 2;
   for (int i1 = 0; i1 < LevelNo; i1++) {
 #pragma omp parallel num_threads(NumThreads)
@@ -94,7 +93,7 @@ void forwardForOneLayerFusedParallelSeparatedSP(
             CblasRowMajor, CblasNoTrans, CblasTrans, tileSize, OutputChannelDim,
             InputChannelDim, 1., Features + iL1 * InputChannelDim,
             InputChannelDim, Weight, InputChannelDim, 0.,
-            intermediateResult + iL1 * OutputChannelDim, OutputChannelDim);
+            IntermediateResult + iL1 * OutputChannelDim, OutputChannelDim);
         int kEndL2 = MixPtr[j1 * numKernels + 1];
         for (int k1 = kEndL1; k1 < kEndL2; ++k1) {
           int i = Partition[k1];
@@ -102,14 +101,13 @@ void forwardForOneLayerFusedParallelSeparatedSP(
             int ip = OutputChannelDim * i;
             for (int k = 0; k < OutputChannelDim; k++) {
               Output[ip + k] +=
-                  Ax[j] * intermediateResult[Ai[j] * OutputChannelDim + k];
+                  Ax[j] * IntermediateResult[Ai[j] * OutputChannelDim + k];
             }
           }
         }
       }
     }
   }
-  delete[] intermediateResult;
 }
 
 void forwardForOneLayerFusedParallelSeparated(int M, int *Ap, int *Ai, double *Ax,
