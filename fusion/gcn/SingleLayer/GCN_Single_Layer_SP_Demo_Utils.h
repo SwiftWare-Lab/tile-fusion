@@ -49,11 +49,11 @@ struct GnnTensorSpInputs : public Inputs<float> {
 
   GnnTensorSpInputs(float *Weight1, float *FeatureMatrix,
                     sym_lib::CSC *AdjMtxCSC, size_t NumOfNodes, size_t EmbedDim,
-                    size_t BatchSize,int NumThreads1,
+                    size_t FeatDim,int NumThreads1,
                     int NumTrial1, std::string ExpN)
       : Inputs<float>(NumTrial1, NumThreads1, ExpN), Weight1(Weight1),
         FeatureMatrix(FeatureMatrix), NumOfNodes(NumOfNodes), EmbedDim(EmbedDim),
-        BatchSize(BatchSize) {
+        FeatureDim(FeatDim){
     this->CorrectSol = nullptr;
     this->AdjacencyMatrix = sym_lib::csc_to_csr(AdjMtxCSC);
     this->normalizeAdjacencyMatrix();

@@ -52,8 +52,9 @@ int main(const int argc, const char *argv[]) {
   int numOfSamples = std::ceil(tp._sampling_ratio * tp._dim1);
   GnnTensorSpInputs *inputs = new GnnTensorSpInputs(
       weightSP, featuresSP, aCSCFull, aCSCFull->m, embedDim,
-      numOfSamples, numThread, 7, "GCN_Demo");
+      features->col, numThread, 7, "GCN_Demo");
 
+  delete features;
   /*
    * Method that calculates the output by doing a GeMM and then an SpMM to the
    * input.
@@ -73,7 +74,8 @@ int main(const int argc, const char *argv[]) {
   auto headerStat = gcnSingleLayerMkl->printStatsHeader();
   delete stats;
   delete gcnSingleLayerMkl;
-
+  delete layer1Weight;
+  
   stats = new swiftware::benchmark::Stats("GCN_SingleLayer_UnFused", "GCN", 7,
                                           tp._matrix_name, numThread);
   stats->OtherStats["PackingType"] = {Separated};
