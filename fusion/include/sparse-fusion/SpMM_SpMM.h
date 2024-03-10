@@ -17,12 +17,12 @@ namespace sparse {
 /// \param Ax : values
 /// \param Bx : values
 /// \param Cx : values
-void spmmCsrSequential(int M, int N, int K,
-                       const int *Ap, const int *Ai, const double *Ax,
-                       const double *Bx, double *Cx);
-void spmmCsrParallel(int M, int N, int K,
-                     const int *Ap, const int *Ai, const double *Ax,
-                     const double *Bx, double *Cx, int NThreads);
+template<class T> void spmmCsrSequential(int M, int N, int K,
+                       const int *Ap, const int *Ai, const T *Ax,
+                       const T *Bx, T *Cx);
+template<class T> void spmmCsrParallel(int M, int N, int K,
+                     const int *Ap, const int *Ai, const T *Ax,
+                     const T *Bx, T *Cx, int NThreads);
 void spmmCsrInnerProductParallel(int M, int N, int K,
                                  const int *Ap, const int *Ai, const double *Ax,
                                  const double *Bx, double *Cx, int NThreads);
@@ -53,13 +53,13 @@ void spmmCsrParallelTiled(int M, int N, int K,
 /// \param ParPtr
 /// \param Partition
 /// \param ParType
-void spmmCsrSpmmCsrFused(int M, int N, int K,
+template<class T> void spmmCsrSpmmCsrFused(int M, int N, int K,
                          int L,
-                         const int *Ap, const int *Ai, const double *Ax,
-                         const int *Bp, const int *Bi,const double *Bx,
-                         const double *Cx,
-                         double *Dx,
-                         double *ACx,
+                         const int *Ap, const int *Ai, const T *Ax,
+                         const int *Bp, const int *Bi,const T *Bx,
+                         const T *Cx,
+                         T *Dx,
+                         T *ACx,
                          int LevelNo, const int *LevelPtr, const int *ParPtr,
                          const int *Partition, const int *ParType,
                          int NThreads);
