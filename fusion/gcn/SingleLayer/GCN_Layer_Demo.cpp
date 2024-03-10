@@ -1,7 +1,7 @@
 //
 // Created by salehm32 on 12/10/23.
 //
-#include "../Inspection/GraphColoring.h"
+#include "sparse-fusion/GraphColoring.h"
 #include "GCN_Single_Layer_Demo_Utils.h"
 #include "aggregation/sparse_utilities.h"
 #include "sparse-fusion/Fusion_Utils.h"
@@ -115,10 +115,10 @@ int main(const int argc, const char *argv[]) {
   gcnSingleLayerMkl->run();
   auto gcnOneLayerMKLStat = gcnSingleLayerMkl->printStats();
   inputs->CorrectSol =
-      new double[inputs->AdjacencyMatrix->m * inputs->Weight1->col];
+      new double[inputs->AdjacencyMatrix->m * inputs->Weight1->row];
   std::copy(gcnSingleLayerMkl->OutTensor->FirstLayerOutput,
             gcnSingleLayerMkl->OutTensor->FirstLayerOutput +
-                inputs->AdjacencyMatrix->m * inputs->Weight1->col,
+                inputs->AdjacencyMatrix->m * inputs->Weight1->row,
             inputs->CorrectSol);
   auto headerStat = gcnSingleLayerMkl->printStatsHeader();
   delete stats;

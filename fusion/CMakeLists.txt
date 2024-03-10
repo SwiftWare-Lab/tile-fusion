@@ -54,7 +54,6 @@ file(GLOB SYM_FUS_SRC
         )
 add_library(fusion
         ${SYM_FUS_SRC}
-
         )
 target_include_directories(fusion PRIVATE
         ${SYM_AGG}/include/

@@ -2,13 +2,13 @@
 // Created by kazem on 1/19/24.
 //
 
-#include "Inspection/GraphColoring.h"
 #include "Stats.h"
 #include "aggregation/def.h"
 #include "aggregation/sparse_io.h"
 #include "aggregation/sparse_utilities.h"
 #include "jacobi_demo_utils.h"
 #include "sparse-fusion/Fusion_Utils.h"
+#include "sparse-fusion/GraphColoring.h"
 #include "sparse-fusion/SparseFusion.h"
 #include <fstream>
 

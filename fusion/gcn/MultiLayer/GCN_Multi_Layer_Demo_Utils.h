@@ -6,10 +6,10 @@
 #else
 #include "../GCN_Layer_Forward_Utils.h"
 #endif
-#include "../Inspection/Fusion_Inspector.h"
 #include "SWTensorBench.h"
 #include "aggregation/def.h"
 #include "aggregation/sparse_utilities.h"
+#include "sparse-fusion/Fusion_Inspector.h"
 #include "sparse-fusion/MultiDimensionalSet.h"
 #include "sparse-fusion/SparseFusion.h"
 #include <cassert>
