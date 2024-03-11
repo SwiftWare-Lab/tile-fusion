@@ -24,10 +24,10 @@ class InspectorForAllFused {
 protected:
   sym_lib::ScheduleParameters Sp;
   Stats *St;
-
+  int SampleNum;
 public:
-  InspectorForAllFused(sym_lib::ScheduleParameters Sp1, Stats *St1)
-      : Sp(Sp1), St(St1) {}
+  InspectorForAllFused(sym_lib::ScheduleParameters Sp1, Stats *St1, int SampleNum1)
+      : Sp(Sp1), St(St1), SampleNum(SampleNum1) {}
 
   sym_lib::MultiDimensionalSet *
   generateFusedScheduleForAllFused(sym_lib::CSR *AdjMtx) {
@@ -47,6 +47,29 @@ public:
     sym_lib::MultiDimensionalSet *fusedCompSet =
         sf01->getFusedCompressed((int)pt[0]);
     //    FusedCompSet->print_3d();
+    int *newPtr1 = new int[2];
+    int *newPtr2 = new int[2];
+    newPtr1[0] = 0;
+    newPtr1[1] = 1;
+    newPtr2[0] = 0;
+    int tileSize =
+        fusedCompSet->ptr2_[SampleNum + 1] - fusedCompSet->ptr2_[SampleNum];
+    newPtr2[1] = tileSize;
+    int *newId = new int[tileSize];
+    int *newType = new int[tileSize];
+    for (int i = 0; i < tileSize; i++) {
+      newId[i] = fusedCompSet->id_[fusedCompSet->ptr2_[SampleNum] + i];
+      newType[i] = fusedCompSet->type_[fusedCompSet->ptr2_[SampleNum] + i];
+    }
+    fusedCompSet->n1_ = 1;
+    delete[] fusedCompSet->ptr1_;
+    delete[] fusedCompSet->ptr2_;
+    delete[] fusedCompSet->id_;
+    delete[] fusedCompSet->type_;
+    fusedCompSet->ptr1_ = newPtr1;
+    fusedCompSet->ptr2_ = newPtr2;
+    fusedCompSet->id_ = newId;
+    fusedCompSet->type_ = newType;
     delete sf01;
     delete mvDAG;
     delete tmpCSCCSR;

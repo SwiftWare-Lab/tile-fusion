@@ -113,11 +113,14 @@ public:
 
 class GCNSingleLayerUnFusedCSRMKLGeMM : public GCNSingleLayerFused {
 
+  int SampleNum;
+  int TileSize;
 protected:
   Timer execute() override {
     OutTensor->reset();
     double *intermediateResult = new double[InTensor->NumOfNodes * InTensor->Weight1->row]{};
-    mkl_set_num_threads(InTensor->NumThreads);
+    int start = SampleNum*TileSize;
+    mkl_set_num_threads(1);
     Timer t;
     t.start();
     forwardForOneLayerWithMKLGeMMAndSpMM(
@@ -125,15 +128,16 @@ protected:
         InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x,
         InTensor->FeatureMatrix->a, InTensor->FeatureMatrix->col,
         InTensor->Weight1->a, InTensor->Weight1->row,
-        OutTensor->FirstLayerOutput, intermediateResult, InTensor->NumThreads);
+        OutTensor->FirstLayerOutput, intermediateResult, InTensor->NumThreads,
+        start, TileSize);
     t.stop();
     delete[] intermediateResult;
     return t;
   }
 
 public:
-  GCNSingleLayerUnFusedCSRMKLGeMM(GnnTensorInputs *In1, Stats *Stat1)
-      : GCNSingleLayerFused(In1, Stat1) {}
+  GCNSingleLayerUnFusedCSRMKLGeMM(GnnTensorInputs *In1, Stats *Stat1, int SampleNum1, int TileSize1)
+      : GCNSingleLayerFused(In1, Stat1), SampleNum(SampleNum1), TileSize(TileSize1) {}
 };
 
 class GCNSingleLayerUnfusedCSC : public GCNSingleLayerFused {
@@ -589,9 +593,9 @@ protected:
 
 public:
   GCNSingleLayerSparseFusedParallel(GnnTensorInputs *In1, Stats *Stat1,
-                                    sym_lib::ScheduleParameters SpIn)
+                                    sym_lib::ScheduleParameters SpIn, int SampleNum1)
       : GCNSingleLayerFused(In1, Stat1) {
-    Inspector = new InspectorForAllFused(SpIn, Stat1);
+    Inspector = new InspectorForAllFused(SpIn, Stat1, SampleNum1);
   }
   ~GCNSingleLayerSparseFusedParallel() {
     delete FusedCompSet;
@@ -635,9 +639,9 @@ protected:
 
 public:
   GCNSingleLayerSparseFusedParallelWithGeMM(GnnTensorInputs *In1, Stats *Stat1,
-                                            sym_lib::ScheduleParameters SpIn)
+                                            sym_lib::ScheduleParameters SpIn, int SampleNum)
       : GCNSingleLayerFused(In1, Stat1) {
-    Inspector = new InspectorForAllFused(SpIn, Stat1);
+    Inspector = new InspectorForAllFused(SpIn, Stat1, SampleNum);
   }
   ~GCNSingleLayerSparseFusedParallelWithGeMM() {
     delete FusedCompSet;

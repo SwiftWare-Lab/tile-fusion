@@ -297,7 +297,7 @@ public:
   GCNAllFusedParallel(GnnTensorInputs *In1, Stats *Stat1,
                       sym_lib::ScheduleParameters SpIn)
       : GCNIntraFusedSequential(In1, Stat1) {
-    Inspector = new InspectorForAllFused(SpIn, Stat1);
+    Inspector = new InspectorForAllFused(SpIn, Stat1,1);
   }
   ~GCNAllFusedParallel() {
     delete FusedCompSet;

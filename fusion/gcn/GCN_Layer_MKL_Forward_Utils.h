@@ -2,6 +2,13 @@
 // Created by salehm32 on 29/09/23.
 //
 
+#ifdef PROF_WITH_PAPI
+#include "papi_wrapper.h"
+#else
+#define pw_init_instruments
+#define pw_start_instruments_loop(th)
+#define pw_stop_instruments_loop(th)
+#endif
 #include "SWTensorBench.h"
 #include <cstring>
 #include <math.h>
@@ -120,8 +127,10 @@ void forwardForOneLayerFusedParallelSeparated(int M, int *Ap, int *Ai, double *A
 
   int numKernels = 2;
   for (int i1 = 0; i1 < LevelNo; i1++) {
+    pw_init_instruments;
 #pragma omp parallel num_threads(NumThreads)
     {
+      pw_start_instruments_loop(omp_get_thread_num());
 #pragma omp for
       for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; j1++) {
         int kBeginL1 = ParPtr[j1];
@@ -144,6 +153,7 @@ void forwardForOneLayerFusedParallelSeparated(int M, int *Ap, int *Ai, double *A
           }
         }
       }
+      pw_stop_instruments_loop(omp_get_thread_num());
     }
   }
 }
@@ -407,25 +417,30 @@ void forwardForOneLayerWithMKLGeMMAndMKLSpMMSP(int NumOfNodes,
 void forwardForOneLayerWithMKLGeMMAndSpMM(int NumOfNodes, int *Ap, int *Ai,
                                           double *Ax, double *Features,
                                           int FeatDim, double *Weight,
-                                          int OutDim, double *Output, double *IntermediateResult,int NumThreads) {
+                                          int OutDim, double *Output, double *IntermediateResult,
+                                          int NumThreads, int Start,int TileSize) {
+
   matrix_descr d;
   d.type = SPARSE_MATRIX_TYPE_GENERAL;
-  cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasTrans, NumOfNodes, OutDim,
-              FeatDim, 1., Features, FeatDim, Weight, FeatDim, 0.,
+  pw_init_instruments;
+  pw_start_instruments_loop(omp_get_thread_num());
+  cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasTrans, TileSize, OutDim,
+              FeatDim, 1., Features+Start*FeatDim, FeatDim, Weight, FeatDim, 0.,
               IntermediateResult,
               OutDim);
-#pragma omp parallel num_threads(NumThreads)
-  {
-#pragma omp for
-    for (int i = 0; i < NumOfNodes; i++) {
-      for (int j = Ap[i]; j < Ap[i + 1]; j++) {
-        int ip = OutDim * i;
-        for (int k = 0; k < OutDim; k++) {
-          Output[ip + k] += Ax[j] * IntermediateResult[Ai[j] * OutDim + k];
-        }
-      }
-    }
-  }
+  pw_stop_instruments_loop(omp_get_thread_num());
+//#pragma omp parallel num_threads(NumThreads)
+//  {
+//#pragma omp for
+//    for (int i = 0; i < NumOfNodes; i++) {
+//      for (int j = Ap[i]; j < Ap[i + 1]; j++) {
+//        int ip = OutDim * i;
+//        for (int k = 0; k < OutDim; k++) {
+//          Output[ip + k] += Ax[j] * IntermediateResult[Ai[j] * OutDim + k];
+//        }
+//      }
+//    }
+//  }
 }
 
 void forwardForOneLayerWithMKLGeMMAndSpMMSP(int NumOfNodes, int *Ap, int *Ai,

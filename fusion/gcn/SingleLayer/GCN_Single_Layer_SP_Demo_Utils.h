@@ -218,9 +218,9 @@ protected:
 
 public:
   GCNSingleLayerSparseFusedParallelWithGeMM_SP(GnnTensorSpInputs *In1, Stats *Stat1,
-                                            sym_lib::ScheduleParameters SpIn)
+                                            sym_lib::ScheduleParameters SpIn, int SampleNum)
       : GCNSingleLayerUnFusedCSRMKLGeMMSP(In1, Stat1) {
-    Inspector = new InspectorForAllFused(SpIn, Stat1);
+    Inspector = new InspectorForAllFused(SpIn, Stat1, SampleNum);
   }
   ~GCNSingleLayerSparseFusedParallelWithGeMM_SP() {
     delete FusedCompSet;

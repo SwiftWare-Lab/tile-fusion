@@ -134,35 +134,50 @@ int main(const int argc, const char *argv[]) {
 //  delete stats;
 //  delete gcnSingleLayerUnfusedCsc;
 
-//  stats = new swiftware::benchmark::Stats("GCN_SingleLayerFused", "GCN", 7,
-//                                          tp._matrix_name, numThread);
-//  stats->OtherStats["PackingType"] = {Interleaved};
-//  GCNSingleLayerSparseFusedParallel *gcnSingleLayerSparseFused =
-//      new GCNSingleLayerSparseFusedParallel(inputs, stats, sp);
-//  gcnSingleLayerSparseFused->run();
-//  auto gcnSingleLayerSparseFusedStat = gcnSingleLayerSparseFused->printStats();
-//  delete stats;
-//  delete gcnSingleLayerSparseFused;
+  auto csvInfo = sp.print_csv(true);
+  std::string spHeader = std::get<0>(csvInfo);
+  std::string spStat = std::get<1>(csvInfo);
 
-  stats = new swiftware::benchmark::Stats("GCN_SingleLayer_UnFused", "GCN", 7,
-                                          tp._matrix_name, numThread);
-  stats->OtherStats["PackingType"] = {Separated};
-  GCNSingleLayerUnFusedCSRMKLGeMM *gcnSingleLayerUnFused =
-      new GCNSingleLayerUnFusedCSRMKLGeMM(inputs, stats);
-  gcnSingleLayerUnFused->run();
-  auto gcnSingleLayerUnFusedStat = gcnSingleLayerUnFused->printStats();
-  delete stats;
-  delete gcnSingleLayerUnFused;
+  auto tpCsv = tp.print_csv(true);
+  std::string tpHeader = std::get<0>(tpCsv);
+  std::string tpStat = std::get<1>(tpCsv);
+  if (tp.print_header)
+    std::cout << headerStat + spHeader + tpHeader << std::endl;
+  std::vector<int> sampleTiles = {1,3,5,7,9};
+  int i = 0;
+for(auto sample: sampleTiles){
+//    stats = new swiftware::benchmark::Stats("GCN_SingleLayerFused", "GCN", 7,
+//                                            tp._matrix_name, numThread);
+//    stats->OtherStats["PackingType"] = {Interleaved};
+//    GCNSingleLayerSparseFusedParallel *gcnSingleLayerSparseFused =
+//        new GCNSingleLayerSparseFusedParallel(inputs, stats, sp, sample);
+//    gcnSingleLayerSparseFused->run();
+//    auto gcnSingleLayerSparseFusedStat = gcnSingleLayerSparseFused->printStats();
+//    delete stats;
+//    delete gcnSingleLayerSparseFused;
 
-  stats = new swiftware::benchmark::Stats("GCN_SingleLayer_FusedSeperated", "GCN", 7,
-                                          tp._matrix_name, numThread);
-  stats->OtherStats["PackingType"] = {Separated};
-  GCNSingleLayerSparseFusedParallelWithGeMM *gcnSingleLayerSparseFusedSeparated =
-      new GCNSingleLayerSparseFusedParallelWithGeMM(inputs, stats, sp);
-  gcnSingleLayerSparseFusedSeparated->run();
-  auto gcnSingleLayerSparseFusedSeparatedStat = gcnSingleLayerSparseFusedSeparated->printStats();
-  delete stats;
-  delete gcnSingleLayerSparseFusedSeparated;
+    stats = new swiftware::benchmark::Stats("GCN_SingleLayer_UnFused", "GCN", 7,
+                                            tp._matrix_name + std::to_string(i), numThread);
+    stats->OtherStats["PackingType"] = {Separated};
+    GCNSingleLayerUnFusedCSRMKLGeMM *gcnSingleLayerUnFused =
+        new GCNSingleLayerUnFusedCSRMKLGeMM(inputs, stats, sample, sp.IterPerPartition);
+    gcnSingleLayerUnFused->run();
+    auto gcnSingleLayerUnFusedStat = gcnSingleLayerUnFused->printStats();
+    delete stats;
+    delete gcnSingleLayerUnFused;
+    std::cout << gcnSingleLayerUnFusedStat << spStat + tpStat << std::endl;
+
+    stats = new swiftware::benchmark::Stats("GCN_SingleLayer_FusedSeperated", "GCN", 7,
+                                            tp._matrix_name + std::to_string(i), numThread);
+    stats->OtherStats["PackingType"] = {Separated};
+    GCNSingleLayerSparseFusedParallelWithGeMM *gcnSingleLayerSparseFusedSeparated =
+        new GCNSingleLayerSparseFusedParallelWithGeMM(inputs, stats, sp, sample);
+    gcnSingleLayerSparseFusedSeparated->run();
+    auto gcnSingleLayerSparseFusedSeparatedStat = gcnSingleLayerSparseFusedSeparated->printStats();
+    delete stats;
+    delete gcnSingleLayerSparseFusedSeparated;
+    std::cout << gcnSingleLayerSparseFusedSeparatedStat << spStat + tpStat << std::endl;
+}
 
 //  stats = new swiftware::benchmark::Stats(
 //      "GCN_SingleLayerTiledFusedCSCParallelAtomic", "GCN", 7, tp._matrix_name,
@@ -398,22 +413,9 @@ int main(const int argc, const char *argv[]) {
 //  delete gcnSingleLayerTiledFusedCscVectorized;
 #endif
 
-  auto csvInfo = sp.print_csv(true);
-  std::string spHeader = std::get<0>(csvInfo);
-  std::string spStat = std::get<1>(csvInfo);
-
-  auto tpCsv = tp.print_csv(true);
-  std::string tpHeader = std::get<0>(tpCsv);
-  std::string tpStat = std::get<1>(tpCsv);
-
-  if (tp.print_header)
-    std::cout << headerStat + spHeader + tpHeader << std::endl;
-
-  std::cout << gcnOneLayerMKLStat << spStat + tpStat << std::endl;
+//  std::cout << gcnOneLayerMKLStat << spStat + tpStat << std::endl;
 //  std::cout << gcnSingleLayerUnfusedCscStat << spStat + tpStat << std::endl;
 //  std::cout << gcnSingleLayerSparseFusedStat << spStat + tpStat << std::endl;
-  std::cout << gcnSingleLayerUnFusedStat << spStat + tpStat << std::endl;
-  std::cout << gcnSingleLayerSparseFusedSeparatedStat << spStat + tpStat << std::endl;
   //  std::cout << gcnTiledFusedSingleLayerStat << spStat + tpStat << std::endl;
   //  std::cout << gcnSingleLayerTiledFusedParallelStat << spStat + tpStat
   //            << std::endl;
