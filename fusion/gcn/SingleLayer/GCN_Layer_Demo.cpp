@@ -111,7 +111,8 @@ int main(const int argc, const char *argv[]) {
   stats = new swiftware::benchmark::Stats("GCN_SingleLayer_UnFusedMKL", "GCN", 7,
                                           tp._matrix_name, numThread);
   stats->OtherStats["PackingType"] = {Separated};
-  GCNSingleLayerMKL *gcnSingleLayerMkl = new GCNSingleLayerMKL(inputs, stats);
+  GCNSingleLayerUnFusedCSRMKLGeMM *gcnSingleLayerMkl =
+      new GCNSingleLayerUnFusedCSRMKLGeMM(inputs, stats, 1, sp.IterPerPartition);
   gcnSingleLayerMkl->run();
   auto gcnOneLayerMKLStat = gcnSingleLayerMkl->printStats();
   inputs->CorrectSol =
