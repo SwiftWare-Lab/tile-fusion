@@ -14,7 +14,7 @@
 #ifdef MKL
 #define set_num_threads(num) mkl_set_num_threads(num)
 #else
-#define set_num_threads(num) omp_set_num_threads(num)
+#define set_num_threads(num) blis_set_num_threads(num)
 #endif
 
 namespace sym_lib {
