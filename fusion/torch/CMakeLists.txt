@@ -14,11 +14,11 @@ include_directories(
 )
 
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
-if(NOT TARGET MKL::MKL)
-
-    set(MKL_INTERFACE "lp64")
-    find_package(MKL CONFIG OPTIONAL_COMPONENTS)
-endif()
+#if(NOT TARGET MKL::MKL)
+#
+#    set(MKL_INTERFACE "lp64")
+#    find_package(MKL CONFIG OPTIONAL_COMPONENTS)
+#endif()
 
 if(TARGET MKL::MKL AND TARGET Python)
     add_definitions(-DMKL)

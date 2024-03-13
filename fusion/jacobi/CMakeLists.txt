@@ -8,10 +8,10 @@ include_directories(
         ${SYM_FUS}/gcn
 )
 
-if(NOT TARGET MKL::MKL)
-    set(MKL_INTERFACE "lp64")
-    find_package(MKL CONFIG OPTIONAL_COMPONENTS)
-endif()
+#if(NOT TARGET MKL::MKL)
+#    set(MKL_INTERFACE "lp64")
+#    find_package(MKL CONFIG OPTIONAL_COMPONENTS)
+#endif()
 
 if(TARGET MKL::MKL)
     add_definitions(-DMKL)
