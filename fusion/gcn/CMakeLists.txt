@@ -9,10 +9,9 @@ project(gcn)
 
 
 # add a definition to the project
+# if defined BLAS_LINK_FLAGS
 
-
-message(STATUS "------------------ OPENMP: ${OpenMP_CXX_FOUND}")
-    if(TARGET MKL::MKL)
+    if( BLAS_LINK_FLAGS)
         # add_definitions(-DMKL)
         #message(STATUS "${MKL_IMPORTED_TARGETS}")
 
