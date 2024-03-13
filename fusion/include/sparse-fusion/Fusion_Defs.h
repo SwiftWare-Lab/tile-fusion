@@ -15,7 +15,7 @@
 #define set_num_threads(num) mkl_set_num_threads(num)
 #else
 #include "blis.h"
-#define set_num_threads(num) bli_set_num_threads(num)
+#define set_num_threads(num) bli_thread_set_num_threads(num)
 #endif
 
 namespace sym_lib {
