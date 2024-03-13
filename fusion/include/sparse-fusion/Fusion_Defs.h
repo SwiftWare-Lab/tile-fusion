@@ -14,6 +14,7 @@
 #ifdef MKL
 #define set_num_threads(num) mkl_set_num_threads(num)
 #else
+#include "blis.h"
 #define set_num_threads(num) blis_set_num_threads(num)
 #endif
 
