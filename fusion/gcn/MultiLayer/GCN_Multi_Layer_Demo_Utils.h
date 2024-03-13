@@ -14,6 +14,7 @@
 #include "sparse-fusion/Fusion_Inspector.h"
 #include "sparse-fusion/MultiDimensionalSet.h"
 #include "sparse-fusion/SparseFusion.h"
+#include "sparse-fusion/Fusion_Defs.h"
 #include <cassert>
 #include <cmath>
 #include <numeric>
