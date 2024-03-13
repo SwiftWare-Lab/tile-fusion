@@ -120,7 +120,7 @@ protected:
     mkl_set_num_threads(InTensor->NumThreads);
     Timer t;
     t.start();
-    forwardForOneLayerWithMKLGeMMAndSpMM(
+    forwardForOneLayerWithMKLGeMMAndSpMMVectorized(
         InTensor->NumOfNodes, InTensor->AdjacencyMatrix->p,
         InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x,
         InTensor->FeatureMatrix->a, InTensor->FeatureMatrix->col,
@@ -620,7 +620,7 @@ protected:
     mkl_set_num_threads(1);
     OutTensor->reset();
     t.start();
-    forwardForOneLayerFusedParallelSeparated(
+    forwardForOneLayerFusedParallelSeparatedVectorized(
         InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->p,
         InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x,
         InTensor->FeatureMatrix->col, InTensor->Weight1->row, InTensor->Degrees,

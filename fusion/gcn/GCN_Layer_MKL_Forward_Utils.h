@@ -223,6 +223,84 @@ void forwardForOneLayerFusedParallelSeparated(int M, int *Ap, int *Ai, double *A
   }
 }
 
+void forwardForOneLayerFusedParallelSeparatedVectorized(int M, int *Ap, int *Ai, double *Ax,
+                                              int InputChannelDim, int OutputChannelDim,
+                                              int *Degrees, double *Features,
+                                              double *Weight, double *Output, double *IntermediateResult,
+                                              int NumThreads, int LevelNo,
+                                              const int *LevelPtr, const int *ParPtr, const int* MixPtr,
+                                              const int *Partition, const int *ParType) {
+
+  int numKernels = 2;
+  for (int i1 = 0; i1 < LevelNo; i1++) {
+#pragma omp parallel num_threads(NumThreads)
+    {
+#pragma omp for
+      for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; j1++) {
+        int kBeginL1 = ParPtr[j1];
+        int kEndL1 = MixPtr[j1*numKernels];
+        int iL1 = Partition[kBeginL1];
+        int tileSize = kEndL1 - kBeginL1;
+        cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasTrans, tileSize,
+                    OutputChannelDim, InputChannelDim, 1.,
+                    Features + iL1 * InputChannelDim,
+                    InputChannelDim, Weight, InputChannelDim, 0., IntermediateResult + iL1*OutputChannelDim,
+                    OutputChannelDim);
+        int kEndL2 = MixPtr[j1*numKernels + 1];
+        for (int k1 = kEndL1; k1 < kEndL2; ++k1) {
+          int i = Partition[k1];
+          int ip = i * OutputChannelDim;
+          for (int kk = 0; kk < OutputChannelDim; kk += 16) {
+            auto acxV1 = _mm256_loadu_pd(Output + ip + kk);
+            auto acxV2 = _mm256_loadu_pd(Output + ip + kk + 4);
+            auto acxV3 = _mm256_loadu_pd(Output + ip + kk + 8);
+            auto acxV4 = _mm256_loadu_pd(Output + ip + kk + 12);
+            int j = Ap[i];
+            for (; j < Ap[i + 1]-1; j+=2) {
+              int aij1 = Ai[j] * OutputChannelDim;
+              int aij2 = Ai[j+1] * OutputChannelDim;
+              auto axV1 = _mm256_set1_pd(Ax[j]);
+              auto axV2 = _mm256_set1_pd(Ax[j+1]);
+              auto cxV11 = _mm256_loadu_pd(IntermediateResult + aij1 + kk);
+              auto cxV12 = _mm256_loadu_pd(IntermediateResult + aij1 + kk + 4);
+              auto cxV13 = _mm256_loadu_pd(IntermediateResult + aij1 + kk + 8);
+              auto cxV14 = _mm256_loadu_pd(IntermediateResult + aij1 + kk + 12);
+              auto cxV21 = _mm256_loadu_pd(IntermediateResult + aij2 + kk);
+              auto cxV22 = _mm256_loadu_pd(IntermediateResult + aij2 + kk + 4);
+              auto cxV23 = _mm256_loadu_pd(IntermediateResult + aij2 + kk + 8);
+              auto cxV24 = _mm256_loadu_pd(IntermediateResult + aij2 + kk + 12);
+              acxV1 = _mm256_fmadd_pd(axV1, cxV11, acxV1);
+              acxV1 = _mm256_fmadd_pd(axV2, cxV21, acxV1);
+              acxV2 = _mm256_fmadd_pd(axV1, cxV12, acxV2);
+              acxV2 = _mm256_fmadd_pd(axV2, cxV22, acxV2);
+              acxV3 = _mm256_fmadd_pd(axV1, cxV13, acxV3);
+              acxV3 = _mm256_fmadd_pd(axV2, cxV23, acxV3);
+              acxV4 = _mm256_fmadd_pd(axV1, cxV14, acxV4);
+              acxV4 = _mm256_fmadd_pd(axV2, cxV24, acxV4);
+            }
+            for (; j < Ap[i + 1]; ++j) {
+              int aij = Ai[j] * OutputChannelDim;
+              auto axv0 = _mm256_set1_pd(Ax[j]);
+              auto cxV11 = _mm256_loadu_pd(IntermediateResult + aij + kk);
+              auto cxV12 = _mm256_loadu_pd(IntermediateResult + aij + kk + 4);
+              auto cxV13 = _mm256_loadu_pd(IntermediateResult + aij + kk + 8);
+              auto cxV14 = _mm256_loadu_pd(IntermediateResult + aij + kk + 12);
+              acxV1 = _mm256_fmadd_pd(axv0, cxV11, acxV1);
+              acxV2 = _mm256_fmadd_pd(axv0, cxV12, acxV2);
+              acxV3 = _mm256_fmadd_pd(axv0, cxV13, acxV3);
+              acxV4 = _mm256_fmadd_pd(axv0, cxV14, acxV4);
+            }
+            _mm256_storeu_pd(Output + ip + kk, acxV1);
+            _mm256_storeu_pd(Output + ip + kk + 4, acxV2);
+            _mm256_storeu_pd(Output + ip + kk + 8, acxV3);
+            _mm256_storeu_pd(Output + ip + kk + 12, acxV4);
+          }
+        }
+      }
+    }
+  }
+}
+
 void forwardForOneLayerParallel(int M, int *Ap, int *Ai, double *Ax,
                                 int InputChannelDim, int OutputChannelDim,
                                 int *Degrees, double *Features, double *Weight,
@@ -498,6 +576,70 @@ void forwardForOneLayerWithMKLGeMMAndSpMM(int NumOfNodes, int *Ap, int *Ai,
         for (int k = 0; k < OutDim; k++) {
           Output[ip + k] += Ax[j] * IntermediateResult[Ai[j] * OutDim + k];
         }
+      }
+    }
+  }
+}
+
+void forwardForOneLayerWithMKLGeMMAndSpMMVectorized(int NumOfNodes, int *Ap, int *Ai,
+                                          double *Ax, double *Features,
+                                          int FeatDim, double *Weight,
+                                          int OutDim, double *Output, double *IntermediateResult,int NumThreads) {
+  matrix_descr d;
+  d.type = SPARSE_MATRIX_TYPE_GENERAL;
+  cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasTrans, NumOfNodes, OutDim,
+              FeatDim, 1., Features, FeatDim, Weight, FeatDim, 0.,
+              IntermediateResult,
+              OutDim);
+#pragma omp parallel num_threads(NumThreads)
+  {
+#pragma omp for
+    for (int i = 0; i < NumOfNodes; i++) {
+      int ip = OutDim * i;
+      for (int kk = 0; kk < OutDim; kk += 16) {
+        auto acxV1 = _mm256_loadu_pd(Output + ip + kk);
+        auto acxV2 = _mm256_loadu_pd(Output + ip + kk + 4);
+        auto acxV3 = _mm256_loadu_pd(Output + ip + kk + 8);
+        auto acxV4 = _mm256_loadu_pd(Output + ip + kk + 12);
+        int j = Ap[i];
+        for (; j < Ap[i + 1] - 1; j += 2) {
+          int aij1 = Ai[j] * OutDim;
+          int aij2 = Ai[j + 1] * OutDim;
+          auto axV1 = _mm256_set1_pd(Ax[j]);
+          auto axV2 = _mm256_set1_pd(Ax[j + 1]);
+          auto cxV11 = _mm256_loadu_pd(IntermediateResult + aij1 + kk);
+          auto cxV12 = _mm256_loadu_pd(IntermediateResult + aij1 + kk + 4);
+          auto cxV13 = _mm256_loadu_pd(IntermediateResult + aij1 + kk + 8);
+          auto cxV14 = _mm256_loadu_pd(IntermediateResult + aij1 + kk + 12);
+          auto cxV21 = _mm256_loadu_pd(IntermediateResult + aij2 + kk);
+          auto cxV22 = _mm256_loadu_pd(IntermediateResult + aij2 + kk + 4);
+          auto cxV23 = _mm256_loadu_pd(IntermediateResult + aij2 + kk + 8);
+          auto cxV24 = _mm256_loadu_pd(IntermediateResult + aij2 + kk + 12);
+          acxV1 = _mm256_fmadd_pd(axV1, cxV11, acxV1);
+          acxV1 = _mm256_fmadd_pd(axV2, cxV21, acxV1);
+          acxV2 = _mm256_fmadd_pd(axV1, cxV12, acxV2);
+          acxV2 = _mm256_fmadd_pd(axV2, cxV22, acxV2);
+          acxV3 = _mm256_fmadd_pd(axV1, cxV13, acxV3);
+          acxV3 = _mm256_fmadd_pd(axV2, cxV23, acxV3);
+          acxV4 = _mm256_fmadd_pd(axV1, cxV14, acxV4);
+          acxV4 = _mm256_fmadd_pd(axV2, cxV24, acxV4);
+        }
+        for (; j < Ap[i + 1]; ++j) {
+          int aij = Ai[j] * OutDim;
+          auto axv0 = _mm256_set1_pd(Ax[j]);
+          auto cxV11 = _mm256_loadu_pd(IntermediateResult + aij + kk);
+          auto cxV12 = _mm256_loadu_pd(IntermediateResult + aij + kk + 4);
+          auto cxV13 = _mm256_loadu_pd(IntermediateResult + aij + kk + 8);
+          auto cxV14 = _mm256_loadu_pd(IntermediateResult + aij + kk + 12);
+          acxV1 = _mm256_fmadd_pd(axv0, cxV11, acxV1);
+          acxV2 = _mm256_fmadd_pd(axv0, cxV12, acxV2);
+          acxV3 = _mm256_fmadd_pd(axv0, cxV13, acxV3);
+          acxV4 = _mm256_fmadd_pd(axv0, cxV14, acxV4);
+        }
+        _mm256_storeu_pd(Output + ip + kk, acxV1);
+        _mm256_storeu_pd(Output + ip + kk + 4, acxV2);
+        _mm256_storeu_pd(Output + ip + kk + 8, acxV3);
+        _mm256_storeu_pd(Output + ip + kk + 12, acxV4);
       }
     }
   }
