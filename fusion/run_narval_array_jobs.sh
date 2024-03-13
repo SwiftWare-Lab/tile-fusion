@@ -54,5 +54,5 @@ module load cmake
 if [ $TEST -eq 1 ]; then
     bash run.sh -m $UFDB -c 8 -i $MAT_ID -e $EXP -t 8 -l $MATLIST_FOLDER -j $SLURM_ARRAY_JOB_ID
 else
-  bash run.sh -t 20 -m $UFDB -c $BCOL -i $MAT_ID  -e $EXP -l $MATLIST_FOLDER -j $SLURM_ARRAY_JOB_ID
+  bash run.sh -t 32 -m $UFDB -c $BCOL -i $MAT_ID  -e $EXP -l $MATLIST_FOLDER -j $SLURM_ARRAY_JOB_ID
 fi
