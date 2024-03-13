@@ -129,7 +129,7 @@ protected:
     mkl_set_num_threads(InTensor->NumThreads);
     Timer t;
     t.start();
-    forwardForOneLayerWithMKLGeMMAndSpMMSP(
+    forwardForOneLayerWithMKLGeMMAndSpMMSPVectorized(
         InTensor->NumOfNodes, InTensor->AdjacencyMatrix->p,
         InTensor->AdjacencyMatrix->i, InTensor->AMValues,
         InTensor->FeatureMatrix, InTensor->FeatureDim,
