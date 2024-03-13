@@ -44,11 +44,10 @@ done
 #module load NiaEnv/.2022a
 #module load StdEnv/2023
 module load StdEnv/2020
-#module load intel/2023.2.1
-module load intel/2022.1.0
-echo "========> ${MKLROOT}"
-echo " -------> ${MKL_DIR}"
-export MKL_DIR=$MKLROOT
+module load gcc/11.3.0
+#echo "========> ${MKLROOT}"
+#echo " -------> ${MKL_DIR}"
+#export MKL_DIR=$MKLROOT
 
 module load cmake
 #module load gcc #we need to add -march=core-avx2 to CXXFLAGS

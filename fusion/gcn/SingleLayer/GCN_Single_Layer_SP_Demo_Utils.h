@@ -3,10 +3,8 @@
 //
 #ifdef MKL
 #include "../GCN_Layer_MKL_Forward_Utils.h"
-#else
-#include "../GCN_Layer_Forward_Utils.h"
 #endif
-#include "../GCN_Layer_MKL_Forward_Utils.h"
+#include "../GCN_Layer_Forward_Utils.h"
 #include "SWTensorBench.h"
 #include "aggregation/def.h"
 #include "aggregation/sparse_utilities.h"

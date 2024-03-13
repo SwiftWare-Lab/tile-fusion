@@ -45,8 +45,9 @@ done
 MATLIST_FOLDER=$UFDB/mat_lists/
 
 module load NiaEnv/.2022a
-module load intel/2022u2
-export MKL_DIR=$MKLROOT
+module load gcc/11.3.0
+#module load intel/2022u2
+#export MKL_DIR=$MKLROOT
 module load cmake
 #module load gcc
 

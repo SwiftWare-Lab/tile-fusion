@@ -4,10 +4,10 @@
 
 #ifdef MKL
 #include "../GCN_Layer_MKL_Forward_Utils.h"
-#include "sparse-fusion/Fusion_Inspector.h"
 #else
 #include "../GCN_Layer_Forward_Utils.h"
 #endif
+#include "sparse-fusion/Fusion_Inspector.h"
 #include "../MultiLayer/GCN_Multi_Layer_Demo_Utils.h"
 #include "SWTensorBench.h"
 #ifndef SPARSE_FUSION_GCN_SINGLE_LAYER_DEMO_UTILS_H
