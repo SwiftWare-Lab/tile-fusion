@@ -12,6 +12,7 @@
 
 
 #include "SWTensorBench.h"
+#include "sparse-fusion/Fusion_Defs.h"
 #include <cstring>
 #include <math.h>
 #include <omp.h>
