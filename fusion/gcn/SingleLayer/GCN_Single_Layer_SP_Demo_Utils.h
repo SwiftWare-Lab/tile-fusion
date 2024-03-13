@@ -203,7 +203,7 @@ protected:
     mkl_set_num_threads(1);
     OutTensor->reset();
     t.start();
-    forwardForOneLayerFusedParallelSeparatedSP(
+    forwardForOneLayerFusedParallelSeparatedVectorizedSP(
         InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->p,
         InTensor->AdjacencyMatrix->i, InTensor->AMValues,
         InTensor->FeatureDim, InTensor->EmbedDim,
