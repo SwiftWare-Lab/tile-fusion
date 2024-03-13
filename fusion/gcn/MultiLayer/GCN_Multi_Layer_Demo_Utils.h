@@ -3,12 +3,14 @@
 //
 #ifdef MKL
 #include "../GCN_Layer_MKL_Forward_Utils.h"
+#include "../GCN_Layer_Forward_Utils.h"
 #else
 #include "../GCN_Layer_Forward_Utils.h"
 #endif
 #include "SWTensorBench.h"
 #include "aggregation/def.h"
 #include "aggregation/sparse_utilities.h"
+#include "sparse-fusion/Fusion_Defs.h"
 #include "sparse-fusion/Fusion_Inspector.h"
 #include "sparse-fusion/MultiDimensionalSet.h"
 #include "sparse-fusion/SparseFusion.h"
@@ -169,6 +171,8 @@ struct GnnTensorOutputs : public Outputs<double> {
   }
 };
 
+
+
 class GCNIntraFusedSequential : public SWTensorBench<double> {
 protected:
   GnnTensorInputs *InTensor;
@@ -203,7 +207,7 @@ protected:
 
   Timer execute() override {
     OutTensor->reset();
-    mkl_set_num_threads(1);
+    set_num_threads(1);
     Timer t;
     t.start();
     forwardForOneLayer(
@@ -237,7 +241,7 @@ class GCNIntraFusedParallel : public GCNIntraFusedSequential {
 protected:
   Timer execute() override {
     Timer t;
-    mkl_set_num_threads(1);
+    set_num_threads(1);
     OutTensor->reset();
     t.start();
     forwardForOneLayerParallel(
@@ -277,18 +281,18 @@ protected:
 
   Timer execute() override {
     Timer t;
-    mkl_set_num_threads(1);
+    set_num_threads(1);
     OutTensor->reset();
     t.start();
-    forwardForFusedLayersParallel(
-        InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->p,
-        InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x,
-        InTensor->FeatureMatrix->col, InTensor->Weight2->col, InTensor->Weight2->row,
-        InTensor->Degrees, InTensor->FeatureMatrix->a, InTensor->Weight1->a,
-        InTensor->Weight2->a, OutTensor->SecondLayerOutput,
-        OutTensor->FirstLayerOutput, InTensor->NumThreads, FusedCompSet->n1_,
-        FusedCompSet->ptr1_, FusedCompSet->ptr2_, FusedCompSet->id_,
-        FusedCompSet->type_);
+//    forwardForFusedLayersParallel(
+//        InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->p,
+//        InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x,
+//        InTensor->FeatureMatrix->col, InTensor->Weight2->col, InTensor->Weight2->row,
+//        InTensor->Degrees, InTensor->FeatureMatrix->a, InTensor->Weight1->a,
+//        InTensor->Weight2->a, OutTensor->SecondLayerOutput,
+//        OutTensor->FirstLayerOutput, InTensor->NumThreads, FusedCompSet->n1_,
+//        FusedCompSet->ptr1_, FusedCompSet->ptr2_, FusedCompSet->id_,
+//        FusedCompSet->type_);
     t.stop();
     return t;
   }

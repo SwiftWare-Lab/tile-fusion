@@ -25,7 +25,7 @@ if(TARGET MKL::MKL)
     target_link_libraries(jacobi_demo
             fusion
             swbench::swbench
-            $<LINK_ONLY:MKL::MKL>
+            ${BLAS_LINK_FLAGS}
             OpenMP::OpenMP_CXX
     )
 

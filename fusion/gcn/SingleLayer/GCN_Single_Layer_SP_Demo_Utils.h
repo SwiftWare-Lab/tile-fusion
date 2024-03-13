@@ -6,6 +6,7 @@
 #else
 #include "../GCN_Layer_Forward_Utils.h"
 #endif
+#include "../GCN_Layer_MKL_Forward_Utils.h"
 #include "SWTensorBench.h"
 #include "aggregation/def.h"
 #include "aggregation/sparse_utilities.h"
@@ -126,7 +127,7 @@ protected:
   Timer execute() override {
     OutTensor->reset();
     float *intermediateResult = new float [InTensor->NumOfNodes * InTensor->EmbedDim]{};
-    mkl_set_num_threads(InTensor->NumThreads);
+    set_num_threads(InTensor->NumThreads);
     Timer t;
     t.start();
     forwardForOneLayerWithMKLGeMMAndSpMMSP(
@@ -151,6 +152,7 @@ public:
   ~GCNSingleLayerUnFusedCSRMKLGeMMSP() { delete OutTensor; }
 };
 
+#ifdef MKL
 class GCNSingleLayerMKL_SP : public GCNSingleLayerUnFusedCSRMKLGeMMSP {
 
 protected:
@@ -181,6 +183,7 @@ public:
   }
   ~GCNSingleLayerMKL_SP() { mkl_free(MKLAdj); }
 };
+#endif
 
 class GCNSingleLayerSparseFusedParallelWithGeMM_SP : public GCNSingleLayerUnFusedCSRMKLGeMMSP {
 protected:
@@ -200,7 +203,7 @@ protected:
     float *intermediateResult = new float [InTensor->NumOfNodes*InTensor->EmbedDim];
     Timer t;
     St->OtherStats["FusedIterations"] = {(double)FusedCompSet->getNumberOfFusedNodes()};
-    mkl_set_num_threads(1);
+    set_num_threads(1);
     OutTensor->reset();
     t.start();
     forwardForOneLayerFusedParallelSeparatedVectorizedSP(

@@ -4,6 +4,27 @@ cmake_minimum_required( VERSION 3.20)
 set(SWIFT_BLAS_BACKEND "MKL" CACHE STRING "BLAS implementation for SWIFTWARE to use")
 set_property(CACHE SWIFT_BLAS_BACKEND PROPERTY STRINGS MKL OpenBLAS Apple FLEXIBLAS)
 
+if(${SWIFT_BLAS_BACKEND} STREQUAL "MKL")
+    if(NOT TARGET MKL::MKL)
+        set(MKL_INTERFACE "lp64")
+        find_package(MKL CONFIG OPTIONAL_COMPONENTS)
+    endif()
+    add_definitions(-DMKL)
+    add_definitions(-DMKL_Specific)
+    message(STATUS "${MKL_IMPORTED_TARGETS}")
+    set( BLAS_INC_DIR
+            $<TARGET_PROPERTY:MKL::MKL,INTERFACE_INCLUDE_DIRECTORIES>)
+    set( BLAS_LINK_FLAGS
+            $<LINK_ONLY:MKL::MKL>)
+elseif (${SWIFT_BLAS_BACKEND} STREQUAL "FLEXIBLAS")
+    add_definitions(-DFLEXIBLAS)
+    add_definitions(-DBLAS_VEN)
+    set(BLA_VENDOR FlexiBLAS)
+    add_definitions(-DFLEXIBLAS)
+    message(STATUS "FLEXIBLAS")
+    set( BLAS_LINK_FLAGS
+            flexiblas )
+endif ()
 
 project(sparse_fusion CXX C )
 

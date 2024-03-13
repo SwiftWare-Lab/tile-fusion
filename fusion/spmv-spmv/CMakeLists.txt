@@ -21,7 +21,7 @@ if(TARGET MKL::MKL)
     )
     target_link_libraries(spmv_spmv_demo PRIVATE
             fusion
-            $<LINK_ONLY:MKL::MKL>
+            ${BLAS_LINK_FLAGS}
             swbench::swbench
             OpenMP::OpenMP_CXX
     )

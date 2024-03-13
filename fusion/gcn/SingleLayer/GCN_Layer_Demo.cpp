@@ -5,6 +5,7 @@
 #include "GCN_Single_Layer_Demo_Utils.h"
 #include "aggregation/sparse_utilities.h"
 #include "sparse-fusion/Fusion_Utils.h"
+#include "GCN_Single_Layer_SP_Demo_Utils.h"
 using namespace sym_lib;
 
 /*
@@ -104,10 +105,23 @@ int main(const int argc, const char *argv[]) {
   //  delete stats;
   //  delete gcnSingleLayerTiledFusedParallel;
 
+  stats = new swiftware::benchmark::Stats("GCN_SingleLayer_UnFused", "GCN", 7,
+                                          tp._matrix_name, numThread);
+  stats->OtherStats["PackingType"] = {Separated};
+  GCNSingleLayerUnFusedCSRMKLGeMM *gcnSingleLayerUnFused =
+      new GCNSingleLayerUnFusedCSRMKLGeMM(inputs, stats);
+  gcnSingleLayerUnFused->run();
+  auto gcnSingleLayerUnFusedStat = gcnSingleLayerUnFused->printStats();
+  auto headerStat = gcnSingleLayerUnFused->printStatsHeader();
+  delete stats;
+  delete gcnSingleLayerUnFused;
+
+
   /*
    * Method that calculates the output by doing a GeMM and then an SpMM to the
    * input.
    */
+#ifdef MKL
   stats = new swiftware::benchmark::Stats("GCN_SingleLayer_UnFusedMKL", "GCN", 7,
                                           tp._matrix_name, numThread);
   stats->OtherStats["PackingType"] = {Separated};
@@ -120,10 +134,10 @@ int main(const int argc, const char *argv[]) {
             gcnSingleLayerMkl->OutTensor->FirstLayerOutput +
                 inputs->AdjacencyMatrix->m * inputs->Weight1->row,
             inputs->CorrectSol);
-  auto headerStat = gcnSingleLayerMkl->printStatsHeader();
+  //auto headerStat = gcnSingleLayerMkl->printStatsHeader();
   delete stats;
   delete gcnSingleLayerMkl;
-
+#endif
 //  stats = new swiftware::benchmark::Stats("GCN_SingleLayerUnfusedCSC", "GCN", 7,
 //                                          tp._matrix_name, numThread);
 //  stats->OtherStats["PackingType"] = {Separated};
@@ -144,15 +158,7 @@ int main(const int argc, const char *argv[]) {
 //  delete stats;
 //  delete gcnSingleLayerSparseFused;
 
-  stats = new swiftware::benchmark::Stats("GCN_SingleLayer_UnFused", "GCN", 7,
-                                          tp._matrix_name, numThread);
-  stats->OtherStats["PackingType"] = {Separated};
-  GCNSingleLayerUnFusedCSRMKLGeMM *gcnSingleLayerUnFused =
-      new GCNSingleLayerUnFusedCSRMKLGeMM(inputs, stats);
-  gcnSingleLayerUnFused->run();
-  auto gcnSingleLayerUnFusedStat = gcnSingleLayerUnFused->printStats();
-  delete stats;
-  delete gcnSingleLayerUnFused;
+
 
   stats = new swiftware::benchmark::Stats("GCN_SingleLayer_FusedSeperated", "GCN", 7,
                                           tp._matrix_name, numThread);
@@ -408,8 +414,9 @@ int main(const int argc, const char *argv[]) {
 
   if (tp.print_header)
     std::cout << headerStat + spHeader + tpHeader << std::endl;
-
+#ifdef MKL
   std::cout << gcnOneLayerMKLStat << spStat + tpStat << std::endl;
+#endif
 //  std::cout << gcnSingleLayerUnfusedCscStat << spStat + tpStat << std::endl;
 //  std::cout << gcnSingleLayerSparseFusedStat << spStat + tpStat << std::endl;
   std::cout << gcnSingleLayerUnFusedStat << spStat + tpStat << std::endl;

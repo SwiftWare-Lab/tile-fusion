@@ -8,6 +8,15 @@
 #include <string>
 #include <vector>
 
+#include "omp.h"
+
+
+#ifdef MKL
+#define set_num_threads(num) mkl_set_num_threads(num)
+#else
+#define set_num_threads(num) omp_set_num_threads(num)
+#endif
+
 namespace sym_lib {
 enum SYM_ORDERING { NONE, SYM_METIS, SYM_AMD, SYM_SCOTCH };
 

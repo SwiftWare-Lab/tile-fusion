@@ -33,7 +33,7 @@ if(TARGET MKL::MKL AND TARGET Python)
             ${TORCH_LIBRARIES}
             Python::Python
             OpenMP::OpenMP_CXX
-            $<LINK_ONLY:MKL::MKL>
+            ${BLAS_LINK_FLAGS}
             swbench::swbench
             fusion)
     target_include_directories(fused_gcn PUBLIC

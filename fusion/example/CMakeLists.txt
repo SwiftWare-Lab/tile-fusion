@@ -24,7 +24,7 @@ if(TARGET MKL::MKL)
     target_link_libraries(spmm_spmm_fusion
             fusion
             swbench::swbench
-            $<LINK_ONLY:MKL::MKL>
+            ${BLAS_LINK_FLAGS}
             OpenMP::OpenMP_CXX
     )
 
@@ -37,7 +37,7 @@ if(TARGET MKL::MKL)
     target_link_libraries(spmm_spmm_fusion_sp
             fusion
             swbench::swbench
-            $<LINK_ONLY:MKL::MKL>
+            ${BLAS_LINK_FLAGS}
             OpenMP::OpenMP_CXX
     )
 
@@ -49,7 +49,7 @@ if(TARGET MKL::MKL)
     )
     target_link_libraries(fusion_profiler
             fusion
-            $<LINK_ONLY:MKL::MKL>
+            ${BLAS_LINK_FLAGS}
             swbench::swbench
     )
 
@@ -58,7 +58,7 @@ if(TARGET MKL::MKL)
             )
     target_link_libraries(spmm_spmm_papi_profiler
             fusion
-            $<LINK_ONLY:MKL::MKL>
+            ${BLAS_LINK_FLAGS}
             swbench::swbench
             OpenMP::OpenMP_CXX
             )
