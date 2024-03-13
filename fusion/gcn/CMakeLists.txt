@@ -28,8 +28,8 @@ elseif (${SWIFT_BLAS_BACKEND} STREQUAL "FLEXIBLAS")
             flexiblas )
 endif ()
     if(TARGET MKL::MKL)
-        add_definitions(-DMKL)
-        message(STATUS "${MKL_IMPORTED_TARGETS}")
+        # add_definitions(-DMKL)
+        #message(STATUS "${MKL_IMPORTED_TARGETS}")
 
         add_executable(gcn_demo
                 MultiLayer/GCN_Multi_Layer_Demo.cpp

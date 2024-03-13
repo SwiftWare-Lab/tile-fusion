@@ -1,7 +1,7 @@
 cmake_minimum_required( VERSION 3.20)
 
 
-set(SWIFT_BLAS_BACKEND "FLEXIBLAS" CACHE STRING "BLAS implementation for SWIFTWARE to use")
+set(SWIFT_BLAS_BACKEND "MKL" CACHE STRING "BLAS implementation for SWIFTWARE to use")
 set_property(CACHE SWIFT_BLAS_BACKEND PROPERTY STRINGS MKL OpenBLAS Apple FLEXIBLAS)
 
 
