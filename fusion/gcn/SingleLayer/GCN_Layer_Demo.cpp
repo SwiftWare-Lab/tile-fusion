@@ -111,6 +111,12 @@ int main(const int argc, const char *argv[]) {
   GCNSingleLayerUnFusedCSRMKLGeMM *gcnSingleLayerUnFused =
       new GCNSingleLayerUnFusedCSRMKLGeMM(inputs, stats);
   gcnSingleLayerUnFused->run();
+  inputs->CorrectSol =
+      new double[inputs->AdjacencyMatrix->m * inputs->Weight1->row];
+  std::copy(gcnSingleLayerUnFused->OutTensor->FirstLayerOutput,
+            gcnSingleLayerUnFused->OutTensor->FirstLayerOutput +
+                inputs->AdjacencyMatrix->m * inputs->Weight1->row,
+            inputs->CorrectSol);
   auto gcnSingleLayerUnFusedStat = gcnSingleLayerUnFused->printStats();
   auto headerStat = gcnSingleLayerUnFused->printStatsHeader();
   delete stats;
@@ -128,12 +134,6 @@ int main(const int argc, const char *argv[]) {
   GCNSingleLayerMKL *gcnSingleLayerMkl = new GCNSingleLayerMKL(inputs, stats);
   gcnSingleLayerMkl->run();
   auto gcnOneLayerMKLStat = gcnSingleLayerMkl->printStats();
-  inputs->CorrectSol =
-      new double[inputs->AdjacencyMatrix->m * inputs->Weight1->row];
-  std::copy(gcnSingleLayerMkl->OutTensor->FirstLayerOutput,
-            gcnSingleLayerMkl->OutTensor->FirstLayerOutput +
-                inputs->AdjacencyMatrix->m * inputs->Weight1->row,
-            inputs->CorrectSol);
   //auto headerStat = gcnSingleLayerMkl->printStatsHeader();
   delete stats;
   delete gcnSingleLayerMkl;
