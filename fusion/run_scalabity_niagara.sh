@@ -26,7 +26,7 @@ UFDB=$SCRATCH/data/graphs/
 EXP=spmv_spmv
 BCOL=${BCOLS[${BCOL_ID}]}
 NUM_THREAD=${NUM_THREAD_LIST[${THREAD_ID}]}
-while getopts ":lm:c:e:" arg; do
+while getopts ":lm:c:e:i:" arg; do
   case "${arg}" in
     l)
       TEST=1
@@ -36,6 +36,9 @@ while getopts ":lm:c:e:" arg; do
       ;;
     e)
       EXP=$OPTARG
+      ;;
+    i)
+      MAT_ID=$OPTARG
       ;;
     *) echo "Usage:
     -l TEST=FALSE                                     Set if you want to run the script for one b_col
@@ -51,7 +54,7 @@ module load cmake
 #module load gcc
 
 if [ $TEST -eq 1 ]; then
-    bash run.sh -m $UFDB -c 8 -i 200 -e $EXP -t 8 -j $SLURM_ARRAY_JOB_ID -z $THREAD_ID
+    bash run.sh -m $UFDB -c 8 -i $MAT_ID -e $EXP -t 8 -j $SLURM_ARRAY_JOB_ID -z $THREAD_ID
 else
-  bash run.sh -t $NUM_THREAD -m $UFDB -c $BCOL -i 200  -e $EXP -j $SLURM_ARRAY_JOB_ID -z $THREAD_ID
+  bash run.sh -t $NUM_THREAD -m $UFDB -c $BCOL -i $MAT_ID  -e $EXP -j $SLURM_ARRAY_JOB_ID -z $THREAD_ID
 fi
