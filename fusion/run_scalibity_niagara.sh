@@ -17,13 +17,15 @@ if [ -z "$SLURM_ARRAY_TASK_ID" ]; then
   SLURM_ARRAY_TASK_ID=""
 fi
 TASK_ID=$SLURM_ARRAY_TASK_ID
-BCOL_ID=$((TASK_ID / 10))
-MAT_ID=$((TASK_ID % 10))
+BCOL_ID=$((TASK_ID / 7))
+THREAD_ID=$((TASK_ID % 7))
 BCOLS=(32 64 128)
+NUM_THREAD_LIST=(2 4 8 16 20 32 40)
 UFDB=$SCRATCH/data/graphs/
 #UFDB=$HOME/UFDB/tri-banded/
 EXP=spmv_spmv
 BCOL=${BCOLS[${BCOL_ID}]}
+NUM_THREAD=${NUM_THREAD_LIST[${THREAD_ID}]}
 while getopts ":lm:c:e:" arg; do
   case "${arg}" in
     l)
@@ -41,7 +43,6 @@ while getopts ":lm:c:e:" arg; do
       exit 0
   esac
 done
-MATLIST_FOLDER=$UFDB/mat_lists/
 
 module load NiaEnv/.2022a
 module load intel/2022u2
@@ -50,7 +51,7 @@ module load cmake
 #module load gcc
 
 if [ $TEST -eq 1 ]; then
-    bash run.sh -m $UFDB -c 8 -i $MAT_ID -e $EXP -t 8 -l $MATLIST_FOLDER -j $SLURM_ARRAY_JOB_ID -z $MAT_ID
+    bash run.sh -m $UFDB -c 8 -i 200 -e $EXP -t 8 -j $SLURM_ARRAY_JOB_ID -z $THREAD_ID
 else
-  bash run.sh -t 20 -m $UFDB -c $BCOL -i $MAT_ID  -e $EXP -l $MATLIST_FOLDER -j $SLURM_ARRAY_JOB_ID -z $MAT_ID
+  bash run.sh -t $NUM_THREAD -m $UFDB -c $BCOL -i 200  -e $EXP -j $SLURM_ARRAY_JOB_ID -z $THREAD_ID
 fi
