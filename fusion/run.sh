@@ -9,7 +9,8 @@ BINPATH="./build/example"
 USE_PAPI=0
 MATLIST_FOLDER=""
 OUTPUT_FOLDER=""
-while getopts ":t:dc:m:i:e:l:j:" arg; do
+INTERNAL_JOB_ID=0
+while getopts ":t:dc:m:i:e:l:j:z:" arg; do
 
   case "${arg}" in
     c)
@@ -35,6 +36,9 @@ while getopts ":t:dc:m:i:e:l:j:" arg; do
       ;;
     j)
       JOB_ID=$OPTARG
+      ;;
+    z)
+      INTERNAL_JOB_ID=$OPTARG
       ;;
     *) echo "Usage:
     -c BCOL=4                                         num of the columns of the dense matrix
@@ -99,7 +103,7 @@ echo $MKL_DIR
 if [ $USE_PAPI -eq 1 ]; then
   cmake -DCMAKE_PREFIX_PATH="$MKL_DIR/lib/intel64;$MKL_DIR/include;$MKL_DIR/../compiler/lib/intel64;_deps/openblas-build/lib/;${SCRATCH}/programs/papi/include/;"  -DPROFILING_WITH_PAPI=ON -DCMAKE_BUILD_TYPE=Release -DPAPI_PREFIX=${SCRATCH}/programs/papi/  ..
 else
-  cmake -DCMAKE_PREFIX_PATH="$MKL_DIR/lib/intel64;$MKL_DIR/include;$MKL_DIR/../compiler/lib/intel64;_deps/openblas-build/lib/;"  -DCMAKE_BUILD_TYPE=Release ..
+  cmake -DCMAKE_PREFIX_PATH="$MKL_DIR/lib/intel64;$MKL_DIR/include;$MKL_DIR/../compiler/lib/intel64;_deps/openblas-build/lib/;" -DSWIFT_BLAS_BACKEND="FLEXIBLAS"  -DCMAKE_BUILD_TYPE=Release ..
 fi
 make -j 40
 
@@ -137,7 +141,7 @@ export MKL_DYNAMIC=FALSE;
 export OMP_DYNAMIC=FALSE;
 #export MKL_VERBOSE=1
 
-bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE $THRD $MATLIST $BCOL $LOGS $ID
+bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE $THRD $MATLIST $BCOL $LOGS $INTERNAL_JOB_ID
   # plotting
 #  python3 $SCRIPTPATH/plot.py $LOGS $BASELINE
 #else
