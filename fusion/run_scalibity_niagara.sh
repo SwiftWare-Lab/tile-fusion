@@ -11,7 +11,7 @@
 #SBATCH --output="fusion.%j.%N.out"
 #SBATCH -t 11:59:00
 #SBATCH --constraint=cascade
-#SBATCH --array=0-29%6  # Allows no more than 6 of the jobs to run simultaneously
+#SBATCH --array=0-20%6  # Allows no more than 6 of the jobs to run simultaneously
 
 if [ -z "$SLURM_ARRAY_TASK_ID" ]; then
   SLURM_ARRAY_TASK_ID=""
