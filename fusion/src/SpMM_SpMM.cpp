@@ -9,6 +9,7 @@
 #define pw_stop_instruments_loop(th)
 #endif
 #include <cassert>
+#include <condition_variable>
 #include <cstring>
 #include <immintrin.h>
 #include <iostream>
@@ -1129,6 +1130,59 @@ void spmmCsrSpmmCsrSeparatedFused(int M, int N, int K, int L, const int *Ap,
         } // end loop 2
       }
       pw_stop_instruments_loop(omp_get_thread_num());
+    }
+  }
+}
+
+#ifdef __AVX2__
+#define BUSY_WAIT_CONSTRUCT {\
+  int n = Nparents[task]; \
+  int *c = Parents[task]; \
+  for (int i = 0; i < n; ++i) \
+    while (!taskFinished[c[i]]) _mm_pause(); \
+}
+#else
+#define BUSY_WAIT_CONSTRUCT {\
+  int n = Nparents[task]; \
+  int *c = Parents[task]; \
+  for (int i = 0; i < n; ++i) \
+    while (!taskFinished[c[i]]); \
+}
+#endif
+
+template<class T> void spmmCsrSpmmCsrFusedP2PThread(int M, int N, int K, int L, const int *Ap,
+                                  const int *Ai, const T *Ax, const int *Bp,
+                                  const int *Bi, const T *Bx, const T *Cx,
+                                  T *Dx, T *ACx, int I1, int LevelNo,
+                                  const int *LevelPtr, const int *ParPtr,
+                                  const int *Partition, const int *ParType,
+                                  int *Nparents, int **Parents,
+                                  bool *taskFinished) {
+#pragma omp parallel
+  {
+#pragma omp for
+    for (int task = 0; task < LevelPtr[LevelNo + 1]; task++) { // run all tasks in parallel
+      BUSY_WAIT_CONSTRUCT;
+      for (int k1 = ParPtr[task]; k1 < ParPtr[task + 1]; ++k1) {
+        int i = Partition[k1];
+        int t = ParType[k1];
+        if (t == 0) {
+          for (int j = Ap[i]; j < Ap[i + 1]; j++) {
+            int aij = Ai[j] * N;
+            for (int kk = 0; kk < N; ++kk) {
+              ACx[i * N + kk] += Ax[j] * Cx[aij + kk];
+            }
+          }
+        } else {
+          for (int k = Bp[i]; k < Bp[i + 1]; k++) {
+            int bij = Bi[k] * N;
+            for (int kk = 0; kk < N; ++kk) {
+              Dx[i * N + kk] += Bx[k] * ACx[bij + kk];
+            }
+          }
+        }
+      }
+      taskFinished[task] = true;
     }
   }
 }
