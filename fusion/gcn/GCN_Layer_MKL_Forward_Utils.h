@@ -24,6 +24,7 @@
 #define pw_end_subregion(re)
 #define pw_start_instruments_loop(th)
 #define pw_stop_instruments_loop(th)
+#define pw_stop_instruments
 #endif
 
 #ifndef SPARSE_FUSION_GCN_LAYER_MKL_DEMO_H
@@ -197,6 +198,7 @@ void forwardForOneLayerFusedParallelSeparatedVectorizedSP(
       }
     }
   }
+  pw_stop_instruments;
 }
 
 void forwardForOneLayerFusedParallelSeparated(int M, int *Ap, int *Ai, double *Ax,
