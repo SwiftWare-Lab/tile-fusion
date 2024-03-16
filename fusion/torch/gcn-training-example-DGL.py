@@ -3,6 +3,7 @@ import os.path as osp
 import time
 
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 
 import torch_geometric.transforms as T
@@ -16,35 +17,40 @@ from torch_geometric.utils.convert import to_dgl
 import numpy as np
 
 class DGLGCN(torch.nn.Module):
-    def __init__(self, in_channels, hidden_channels, out_channels):
+    def __init__(self, in_channels, hidden_channels, out_channels, num_layers=2):
         super().__init__()
-        self.conv1 = GraphConv(in_channels, hidden_channels,
-                                bias=False)
-        self.conv2 = GraphConv(hidden_channels, out_channels, bias=False)
-        self.conv1_time = 0
-        self.conv2_time = 0
+        self.layers = nn.ModuleList()
 
-    def forward(self, x, edge_index, edge_weight=None):
-        # x = F.dropout(x, p=0.5, training=self.training)
-        x = self.conv1(edge_index, x)
-        # for param in self.conv1.parameters():
-        #     mmwrite('weight1.mtx', param.data.detach().numpy())
-        x = x.relu()
-        # mmwrite('output1.mtx', x.detach().numpy())
-        # x = F.dropout(x, p=0.5, training=self.training)x = F.dropout(x, p=0.5, training=self.training)
-        x = self.conv2(edge_index,x)
-        # for param in self.conv2.parameters():
-        #     mmwrite('weight2.mtx', param.data.detach().numpy())
-        # mmwrite('output2.mtx',x.detach().numpy() )
+        self.layers.append(GraphConv(in_channels, hidden_channels,
+                                bias=False, activation=F.relu))
+        for i in range(num_layers-2):
+            self.layers.append(GraphConv(hidden_channels, hidden_channels,
+                                         bias=False))
+        self.layers.append(GraphConv(hidden_channels, out_channels, bias=False))
+        self.dropout = nn.Dropout(0.5)
+        self.conv_time = 0
+        self.dropout_time = 0
 
-        return x
+    def forward(self, x, edge_index, edge_weight=None, drop_out=False):
+        h = x
+        for i, layer in enumerate(self.layers):
+            if i != 0 and drop_out:
+                st = time.time()
+                h = self.dropout(h)
+                self.dropout_time += time.time()-st
+            st = time.time()
+            h = layer(edge_index, h)
+            self.conv_time += time.time()-st
+        return h
 
-def train():
+def train(backward_time):
     model.train()
     optimizer.zero_grad()
-    out = model(data.x, dgl_graph)
+    out = model(data.x, dgl_graph, drop_out=True)
     loss = F.cross_entropy(out[train_mask], data.y[train_mask])
+    st = time.time()
     loss.backward()
+    backward_time[0] += time.time() - st
     optimizer.step()
     return float(loss)
 
@@ -76,17 +82,17 @@ train_mask = range(200)
 # )
 raw_folder_name = osp.join(osp.dirname(osp.realpath(__file__)), '../../modeling', 'data')
 dataset_list = [
-    datasets.Coauthor(root=raw_folder_name + '/coauthor_cs/', name='CS', transform=None),
-    datasets.Coauthor(root=raw_folder_name + '/coauthor_physics/', name='Physics', transform=None),
-    datasets.CoraFull(root=raw_folder_name + '/cora_full/', transform=None),
-    # datasets.Flickr(root=raw_folder_name + '/flickr/', transform=None),
-    # datasets.Yelp(root=raw_folder_name + '/yelp/', transform=None),
-    datasets.Planetoid(root=raw_folder_name + '/planetoid/pubmed/', name='Pubmed', transform=None),
-    datasets.Planetoid(root=raw_folder_name + '/planetoid/cora/', name='Cora', transform=None),
-    datasets.GitHub(root=raw_folder_name + '/github/', transform=None),
-    datasets.FacebookPagePage(root=raw_folder_name + '/facebook_page_page/', transform=None),
-    datasets.DeezerEurope(root=raw_folder_name + '/deezer_europe/', transform=None)
-    # datasets.Reddit2(root=raw_folder_name + '/reddit2/', transform=None)
+    datasets.Coauthor(root=raw_folder_name + '/coauthor_cs/', name='CS', transform=None)
+    # datasets.Coauthor(root=raw_folder_name + '/coauthor_physics/', name='Physics', transform=None),
+    # datasets.CoraFull(root=raw_folder_name + '/cora_full/', transform=None),
+    # # datasets.Flickr(root=raw_folder_name + '/flickr/', transform=None),
+    # # datasets.Yelp(root=raw_folder_name + '/yelp/', transform=None),
+    # datasets.Planetoid(root=raw_folder_name + '/planetoid/pubmed/', name='Pubmed', transform=None),
+    # datasets.Planetoid(root=raw_folder_name + '/planetoid/cora/', name='Cora', transform=None),
+    # datasets.GitHub(root=raw_folder_name + '/github/', transform=None),
+    # datasets.FacebookPagePage(root=raw_folder_name + '/facebook_page_page/', transform=None),
+    # datasets.DeezerEurope(root=raw_folder_name + '/deezer_europe/', transform=None)
+    # # datasets.Reddit2(root=raw_folder_name + '/reddit2/', transform=None)
 ]
 for dataset in dataset_list:
     name = dataset.root.split('/')[-1]
@@ -109,12 +115,11 @@ for dataset in dataset_list:
         in_channels=dataset.num_features,
         hidden_channels=args.hidden_channels,
         out_channels=dataset.num_classes,
+        num_layers=2
     ).to(device)
 
-    optimizer = torch.optim.Adam([
-        dict(params=model.conv1.parameters(), weight_decay=5e-4),
-        dict(params=model.conv2.parameters(), weight_decay=0)
-    ], lr=args.lr)  # Only perform weight-decay on first convolution.
+    optimizer = torch.optim.Adam(
+        model.parameters(), lr=1e-2, weight_decay=5e-4)
 
 
 
@@ -131,13 +136,17 @@ for dataset in dataset_list:
 
     best_val_acc = test_acc = 0
     times = []
+    backward_time = [0]
     for epoch in range(0, 100):
         start = time.time()
-        loss1 = train()
+        loss1 = train(backward_time)
         times.append(time.time() - start)
         # log(Epoch=epoch, Loss=loss1)
     # print(f'Median time per epoch: {torch.tensor(times).median():.4f}s')
     print(f'DGL GraphConv,{name},{torch.tensor(times).sum():.4f}')
+    print('conv time: ', model.conv_time)
+    print('dropout time ', model.dropout_time)
+    print('backward time ', backward_time[0])
 
     # print('total conv1 time: ', model.conv1_time)
     # print('total conv2 time: ', model.conv2_time)

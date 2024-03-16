@@ -13,30 +13,36 @@ from torch_geometric.logging import init_wandb, log
 from torch_geometric.nn import GCNConv
 import numpy as np
 
+
 class GCN(torch.nn.Module):
     def __init__(self, in_channels, hidden_channels, out_channels, num_layers=2):
         super().__init__()
         self.conv1 = GCNConv(in_channels, hidden_channels,
                              bias=False)
         self.hidden_convs = [self.conv1]
-        for i in range(num_layers-2):
-            self.hidden_convs.append(GCNConv(hidden_channels, hidden_channels))
-        self.conv2 = GCNConv(hidden_channels, out_channels, bias=False)
-        self.conv1_time = 0
-        self.conv2_time = 0
+        for i in range(num_layers - 2):
+            self.hidden_convs.append(GCNConv(hidden_channels, hidden_channels, cached=True))
+        self.conv2 = GCNConv(hidden_channels, out_channels, bias=False, cached=True)
         self.num_layers = num_layers
+        self.dropout_time = 0
+        self.conv_times = [0] * (len(self.hidden_convs)+1)
 
     def forward(self, x, edge_index, edge_weight=None):
-        # x = F.dropout(x, p=0.5, training=self.training)
-        for conv in self.hidden_convs:
-            x = conv(x, edge_index, edge_weight)
-            x = x.relu()
+        st = time.time()
+        x = F.dropout(x, p=0.5, training=self.training)
+        self.dropout_time += time.time()-st
+        for i, conv in enumerate(self.hidden_convs):
+            st = time.time()
+            x = conv(x, edge_index, edge_weight).relu()
+            self.conv_times[i] += time.time()-st
         # for param in self.conv1.parameters():
         #     mmwrite('weight1.mtx', param.data.detach().numpy())
 
         # mmwrite('output1.mtx', x.detach().numpy())
-        # x = F.dropout(x, p=0.5, training=self.training)x = F.dropout(x, p=0.5, training=self.training)
+        # x = F.dropout(x, p=0.5, training=self.training)
+        st = time.time()
         x = self.conv2(x, edge_index, edge_weight)
+        self.conv_times[-1] += time.time() - st
         # for param in self.conv2.parameters():
         #     mmwrite('weight2.mtx', param.data.detach().numpy())
         # mmwrite('output2.mtx',x.detach().numpy() )
@@ -44,15 +50,22 @@ class GCN(torch.nn.Module):
         return x
 
 
-def train():
+def train(times):
     model.train()
     optimizer.zero_grad()
     st = time.time()
     out = model(data.x, data.edge_index)
+    forward_time = time.time()
+    times[0] += forward_time - st
+    st = time.time()
     loss = F.cross_entropy(out[train_mask], data.y[train_mask])
+    times[1] += time.time() - st
+    st = time.time()
     loss.backward()
+    times[2] += time.time() - st
     optimizer.step()
     return float(loss)
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset', type=str, default='Cora')
@@ -63,7 +76,6 @@ parser.add_argument('--epochs', type=int, default=200)
 parser.add_argument('--use_gdc', action='store_true', help='Use GDC')
 parser.add_argument('--wandb', action='store_true', help='Track experiment')
 args = parser.parse_args()
-
 
 # if torch.cuda.is_available():
 #     device = torch.device('cuda')
@@ -82,8 +94,8 @@ train_mask = range(200)
 # )
 raw_folder_name = osp.join(osp.dirname(osp.realpath(__file__)), '..', 'data')
 dataset_list = [
-    datasets.Coauthor(root=raw_folder_name + '/coauthor_cs/', name='CS', transform=None)
-    # datasets.Coauthor(root=raw_folder_name + '/coauthor_physics/', name='Physics', transform=None),
+    # datasets.Coauthor(root=raw_folder_name + '/coauthor_cs/', name='CS', transform=None),
+    datasets.Coauthor(root=raw_folder_name + '/coauthor_physics/', name='Physics', transform=None),
     # datasets.CoraFull(root=raw_folder_name + '/cora_full/', transform=None),
     # # datasets.Flickr(root=raw_folder_name + '/flickr/', transform=None),
     # # datasets.Yelp(root=raw_folder_name + '/yelp/', transform=None),
@@ -108,22 +120,17 @@ for dataset in dataset_list:
         )
         data = transform(data)
 
-
-
-
     model = GCN(
         in_channels=dataset.num_features,
         hidden_channels=args.hidden_channels,
         out_channels=dataset.num_classes,
-        num_layers=7
+        num_layers=2
     ).to(device)
 
     optimizer = torch.optim.Adam([
         dict(params=model.conv1.parameters(), weight_decay=5e-4),
         dict(params=model.conv2.parameters(), weight_decay=0)
     ], lr=args.lr)  # Only perform weight-decay on first convolution.
-
-
 
     # @torch.no_grad()
     # def test():
@@ -138,14 +145,22 @@ for dataset in dataset_list:
     forward_time = 0
     backward_time = 0
     best_val_acc = test_acc = 0
-    times = []
+    epoch_times = []
+    partly_times = [0, 0, 0]
     for epoch in range(0, 100):
         start = time.time()
-        loss1 = train()
-        times.append(time.time() - start)
-        log(Epoch=epoch, Loss=loss1)
+
+        loss1 = train(partly_times)
+        epoch_times.append(time.time() - start)
+        # log(Epoch=epoch, Loss=loss1)
     # print(f'Median time per epoch: {torch.tensor(times).median():.4f}s')
-    print(f'torch_geometric GCNConv,{name},{torch.tensor(times).sum():.4f}')
+    print(f'torch_geometric GCNConv,{name},{torch.tensor(epoch_times).sum():.4f}')
+    print('forward: ', partly_times[0])
+    print('loss: ', partly_times[1])
+    print('backward: ', partly_times[2])
+    print('dropout: ', model.dropout_time)
+    for x in model.conv_times:
+        print(x)
 
     # print('total conv1 time: ', model.conv1_time)
     # print('total conv2 time: ', model.conv2_time)
