@@ -15,6 +15,17 @@
 #include <immintrin.h>
 #endif
 
+#ifdef PROF_WITH_PAPI
+#include "papi_wrapper.h"
+#else
+#define pw_init_instruments
+#define pw_init_start_instruments_sub(nre)
+#define pw_begin_subregion(re)
+#define pw_end_subregion(re)
+#define pw_start_instruments_loop(th)
+#define pw_stop_instruments_loop(th)
+#endif
+
 #ifndef SPARSE_FUSION_GCN_LAYER_MKL_DEMO_H
 #define SPARSE_FUSION_GCN_LAYER_MKL_DEMO_H
 using namespace swiftware::benchmark;
@@ -116,11 +127,13 @@ void forwardForOneLayerFusedParallelSeparatedVectorizedSP(
     float *IntermediateResult, int NumThreads, int LevelNo, const int *LevelPtr,
     const int *ParPtr, const int *MixPtr, const int *Partition) {
   int numKernels = 2;
+  pw_init_start_instruments_sub(2);
   for (int i1 = 0; i1 < LevelNo; i1++) {
 #pragma omp parallel num_threads(NumThreads)
     {
 #pragma omp for
       for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; j1++) {
+        pw_begin_subregion(i1);
         int kBeginL1 = ParPtr[j1];
         int kEndL1 = MixPtr[j1 * numKernels];
         int iL1 = Partition[kBeginL1];
@@ -180,6 +193,7 @@ void forwardForOneLayerFusedParallelSeparatedVectorizedSP(
             _mm256_storeu_ps(Output + ip + kk + 24, dxV4);
           }
         }
+        pw_end_subregion(i1);
       }
     }
   }
