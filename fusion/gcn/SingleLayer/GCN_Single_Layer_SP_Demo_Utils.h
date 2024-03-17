@@ -228,4 +228,52 @@ public:
   }
 };
 
+class GCNSingleLayerSparseFusedParallelWithGeMM_SP2 : public GCNSingleLayerUnFusedCSRMKLGeMMSP {
+protected:
+  sym_lib::MultiDimensionalSet *FusedCompSet;
+  InspectorForAllFused *Inspector;
+
+  Timer analysis() override {
+    Timer t;
+    t.start();
+    FusedCompSet =
+        Inspector->generateFusedScheduleForAllFused(InTensor->AdjacencyMatrix);
+    t.stop();
+    return t;
+  }
+
+  Timer execute() override {
+    float *intermediateResult =
+        new float[InTensor->NumOfNodes * InTensor->EmbedDim];
+    Timer t;
+    St->OtherStats["FusedIterations"] = {
+        (double)FusedCompSet->getNumberOfFusedNodes()};
+    mkl_set_num_threads(1);
+    OutTensor->reset();
+    t.start();
+    forwardForOneLayerFusedParallelSeparatedVectorizedSP2(
+        InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->p,
+        InTensor->AdjacencyMatrix->i, InTensor->AMValues, InTensor->FeatureDim,
+        InTensor->EmbedDim, InTensor->FeatureMatrix, InTensor->Weight1,
+        OutTensor->FirstLayerOutput, intermediateResult, InTensor->NumThreads,
+        FusedCompSet->n1_, FusedCompSet->ptr1_, FusedCompSet->ptr2_,
+        FusedCompSet->ker_begin_, FusedCompSet->id_);
+    t.stop();
+    delete[] intermediateResult;
+    return t;
+  }
+
+public:
+  GCNSingleLayerSparseFusedParallelWithGeMM_SP2(GnnTensorSpInputs *In1,
+                                               Stats *Stat1,
+                                               sym_lib::ScheduleParameters SpIn)
+      : GCNSingleLayerUnFusedCSRMKLGeMMSP(In1, Stat1) {
+    Inspector = new InspectorForAllFused(SpIn, Stat1);
+  }
+  ~GCNSingleLayerSparseFusedParallelWithGeMM_SP2() {
+    delete FusedCompSet;
+    delete Inspector;
+  }
+};
+
 #endif // SPARSE_FUSION_GCN_SINGLE_LAYER_SP_DEMO_UTILS_H

@@ -97,6 +97,16 @@ int main(const int argc, const char *argv[]) {
   delete stats;
   delete gcnSingleLayerSparseFusedSeparated;
 
+  stats = new swiftware::benchmark::Stats("GCN_SingleLayer_FusedSeperated", "GCN", 7,
+                                          tp._matrix_name, numThread);
+  stats->OtherStats["PackingType"] = {Separated};
+  GCNSingleLayerSparseFusedParallelWithGeMM_SP2 *gcnSingleLayerSparseFusedSeparated2 =
+      new GCNSingleLayerSparseFusedParallelWithGeMM_SP2(inputs, stats, sp);
+  gcnSingleLayerSparseFusedSeparated2->run();
+  auto gcnSingleLayerSparseFusedSeparatedStat2 = gcnSingleLayerSparseFusedSeparated2->printStats();
+  delete stats;
+  delete gcnSingleLayerSparseFusedSeparated2;
+
   auto csvInfo = sp.print_csv(true);
   std::string spHeader = std::get<0>(csvInfo);
   std::string spStat = std::get<1>(csvInfo);
@@ -111,6 +121,7 @@ int main(const int argc, const char *argv[]) {
 //  std::cout << gcnOneLayerMKLStat << spStat + tpStat << std::endl;
 //  std::cout << gcnSingleLayerUnFusedStat << spStat + tpStat << std::endl;
   std::cout << gcnSingleLayerSparseFusedSeparatedStat << spStat + tpStat << std::endl;
+  std::cout << gcnSingleLayerSparseFusedSeparatedStat2 << spStat + tpStat << std::endl;
 
   delete[] inputs->CorrectSol;
   delete inputs;
