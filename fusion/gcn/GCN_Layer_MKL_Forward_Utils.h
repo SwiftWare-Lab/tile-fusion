@@ -128,13 +128,13 @@ void forwardForOneLayerFusedParallelSeparatedVectorizedSP(
     float *IntermediateResult, int NumThreads, int LevelNo, const int *LevelPtr,
     const int *ParPtr, const int *MixPtr, const int *Partition) {
   int numKernels = 2;
-  pw_init_start_instruments_sub(2);
-  for (int i1 = 0; i1 < LevelNo; i1++) {
+  for (int i1 = 0; i1 < 1; i1++) {
+    pw_init_instruments;
 #pragma omp parallel num_threads(NumThreads)
     {
+      pw_start_instruments_loop(omp_get_thread_num());
 #pragma omp for
       for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; j1++) {
-        pw_begin_subregion(i1);
         int kBeginL1 = ParPtr[j1];
         int kEndL1 = MixPtr[j1 * numKernels];
         int iL1 = Partition[kBeginL1];
@@ -194,11 +194,10 @@ void forwardForOneLayerFusedParallelSeparatedVectorizedSP(
             _mm256_storeu_ps(Output + ip + kk + 24, dxV4);
           }
         }
-        pw_end_subregion(i1);
       }
+      pw_stop_instruments_loop(omp_get_thread_num());
     }
   }
-  pw_stop_instruments;
 }
 
 void forwardForOneLayerFusedParallelSeparated(int M, int *Ap, int *Ai, double *Ax,
