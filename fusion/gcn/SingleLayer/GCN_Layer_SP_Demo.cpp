@@ -123,7 +123,7 @@ int main(const int argc, const char *argv[]) {
   std::cout << gcnSingleLayerSparseFusedSeparatedStat << spStat + tpStat << std::endl;
   std::cout << gcnSingleLayerSparseFusedSeparatedStat2 << spStat + tpStat << std::endl;
 
-  delete[] inputs->CorrectSol;
+//  delete[] inputs->CorrectSol;
   delete inputs;
   delete aCSC;
   delete aCSCFull;
