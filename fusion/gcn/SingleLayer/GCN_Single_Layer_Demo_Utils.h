@@ -123,7 +123,7 @@ protected:
     mkl_set_num_threads(1);
     Timer t;
     t.start();
-    forwardForOneLayerWithMKLGeMMAndSpMMVectorized(
+    forwardForOneLayerWithMKLGeMMAndSpMM(
         InTensor->NumOfNodes, InTensor->AdjacencyMatrix->p,
         InTensor->AdjacencyMatrix->i, InTensor->AdjacencyMatrix->x,
         InTensor->FeatureMatrix->a, InTensor->FeatureMatrix->col,

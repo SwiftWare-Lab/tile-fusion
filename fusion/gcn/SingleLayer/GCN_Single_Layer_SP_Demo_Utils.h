@@ -94,6 +94,8 @@ struct GnnTensorSpOutputs : public Outputs<float> {
 class GCNSingleLayerUnFusedCSRMKLGeMMSP : public SWTensorBench<float> {
 protected:
   GnnTensorSpInputs *InTensor;
+  int TileSize;
+  int SampleNum;
   void setup() override {
     //    this->St->OtherStats["Number of Sampled Nodes"] = {
     //        double(InTensor->LayerMasks[1].size())};
@@ -128,13 +130,15 @@ protected:
     float *intermediateResult = new float [InTensor->NumOfNodes * InTensor->EmbedDim]{};
     mkl_set_num_threads(InTensor->NumThreads);
     Timer t;
+    int start = SampleNum*TileSize*InTensor->FeatureDim;
     t.start();
     forwardForOneLayerWithMKLGeMMAndSpMMSPVectorized(
         InTensor->NumOfNodes, InTensor->AdjacencyMatrix->p,
         InTensor->AdjacencyMatrix->i, InTensor->AMValues,
         InTensor->FeatureMatrix, InTensor->FeatureDim,
         InTensor->Weight1, InTensor->EmbedDim,
-        OutTensor->FirstLayerOutput, intermediateResult, InTensor->NumThreads);
+        OutTensor->FirstLayerOutput, intermediateResult, InTensor->NumThreads,
+        start, TileSize);
     t.stop();
     delete[] intermediateResult;
     return t;
@@ -142,45 +146,45 @@ protected:
 
 public:
   GnnTensorSpOutputs *OutTensor;
-  GCNSingleLayerUnFusedCSRMKLGeMMSP(GnnTensorSpInputs *In1, Stats *Stat1)
-      : SWTensorBench<float>(In1, Stat1) {
+  GCNSingleLayerUnFusedCSRMKLGeMMSP(GnnTensorSpInputs *In1, Stats *Stat1, int SampleNum1,int TileSize1)
+      : SWTensorBench<float>(In1, Stat1), TileSize(TileSize1), SampleNum(SampleNum1) {
     OutTensor = new GnnTensorSpOutputs(In1->EmbedDim, In1->NumOfNodes);
     InTensor = In1;
   }
 
   ~GCNSingleLayerUnFusedCSRMKLGeMMSP() { delete OutTensor; }
 };
-
-class GCNSingleLayerMKL_SP : public GCNSingleLayerUnFusedCSRMKLGeMMSP {
-
-protected:
-  sparse_matrix_t MKLAdj;
-  Timer execute() override {
-    OutTensor->reset();
-    mkl_set_num_threads(InTensor->NumThreads);
-    Timer t;
-    float *intermediateResult = new float [InTensor->NumOfNodes * InTensor->EmbedDim]{};
-    t.start();
-    forwardForOneLayerWithMKLGeMMAndMKLSpMMSP(
-        InTensor->NumOfNodes, MKLAdj, InTensor->FeatureMatrix,
-        InTensor->FeatureDim, InTensor->Weight1,
-        InTensor->EmbedDim, OutTensor->FirstLayerOutput, intermediateResult);
-    t.stop();
-    delete[] intermediateResult;
-    return t;
-  }
-
-public:
-  GCNSingleLayerMKL_SP(GnnTensorSpInputs *In1, Stats *Stat1)
-      : GCNSingleLayerUnFusedCSRMKLGeMMSP(In1, Stat1) {
-    mkl_sparse_s_create_csr(
-        &MKLAdj, SPARSE_INDEX_BASE_ZERO, this->InTensor->NumOfNodes,
-        this->InTensor->NumOfNodes, InTensor->AdjacencyMatrix->p,
-        InTensor->AdjacencyMatrix->p + 1, this->InTensor->AdjacencyMatrix->i,
-        this->InTensor->AMValues);
-  }
-  ~GCNSingleLayerMKL_SP() { mkl_free(MKLAdj); }
-};
+//
+//class GCNSingleLayerMKL_SP : public GCNSingleLayerUnFusedCSRMKLGeMMSP {
+//
+//protected:
+//  sparse_matrix_t MKLAdj;
+//  Timer execute() override {
+//    OutTensor->reset();
+//    mkl_set_num_threads(InTensor->NumThreads);
+//    Timer t;
+//    float *intermediateResult = new float [InTensor->NumOfNodes * InTensor->EmbedDim]{};
+//    t.start();
+//    forwardForOneLayerWithMKLGeMMAndMKLSpMMSP(
+//        InTensor->NumOfNodes, MKLAdj, InTensor->FeatureMatrix,
+//        InTensor->FeatureDim, InTensor->Weight1,
+//        InTensor->EmbedDim, OutTensor->FirstLayerOutput, intermediateResult);
+//    t.stop();
+//    delete[] intermediateResult;
+//    return t;
+//  }
+//
+//public:
+//  GCNSingleLayerMKL_SP(GnnTensorSpInputs *In1, Stats *Stat1)
+//      : GCNSingleLayerUnFusedCSRMKLGeMMSP(In1, Stat1, 0) {
+//    mkl_sparse_s_create_csr(
+//        &MKLAdj, SPARSE_INDEX_BASE_ZERO, this->InTensor->NumOfNodes,
+//        this->InTensor->NumOfNodes, InTensor->AdjacencyMatrix->p,
+//        InTensor->AdjacencyMatrix->p + 1, this->InTensor->AdjacencyMatrix->i,
+//        this->InTensor->AMValues);
+//  }
+//  ~GCNSingleLayerMKL_SP() { mkl_free(MKLAdj); }
+//};
 
 class GCNSingleLayerSparseFusedParallelWithGeMM_SP : public GCNSingleLayerUnFusedCSRMKLGeMMSP {
 protected:
@@ -219,7 +223,7 @@ protected:
 public:
   GCNSingleLayerSparseFusedParallelWithGeMM_SP(GnnTensorSpInputs *In1, Stats *Stat1,
                                             sym_lib::ScheduleParameters SpIn, int SampleNum)
-      : GCNSingleLayerUnFusedCSRMKLGeMMSP(In1, Stat1) {
+      : GCNSingleLayerUnFusedCSRMKLGeMMSP(In1, Stat1, SampleNum, SpIn.IterPerPartition) {
     Inspector = new InspectorForAllFused(SpIn, Stat1, SampleNum);
   }
   ~GCNSingleLayerSparseFusedParallelWithGeMM_SP() {
