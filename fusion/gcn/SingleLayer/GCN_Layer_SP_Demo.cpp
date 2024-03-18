@@ -86,7 +86,7 @@ int main(const int argc, const char *argv[]) {
 //  delete stats;
 //  delete gcnSingleLayerUnFused;
 
-  stats = new swiftware::benchmark::Stats("GCN_SingleLayer_FusedSeperated", "GCN", 7,
+  stats = new swiftware::benchmark::Stats("GCN_SingleLayer_FusedSeperated_L1", "GCN", 7,
                                           tp._matrix_name, numThread);
   stats->OtherStats["PackingType"] = {Separated};
   GCNSingleLayerSparseFusedParallelWithGeMM_SP *gcnSingleLayerSparseFusedSeparated =
@@ -97,7 +97,7 @@ int main(const int argc, const char *argv[]) {
   delete stats;
   delete gcnSingleLayerSparseFusedSeparated;
 
-  stats = new swiftware::benchmark::Stats("GCN_SingleLayer_FusedSeperated", "GCN", 7,
+  stats = new swiftware::benchmark::Stats("GCN_SingleLayer_FusedSeperated_L2", "GCN", 7,
                                           tp._matrix_name, numThread);
   stats->OtherStats["PackingType"] = {Separated};
   GCNSingleLayerSparseFusedParallelWithGeMM_SP2 *gcnSingleLayerSparseFusedSeparated2 =

@@ -46,6 +46,9 @@ public:
     auto pt = St->OtherStats["PackingType"];
     sym_lib::MultiDimensionalSet *fusedCompSet =
         sf01->getFusedCompressed((int)pt[0]);
+    St->OtherStats["Workload L1"] = {(double)(fusedCompSet->ptr1_[1] - fusedCompSet->ptr1_[0])};
+    St->OtherStats["Workload L2"] = {(double)(fusedCompSet->ptr1_[2] - fusedCompSet->ptr1_[1])};
+
     //    FusedCompSet->print_3d();
     delete sf01;
     delete mvDAG;
