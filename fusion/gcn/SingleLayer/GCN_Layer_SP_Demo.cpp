@@ -89,23 +89,47 @@ int main(const int argc, const char *argv[]) {
   stats = new swiftware::benchmark::Stats("GCN_SingleLayer_FusedSeperated_L1", "GCN", 7,
                                           tp._matrix_name, numThread);
   stats->OtherStats["PackingType"] = {Separated};
-  GCNSingleLayerSparseFusedParallelWithGeMM_SP *gcnSingleLayerSparseFusedSeparated =
-      new GCNSingleLayerSparseFusedParallelWithGeMM_SP(inputs, stats, sp);
+  GCNSingleLayerSparseFusedParallelFirstWF_SP
+      *gcnSingleLayerSparseFusedSeparated =
+      new GCNSingleLayerSparseFusedParallelFirstWF_SP(inputs, stats, sp);
   gcnSingleLayerSparseFusedSeparated->run();
   auto gcnSingleLayerSparseFusedSeparatedStat = gcnSingleLayerSparseFusedSeparated->printStats();
   auto headerStat = gcnSingleLayerSparseFusedSeparated->printStatsHeader();
   delete stats;
   delete gcnSingleLayerSparseFusedSeparated;
 
+  stats = new swiftware::benchmark::Stats("GCN_SingleLayer_UnFusedSeperated_L1", "GCN", 7,
+                                          tp._matrix_name, numThread);
+  stats->OtherStats["PackingType"] = {Separated};
+  GCNSingleLayerSparseUnFusedParallelFirstWF_SP
+      *gcnSingleLayerSparseUnFusedSeparated =
+          new GCNSingleLayerSparseUnFusedParallelFirstWF_SP(inputs, stats, sp);
+  gcnSingleLayerSparseUnFusedSeparated->run();
+  auto gcnSingleLayerSparseUnFusedSeparatedStat = gcnSingleLayerSparseUnFusedSeparated->printStats();
+  delete stats;
+  delete gcnSingleLayerSparseUnFusedSeparated;
+
   stats = new swiftware::benchmark::Stats("GCN_SingleLayer_FusedSeperated_L2", "GCN", 7,
                                           tp._matrix_name, numThread);
   stats->OtherStats["PackingType"] = {Separated};
-  GCNSingleLayerSparseFusedParallelWithGeMM_SP2 *gcnSingleLayerSparseFusedSeparated2 =
-      new GCNSingleLayerSparseFusedParallelWithGeMM_SP2(inputs, stats, sp);
+  GCNSingleLayerSparseFusedParallelSecondWF_SP2
+      *gcnSingleLayerSparseFusedSeparated2 =
+      new GCNSingleLayerSparseFusedParallelSecondWF_SP2(inputs, stats, sp);
   gcnSingleLayerSparseFusedSeparated2->run();
   auto gcnSingleLayerSparseFusedSeparatedStat2 = gcnSingleLayerSparseFusedSeparated2->printStats();
   delete stats;
   delete gcnSingleLayerSparseFusedSeparated2;
+
+  stats = new swiftware::benchmark::Stats("GCN_SingleLayer_UnFusedSeperated_L2", "GCN", 7,
+                                          tp._matrix_name, numThread);
+  stats->OtherStats["PackingType"] = {Separated};
+  GCNSingleLayerSparseUnFusedParallelSecondWF_SP
+      *gcnSingleLayerSparseUnFusedSeparated2 =
+          new GCNSingleLayerSparseUnFusedParallelSecondWF_SP(inputs, stats, sp);
+  gcnSingleLayerSparseUnFusedSeparated2->run();
+  auto gcnSingleLayerSparseUnFusedSeparatedStat2 = gcnSingleLayerSparseUnFusedSeparated2->printStats();
+  delete stats;
+  delete gcnSingleLayerSparseUnFusedSeparated2;
 
   auto csvInfo = sp.print_csv(true);
   std::string spHeader = std::get<0>(csvInfo);
@@ -122,6 +146,8 @@ int main(const int argc, const char *argv[]) {
 //  std::cout << gcnSingleLayerUnFusedStat << spStat + tpStat << std::endl;
   std::cout << gcnSingleLayerSparseFusedSeparatedStat << spStat + tpStat << std::endl;
   std::cout << gcnSingleLayerSparseFusedSeparatedStat2 << spStat + tpStat << std::endl;
+  std::cout << gcnSingleLayerSparseUnFusedSeparatedStat << spStat + tpStat << std::endl;
+  std::cout << gcnSingleLayerSparseUnFusedSeparatedStat2 << spStat + tpStat << std::endl;
 
 //  delete[] inputs->CorrectSol;
   delete inputs;
