@@ -132,6 +132,7 @@ void forwardForOneLayerFusedParallelSeparatedVectorizedSP(
     int NumThreads, int LevelNo, const int *LevelPtr,
     const int *ParPtr, const int *MixPtr, const int *Partition) {
   int numKernels = 2;
+  int residueStart = OutputChannelDim - OutputChannelDim%32;
   float *intermediateResult = new float[M * OutputChannelDim];
   for (int i1 = 0; i1 < LevelNo; i1++) {
 #pragma omp parallel num_threads(NumThreads)
@@ -150,7 +151,7 @@ void forwardForOneLayerFusedParallelSeparatedVectorizedSP(
         int kEndL2 = MixPtr[j1 * numKernels + 1];
         for (int k1 = kEndL1; k1 < kEndL2; ++k1) {
           int i = Partition[k1];
-          for (int kk = 0; kk < OutputChannelDim; kk += 32) {
+          for (int kk; kk < OutputChannelDim; kk += 32) {
             int ip = i * OutputChannelDim;
             auto dxV1 = _mm256_loadu_ps(Output + ip + kk);
             auto dxV2 = _mm256_loadu_ps(Output + ip + kk + 8);
@@ -195,6 +196,13 @@ void forwardForOneLayerFusedParallelSeparatedVectorizedSP(
             _mm256_storeu_ps(Output + ip + kk + 8, dxV2);
             _mm256_storeu_ps(Output + ip + kk + 16, dxV3);
             _mm256_storeu_ps(Output + ip + kk + 24, dxV4);
+          }
+          for (int k = Ap[i]; k < Ap[i + 1]; k++) {
+            int ip = OutputChannelDim * i;
+            for (int kk = residueStart; kk < OutputChannelDim; kk++) {
+              Output[ip + kk] +=
+                  Ax[k] * intermediateResult[Ai[k] * OutputChannelDim + kk];
+            }
           }
         }
       }
