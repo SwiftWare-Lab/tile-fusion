@@ -60,18 +60,22 @@ public:
                                int LevelNum) {
 
     //        ctx->mark_non_differentiable({WorkloadPtr, Ids, TilePtr});
+    std::cout << "TEST" << std::endl;
     mkl_set_num_threads(1);
     int outputSize = X.size(0) * Weight.size(0);
     ctx->save_for_backward({X, Adj, Weight});
     float *out = new float[outputSize];
     memset(out, 0, outputSize * sizeof(float));
-    forwardForOneLayerFusedParallelSeparated(
+    std::cout << "TEST4" << std::endl;
+    forwardForOneLayerFusedParallelSeparatedVectorizedSP(
         X.size(0), Adj.crow_indices().data_ptr<int>(),
         Adj.col_indices().data_ptr<int>(), Adj.values().data_ptr<float>(),
         X.size(1), Weight.size(0), X.data_ptr<float>(),
-        Weight.data_ptr<float>(), out, NumThreads, LevelNum,
+        Weight.data_ptr<float>(), out,  NumThreads, LevelNum,
         LevelPtr.data_ptr<int>(), ParPtr.data_ptr<int>(),
         MixPtr.data_ptr<int>(), Partition.data_ptr<int>());
+    std::cout << "TEST3" << std::endl;
+    std::cout << "TEST2" << std::endl;
     mkl_set_num_threads(NumThreads);
     return torch::from_blob(
         out, {X.size(0), Weight.size(0)},

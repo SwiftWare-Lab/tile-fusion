@@ -70,6 +70,6 @@ target_link_libraries(fusion PRIVATE
 
 add_subdirectory(example)
 add_subdirectory(gcn)
-add_subdirectory(jacobi)
+#add_subdirectory(jacobi)
 add_subdirectory(spmv-spmv)
 add_subdirectory(torch)
