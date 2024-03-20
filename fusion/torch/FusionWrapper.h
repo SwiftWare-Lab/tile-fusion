@@ -151,7 +151,7 @@ void forwardForOneLayerFusedParallelSeparatedVectorizedSP(
         int kEndL2 = MixPtr[j1 * numKernels + 1];
         for (int k1 = kEndL1; k1 < kEndL2; ++k1) {
           int i = Partition[k1];
-          for (int kk; kk < OutputChannelDim; kk += 32) {
+          for (int kk = 0; kk < residueStart; kk += 32) {
             int ip = i * OutputChannelDim;
             auto dxV1 = _mm256_loadu_ps(Output + ip + kk);
             auto dxV2 = _mm256_loadu_ps(Output + ip + kk + 8);
