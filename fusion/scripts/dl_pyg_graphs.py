@@ -19,17 +19,17 @@ if not os.path.exists(folder_name):
 raw_folder_name = folder_name + '/raw'
 
 datasets = [
-    # datasets.Coauthor(root=raw_folder_name + '/coauthor_cs/', name='CS', transform=None),
-    # datasets.Coauthor(root=raw_folder_name + '/coauthor_physics/', name='Physics', transform=None),
-    # datasets.CoraFull(root=raw_folder_name + '/cora_full/', transform=None),
+    datasets.Coauthor(root=raw_folder_name + '/coauthor_cs/', name='CS', transform=None),
+    datasets.Coauthor(root=raw_folder_name + '/coauthor_physics/', name='Physics', transform=None),
+    datasets.CoraFull(root=raw_folder_name + '/cora_full/', transform=None),
     datasets.Flickr(root=raw_folder_name + '/flickr/', transform=None),
     datasets.Yelp(root=raw_folder_name + '/yelp/', transform=None),
-    # datasets.Planetoid(root=raw_folder_name + '/planetoid/pubmed/', name='Pubmed', transform=None),
-    # datasets.Planetoid(root=raw_folder_name + '/planetoid/cora/', name='Cora', transform=None),
-    # datasets.GitHub(root=raw_folder_name + '/github/', transform=None),
-    # datasets.FacebookPagePage(root=raw_folder_name + '/facebook_page_page/', transform=None),
-    # datasets.DeezerEurope(root=raw_folder_name + '/deezer_europe/', transform=None)
-    datasets.Reddit2(root=raw_folder_name + '/reddit2/', transform=None)
+    datasets.Planetoid(root=raw_folder_name + '/planetoid/pubmed/', name='Pubmed', transform=None),
+    datasets.Planetoid(root=raw_folder_name + '/planetoid/cora/', name='Cora', transform=None),
+    datasets.GitHub(root=raw_folder_name + '/github/', transform=None),
+    datasets.FacebookPagePage(root=raw_folder_name + '/facebook_page_page/', transform=None),
+    datasets.DeezerEurope(root=raw_folder_name + '/deezer_europe/', transform=None),
+    datasets.Reddit(root=raw_folder_name + '/reddit2/', transform=None)
 ]
 
 matrix_list_file_name = folder_name + '/mat_list.txt'
@@ -53,6 +53,8 @@ for dataset in datasets:
         adj = csr_matrix((np.ones(coo[0].shape[0]), (coo[0].numpy(), coo[1].numpy())))
         features = data.x.numpy()
         labels = data.y.numpy()
+        if len(labels.shape) > 1:
+            labels = labels[:, 0]
         print(features.shape)
         print(labels.shape)
         labels = labels[np.newaxis, ...]
@@ -60,11 +62,11 @@ for dataset in datasets:
         mmwrite(mat_folder + '/features.mtx', features)
         mmwrite(mat_folder + '/labels.mtx', labels)
         mmwrite(mat_folder + '/{}.mtx'.format(name), adj)
-        perm = reverse_cuthill_mckee(adj)
-        adj = adj[perm, :][:, perm]
-        features = features[perm, :]
-        labels = labels[:, perm]
-        name = name + '_ordered'
+        # perm = reverse_cuthill_mckee(adj)
+        # adj = adj[perm, :][:, perm]
+        # features = features[perm, :]
+        # labels = labels[:, perm]
+        # name = name + '_ordered'
         mmwrite(mat_folder + '/features.mtx', features)
         mmwrite(mat_folder + '/labels.mtx', labels)
         mmwrite(mat_folder + '/{}.mtx'.format(name), adj)

@@ -77,14 +77,14 @@ dataset_list = [
     datasets.Coauthor(root=raw_folder_name + '/coauthor_cs/', name='CS', transform=None),
     datasets.Coauthor(root=raw_folder_name + '/coauthor_physics/', name='Physics', transform=None),
     datasets.CoraFull(root=raw_folder_name + '/cora_full/', transform=None),
-    # datasets.Flickr(root=raw_folder_name + '/flickr/', transform=None),
-    # datasets.Yelp(root=raw_folder_name + '/yelp/', transform=None),
+    datasets.Flickr(root=raw_folder_name + '/flickr/', transform=None),
+    datasets.Yelp(root=raw_folder_name + '/yelp/', transform=None),
     datasets.Planetoid(root=raw_folder_name + '/planetoid/pubmed/', name='Pubmed', transform=None),
     datasets.Planetoid(root=raw_folder_name + '/planetoid/cora/', name='Cora', transform=None),
     datasets.GitHub(root=raw_folder_name + '/github/', transform=None),
     datasets.FacebookPagePage(root=raw_folder_name + '/facebook_page_page/', transform=None),
-    datasets.DeezerEurope(root=raw_folder_name + '/deezer_europe/', transform=None)
-    # datasets.Reddit2(root=raw_folder_name + '/reddit2/', transform=None)
+    datasets.DeezerEurope(root=raw_folder_name + '/deezer_europe/', transform=None),
+    datasets.Reddit(root=raw_folder_name + '/reddit2/', transform=None)
 ]
 for dataset in dataset_list:
     name = dataset.root.split('/')[-1]
