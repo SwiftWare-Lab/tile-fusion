@@ -19,6 +19,11 @@ struct CSRFusedGCNLayer : torch::nn::Module {
     this->ParPtr = parPtr;
     this->Partition = partition;
     this->MixPtr = mixPtr;
+    auto numThreadsTensor = torch::tensor({numThreads});
+    auto levelNumTensor = torch::tensor({levelNum});
+    this->scheduleData =
+        {this->LevelPtr, this->ParPtr, this->Partition,
+                      this->MixPtr, levelNumTensor, numThreadsTensor};
   }
   CSRFusedGCNLayer() {
     this->NumThreads = 0;
@@ -31,9 +36,7 @@ struct CSRFusedGCNLayer : torch::nn::Module {
   }
 
   torch::Tensor forward(torch::Tensor x, torch::Tensor adj) {
-    return CSRFusedGCNForwardFunction::apply(x, adj, weight, LevelPtr, ParPtr,
-                                             Partition, MixPtr, NumThreads,
-                                             LevelNum);
+    return CSRFusedGCNForwardFunctionWithFusedBackward::apply(x, adj, weight, scheduleData);
   }
 
   int NumThreads;
@@ -43,6 +46,7 @@ struct CSRFusedGCNLayer : torch::nn::Module {
   torch::Tensor ParPtr;
   torch::Tensor Partition;
   torch::Tensor MixPtr;
+  std::vector<torch::Tensor> scheduleData;
 };
 
 struct CSCFusedGCNLayer : torch::nn::Module {

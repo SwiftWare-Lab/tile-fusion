@@ -136,25 +136,32 @@ class CSRFusedGCNForwardFunctionWithFusedBackward
 public:
   static torch::Tensor forward(torch::autograd::AutogradContext *ctx,
                                torch::Tensor X, torch::Tensor Adj,
-                               torch::Tensor Weight, torch::Tensor ScheduleData,
-                               torch::Tensor LevelPtr, torch::Tensor ParPtr,
-                               torch::Tensor Partition, torch::Tensor MixPtr,
-                               int NumThreads, int LevelNum) {
+                               torch::Tensor Weight, std::vector<torch::Tensor> ScheduleData) {
 
     //        ctx->mark_non_differentiable({WorkloadPtr, Ids, TilePtr});
     mkl_set_num_threads(1);
+    int *LevelPtr = ScheduleData[0].data_ptr<int>();
+    int *ParPtr = ScheduleData[1].data_ptr<int>();
+    int *Partition = ScheduleData[2].data_ptr<int>();
+    int *MixPtr = ScheduleData[3].data_ptr<int>();
+    int LevelNum = ScheduleData[4][0].item<int>();
+    int ThreadNum = ScheduleData[5][0].item<int>();
     int outputSize = X.size(0) * Weight.size(0);
-    ctx->save_for_backward({X, Adj, Weight, ScheduleData});
+    auto savedTensors = ScheduleData;
+    savedTensors.push_back(X);
+    savedTensors.push_back(Adj);
+    savedTensors.push_back(Weight);
+    ctx->save_for_backward(savedTensors);
     float *out = new float[outputSize];
     memset(out, 0, outputSize * sizeof(float));
-    forwardForOneLayerFusedParallelSeparated(
+    forwardForOneLayerFusedParallelSeparatedVectorizedSP(
         X.size(0), Adj.crow_indices().data_ptr<int>(),
         Adj.col_indices().data_ptr<int>(), Adj.values().data_ptr<float>(),
         X.size(1), Weight.size(0), X.data_ptr<float>(),
-        Weight.data_ptr<float>(), out, NumThreads, LevelNum,
-        LevelPtr.data_ptr<int>(), ParPtr.data_ptr<int>(),
-        MixPtr.data_ptr<int>(), Partition.data_ptr<int>());
-    mkl_set_num_threads(NumThreads);
+        Weight.data_ptr<float>(), out,  ThreadNum, LevelNum,
+        LevelPtr, ParPtr,
+        MixPtr, Partition);
+//    mkl_set_num_threads(NumThreads);
     return torch::from_blob(out, {X.size(0), Weight.size(0)}, torch::kFloat32);
   }
 
@@ -165,56 +172,59 @@ public:
     matrix_descr d;
     d.type = SPARSE_MATRIX_TYPE_GENERAL;
     auto saved = ctx->get_saved_variables();
-    auto input = saved[0];
-    auto adj = saved[1];
-    auto weight = saved[2];
-    auto scheduleData = saved[3];
-    int *LevelPtr = scheduleData[0].data_ptr<int>();
-    int *ParPtr = scheduleData[1].data_ptr<int>();
-    int *Partition = scheduleData[2].data_ptr<int>();
-    int *MixPtr = scheduleData[3].data_ptr<int>();
-    int LevelNum = scheduleData[4][0].item<int>();
-    int ThreadNum = scheduleData[5][0].item<int>();
+    auto input = saved[6];
+    auto adj = saved[7];
+    auto weight = saved[8];
+    int *LevelPtr = saved[0].data_ptr<int>();
+    int *ParPtr = saved[1].data_ptr<int>();
+    int *Partition = saved[2].data_ptr<int>();
+    int *MixPtr = saved[3].data_ptr<int>();
+    int LevelNum = saved[4][0].item<int>();
+    int ThreadNum = saved[5][0].item<int>();
     int *adjPtr = adj.crow_indices().data_ptr<int>();
     int *adjIndex = adj.col_indices().data_ptr<int>();
-    mkl_sparse_s_create_csr(&MKLAdj, SPARSE_INDEX_BASE_ZERO, adj.size(0),
-                            adj.size(1), adjPtr, adjPtr + 1, adjIndex,
-                            adj.values().data_ptr<float>());
     auto grad_output = grad_outputs[0];
     float *grad_output_raw = grad_output.data_ptr<float>();
-    float *weight_raw = weight.data_ptr<float>();
-    float *grad_input_intermediate =
-        new float[grad_output.size(0) * weight.size(1)];
-    float *grad_input_raw = new float[adj.size(0) * weight.size(1)];
-    cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, adj.size(0),
-                weight.size(1), weight.size(0), 1., grad_output_raw,
-                grad_output.size(1), weight_raw, weight.size(1), 0.,
-                grad_input_intermediate, weight.size(1));
-    mkl_sparse_s_mm(SPARSE_OPERATION_NON_TRANSPOSE, 1, MKLAdj, d,
-                    SPARSE_LAYOUT_ROW_MAJOR, grad_input_intermediate,
-                    weight.size(1), weight.size(1), 0, grad_input_raw,
-                    weight.size(1));
-    delete[] grad_input_intermediate;
-    auto grad_input = torch::from_blob(
-        grad_input_raw, {(long)grad_output.size(0), (long)weight.size(1)},
-        [](void *ptr) { delete[] static_cast<float *>(ptr); }, torch::kFloat32);
-    float *grad_weight_intermediate = new float[adj.size(0) * input.size(1)];
-    float *grad_weight_raw = new float[grad_output.size(1) * input.size(1)];
-    float *input_raw = input.data_ptr<float>();
-    mkl_sparse_s_mm(SPARSE_OPERATION_NON_TRANSPOSE, 1, MKLAdj, d,
-                    SPARSE_LAYOUT_ROW_MAJOR, input_raw, input.size(1),
-                    input.size(1), 0, grad_weight_intermediate, input.size(1));
-    cblas_sgemm(CblasRowMajor, CblasTrans, CblasNoTrans, grad_output.size(1),
-                input.size(1), grad_output.size(0), 1., grad_output_raw,
-                grad_output.size(1), grad_weight_intermediate, input.size(1),
-                0., grad_weight_raw, input.size(1));
-    delete[] grad_weight_intermediate;
-    mkl_free(MKLAdj);
-    //    auto grad_pure_weight = adj.mm(input);
-    //    auto grad_weight = grad_output.t().mm(grad_pure_weight);
-    auto grad_weight = torch::from_blob(
-        grad_weight_raw, {grad_output.size(1), input.size(1)},
-        [](void *ptr) { delete[] static_cast<float *>(ptr); }, torch::kFloat32);
+    float *inputRaw = input.data_ptr<float>();
+    torch::Tensor grad_input;
+    if (ctx->needs_input_grad(0)) {
+      mkl_set_num_threads(1);
+      float *weight_raw = weight.data_ptr<float>();
+      float *grad_input_raw = new float[adj.size(0) * weight.size(1)];
+//      std::cout << "GRAD SHAPE" << grad_output.size(0) << " " << grad_output.size(1) << std::endl;
+//      std::cout << "WEIGHT SHAPE" << weight.size(0) << " " << weight.size(1) << std::endl;
+      inputGradFusedParallelSeparatedVectorizedSP(
+          grad_output.size(0), adjPtr, adjIndex, adj.values().data_ptr<float>(),
+          grad_output.size(1), weight.size(1), grad_output_raw,
+          weight_raw, grad_input_raw, ThreadNum, LevelNum, LevelPtr, ParPtr,
+          MixPtr, Partition);
+      grad_input = torch::from_blob(
+          grad_input_raw, {(long)grad_output.size(0), (long)weight.size(1)},
+          [](void *ptr) { delete[] static_cast<float *>(ptr); },
+          torch::kFloat32);
+    }
+    torch::Tensor grad_weight;
+    if (ctx->needs_input_grad(2)){
+      mkl_set_num_threads(ThreadNum);
+      mkl_sparse_s_create_csr(&MKLAdj, SPARSE_INDEX_BASE_ZERO, adj.size(0),
+                              adj.size(1), adjPtr, adjPtr + 1, adjIndex,
+                              adj.values().data_ptr<float>());
+      float *grad_intermediate = new float[adj.size(0) * input.size(1)];
+      mkl_sparse_s_mm(SPARSE_OPERATION_NON_TRANSPOSE, 1, MKLAdj, d,
+                      SPARSE_LAYOUT_ROW_MAJOR, inputRaw,
+                      input.size(1), input.size(1), 0,
+                      grad_intermediate, input.size(1));
+      float *grad_weight_raw = new float[grad_output.size(1) * input.size(1)];
+      cblas_sgemm(CblasRowMajor, CblasTrans, CblasNoTrans, grad_output.size(1),
+                  input.size(1), adj.size(0), 1., grad_intermediate,
+                  grad_output.size(1), inputRaw, input.size(1), 0.,
+                  grad_weight_raw, input.size(1));
+      mkl_free(MKLAdj);
+      delete[] grad_intermediate;
+      grad_weight = torch::from_blob(
+          grad_weight_raw, {grad_output.size(1), input.size(1)},
+          [](void *ptr) { delete[] static_cast<float *>(ptr); }, torch::kFloat32);
+    }
     at::Tensor undef;
     return {grad_input, undef, grad_weight, undef, undef,
             undef,      undef, undef,       undef};
