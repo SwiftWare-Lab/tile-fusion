@@ -152,8 +152,7 @@ public:
     savedTensors.push_back(Adj);
     savedTensors.push_back(Weight);
     ctx->save_for_backward(savedTensors);
-    float *out = new float[outputSize];
-    memset(out, 0, outputSize * sizeof(float));
+    float *out = new float[outputSize]{};
     forwardForOneLayerFusedParallelSeparatedVectorizedSP(
         X.size(0), Adj.crow_indices().data_ptr<int>(),
         Adj.col_indices().data_ptr<int>(), Adj.values().data_ptr<float>(),
@@ -162,7 +161,9 @@ public:
         LevelPtr, ParPtr,
         MixPtr, Partition);
 //    mkl_set_num_threads(NumThreads);
-    return torch::from_blob(out, {X.size(0), Weight.size(0)}, torch::kFloat32);
+    return torch::from_blob(
+        out, {X.size(0), Weight.size(0)},
+        [](void *ptr) { delete[] static_cast<float *>(ptr); }, torch::kFloat32);
   }
 
   static torch::autograd::tensor_list
@@ -190,9 +191,7 @@ public:
     if (ctx->needs_input_grad(0)) {
       mkl_set_num_threads(1);
       float *weight_raw = weight.data_ptr<float>();
-      float *grad_input_raw = new float[adj.size(0) * weight.size(1)];
-//      std::cout << "GRAD SHAPE" << grad_output.size(0) << " " << grad_output.size(1) << std::endl;
-//      std::cout << "WEIGHT SHAPE" << weight.size(0) << " " << weight.size(1) << std::endl;
+      float *grad_input_raw = new float[adj.size(0) * weight.size(1)]{};
       inputGradFusedParallelSeparatedVectorizedSP(
           grad_output.size(0), adjPtr, adjIndex, adj.values().data_ptr<float>(),
           grad_output.size(1), weight.size(1), grad_output_raw,
@@ -209,15 +208,15 @@ public:
       mkl_sparse_s_create_csr(&MKLAdj, SPARSE_INDEX_BASE_ZERO, adj.size(0),
                               adj.size(1), adjPtr, adjPtr + 1, adjIndex,
                               adj.values().data_ptr<float>());
-      float *grad_intermediate = new float[adj.size(0) * input.size(1)];
+      float *grad_intermediate = new float[adj.size(0) * input.size(1)]{};
       mkl_sparse_s_mm(SPARSE_OPERATION_NON_TRANSPOSE, 1, MKLAdj, d,
                       SPARSE_LAYOUT_ROW_MAJOR, inputRaw,
                       input.size(1), input.size(1), 0,
                       grad_intermediate, input.size(1));
-      float *grad_weight_raw = new float[grad_output.size(1) * input.size(1)];
+      float *grad_weight_raw = new float[grad_output.size(1) * input.size(1)]{};
       cblas_sgemm(CblasRowMajor, CblasTrans, CblasNoTrans, grad_output.size(1),
-                  input.size(1), adj.size(0), 1., grad_intermediate,
-                  grad_output.size(1), inputRaw, input.size(1), 0.,
+                  input.size(1), adj.size(0), 1., grad_output_raw,
+                  grad_output.size(1), grad_intermediate, input.size(1), 0.,
                   grad_weight_raw, input.size(1));
       mkl_free(MKLAdj);
       delete[] grad_intermediate;
