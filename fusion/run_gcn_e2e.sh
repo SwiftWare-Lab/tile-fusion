@@ -40,7 +40,7 @@ MATLIST="$DATA/mat_list.txt"
 module load NiaEnv/.2022a
 module load intel/2022u2
 export MKL_DIR=$MKLROOT
-#module load gcc
+module load gcc
 module load cmake
 module load python
 
@@ -70,7 +70,7 @@ export OMP_DYNAMIC=FALSE;
 
 
 sr=1
-for ED in {16,128,256,512}; do
+for ED in {32,64,128,256}; do
   header=1
   while read line; do
     echo "for $line $BCOL $ED $tn $mw"

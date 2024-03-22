@@ -233,12 +233,6 @@ void inputGradFusedParallelSeparatedVectorizedSP(
             InputChannelDim, 1., Features + iL1 * InputChannelDim,
             InputChannelDim, Weight, OutputChannelDim, 0.,
             intermediateResult + iL1 * OutputChannelDim, OutputChannelDim);
-//        for (int i = 0; i < tileSize; i++) {
-//          for (int j = 0; j < OutputChannelDim; j++) {
-//            std::cout << intermediateResult[iL1 * OutputChannelDim + j] << " ";
-//          }
-//          std::cout << std::endl;
-//        }
         int kEndL2 = MixPtr[j1 * numKernels + 1];
         for (int k1 = kEndL1; k1 < kEndL2; ++k1) {
           int i = Partition[k1];
