@@ -6,12 +6,10 @@ import torch
 import torch.nn.functional as F
 
 import torch_geometric.transforms as T
-from scipy.io import mmwrite
 from torch_geometric.datasets import Planetoid
 import torch_geometric.datasets as datasets
-from torch_geometric.logging import init_wandb, log
 from torch_geometric.nn import GCNConv
-import numpy as np
+from torch_geometric.utils import to_torch_sparse_tensor
 
 class GCN(torch.nn.Module):
     def __init__(self, in_channels, hidden_channels, out_channels):
@@ -40,7 +38,7 @@ class GCN(torch.nn.Module):
 def train():
     model.train()
     optimizer.zero_grad()
-    out = model(data.x, data.edge_index)
+    out = model(data.x, edge_index_sparse)
     loss = F.cross_entropy(out[train_mask], data.y[train_mask])
     loss.backward()
     optimizer.step()
@@ -89,6 +87,7 @@ dataset_list = [
 for dataset in dataset_list:
     name = dataset.root.split('/')[-1]
     data = dataset[0].to(device)
+    edge_index_sparse = to_torch_sparse_tensor(data.edge_index)
     if args.use_gdc:
         transform = T.GDC(
             self_loop_weight=1,

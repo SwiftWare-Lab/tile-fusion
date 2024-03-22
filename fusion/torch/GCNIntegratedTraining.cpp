@@ -49,7 +49,7 @@ int tuneMatrix(CSR *Matrix, FloatDense *Features,
     for (int i = 0; i < 7; i++) {
       std::memset(out, 0, Matrix->m * Tp._embed_dim * sizeof(float));
       t1.start();
-      forwardForOneLayerFusedParallelSeparated(
+      forwardForOneLayerFusedParallelSeparatedVectorizedSP(
           Matrix->m, Matrix->p, Matrix->i, matrixValues, Tp._b_cols,
           Tp._embed_dim, Features->a, weight1->a, out, Sp._num_threads,
           fusedCompSet->n1_, fusedCompSet->ptr1_, fusedCompSet->ptr2_,
@@ -82,7 +82,8 @@ int main(const int argc, const char *argv[]) {
   normalizeAdjacencyMatrix(aCSR);
   FloatDense *featuresData = readFloatDenseMatrixFromParameter(
       &tp, aCSC->m, tp._embed_dim, tp.e2e_data_path + "/features.mtx");
-  sp.IterPerPartition = tuneMatrix(aCSR, featuresData, sp, tp);
+//  sp.IterPerPartition = tuneMatrix(aCSR, featuresData, sp, tp);
+  sp.IterPerPartition = 1024;
   //  float *weight1Data = readFloatDenseMatrixFromParameter(&tp, 16, 1433,
   //                                                         tp.e2e_data_path +
   //                                                         "/weight1.mtx");
