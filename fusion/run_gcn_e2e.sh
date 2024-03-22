@@ -70,7 +70,7 @@ export OMP_DYNAMIC=FALSE;
 
 
 sr=1
-for ED in {32,64,128,256}; do
+for ED in {32,64,128,256,512}; do
   header=1
   while read line; do
     echo "for $line $BCOL $ED $tn $mw"
