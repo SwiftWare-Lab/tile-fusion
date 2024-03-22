@@ -131,11 +131,11 @@ int main(const int argc, const char *argv[]) {
 //  std::cout << "Training..." << std::endl;
 //  torch::set_num_interop_threads(sp._num_threads);
 //  torch::set_num_threads(sp._num_threads);
-  swiftware::benchmark::Timer t1;
-  t1.start();
   auto *net = new CSRFusedGCN(adj, features, tp._embed_dim, numClasses,
                               sp._num_threads, fusedCompSet);
   torch::optim::Adam optimizer(net->parameters(), /*lr=*/0.01);
+  swiftware::benchmark::Timer t1;
+  t1.start();
   for (size_t epoch = 1; epoch <= 100; ++epoch) {
     // Reset gradients.
     optimizer.zero_grad();
