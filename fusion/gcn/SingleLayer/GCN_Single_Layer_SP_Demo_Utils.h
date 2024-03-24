@@ -12,6 +12,7 @@
 #include "sparse-fusion/Fusion_Inspector.h"
 #include "sparse-fusion/MultiDimensionalSet.h"
 #include "sparse-fusion/SparseFusion.h"
+#include "../gemm_spmm_codegen.h"
 #include <cassert>
 #include <cmath>
 #include <numeric>
@@ -226,6 +227,50 @@ public:
     delete FusedCompSet;
     delete Inspector;
   }
+};
+
+class GCNSingleLayerLNRSP : public GCNSingleLayerMKL_SP {
+
+protected:
+  Timer execute() override {
+    OutTensor->reset();
+    Timer t;
+    t.start();
+    swiftware::compute_LNR(
+        InTensor->NumOfNodes, InTensor->EmbedDim, OutTensor->FirstLayerOutput,
+        InTensor->AdjacencyMatrix->p, InTensor->AdjacencyMatrix->i,
+        InTensor->AMValues, InTensor->NumOfNodes, InTensor->FeatureDim,
+        InTensor->FeatureMatrix, InTensor->FeatureDim,
+        InTensor->EmbedDim, InTensor->Weight1, InTensor->NumThreads);
+    t.stop();
+    return t;
+  }
+
+public:
+  GCNSingleLayerLNRSP(GnnTensorSpInputs *In1, Stats *Stat1)
+      : GCNSingleLayerMKL_SP(In1, Stat1) {}
+};
+
+class GCNSingleLayerTaco : public GCNSingleLayerMKL_SP {
+
+protected:
+  Timer execute() override {
+    OutTensor->reset();
+    Timer t;
+    t.start();
+    swiftware::compute_TACO(
+        InTensor->NumOfNodes, InTensor->EmbedDim, OutTensor->FirstLayerOutput,
+        InTensor->AdjacencyMatrix->p, InTensor->AdjacencyMatrix->i,
+        InTensor->AMValues, InTensor->NumOfNodes, InTensor->FeatureDim,
+        InTensor->FeatureMatrix, InTensor->FeatureDim,
+        InTensor->EmbedDim, InTensor->Weight1, InTensor->NumThreads);
+    t.stop();
+    return t;
+  }
+
+public:
+  GCNSingleLayerTaco(GnnTensorSpInputs *In1, Stats *Stat1)
+      : GCNSingleLayerMKL_SP(In1, Stat1) {}
 };
 
 #endif // SPARSE_FUSION_GCN_SINGLE_LAYER_SP_DEMO_UTILS_H

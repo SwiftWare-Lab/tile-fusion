@@ -705,12 +705,6 @@ void forwardForOneLayerWithMKLGeMMAndSpMMSPVectorized(int NumOfNodes, int *Ap, i
         _mm256_storeu_ps(Output + ip + kk + 16, dxV3);
         _mm256_storeu_ps(Output + ip + kk + 24, dxV4);
       }
-      for (int j = Ap[i]; j < Ap[i + 1]; j++) {
-        int ip = OutDim * i;
-        for (int k = 0; k < OutDim; k++) {
-          Output[ip + k] += Ax[j] * IntermediateResult[Ai[j] * OutDim + k];
-        }
-      }
     }
   }
 }
