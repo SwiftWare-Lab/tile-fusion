@@ -2,6 +2,7 @@ import argparse
 import os.path as osp
 import time
 
+import numpy as np
 import torch
 import torch.nn.functional as F
 
@@ -35,12 +36,17 @@ class GCN(torch.nn.Module):
 
         return x
 
-def train():
+    def get_op_time(self):
+        return self.conv1.op_time + self.conv2.op_time
+
+def train(backward_time=[0]):
     model.train()
     optimizer.zero_grad()
     out = model(data.x, edge_index_sparse)
-    loss = F.cross_entropy(out[train_mask], data.y[train_mask])
+    loss = F.cross_entropy(out, data.y)
+    t1 = time.time()
     loss.backward()
+    backward_time[0] += time.time() - t1
     optimizer.step()
     return float(loss)
 
@@ -75,8 +81,8 @@ dataset_list = [
     datasets.Coauthor(root=raw_folder_name + '/coauthor_cs/', name='CS', transform=None),
     datasets.Coauthor(root=raw_folder_name + '/coauthor_physics/', name='Physics', transform=None),
     datasets.CoraFull(root=raw_folder_name + '/cora_full/', transform=None),
-    datasets.Flickr(root=raw_folder_name + '/flickr/', transform=None),
-    datasets.Yelp(root=raw_folder_name + '/yelp/', transform=None),
+    # datasets.Flickr(root=raw_folder_name + '/flickr/', transform=None),
+    # datasets.Yelp(root=raw_folder_name + '/yelp/', transform=None),
     # datasets.Planetoid(root=raw_folder_name + '/planetoid/pubmed/', name='Pubmed', transform=None),
     # datasets.Planetoid(root=raw_folder_name + '/planetoid/cora/', name='Cora', transform=None),
     datasets.GitHub(root=raw_folder_name + '/github/', transform=None),
@@ -128,13 +134,16 @@ for dataset in dataset_list:
 
     best_val_acc = test_acc = 0
     times = []
+    backward_time = [0]
     for epoch in range(0, 100):
         start = time.time()
-        loss1 = train()
+        loss1 = train(backward_time)
         times.append(time.time() - start)
         # log(Epoch=epoch, Loss=loss1)
     # print(f'Median time per epoch: {torch.tensor(times).median():.4f}s')
-    print(f'torch_geometric GCNConv,{name},{torch.tensor(times).sum():.4f}')
+    print(f'torch_geometric GCNConv,{name},{np.array(times).sum():.4f}')
+    print("gemm-spmm in forward", model.get_op_time())
+    print("backward time", backward_time[0])
 
     # print('total conv1 time: ', model.conv1_time)
     # print('total conv2 time: ', model.conv2_time)
