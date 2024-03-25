@@ -305,6 +305,30 @@ public:
       : SpMMSpMMUnFusedSP(In1, Stat1), Sp(SpIn) {}
 };
 
+
+class SpMMSpMMFusedCSCAtomic : public SpMMSpMMUnFusedSP {
+protected:
+  sym_lib::ScheduleParameters Sp;
+  Timer execute() override {
+    //    std::fill_n(OutTensor->Xx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
+    OutTensor->reset();
+    Timer t;
+    t.start();
+    swiftware::sparse::spmmCsrSpmmCscFusedAffineSP(
+        InTensor->M, InTensor->N, InTensor->K, InTensor->L, InTensor->ACsr->p,
+        InTensor->ACsr->i, AValues, InTensor->ACsr->p, InTensor->ACsr->i,
+        AValues, InTensor->Bx, OutTensor->Xx, OutTensor->ACx,
+        InTensor->NumThreads);
+    t.stop();
+    return t;
+  }
+
+public:
+  SpMMSpMMFusedCSCAtomic(TensorInputs<float> *In1, Stats *Stat1)
+      : SpMMSpMMUnFusedSP(In1, Stat1) {}
+};
+
 class SpMMSpMMFusedInterLayerVectorizedAvx256SP: public SpMMSpMMFusedVariableTileSizeSP{
 protected:
   Timer execute() override {

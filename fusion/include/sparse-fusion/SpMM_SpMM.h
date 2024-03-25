@@ -150,6 +150,12 @@ void spmmCsrSpmmCscFusedAffine(int M, int N, int K, int L,
                                double *ACx,
                                int NThreads);
 
+void spmmCsrSpmmCscFusedAffineSP(int M, int N, int K, int L, const int *Ap,
+                                 const int *Ai, const float *Ax, const int *Bp,
+                                 const int *Bi, const float *Bx,
+                                 const float *Cx, float *Dx, float *ACx,
+                                 int NThreads);
+
 void spmmCsrSpmmCscFusedColored(int M, int N, int K, int L,
                                 const int *Ap, const int *Ai, const double *Ax,
                                 const int *Bp, const int *Bi,const double *Bx,

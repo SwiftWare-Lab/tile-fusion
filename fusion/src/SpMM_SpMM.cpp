@@ -306,10 +306,12 @@ void spmmCsrSpmmCsrFusedKTiled(int M, int N, int K, int L, const int *Ap,
   }
 }
 
-void spmmCsrSpmmCscFused(int M, int N, int K, int L, const int *Ap,
-                         const int *Ai, const double *Ax, const int *Bp,
-                         const int *Bi, const double *Bx, const double *Cx,
-                         double *Dx, double *ACx, int LevelNo,
+
+
+void spmmCsrSpmmCscFusedSP(int M, int N, int K, int L, const int *Ap,
+                         const int *Ai, const float *Ax, const int *Bp,
+                         const int *Bi, const float *Bx, const float *Cx,
+                         float *Dx, float *ACx, int LevelNo,
                          const int *LevelPtr, const int *ParPtr,
                          const int *Partition, const int *ParType,
                          int NThreads) {
@@ -351,6 +353,30 @@ void spmmCsrSpmmCscFusedAffine(int M, int N, int K, int L, const int *Ap,
                                const int *Ai, const double *Ax, const int *Bp,
                                const int *Bi, const double *Bx,
                                const double *Cx, double *Dx, double *ACx,
+                               int NThreads) {
+#pragma omp parallel for num_threads(NThreads)
+  for (int i = 0; i < M; ++i) {
+    for (int j = Ap[i]; j < Ap[i + 1]; j++) {
+      int aij = Ai[j] * N;
+      for (int kk = 0; kk < N; ++kk) {
+        ACx[i * N + kk] += Ax[j] * Cx[aij + kk];
+      }
+    }
+    for (int k = Bp[i]; k < Bp[i + 1]; k++) { // for each column of B
+      for (int kk = 0; kk < N; ++kk) {
+        int bij = Bi[k] * N;
+        auto tmp = Bx[k] * ACx[i * N + kk];
+#pragma omp atomic
+        Dx[bij + kk] += tmp;
+      }
+    }
+  }
+}
+
+void spmmCsrSpmmCscFusedAffineSP(int M, int N, int K, int L, const int *Ap,
+                               const int *Ai, const float *Ax, const int *Bp,
+                               const int *Bi, const float *Bx,
+                               const float *Cx, float *Dx, float *ACx,
                                int NThreads) {
 #pragma omp parallel for num_threads(NThreads)
   for (int i = 0; i < M; ++i) {

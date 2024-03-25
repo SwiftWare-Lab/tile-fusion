@@ -3,7 +3,7 @@
 
 #SBATCH --cpus-per-task=40
 #SBATCH --export=ALL
-#SBATCH --job-name="fusion-scalability"
+#SBATCH --job-name="fusion"
 #SBATCH --mail-type=begin  # email me when the job starts
 #SBATCH --mail-type=end    # email me when the job finishes
 #SBATCH --mail-user=msalehi20@gmail.com
