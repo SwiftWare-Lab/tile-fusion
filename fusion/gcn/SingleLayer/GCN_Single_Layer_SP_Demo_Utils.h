@@ -183,6 +183,32 @@ public:
   ~GCNSingleLayerMKL_SP() { mkl_free(MKLAdj); }
 };
 
+class GCNSingleLayerSpMMGeMVFused : public GCNSingleLayerUnFusedCSRMKLGeMMSP {
+
+protected:
+  Timer execute() override {
+    OutTensor->reset();
+    mkl_set_num_threads(1);
+    Timer t;
+    float *intermediateResult = new float [InTensor->NumOfNodes * InTensor->EmbedDim]{};
+    t.start();
+    forwardForOneLayerSpMMGemVFusedSp(
+        InTensor->NumOfNodes, InTensor->AdjacencyMatrix->p,
+        InTensor->AdjacencyMatrix->i, InTensor->AMValues, InTensor->FeatureDim,
+        InTensor->EmbedDim, InTensor->FeatureMatrix, InTensor->Weight1,
+        OutTensor->FirstLayerOutput, InTensor->NumThreads);
+    t.stop();
+    delete[] intermediateResult;
+    return t;
+  }
+
+public:
+  GCNSingleLayerSpMMGeMVFused(GnnTensorSpInputs *In1, Stats *Stat1)
+      : GCNSingleLayerUnFusedCSRMKLGeMMSP(In1, Stat1) {
+  }
+  ~GCNSingleLayerSpMMGeMVFused() {}
+};
+
 class GCNSingleLayerSparseFusedParallelWithGeMM_SP : public GCNSingleLayerUnFusedCSRMKLGeMMSP {
 protected:
   sym_lib::MultiDimensionalSet *FusedCompSet;

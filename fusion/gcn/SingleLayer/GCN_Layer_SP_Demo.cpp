@@ -101,6 +101,16 @@ int main(const int argc, const char *argv[]) {
   delete stats;
   delete gcnSingleLayerLNR;
 
+  stats = new swiftware::benchmark::Stats("GCN_SingleLayer_CompressedGeMV", "GCN", 7,
+                                          tp._matrix_name, numThread);
+  stats->OtherStats["PackingType"] = {Separated};
+  GCNSingleLayerSpMMGeMVFused *gcnSingleLayerCompressedGeMV =
+      new GCNSingleLayerSpMMGeMVFused(inputs, stats);
+  gcnSingleLayerCompressedGeMV->run();
+  auto gcnSingleLayerCompressedGeMVStat = gcnSingleLayerCompressedGeMV->printStats();
+  delete stats;
+  delete gcnSingleLayerCompressedGeMV;
+
   stats = new swiftware::benchmark::Stats("GCN_SingleLayer_UnFused", "GCN", 7,
                                           tp._matrix_name, numThread);
   stats->OtherStats["PackingType"] = {Separated};
@@ -137,7 +147,7 @@ int main(const int argc, const char *argv[]) {
   std::cout << gcnSingleLayerSparseFusedSeparatedStat << spStat + tpStat << std::endl;
   std::cout << gcnSingleLayerLNRStat << spStat + tpStat << std::endl;
   std::cout << gcnSingleLayerTACOStat << spStat + tpStat << std::endl;
-
+  std::cout << gcnSingleLayerCompressedGeMVStat << spStat + tpStat << std::endl;
   delete[] inputs->CorrectSol;
   delete inputs;
   delete aCSC;

@@ -36,6 +36,27 @@ void forwardForOneLayer(int M, int *Ap, int *Ai, double *Ax,
   }
 }
 
+void forwardForOneLayerSpMMGemVFusedSp(int M, int *Ap, int *Ai, float *Ax,
+                        int InputChannelDim, int OutputChannelDim,
+                        float *Features, float *Weight, float *Output, int NumThreads) {
+#pragma omp parallel num_threads(NumThreads)
+  {
+#pragma omp for
+    for (int i = 0; i < M; i++) {
+      float *messages = Output + OutputChannelDim * i;
+      for (int j = Ap[i]; j < Ap[i + 1]; j++) {
+        int n = Ai[j];
+        cblas_sgemv(
+            CblasRowMajor, CblasNoTrans, OutputChannelDim, InputChannelDim,
+            Ax[j], // alpha
+            Weight, InputChannelDim, Features + (n * InputChannelDim), 1,
+            1., // beta
+            messages, 1);
+      }
+    }
+  }
+}
+
 void forwardForOneLayerFusedParallel(int M, int *Ap, int *Ai, double *Ax,
                                      int InputChannelDim, int OutputChannelDim,
                                      int *Degrees, double *Features,

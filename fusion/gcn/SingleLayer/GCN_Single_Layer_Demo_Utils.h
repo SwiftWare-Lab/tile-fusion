@@ -17,7 +17,7 @@
 
 using namespace swiftware::benchmark;
 
-class GCNSingleLayerFused : public GCNIntraFusedSequential {
+class GCNSingleLayerSpMMGemVFused : public GCNIntraFusedSequential {
 protected:
   bool verify(double &Error) override {
     bool retValue = true;
@@ -53,11 +53,11 @@ protected:
   }
 
 public:
-  GCNSingleLayerFused(GnnTensorInputs *In1, Stats *Stat1)
+  GCNSingleLayerSpMMGemVFused(GnnTensorInputs *In1, Stats *Stat1)
       : GCNIntraFusedSequential(In1, Stat1) {}
 };
 
-class GCNSingleLayerFusedParallel : public GCNSingleLayerFused {
+class GCNSingleLayerFusedParallel : public GCNSingleLayerSpMMGemVFused {
 protected:
   Timer execute() override {
     OutTensor->reset();
@@ -76,11 +76,11 @@ protected:
 
 public:
   GCNSingleLayerFusedParallel(GnnTensorInputs *In1, Stats *Stat1)
-      : GCNSingleLayerFused(In1, Stat1) {}
+      : GCNSingleLayerSpMMGemVFused(In1, Stat1) {}
 };
 
 #ifdef MKL
-class GCNSingleLayerMKL : public GCNSingleLayerFused {
+class GCNSingleLayerMKL : public GCNSingleLayerSpMMGemVFused {
 
 protected:
   sparse_matrix_t MKLAdj;
@@ -101,7 +101,7 @@ protected:
 
 public:
   GCNSingleLayerMKL(GnnTensorInputs *In1, Stats *Stat1)
-      : GCNSingleLayerFused(In1, Stat1) {
+      : GCNSingleLayerSpMMGemVFused(In1, Stat1) {
     mkl_sparse_d_create_csr(
         &MKLAdj, SPARSE_INDEX_BASE_ZERO, this->InTensor->NumOfNodes,
         this->InTensor->NumOfNodes, InTensor->AdjacencyMatrix->p,
@@ -111,7 +111,7 @@ public:
   ~GCNSingleLayerMKL() { mkl_free(MKLAdj); }
 };
 
-class GCNSingleLayerUnFusedCSRMKLGeMM : public GCNSingleLayerFused {
+class GCNSingleLayerUnFusedCSRMKLGeMM : public GCNSingleLayerSpMMGemVFused {
 
 protected:
   Timer execute() override {
@@ -133,10 +133,10 @@ protected:
 
 public:
   GCNSingleLayerUnFusedCSRMKLGeMM(GnnTensorInputs *In1, Stats *Stat1)
-      : GCNSingleLayerFused(In1, Stat1) {}
+      : GCNSingleLayerSpMMGemVFused(In1, Stat1) {}
 };
 
-class GCNSingleLayerUnfusedCSC : public GCNSingleLayerFused {
+class GCNSingleLayerUnfusedCSC : public GCNSingleLayerSpMMGemVFused {
 
 protected:
   Timer execute() override {
@@ -156,10 +156,10 @@ protected:
 
 public:
   GCNSingleLayerUnfusedCSC(GnnTensorInputs *In1, Stats *Stat1)
-      : GCNSingleLayerFused(In1, Stat1) {}
+      : GCNSingleLayerSpMMGemVFused(In1, Stat1) {}
 };
 
-class GCNSingleLayerTiledFused : public GCNSingleLayerFused {
+class GCNSingleLayerTiledFused : public GCNSingleLayerSpMMGemVFused {
   int TileSize;
   InspectorForTiledFused *Inspector;
   TiledFusedLayerSchedulingParameters *Sp;
@@ -192,7 +192,7 @@ protected:
 
 public:
   GCNSingleLayerTiledFused(GnnTensorInputs *In1, Stats *Stat1, int TileSize1)
-      : GCNSingleLayerFused(In1, Stat1), TileSize(TileSize1) {
+      : GCNSingleLayerSpMMGemVFused(In1, Stat1), TileSize(TileSize1) {
     Inspector = new InspectorForTiledFused();
   }
   ~GCNSingleLayerTiledFused() {
@@ -201,7 +201,7 @@ public:
   }
 };
 
-class GCNSingleLayerTiledFusedParallel : public GCNSingleLayerFused {
+class GCNSingleLayerTiledFusedParallel : public GCNSingleLayerSpMMGemVFused {
 protected:
   int TileSize;
   InspectorForTiledFused *Inspector;
@@ -235,7 +235,7 @@ protected:
 public:
   GCNSingleLayerTiledFusedParallel(GnnTensorInputs *In1, Stats *Stat1,
                                    int TileSize1)
-      : GCNSingleLayerFused(In1, Stat1), TileSize(TileSize1) {
+      : GCNSingleLayerSpMMGemVFused(In1, Stat1), TileSize(TileSize1) {
     Inspector = new InspectorForTiledFused();
   }
 
@@ -245,7 +245,7 @@ public:
   }
 };
 
-class GCNSingleLayerTiledFusedCSC : public GCNSingleLayerFused {
+class GCNSingleLayerTiledFusedCSC : public GCNSingleLayerSpMMGemVFused {
 protected:
   int TileSize;
   Timer execute() override {
@@ -265,10 +265,10 @@ protected:
 
 public:
   GCNSingleLayerTiledFusedCSC(GnnTensorInputs *In1, Stats *Stat1, int TileSize1)
-      : GCNSingleLayerFused(In1, Stat1), TileSize(TileSize1) {}
+      : GCNSingleLayerSpMMGemVFused(In1, Stat1), TileSize(TileSize1) {}
 };
 
-class GCNSingleLayerFusedCSC : public GCNSingleLayerFused {
+class GCNSingleLayerFusedCSC : public GCNSingleLayerSpMMGemVFused {
 protected:
   Timer execute() override {
     OutTensor->reset();
@@ -287,10 +287,10 @@ protected:
 
 public:
   GCNSingleLayerFusedCSC(GnnTensorInputs *In1, Stats *Stat1)
-      : GCNSingleLayerFused(In1, Stat1) {}
+      : GCNSingleLayerSpMMGemVFused(In1, Stat1) {}
 };
 
-class GCNSingleLayerTiledFusedCSCParallelAtomic : public GCNSingleLayerFused {
+class GCNSingleLayerTiledFusedCSCParallelAtomic : public GCNSingleLayerSpMMGemVFused {
 protected:
   int TileSize;
   Timer execute() override {
@@ -310,11 +310,11 @@ protected:
 public:
   GCNSingleLayerTiledFusedCSCParallelAtomic(
       GnnTensorInputs *In1, Stats *Stat1, int TileSize1)
-      : GCNSingleLayerFused(In1, Stat1), TileSize(TileSize1)
+      : GCNSingleLayerSpMMGemVFused(In1, Stat1), TileSize(TileSize1)
          {}
 };
 
-class GCNSingleLayerTiledFusedCSCParallel : public GCNSingleLayerFused {
+class GCNSingleLayerTiledFusedCSCParallel : public GCNSingleLayerSpMMGemVFused {
 protected:
   int TileSize;
   sym_lib::MultiDimensionalSet *FusedCompSet;
@@ -350,7 +350,7 @@ public:
   GCNSingleLayerTiledFusedCSCParallel(
       GnnTensorInputs *In1, Stats *Stat1, int TileSize1,
       std::map<int, std::vector<int>> ConflictGraphColoring1)
-      : GCNSingleLayerFused(In1, Stat1), TileSize(TileSize1),
+      : GCNSingleLayerSpMMGemVFused(In1, Stat1), TileSize(TileSize1),
         ConflictGraphColoring(ConflictGraphColoring1) {
     Inspector = new InspectorForSingleLayerTiledFusedCSCParallel();
   }
@@ -361,7 +361,7 @@ public:
 };
 
 class GCNSingleLayerTiledFusedCSCParallelWithKTiling
-    : public GCNSingleLayerFused {
+    : public GCNSingleLayerSpMMGemVFused {
 protected:
   int TileSize;
   int KTileSize;
@@ -398,7 +398,7 @@ public:
   GCNSingleLayerTiledFusedCSCParallelWithKTiling(
       GnnTensorInputs *In1, Stats *Stat1, int TileSize1,
       std::map<int, std::vector<int>> ConflictGraphColoring1, int KTileSize1)
-      : GCNSingleLayerFused(In1, Stat1), TileSize(TileSize1),
+      : GCNSingleLayerSpMMGemVFused(In1, Stat1), TileSize(TileSize1),
         ConflictGraphColoring(ConflictGraphColoring1), KTileSize(KTileSize1) {
     Inspector = new InspectorForSingleLayerTiledFusedCSCParallel();
   }
@@ -409,7 +409,7 @@ public:
 };
 
 class GCNSingleLayerTiledFusedCSCParallelWithSchedulingKTiling
-    : public GCNSingleLayerFused {
+    : public GCNSingleLayerSpMMGemVFused {
 protected:
   int TileSize;
   sym_lib::MultiDimensionalSet *FusedCompSet;
@@ -447,7 +447,7 @@ public:
   GCNSingleLayerTiledFusedCSCParallelWithSchedulingKTiling(
       GnnTensorInputs *In1, Stats *Stat1, int TileSize1,
       std::map<int, std::vector<int>> ConflictGraphColoring1, int KTileSize1)
-      : GCNSingleLayerFused(In1, Stat1), TileSize(TileSize1),
+      : GCNSingleLayerSpMMGemVFused(In1, Stat1), TileSize(TileSize1),
         ConflictGraphColoring(ConflictGraphColoring1), KTileSize(KTileSize1) {
     Inspector = new InspectorForSingleLayerTiledFusedCSCParallelWithSchedulingKTiles();
   }
@@ -457,7 +457,7 @@ public:
   }
 };
 
-class GCNSingleLayerTiledFusedCSCCombined : public GCNSingleLayerFused {
+class GCNSingleLayerTiledFusedCSCCombined : public GCNSingleLayerSpMMGemVFused {
 protected:
   int TileSize;
   int WorkloadMinSize;
@@ -494,7 +494,7 @@ public:
   GCNSingleLayerTiledFusedCSCCombined(
       GnnTensorInputs *In1, Stats *Stat1, int TileSize1, int WorkloadMinSize1,
       std::map<int, std::vector<int>> ConflictGraphColoring1)
-      : GCNSingleLayerFused(In1, Stat1), TileSize(TileSize1),
+      : GCNSingleLayerSpMMGemVFused(In1, Stat1), TileSize(TileSize1),
         ConflictGraphColoring(ConflictGraphColoring1),
         WorkloadMinSize(WorkloadMinSize1) {
     Inspector = new InspectorForSingleLayerTiledFusedCSCCombined();
@@ -506,7 +506,7 @@ public:
 };
 
 class GCNSingleLayerTiledFusedCSCCombinedWithKTiling
-    : public GCNSingleLayerFused {
+    : public GCNSingleLayerSpMMGemVFused {
 protected:
   int TileSize;
   int WorkloadMinSize;
@@ -545,7 +545,7 @@ public:
   GCNSingleLayerTiledFusedCSCCombinedWithKTiling(
       GnnTensorInputs *In1, Stats *Stat1, int TileSize1, int WorkloadMinSize1,
       std::map<int, std::vector<int>> ConflictGraphColoring1, int KTileSize1)
-      : GCNSingleLayerFused(In1, Stat1), TileSize(TileSize1),
+      : GCNSingleLayerSpMMGemVFused(In1, Stat1), TileSize(TileSize1),
         ConflictGraphColoring(ConflictGraphColoring1),
         WorkloadMinSize(WorkloadMinSize1), KTileSize(KTileSize1) {
     Inspector = new InspectorForSingleLayerTiledFusedCSCCombinedWithKTiling();
@@ -556,7 +556,7 @@ public:
   }
 };
 
-class GCNSingleLayerSparseFusedParallel : public GCNSingleLayerFused {
+class GCNSingleLayerSparseFusedParallel : public GCNSingleLayerSpMMGemVFused {
 protected:
   sym_lib::MultiDimensionalSet *FusedCompSet;
   InspectorForAllFused *Inspector;
@@ -590,7 +590,7 @@ protected:
 public:
   GCNSingleLayerSparseFusedParallel(GnnTensorInputs *In1, Stats *Stat1,
                                     sym_lib::ScheduleParameters SpIn)
-      : GCNSingleLayerFused(In1, Stat1) {
+      : GCNSingleLayerSpMMGemVFused(In1, Stat1) {
     Inspector = new InspectorForAllFused(SpIn, Stat1);
   }
   ~GCNSingleLayerSparseFusedParallel() {
@@ -599,7 +599,7 @@ public:
   }
 };
 
-class GCNSingleLayerSparseFusedParallelWithGeMM : public GCNSingleLayerFused {
+class GCNSingleLayerSparseFusedParallelWithGeMM : public GCNSingleLayerSpMMGemVFused {
 protected:
   sym_lib::MultiDimensionalSet *FusedCompSet;
   InspectorForAllFused *Inspector;
@@ -636,7 +636,7 @@ protected:
 public:
   GCNSingleLayerSparseFusedParallelWithGeMM(GnnTensorInputs *In1, Stats *Stat1,
                                             sym_lib::ScheduleParameters SpIn)
-      : GCNSingleLayerFused(In1, Stat1) {
+      : GCNSingleLayerSpMMGemVFused(In1, Stat1) {
     Inspector = new InspectorForAllFused(SpIn, Stat1);
   }
   ~GCNSingleLayerSparseFusedParallelWithGeMM() {
@@ -646,7 +646,7 @@ public:
 };
 
 #ifdef __AVX2__
-class GCNSingleLayerFusedCSCParallelVectorized : public GCNSingleLayerFused {
+class GCNSingleLayerFusedCSCParallelVectorized : public GCNSingleLayerSpMMGemVFused {
 protected:
   Timer execute() override {
     OutTensor->reset();
@@ -667,10 +667,10 @@ protected:
 
 public:
   GCNSingleLayerFusedCSCParallelVectorized(GnnTensorInputs *In1, Stats *Stat1)
-      : GCNSingleLayerFused(In1, Stat1) {}
+      : GCNSingleLayerSpMMGemVFused(In1, Stat1) {}
 };
 
-class GCNSingleLayerTiledFusedCSCVectorized : public GCNSingleLayerFused {
+class GCNSingleLayerTiledFusedCSCVectorized : public GCNSingleLayerSpMMGemVFused {
 protected:
   int TileSize;
 
@@ -692,11 +692,11 @@ protected:
 public:
   GCNSingleLayerTiledFusedCSCVectorized(GnnTensorInputs *In1, Stats *Stat1,
                                         int TileSize1)
-      : GCNSingleLayerFused(In1, Stat1), TileSize(TileSize1) {}
+      : GCNSingleLayerSpMMGemVFused(In1, Stat1), TileSize(TileSize1) {}
 };
 
 class GCNSingleLayerTiledFusedCSCCombinedVectorized
-    : public GCNSingleLayerFused {
+    : public GCNSingleLayerSpMMGemVFused {
 protected:
   int TileSize;
   int WorkloadMinSize;
@@ -733,7 +733,7 @@ public:
   GCNSingleLayerTiledFusedCSCCombinedVectorized(
       GnnTensorInputs *In1, Stats *Stat1, int TileSize1, int WorkloadMinSize1,
       std::map<int, std::vector<int>> ConflictGraphColoring1)
-      : GCNSingleLayerFused(In1, Stat1), TileSize(TileSize1),
+      : GCNSingleLayerSpMMGemVFused(In1, Stat1), TileSize(TileSize1),
         ConflictGraphColoring(ConflictGraphColoring1),
         WorkloadMinSize(WorkloadMinSize1) {
     Inspector = new InspectorForSingleLayerTiledFusedCSCCombined();
