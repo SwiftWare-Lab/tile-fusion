@@ -32,8 +32,8 @@ void forwardForOneLayerWithMKLGeMMAndMKLSpMM(int NumOfNodes,
                                              double *Output, double* IntermediateResult) {
   matrix_descr d;
   d.type = SPARSE_MATRIX_TYPE_GENERAL;
-  cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasTrans, NumOfNodes, OutDim,
-              FeatDim, 1., Features, FeatDim, Weight, FeatDim, 0.,
+  cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, NumOfNodes, OutDim,
+              FeatDim, 1., Features, FeatDim, Weight, OutDim, 0.,
               IntermediateResult,
               OutDim);
   mkl_sparse_d_mm(SPARSE_OPERATION_NON_TRANSPOSE, 1, AdjMatrix, d,
@@ -49,8 +49,8 @@ void forwardForOneLayerWithMKLGeMMAndMKLSpMMSP(int NumOfNodes,
                                                float *Output, float *IntermediateResult) {
   matrix_descr d;
   d.type = SPARSE_MATRIX_TYPE_GENERAL;
-  cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, NumOfNodes, OutDim,
-              FeatDim, 1., Features, FeatDim, Weight, FeatDim, 0.,
+  cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, NumOfNodes, OutDim,
+              FeatDim, 1., Features, FeatDim, Weight, OutDim, 0.,
               IntermediateResult,
               OutDim);
   mkl_sparse_s_mm(SPARSE_OPERATION_NON_TRANSPOSE, 1, AdjMatrix, d,

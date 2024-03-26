@@ -142,9 +142,9 @@ void forwardForOneLayerFusedParallelSeparatedVectorizedSP(
         int iL1 = Partition[kBeginL1];
         int tileSize = kEndL1 - kBeginL1;
         cblas_sgemm(
-            CblasRowMajor, CblasNoTrans, CblasTrans, tileSize, OutputChannelDim,
+            CblasRowMajor, CblasNoTrans, CblasNoTrans, tileSize, OutputChannelDim,
             InputChannelDim, 1., Features + iL1 * InputChannelDim,
-            InputChannelDim, Weight, InputChannelDim, 0.,
+            InputChannelDim, Weight, OutputChannelDim, 0.,
             IntermediateResult + iL1 * OutputChannelDim, OutputChannelDim);
         int kEndL2 = MixPtr[j1 * numKernels + 1];
         for (int k1 = kEndL1; k1 < kEndL2; ++k1) {
@@ -219,10 +219,10 @@ void forwardForOneLayerFusedParallelSeparated(int M, int *Ap, int *Ai, double *A
         int kEndL1 = MixPtr[j1*numKernels];
         int iL1 = Partition[kBeginL1];
         int tileSize = kEndL1 - kBeginL1;
-        cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasTrans, tileSize,
+        cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, tileSize,
                     OutputChannelDim, InputChannelDim, 1.,
                     Features + iL1 * InputChannelDim,
-                    InputChannelDim, Weight, InputChannelDim, 0., IntermediateResult + iL1*OutputChannelDim,
+                    InputChannelDim, Weight, OutputChannelDim, 0., IntermediateResult + iL1*OutputChannelDim,
                     OutputChannelDim);
         int kEndL2 = MixPtr[j1*numKernels + 1];
         for (int k1 = kEndL1; k1 < kEndL2; ++k1) {
@@ -470,8 +470,8 @@ void forwardForOneLayerWithMKLGeMMAndSpMM(int NumOfNodes, int *Ap, int *Ai,
                                           int OutDim, double *Output, double *IntermediateResult,int NumThreads) {
 //  matrix_descr d;
 //  d.type = SPARSE_MATRIX_TYPE_GENERAL;
-  cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasTrans, NumOfNodes, OutDim,
-              FeatDim, 1., Features, FeatDim, Weight, FeatDim, 0.,
+  cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, NumOfNodes, OutDim,
+              FeatDim, 1., Features, FeatDim, Weight, OutDim, 0.,
               IntermediateResult,
               OutDim);
 #pragma omp parallel num_threads(NumThreads)
@@ -494,8 +494,8 @@ void forwardForOneLayerWithMKLGeMMAndSpMMSPVectorized(int NumOfNodes, int *Ap, i
                                                       int OutDim, float *Output, float *IntermediateResult,int NumThreads) {
 //  matrix_descr d;
 //  d.type = SPARSE_MATRIX_TYPE_GENERAL;
-  cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, NumOfNodes, OutDim,
-              FeatDim, 1., Features, FeatDim, Weight, FeatDim, 0.,
+  cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, NumOfNodes, OutDim,
+              FeatDim, 1., Features, FeatDim, Weight, OutDim, 0.,
               IntermediateResult,
               OutDim);
 #pragma omp parallel num_threads(NumThreads)
@@ -548,12 +548,6 @@ void forwardForOneLayerWithMKLGeMMAndSpMMSPVectorized(int NumOfNodes, int *Ap, i
         _mm256_storeu_ps(Output + ip + kk + 16, dxV3);
         _mm256_storeu_ps(Output + ip + kk + 24, dxV4);
       }
-      for (int j = Ap[i]; j < Ap[i + 1]; j++) {
-        int ip = OutDim * i;
-        for (int k = 0; k < OutDim; k++) {
-          Output[ip + k] += Ax[j] * IntermediateResult[Ai[j] * OutDim + k];
-        }
-      }
     }
   }
 }
@@ -566,8 +560,8 @@ void forwardForOneLayerWithMKLGeMMAndSpMMSP(int NumOfNodes, int *Ap, int *Ai,
   matrix_descr d;
   d.type = SPARSE_MATRIX_TYPE_GENERAL;
 #endif
-  cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, NumOfNodes, OutDim,
-              FeatDim, 1., Features, FeatDim, Weight, FeatDim, 0.,
+  cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, NumOfNodes, OutDim,
+              FeatDim, 1., Features, FeatDim, Weight, OutDim, 0.,
               IntermediateResult,
               OutDim);
 #pragma omp parallel num_threads(NumThreads)

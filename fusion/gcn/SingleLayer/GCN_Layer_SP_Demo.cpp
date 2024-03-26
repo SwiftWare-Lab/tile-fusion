@@ -67,10 +67,10 @@ int main(const int argc, const char *argv[]) {
       new GCNSingleLayerUnFusedCSRMKLGeMMSP(inputs, stats);
   gcnSingleLayerUnFused->run();
   inputs->CorrectSol =
-      new float[inputs->AdjacencyMatrix->m * layer1Weight->row];
+      new float[inputs->AdjacencyMatrix->m * layer1Weight->col];
   std::copy(gcnSingleLayerUnFused->OutTensor->FirstLayerOutput,
             gcnSingleLayerUnFused->OutTensor->FirstLayerOutput +
-                inputs->AdjacencyMatrix->m * layer1Weight->row,
+                inputs->AdjacencyMatrix->m * layer1Weight->col,
             inputs->CorrectSol);
   auto gcnSingleLayerUnFusedStat = gcnSingleLayerUnFused->printStats();
   auto headerStat = gcnSingleLayerUnFused->printStatsHeader();
