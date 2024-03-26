@@ -190,7 +190,6 @@ protected:
     OutTensor->reset();
     mkl_set_num_threads(1);
     Timer t;
-    float *intermediateResult = new float [InTensor->NumOfNodes * InTensor->EmbedDim]{};
     t.start();
     forwardForOneLayerSpMMGemVFusedSp(
         InTensor->NumOfNodes, InTensor->AdjacencyMatrix->p,
@@ -198,7 +197,6 @@ protected:
         InTensor->EmbedDim, InTensor->FeatureMatrix, InTensor->Weight1,
         OutTensor->FirstLayerOutput, InTensor->NumThreads);
     t.stop();
-    delete[] intermediateResult;
     return t;
   }
 
