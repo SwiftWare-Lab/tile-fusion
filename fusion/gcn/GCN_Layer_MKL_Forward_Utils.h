@@ -26,7 +26,7 @@ void forwardForOneLayer(int M, int *Ap, int *Ai, double *Ax,
     double *messages = Output + OutputChannelDim * i;
     for (int j = Ap[i]; j < Ap[i + 1]; j++) {
       int n = Ai[j];
-      cblas_dgemv(CblasRowMajor, CblasTrans, InputChannelDim,
+      cblas_dgemv(CblasRowMajor, CblasNoTrans, InputChannelDim,
                   OutputChannelDim,
                   Ax[j], // alpha
                   Weight, InputChannelDim, Features + (n * InputChannelDim), 1,
@@ -47,9 +47,9 @@ void forwardForOneLayerSpMMGemVFusedSp(int M, int *Ap, int *Ai, float *Ax,
       for (int j = Ap[i]; j < Ap[i + 1]; j++) {
         int n = Ai[j];
         cblas_sgemv(
-            CblasRowMajor, CblasNoTrans, OutputChannelDim, InputChannelDim,
+            CblasRowMajor, CblasTrans, InputChannelDim, OutputChannelDim,
             Ax[j], // alpha
-            Weight, InputChannelDim, Features + (n * InputChannelDim), 1,
+            Weight, OutputChannelDim, Features + (n * InputChannelDim), 1,
             1., // beta
             messages, 1);
       }
