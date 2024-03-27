@@ -128,12 +128,9 @@ void forwardForOneLayerFusedParallelSeparatedVectorizedSP(
     float *IntermediateResult, int NumThreads, int LevelNo, const int *LevelPtr,
     const int *ParPtr, const int *MixPtr, const int *Partition) {
   int numKernels = 2;
-  for (int i1 = 0; i1 < 1; i1++) {
-    pw_init_instruments;
-#pragma omp parallel num_threads(NumThreads)
-    {
-      pw_start_instruments_loop(omp_get_thread_num());
-#pragma omp for
+  pw_init_instruments;
+  pw_start_instruments_loop(omp_get_thread_num());
+  for (int i1 = 0; i1 < LevelNo; i1++) {
       for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; j1++) {
         int kBeginL1 = ParPtr[j1];
         int kEndL1 = MixPtr[j1 * numKernels];
@@ -195,9 +192,8 @@ void forwardForOneLayerFusedParallelSeparatedVectorizedSP(
           }
         }
       }
-      pw_stop_instruments_loop(omp_get_thread_num());
-    }
   }
+  pw_stop_instruments_loop(omp_get_thread_num());
 }
 
 
@@ -745,13 +741,12 @@ void forwardForOneLayerWithMKLGeMMAndSpMMSPVectorized(int NumOfNodes, int *Ap, i
                                             int OutDim, float *Output, float *IntermediateResult,int NumThreads) {
   matrix_descr d;
   d.type = SPARSE_MATRIX_TYPE_GENERAL;
+  pw_init_instruments;
+  pw_start_instruments_loop(omp_get_thread_num());
   cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, NumOfNodes, OutDim,
               FeatDim, 1., Features, FeatDim, Weight, FeatDim, 0.,
               IntermediateResult,
               OutDim);
-#pragma omp parallel num_threads(NumThreads)
-  {
-#pragma omp for
     for (int i = 0; i < NumOfNodes; i++) {
       for (int kk = 0; kk < OutDim; kk += 32) {
         int ip = i * OutDim;
@@ -806,7 +801,7 @@ void forwardForOneLayerWithMKLGeMMAndSpMMSPVectorized(int NumOfNodes, int *Ap, i
         }
       }
     }
-  }
+  pw_stop_instruments_loop(omp_get_thread_num());
 }
 
 void forwardForOneLayerUnFusedFirstWavefront(
