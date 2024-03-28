@@ -47,7 +47,8 @@ module load python
 mkdir build
 # shellcheck disable=SC2164
 cd build
-TORCH_LIB=$SCRATCH/pytorch
+#TORCH_LIB=$SCRATCH/pytorch
+TORCH_LIB=$HOME/pytorch
 cmake -DCMAKE_PREFIX_PATH="$TORCH_LIB;$MKL_DIR/lib/intel64;$MKL_DIR/include;$MKL_DIR/../compiler/lib/intel64;_deps/openblas-build/lib/"  -DCMAKE_BUILD_TYPE=Release ..
 make
 mkdir logs
@@ -70,19 +71,20 @@ export OMP_DYNAMIC=FALSE;
 
 
 sr=1
-for ED in {32,64,128,256,512}; do
+for ED in {32,64,128,256}; do
   header=1
   while read line; do
     echo "for $line $BCOL $ED $tn $mw"
     if [ $header -eq 1 ]; then
-      $BINPATH/fused_gcn -dp $DATA/$line -nt $THREADS -ah -ed $ED > ./build/logs/gcn_end2end_$ED.csv
+      $BINPATH/fused_gcn -dp $DATA/$line -nt $THREADS -ah -ed $ED -en TiledFused > ./build/logs/gcn_end2end_$ED.csv
       header=0
     else
-      $BINPATH/fused_gcn -dp $DATA/$line -nt $THREADS -ed $ED >> ./build/logs/gcn_end2end_$ED.csv
+      $BINPATH/fused_gcn -dp $DATA/$line -nt $THREADS -ed $ED -en TiledFused>> ./build/logs/gcn_end2end_$ED.csv
     fi
-  done
-  source $SCRATCH/.virtualenvs/end2end/bin/activate
-  python ./torch/gcn-training-example-pyg.py --hidden_channels $ED --threads $THREADS >> ./build/logs/gcn_end2end_$ED.csv
-  python ./torch/gcn-training-example-DGL.py --hidden_channels $ED --threads $THREADS >> ./build/logs/gcn_end2end_$ED.csv
-  deactivate
-done < $MATLIST
+    $BINPATH/fused_gcn -dp $DATA/$line -nt $THREADS -ed $ED -en MKL>> ./build/logs/gcn_end2end_$ED.csv
+  done < $MATLIST
+#  source $SCRATCH/.virtualenvs/end2end/bin/activate
+#  python ./torch/gcn-training-example-pyg.py --hidden_channels $ED --threads $THREADS >> ./build/logs/gcn_end2end_$ED.csv
+#  python ./torch/gcn-training-example-DGL.py --hidden_channels $ED --threads $THREADS >> ./build/logs/gcn_end2end_$ED.csv
+#  deactivate
+done

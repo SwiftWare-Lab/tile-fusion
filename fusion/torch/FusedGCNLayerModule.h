@@ -49,6 +49,28 @@ struct CSRFusedGCNLayer : torch::nn::Module {
   std::vector<torch::Tensor> scheduleData;
 };
 
+
+struct MKLGCNLayer : torch::nn::Module {
+  MKLGCNLayer(int inputChannelDim, int outputChannelDim, int numThreads) {
+    this->NumThreads = numThreads;
+    this->weight = register_parameter(
+        "weight",
+        torch::randn({outputChannelDim, inputChannelDim}).requires_grad_(true));
+  }
+  MKLGCNLayer() {
+    this->NumThreads = 0;
+    this->weight =
+        register_parameter("weight", torch::randn({0, 0}).requires_grad_(true));
+  }
+
+  torch::Tensor forward(torch::Tensor x, torch::Tensor adj) {
+    return GCNForwardFunctionMKL::apply(x, adj, weight, NumThreads);
+  }
+
+  int NumThreads;
+  torch::Tensor weight;
+};
+
 struct CSCFusedGCNLayer : torch::nn::Module {
   CSCFusedGCNLayer(int inputChannelDim, int outputChannelDim, int minTileSize,
                    int maxTileSize, int numThreads, int numWorkloads,

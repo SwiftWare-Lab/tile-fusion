@@ -132,8 +132,14 @@ int main(const int argc, const char *argv[]) {
 //  std::cout << "Training..." << std::endl;
 //  torch::set_num_interop_threads(sp._num_threads);
 //  torch::set_num_threads(sp._num_threads);
-  auto *net = new CSRFusedGCN(adj, features, tp._embed_dim, numClasses,
-                              sp._num_threads, fusedCompSet);
+  GCN *net;
+  if (tp.expariment_name == "MKL"){
+    net = new MKLGCN(adj, features, tp._embed_dim, numClasses, sp._num_threads, fusedCompSet);
+  }else if (tp.expariment_name == "TiledFused"){
+    net = new CSRFusedGCN(adj, features, tp._embed_dim, numClasses,
+                          sp._num_threads, fusedCompSet);
+
+  }
   torch::optim::Adam optimizer(net->parameters(), /*lr=*/0.01);
   swiftware::benchmark::Timer t1;
   t1.start();
@@ -158,13 +164,12 @@ int main(const int argc, const char *argv[]) {
 //     Update the parameters based on the calculated gradients.
     optimizer.step();
 //    std::cout << "Epoch: " << epoch << " | Loss: " << loss.item<float>() << std::endl;
-//              << std::endl;
   }
   t1.stop();
   if (tp.print_header){
     std::cout << "Impl,Graph,Time" << std::endl;
   }
-  std::cout << "TiledFused," << tp._matrix_name << "," << t1.printTimeCsv(0) << std::endl;
+  std::cout <<  tp.expariment_name << "," << tp._matrix_name << "," << t1.printTimeCsv(0) << std::endl;
   delete net;
   delete fusedCompSet;
 }
