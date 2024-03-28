@@ -239,7 +239,7 @@ public:
                                torch::Tensor X, torch::Tensor Adj,
                                torch::Tensor Weight, int NumThreads) {
     //        ctx->mark_non_differentiable({WorkloadPtr, Ids, TilePtr});
-    mkl_set_num_threads(1);
+    mkl_set_num_threads(NumThreads);
     sparse_matrix_t MKLAdj;
     matrix_descr d;
     d.type = SPARSE_MATRIX_TYPE_GENERAL;
