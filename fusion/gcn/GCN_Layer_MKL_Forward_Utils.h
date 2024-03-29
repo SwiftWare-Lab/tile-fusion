@@ -262,10 +262,10 @@ void forwardForOneLayerFusedParallelSeparatedVectorized(int M, int *Ap, int *Ai,
         int kEndL1 = MixPtr[j1*numKernels];
         int iL1 = Partition[kBeginL1];
         int tileSize = kEndL1 - kBeginL1;
-        cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasTrans, tileSize,
+        cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, tileSize,
                     OutputChannelDim, InputChannelDim, 1.,
                     Features + iL1 * InputChannelDim,
-                    InputChannelDim, Weight, InputChannelDim, 0., IntermediateResult + iL1*OutputChannelDim,
+                    InputChannelDim, Weight, OutputChannelDim, 0., IntermediateResult + iL1*OutputChannelDim,
                     OutputChannelDim);
         int kEndL2 = MixPtr[j1*numKernels + 1];
         for (int k1 = kEndL1; k1 < kEndL2; ++k1) {
@@ -552,8 +552,8 @@ void forwardForOneLayerWithMKLGeMMAndMKLSpMM(int NumOfNodes,
                                        double *Output, double* IntermediateResult) {
   matrix_descr d;
   d.type = SPARSE_MATRIX_TYPE_GENERAL;
-  cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasTrans, NumOfNodes, OutDim,
-              FeatDim, 1., Features, FeatDim, Weight, FeatDim, 0.,
+  cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, NumOfNodes, OutDim,
+              FeatDim, 1., Features, FeatDim, Weight, OutDim, 0.,
               IntermediateResult,
               OutDim);
   mkl_sparse_d_mm(SPARSE_OPERATION_NON_TRANSPOSE, 1, AdjMatrix, d,
@@ -608,8 +608,8 @@ void forwardForOneLayerWithMKLGeMMAndSpMMVectorized(int NumOfNodes, int *Ap, int
                                           int OutDim, double *Output, double *IntermediateResult,int NumThreads) {
   matrix_descr d;
   d.type = SPARSE_MATRIX_TYPE_GENERAL;
-  cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasTrans, NumOfNodes, OutDim,
-              FeatDim, 1., Features, FeatDim, Weight, FeatDim, 0.,
+  cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, NumOfNodes, OutDim,
+              FeatDim, 1., Features, FeatDim, Weight, OutDim, 0.,
               IntermediateResult,
               OutDim);
 #pragma omp parallel num_threads(NumThreads)
