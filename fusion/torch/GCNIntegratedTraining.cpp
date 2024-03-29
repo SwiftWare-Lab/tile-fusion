@@ -50,7 +50,7 @@ int tuneMatrix(CSR *Matrix, FloatDense *Features,
       std::memset(out, 0, Matrix->m * Tp._embed_dim * sizeof(float));
       t1.start();
       forwardForOneLayerFusedParallelSeparatedVectorizedSP(
-          Matrix->m, Matrix->p, Matrix->i, matrixValues, Tp._b_cols,
+          Matrix->m, Matrix->p, Matrix->i, matrixValues, Tp._embed_dim,
           Tp._embed_dim, Features->a, weight1->a, out, Sp._num_threads,
           fusedCompSet->n1_, fusedCompSet->ptr1_, fusedCompSet->ptr2_,
           fusedCompSet->ker_begin_, fusedCompSet->id_);
@@ -58,6 +58,7 @@ int tuneMatrix(CSR *Matrix, FloatDense *Features,
     }
     delete fusedCompSet;
     double avgTime = calculateAverageTime(t1);
+    paramsAvgTime.push_back(avgTime);
 //    std::cout << "Param: " << parameters[j] << " Time: " << std::to_string(avgTime)
 //              << std::endl;
   }
@@ -83,6 +84,7 @@ int main(const int argc, const char *argv[]) {
   FloatDense *featuresData = readFloatDenseMatrixFromParameter(
       &tp, aCSC->m, tp._embed_dim, tp.e2e_data_path + "/features.mtx");
   sp.IterPerPartition = tuneMatrix(aCSR, featuresData, sp, tp);
+//  std::cout << sp.IterPerPartition << std::endl;
 //  sp.IterPerPartition = 1024;
 //    float *weight1Data = readFloatDenseMatrixFromParameter(&tp, 16, 1433,
   //                                                         tp.e2e_data_path +
