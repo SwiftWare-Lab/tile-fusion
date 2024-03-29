@@ -84,7 +84,7 @@ int main(const int argc, const char *argv[]) {
       &tp, aCSC->m, tp._embed_dim, tp.e2e_data_path + "/features.mtx");
   sp.IterPerPartition = tuneMatrix(aCSR, featuresData, sp, tp);
 //  sp.IterPerPartition = 1024;
-    float *weight1Data = readFloatDenseMatrixFromParameter(&tp, 16, 1433,
+//    float *weight1Data = readFloatDenseMatrixFromParameter(&tp, 16, 1433,
   //                                                         tp.e2e_data_path +
   //                                                         "/weight1.mtx");
   //  float *weight2Data = readFloatDenseMatrixFromParameter(&tp, 7, 16,
