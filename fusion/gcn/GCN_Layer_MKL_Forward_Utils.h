@@ -676,9 +676,6 @@ void forwardForOneLayerWithMKLGeMMAndSpMMSPVectorized(int NumOfNodes, int *Ap, i
               FeatDim, 1., Features, FeatDim, Weight, OutDim, 0.,
               IntermediateResult,
               OutDim);
-#pragma omp parallel num_threads(NumThreads)
-  {
-#pragma omp for
     for (int i = 0; i < NumOfNodes; i++) {
       for (int kk = 0; kk < OutDim; kk += 32) {
         int ip = i * OutDim;
@@ -727,7 +724,6 @@ void forwardForOneLayerWithMKLGeMMAndSpMMSPVectorized(int NumOfNodes, int *Ap, i
         _mm256_storeu_ps(Output + ip + kk + 24, dxV4);
       }
     }
-  }
 }
 
 void forwardForOneLayerWithMKLGeMMAndSpMMSP(int NumOfNodes, int *Ap, int *Ai,

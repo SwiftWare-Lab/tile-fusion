@@ -127,7 +127,7 @@ protected:
   Timer execute() override {
     OutTensor->reset();
     float *intermediateResult = new float [InTensor->NumOfNodes * InTensor->EmbedDim]{};
-    mkl_set_num_threads(InTensor->NumThreads);
+    mkl_set_num_threads(1);
     Timer t;
     t.start();
     forwardForOneLayerWithMKLGeMMAndSpMMSPVectorized(

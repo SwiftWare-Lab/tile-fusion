@@ -111,7 +111,7 @@ int main(const int argc, const char *argv[]) {
 //  delete stats;
 //  delete gcnSingleLayerCompressedGeMV;
 
-  stats = new swiftware::benchmark::Stats("GCN_SingleLayer_UnFused", "GCN", 7,
+  stats = new swiftware::benchmark::Stats("GCN_SingleLayer_UnFused_sequential", "GCN", 7,
                                           tp._matrix_name, numThread);
   stats->OtherStats["PackingType"] = {Separated};
   GCNSingleLayerUnFusedCSRMKLGeMMSP *gcnSingleLayerUnFused =
