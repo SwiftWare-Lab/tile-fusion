@@ -32,7 +32,7 @@ int findBestParam(std::vector<double> &paramsAvgTime) {
 }
 
 int tuneMatrix(CSR *Matrix, FloatDense *Features,
-               sym_lib::ScheduleParameters &Sp, sym_lib::TestParameters &Tp) {
+               sym_lib::ScheduleParameters &Sp, sym_lib::TestParameters &Tp, int inputDim) {
   FloatDense *weight1 =
       generateRandomFloatDenseMatrix(Features->col, Tp._embed_dim);
   std::vector<int> parameters = {16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192};
@@ -50,7 +50,7 @@ int tuneMatrix(CSR *Matrix, FloatDense *Features,
       std::memset(out, 0, Matrix->m * Tp._embed_dim * sizeof(float));
       t1.start();
       forwardForOneLayerFusedParallelSeparatedVectorizedSP(
-          Matrix->m, Matrix->p, Matrix->i, matrixValues, Tp._embed_dim,
+          Matrix->m, Matrix->p, Matrix->i, matrixValues, inputDim,
           Tp._embed_dim, Features->a, weight1->a, out, Sp._num_threads,
           fusedCompSet->n1_, fusedCompSet->ptr1_, fusedCompSet->ptr2_,
           fusedCompSet->ker_begin_, fusedCompSet->id_);
@@ -83,7 +83,8 @@ int main(const int argc, const char *argv[]) {
   normalizeAdjacencyMatrix(aCSR);
   FloatDense *featuresData = readFloatDenseMatrixFromParameter(
       &tp, aCSC->m, tp._embed_dim, tp.e2e_data_path + "/features.mtx");
-  sp.IterPerPartition = tuneMatrix(aCSR, featuresData, sp, tp);
+  int ipL2 = tuneMatrix(aCSR, featuresData, sp, tp, tp._embed_dim);
+  int ipL1 = tuneMatrix(aCSR, featuresData, sp, tp, featuresData->col);
 //  std::cout << sp.IterPerPartition << std::endl;
 //  sp.IterPerPartition = 1024;
 //    float *weight1Data = readFloatDenseMatrixFromParameter(&tp, 16, 1433,
@@ -122,7 +123,11 @@ int main(const int argc, const char *argv[]) {
   // Create a new Net.
 //  std::cout << "Building module" << std::endl;
   //  auto *net = new GCN(adj, features, tp._embed_dim, 32, 4, 8, 7);
-  sym_lib::MultiDimensionalSet *fusedCompSet =
+  sp.IterPerPartition = ipL1;
+  sym_lib::MultiDimensionalSet *fusedCompSet1 =
+      generateFusedScheduleForCSRFused(aCSR, sp);
+  sp.IterPerPartition = ipL2;
+  sym_lib::MultiDimensionalSet *fusedCompSet2 =
       generateFusedScheduleForCSRFused(aCSR, sp);
 
 
@@ -136,10 +141,10 @@ int main(const int argc, const char *argv[]) {
 //  torch::set_num_threads(sp._num_threads);
   GCN *net;
   if (tp.expariment_name == "MKL"){
-    net = new MKLGCN(adj, features, tp._embed_dim, numClasses, sp._num_threads, fusedCompSet);
+    net = new MKLGCN(adj, features, tp._embed_dim, numClasses, sp._num_threads, fusedCompSet1);
   }else if (tp.expariment_name == "TiledFused"){
     net = new CSRFusedGCN(adj, features, tp._embed_dim, numClasses,
-                          sp._num_threads, fusedCompSet);
+                          sp._num_threads, fusedCompSet1, fusedCompSet2);
 
   }
   torch::optim::Adam optimizer(net->parameters(), /*lr=*/0.01);
@@ -173,5 +178,6 @@ int main(const int argc, const char *argv[]) {
   }
   std::cout <<  tp.expariment_name << "," << tp._matrix_name << "," << t1.printTimeCsv(0) << std::endl;
   delete net;
-  delete fusedCompSet;
+  delete fusedCompSet1;
+  delete fusedCompSet2;
 }
