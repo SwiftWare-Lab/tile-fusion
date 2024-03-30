@@ -280,6 +280,7 @@ public:
 
 class SpMMSpMMFusedInterLayerRedundantSP: public SpMMSpMMFusedVariableTileSizeSP{
 protected:
+  sym_lib::SparsityProfileInfo SpInfo;
   Timer analysis() override{
       Timer t;
       t.start();
@@ -303,7 +304,7 @@ protected:
       // sf01->print_final_list();
       auto pt = St->OtherStats["PackingType"];
       FusedCompSet = sf01->getFusedCompressed((int)pt[0]);
-//      sf01->measureRedundancy(tmpCSCCSR, SpInfo);
+      sf01->measureRedundancy(tmpCSCCSR, SpInfo);
       // FusedCompSet->print_3d();
       delete sf01;
       delete mvDAG;
@@ -343,6 +344,7 @@ public:
                                             sym_lib::ScheduleParameters SpIn)
       : SpMMSpMMFusedVariableTileSizeSP(In1, Stat1, SpIn){
   }
+  sym_lib::SparsityProfileInfo getProfilingInfo() { return SpInfo; }
 };
 
 

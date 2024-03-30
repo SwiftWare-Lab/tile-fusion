@@ -105,11 +105,12 @@ int main(const int argc, const char *argv[]) {
   fusedParallelR->run();
   //fusedParallel->OutTensor->printDx();
   auto fusedParallelRStat = fusedParallelR->printStats();
+  auto profilingInfo = fusedParallelR->getProfilingInfo().printCSV(true);
   delete fusedParallelR;
   delete stats;
 
-  std::string profHeader = "";
-  std::string profStat = "";
+  std::string profHeader = std::get<0>(profilingInfo);
+  std::string profStat = std::get<1>(profilingInfo);
 
   auto csvInfo = sp.print_csv(true);
   std::string spHeader = std::get<0>(csvInfo);
