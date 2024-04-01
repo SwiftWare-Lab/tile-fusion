@@ -327,7 +327,7 @@ void SpMMGeMMInterleavedFusedVectorizedSP(
 #pragma omp for
     for (int i = 0; i < M; i += MTile) {
       int bound = std::min(i + MTile, M);
-      for (int ii = 0; ii < bound; ii++) {
+      for (int ii = i; ii < bound; ii++) {
         int ip = ii * InputChannelDim;
         for (int kk = 0; kk < InputChannelDim; kk += 32) {
           auto dxV1 = _mm256_loadu_ps(IntermediateResult + ip + kk);
