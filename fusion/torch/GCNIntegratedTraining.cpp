@@ -98,7 +98,9 @@ int main(const int argc, const char *argv[]) {
   //  16}, torch::kFloat32);;
   long *labels = getTargetsFromParameter(&tp, 1, aCSC->m,
                                          tp.e2e_data_path + "/labels.mtx");
-
+  if (tp.print_header){
+    std::cout << "Impl,Graph,Time" << std::endl;
+  }
   int numClasses = 0;
   for (int i = 0; i < aCSC->m; i++) {
     if (labels[i] + 1 > numClasses) {
@@ -173,9 +175,6 @@ int main(const int argc, const char *argv[]) {
 //    std::cout << "Epoch: " << epoch << " | Loss: " << loss.item<float>() << std::endl;
   }
   t1.stop();
-  if (tp.print_header){
-    std::cout << "Impl,Graph,Time" << std::endl;
-  }
   std::cout <<  tp.expariment_name << "," << tp._matrix_name << "," << t1.printTimeCsv(0) << std::endl;
   delete net;
   delete fusedCompSet1;

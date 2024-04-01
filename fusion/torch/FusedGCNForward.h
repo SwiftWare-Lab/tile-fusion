@@ -4,6 +4,7 @@
 #include "FusionWrapper.h"
 #include <mkl.h>
 #include <torch/torch.h>
+#include "SWTensorBench.h"
 #ifndef FUSED_GCN_FUSEDGCNFORWARD_H
 #define FUSED_GCN_FUSEDGCNFORWARD_H
 
@@ -153,6 +154,8 @@ public:
     savedTensors.push_back(Weight);
     ctx->save_for_backward(savedTensors);
     float *out = new float[outputSize]{};
+    swiftware::benchmark::Timer t1;
+    t1.start();
     forwardForOneLayerFusedParallelSeparatedVectorizedSP(
         X.size(0), Adj.crow_indices().data_ptr<int>(),
         Adj.col_indices().data_ptr<int>(), Adj.values().data_ptr<float>(),
@@ -160,6 +163,8 @@ public:
         Weight.data_ptr<float>(), out,  ThreadNum, LevelNum,
         LevelPtr, ParPtr,
         MixPtr, Partition);
+    t1.stop();
+    std::cout <<  "GeMMSpMM_FW_TiledFused" << "," << "mat_name" << "," << t1.printTimeCsv(0) << std::endl;
 //    mkl_set_num_threads(NumThreads);
     return torch::from_blob(
         out, {X.size(0), Weight.size(0)},
@@ -192,11 +197,15 @@ public:
       mkl_set_num_threads(1);
       float *weight_raw = weight.data_ptr<float>();
       float *grad_input_raw = new float[adj.size(0) * weight.size(1)]{};
+      swiftware::benchmark::Timer t1;
+      t1.start();
       inputGradFusedParallelSeparatedVectorizedSP(
           grad_output.size(0), adjPtr, adjIndex, adj.values().data_ptr<float>(),
           grad_output.size(1), weight.size(1), grad_output_raw,
           weight_raw, grad_input_raw, ThreadNum, LevelNum, LevelPtr, ParPtr,
           MixPtr, Partition);
+      t1.stop();
+      std::cout <<  "GeMMSpMM_BWI_TiledFused" << "," << "mat_name" << "," << t1.printTimeCsv(0) << std::endl;
       grad_input = torch::from_blob(
           grad_input_raw, {(long)grad_output.size(0), (long)weight.size(1)},
           [](void *ptr) { delete[] static_cast<float *>(ptr); },
@@ -209,15 +218,19 @@ public:
                               adj.size(1), adjPtr, adjPtr + 1, adjIndex,
                               adj.values().data_ptr<float>());
       float *grad_intermediate = new float[adj.size(0) * input.size(1)]{};
+      float *grad_weight_raw = new float[grad_output.size(1) * input.size(1)]{};
+      swiftware::benchmark::Timer t1;
+      t1.start();
       mkl_sparse_s_mm(SPARSE_OPERATION_NON_TRANSPOSE, 1, MKLAdj, d,
                       SPARSE_LAYOUT_ROW_MAJOR, inputRaw,
                       input.size(1), input.size(1), 0,
                       grad_intermediate, input.size(1));
-      float *grad_weight_raw = new float[grad_output.size(1) * input.size(1)]{};
       cblas_sgemm(CblasRowMajor, CblasTrans, CblasNoTrans, grad_output.size(1),
                   input.size(1), adj.size(0), 1., grad_output_raw,
                   grad_output.size(1), grad_intermediate, input.size(1), 0.,
                   grad_weight_raw, input.size(1));
+      t1.stop();
+      std::cout <<  "GeMMSpMM_BWW_TiledFused" << "," << "mat_name" << "," << t1.printTimeCsv(0) << std::endl;
       mkl_free(MKLAdj);
       delete[] grad_intermediate;
       grad_weight = torch::from_blob(
@@ -252,6 +265,8 @@ public:
     ctx->save_for_backward({X, Adj, Weight});
     float *out = new float[outputSize]{};
     float *interMediateResult = new float[outputSize];
+    swiftware::benchmark::Timer t1;
+    t1.start();
     cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, X.size(0),
                 Weight.size(0), X.size(1), 1., X.data_ptr<float>(),
                 X.size(1), Weight.data_ptr<float>(), Weight.size(1), 0.,
@@ -260,6 +275,9 @@ public:
                     SPARSE_LAYOUT_ROW_MAJOR, interMediateResult,
                     Weight.size(0), Weight.size(0), 0,
                     out, Weight.size(0));
+    t1.stop();
+    delete[] interMediateResult;
+    std::cout <<  "GeMMSpMM_FW_MKL" << "," << "mat_name" << "," << t1.printTimeCsv(0) << std::endl;
     return torch::from_blob(
         out, {X.size(0), Weight.size(0)},
         [](void *ptr) { delete[] static_cast<float *>(ptr); }, torch::kFloat32);
@@ -288,6 +306,8 @@ public:
       float *weight_raw = weight.data_ptr<float>();
       float *grad_input_intermediate = new float[grad_output.size(0) * weight.size(1)];
       float *grad_input_raw = new float[adj.size(0) * weight.size(1)]{};
+      swiftware::benchmark::Timer t1;
+      t1.start();
       cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, grad_output.size(0),
                   weight.size(1), weight.size(0), 1., grad_output_raw,
                   grad_output.size(1), weight_raw, weight.size(1), 0.,
@@ -296,6 +316,8 @@ public:
                       SPARSE_LAYOUT_ROW_MAJOR, grad_input_intermediate,
                       weight.size(1), weight.size(1), 0,
                       grad_input_raw, weight.size(1));
+      t1.stop();
+      std::cout <<  "GeMMSpMM_BWI_MKL" << "," << "mat_name" << "," << t1.printTimeCsv(0) << std::endl;
       delete[] grad_input_intermediate;
       grad_input = torch::from_blob(
           grad_input_raw, {(long)grad_output.size(0), (long)weight.size(1)},
@@ -305,15 +327,19 @@ public:
     torch::Tensor grad_weight;
     if (ctx->needs_input_grad(2)){
       float *grad_intermediate = new float[adj.size(0) * input.size(1)]{};
+      float *grad_weight_raw = new float[grad_output.size(1) * input.size(1)]{};
+      swiftware::benchmark::Timer t1;
+      t1.start();
       mkl_sparse_s_mm(SPARSE_OPERATION_NON_TRANSPOSE, 1, MKLAdj, d,
                       SPARSE_LAYOUT_ROW_MAJOR, inputRaw,
                       input.size(1), input.size(1), 0,
                       grad_intermediate, input.size(1));
-      float *grad_weight_raw = new float[grad_output.size(1) * input.size(1)]{};
       cblas_sgemm(CblasRowMajor, CblasTrans, CblasNoTrans, grad_output.size(1),
                   input.size(1), adj.size(0), 1., grad_output_raw,
                   grad_output.size(1), grad_intermediate, input.size(1), 0.,
                   grad_weight_raw, input.size(1));
+      t1.stop();
+      std::cout <<  "GeMMSpMM_BWW_MKL" << "," << "mat_name" << "," << t1.printTimeCsv(0) << std::endl;
       mkl_free(MKLAdj);
       delete[] grad_intermediate;
       grad_weight = torch::from_blob(
