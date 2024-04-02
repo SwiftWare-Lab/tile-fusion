@@ -757,6 +757,22 @@ void forwardForOneLayerWithMKLGeMMAndMKLSpMMSP(int NumOfNodes,
                   OutDim);
 }
 
+void forwardForOneLayerWithMKLSpMMAndMKLGeMMSP(int NumOfNodes,
+                                               sparse_matrix_t AdjMatrix,
+                                               float *Features, int FeatDim,
+                                               float *Weight, int OutDim,
+                                               float *Output, float *IntermediateResult) {
+  matrix_descr d;
+  d.type = SPARSE_MATRIX_TYPE_GENERAL;
+  mkl_sparse_s_mm(SPARSE_OPERATION_NON_TRANSPOSE, 1, AdjMatrix, d,
+                  SPARSE_LAYOUT_ROW_MAJOR, Features, FeatDim, FeatDim, 0, IntermediateResult,
+                  FeatDim);
+  cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, NumOfNodes, OutDim,
+              FeatDim, 1., IntermediateResult, FeatDim, Weight, OutDim, 0.,
+              Output,
+              OutDim);
+}
+
 void forwardForOneLayerWithMKLGeMMAndSpMM(int NumOfNodes, int *Ap, int *Ai,
                                           double *Ax, double *Features,
                                           int FeatDim, double *Weight,

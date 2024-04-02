@@ -184,6 +184,38 @@ public:
   ~GCNSingleLayerMKL_SP() { mkl_free(MKLAdj); }
 };
 
+class GCNSingleLayerMKLSpMMGeMM_SP : public GCNSingleLayerUnFusedCSRMKLGeMMSP {
+
+protected:
+  sparse_matrix_t MKLAdj;
+  Timer execute() override {
+    OutTensor->reset();
+    mkl_set_num_threads(InTensor->NumThreads);
+    Timer t;
+    float *intermediateResult = new float [InTensor->NumOfNodes * InTensor->FeatureDim]{};
+    std::fill_n(intermediateResult, InTensor->NumOfNodes * InTensor->FeatureDim, 0.0);
+    t.start();
+    forwardForOneLayerWithMKLSpMMAndMKLGeMMSP(
+        InTensor->NumOfNodes, MKLAdj, InTensor->FeatureMatrix,
+        InTensor->FeatureDim, InTensor->Weight1,
+        InTensor->EmbedDim, OutTensor->FirstLayerOutput, intermediateResult);
+    t.stop();
+    delete[] intermediateResult;
+    return t;
+  }
+
+public:
+  GCNSingleLayerMKLSpMMGeMM_SP(GnnTensorSpInputs *In1, Stats *Stat1)
+      : GCNSingleLayerUnFusedCSRMKLGeMMSP(In1, Stat1) {
+    mkl_sparse_s_create_csr(
+        &MKLAdj, SPARSE_INDEX_BASE_ZERO, this->InTensor->NumOfNodes,
+        this->InTensor->NumOfNodes, InTensor->AdjacencyMatrix->p,
+        InTensor->AdjacencyMatrix->p + 1, this->InTensor->AdjacencyMatrix->i,
+        this->InTensor->AMValues);
+  }
+  ~GCNSingleLayerMKLSpMMGeMM_SP() { mkl_free(MKLAdj); }
+};
+
 class GCNSingleLayerSpMMGeMVFused : public GCNSingleLayerUnFusedCSRMKLGeMMSP {
 
 protected:
@@ -243,6 +275,7 @@ protected:
     OutTensor->reset();
     mkl_set_num_threads(1);
     float *intermediateResult = new float [InTensor->NumOfNodes*InTensor->FeatureDim]{};
+    std::fill_n(intermediateResult, InTensor->NumOfNodes * InTensor->FeatureDim, 0.0);
     Timer t;
     t.start();
     SpMMGeMMInterleavedFusedVectorizedSP(
