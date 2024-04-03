@@ -443,8 +443,10 @@ void inputGradFusedParallelSpMMGeMMFusedVectorizedSP(
     int M, int *Ap, int *Ai, float *Ax, int InputChannelDim,
     int OutputChannelDim, float *Features, float *Weight, float *Output,
     int NumThreads, int MTile) {
-  int numKernels = 2;
-  float *intermediateResult = new float[M * OutputChannelDim];
+  float *intermediateResult = new float[M * InputChannelDim];
+  int residueStart1 = InputChannelDim - InputChannelDim%32;
+  int residueStart2 = InputChannelDim - InputChannelDim%16;
+  int residueStart3 = InputChannelDim - InputChannelDim%8;
 #pragma omp parallel num_threads(NumThreads)
   {
 #pragma omp for
@@ -452,7 +454,8 @@ void inputGradFusedParallelSpMMGeMMFusedVectorizedSP(
       int bound = std::min(i + MTile, M);
       for (int ii = i; ii < bound; ii++) {
         int ip = ii * InputChannelDim;
-        for (int kk = 0; kk < InputChannelDim; kk += 32) {
+        int kk = 0;
+        for (; kk < residueStart1; kk += 32) {
           auto dxV1 = _mm256_loadu_ps(intermediateResult + ip + kk);
           auto dxV2 = _mm256_loadu_ps(intermediateResult + ip + kk + 8);
           auto dxV3 = _mm256_loadu_ps(intermediateResult + ip + kk + 16);
@@ -496,6 +499,62 @@ void inputGradFusedParallelSpMMGeMMFusedVectorizedSP(
           _mm256_storeu_ps(intermediateResult + ip + kk + 8, dxV2);
           _mm256_storeu_ps(intermediateResult + ip + kk + 16, dxV3);
           _mm256_storeu_ps(intermediateResult + ip + kk + 24, dxV4);
+        }
+        for (; kk < residueStart2; kk += 16) {
+          auto dxV1 = _mm256_loadu_ps(intermediateResult + ip + kk);
+          auto dxV2 = _mm256_loadu_ps(intermediateResult + ip + kk + 8);
+          int k = Ap[ii];
+          for (; k < Ap[ii + 1] - 1; k += 2) {
+            int bij1 = Ai[k] * InputChannelDim;
+            int bij2 = Ai[k + 1] * InputChannelDim;
+            auto bxV1 = _mm256_set1_ps(Ax[k]);
+            auto bxV2 = _mm256_set1_ps(Ax[k + 1]);
+            auto acxV11 = _mm256_loadu_ps(Features + bij1 + kk);
+            auto acxV12 = _mm256_loadu_ps(Features + bij1 + kk + 8);
+            auto acxV21 = _mm256_loadu_ps(Features + bij2 + kk);
+            auto acxV22 = _mm256_loadu_ps(Features + bij2 + kk + 8);
+            dxV1 = _mm256_fmadd_ps(bxV1, acxV11, dxV1);
+            dxV1 = _mm256_fmadd_ps(bxV2, acxV21, dxV1);
+            dxV2 = _mm256_fmadd_ps(bxV1, acxV12, dxV2);
+            dxV2 = _mm256_fmadd_ps(bxV2, acxV22, dxV2);
+          }
+          for (; k < Ap[ii + 1]; ++k) {
+            int bij = Ai[k] * InputChannelDim;
+            auto bxv0 = _mm256_set1_ps(Ax[k]);
+            auto cxV11 = _mm256_loadu_ps(Features + bij + kk);
+            auto cxV12 = _mm256_loadu_ps(Features + bij + kk + 8);
+            dxV1 = _mm256_fmadd_ps(bxv0, cxV11, dxV1);
+            dxV2 = _mm256_fmadd_ps(bxv0, cxV12, dxV2);
+          }
+          _mm256_storeu_ps(intermediateResult + ip + kk, dxV1);
+          _mm256_storeu_ps(intermediateResult + ip + kk + 8, dxV2);
+        }
+        for (; kk < residueStart3; kk += 8) {
+          auto dxV1 = _mm256_loadu_ps(intermediateResult + ip + kk);
+          int k = Ap[ii];
+          for (; k < Ap[ii + 1] - 1; k += 2) {
+            int bij1 = Ai[k] * InputChannelDim;
+            int bij2 = Ai[k + 1] * InputChannelDim;
+            auto bxV1 = _mm256_set1_ps(Ax[k]);
+            auto bxV2 = _mm256_set1_ps(Ax[k + 1]);
+            auto acxV11 = _mm256_loadu_ps(Features + bij1 + kk);
+            auto acxV21 = _mm256_loadu_ps(Features + bij2 + kk);
+            dxV1 = _mm256_fmadd_ps(bxV1, acxV11, dxV1);
+            dxV1 = _mm256_fmadd_ps(bxV2, acxV21, dxV1);
+          }
+          for (; k < Ap[ii + 1]; ++k) {
+            int bij = Ai[k] * InputChannelDim;
+            auto bxv0 = _mm256_set1_ps(Ax[k]);
+            auto cxV11 = _mm256_loadu_ps(Features + bij + kk);
+            dxV1 = _mm256_fmadd_ps(bxv0, cxV11, dxV1);
+          }
+          _mm256_storeu_ps(intermediateResult + ip + kk, dxV1);
+        }
+        for (int k = Ap[ii]; k < Ap[ii + 1]; k++) {
+          for (; kk < InputChannelDim; kk++) {
+            Features[ip + kk] +=
+                Ax[k] * intermediateResult[Ai[k] * InputChannelDim + kk];
+          }
         }
       }
       int tileSize = bound - i;
