@@ -148,15 +148,11 @@ public:
     int LevelNum = ScheduleData[4][0].item<int>();
     int ThreadNum = ScheduleData[5][0].item<int>();
     int outputSize = X.size(0) * Weight.size(0);
-    auto savedTensors = ScheduleData;
-    savedTensors.push_back(X);
-    savedTensors.push_back(Adj);
-    savedTensors.push_back(Weight);
-    ctx->save_for_backward(savedTensors);
+    ctx->save_for_backward({X, Adj, Weight, ScheduleData[5]});
     float *out = new float[outputSize]{};
 //    swiftware::benchmark::Timer t1;
 //    t1.start();
-    forwardForOneLayerFusedParallelSeparatedVectorizedSP(
+    forwardForOneLayerFusedParallelSeparatedExcessiveVectorizedSP(
         X.size(0), Adj.crow_indices().data_ptr<int>(),
         Adj.col_indices().data_ptr<int>(), Adj.values().data_ptr<float>(),
         X.size(1), Weight.size(0), X.data_ptr<float>(),
@@ -178,15 +174,10 @@ public:
     matrix_descr d;
     d.type = SPARSE_MATRIX_TYPE_GENERAL;
     auto saved = ctx->get_saved_variables();
-    auto input = saved[6];
-    auto adj = saved[7];
-    auto weight = saved[8];
-    int *LevelPtr = saved[0].data_ptr<int>();
-    int *ParPtr = saved[1].data_ptr<int>();
-    int *Partition = saved[2].data_ptr<int>();
-    int *MixPtr = saved[3].data_ptr<int>();
-    int LevelNum = saved[4][0].item<int>();
-    int ThreadNum = saved[5][0].item<int>();
+    auto input = saved[0];
+    auto adj = saved[1];
+    auto weight = saved[2];
+    int ThreadNum = saved[3][0].item<int>();
     int *adjPtr = adj.crow_indices().data_ptr<int>();
     int *adjIndex = adj.col_indices().data_ptr<int>();
     auto grad_output = grad_outputs[0];
@@ -199,11 +190,10 @@ public:
       float *grad_input_raw = new float[adj.size(0) * weight.size(1)]{};
 //      swiftware::benchmark::Timer t1;
 //      t1.start();
-      inputGradFusedParallelSeparatedVectorizedSP(
+      inputGradFusedParallelSpMMGeMMFusedVectorizedSP(
           grad_output.size(0), adjPtr, adjIndex, adj.values().data_ptr<float>(),
           grad_output.size(1), weight.size(1), grad_output_raw,
-          weight_raw, grad_input_raw, ThreadNum, LevelNum, LevelPtr, ParPtr,
-          MixPtr, Partition);
+          weight_raw, grad_input_raw, ThreadNum, 4);
 //      t1.stop();
 //      std::cout <<  "GeMMSpMM_BWI_TiledFused" << "," << "mat_name" << "," << t1.printTimeCsv(0) << std::endl;
       grad_input = torch::from_blob(
@@ -308,14 +298,15 @@ public:
       float *grad_input_raw = new float[adj.size(0) * weight.size(1)]{};
 //      swiftware::benchmark::Timer t1;
 //      t1.start();
-      cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, grad_output.size(0),
-                  weight.size(1), weight.size(0), 1., grad_output_raw,
-                  grad_output.size(1), weight_raw, weight.size(1), 0.,
-                  grad_input_intermediate, weight.size(1));
       mkl_sparse_s_mm(SPARSE_OPERATION_NON_TRANSPOSE, 1, MKLAdj, d,
-                      SPARSE_LAYOUT_ROW_MAJOR, grad_input_intermediate,
-                      weight.size(1), weight.size(1), 0,
-                      grad_input_raw, weight.size(1));
+                      SPARSE_LAYOUT_ROW_MAJOR, grad_output_raw,
+                      grad_output.size(1), grad_output.size(1), 0,
+                      grad_input_intermediate, grad_output.size(1));
+      cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, grad_output.size(0),
+                  weight.size(1), weight.size(0), 1., grad_input_intermediate,
+                  grad_output.size(1), weight_raw, weight.size(1), 0.,
+                  grad_input_raw, weight.size(1));
+
 //      t1.stop();
 //      std::cout <<  "GeMMSpMM_BWI_MKL" << "," << "mat_name" << "," << t1.printTimeCsv(0) << std::endl;
       delete[] grad_input_intermediate;
