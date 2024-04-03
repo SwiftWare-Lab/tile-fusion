@@ -294,7 +294,7 @@ public:
     torch::Tensor grad_input;
     if (ctx->needs_input_grad(0)) {
       float *weight_raw = weight.data_ptr<float>();
-      float *grad_input_intermediate = new float[grad_output.size(0) * weight.size(1)];
+      float *grad_input_intermediate = new float[grad_output.size(0) * grad_output.size(1)];
       float *grad_input_raw = new float[adj.size(0) * weight.size(1)]{};
 //      swiftware::benchmark::Timer t1;
 //      t1.start();
