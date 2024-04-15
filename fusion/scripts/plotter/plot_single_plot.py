@@ -7,7 +7,7 @@ import yaml
 from matplotlib.pyplot import cm
 import scipy.stats
 import random
-from matplotlib.lines import Line2D
+
 
 def geo_mean_overflow(iterable):
     return np.exp(np.log(iterable).mean())
@@ -172,7 +172,7 @@ def plot_performance_vs_fused_ratio(log_folder, log_file_name, config):
     for bcol in bcols:
         df_fusion_bcol = df_fusion[df_fusion['bCols'] == bcol]
         df_fusion_bcol_edim = df_fusion_bcol[df_fusion_bcol['EmbedDim'] == bcol]
-        # plt.rcParams.update(plt.rcParamsDefault)
+        plt.rcParams.update(plt.rcParamsDefault)
         print(len(mat_list))
 
         for mat in mat_list:
@@ -237,9 +237,8 @@ def plot_stack_bar(log_folder,log_file_name, config):
     densities.sort()
     df_fusion_sorted.sort_values(by=['NNZ'], key=lambda nnz: nnz / (df_fusion_sorted['nRows'] ** 2), inplace=True)
     mat_list = df_fusion['MatrixName'].unique()
-    plt.rcParams["font.family"] = "serif"
-    fig, ax = plt.subplots(1, 1, figsize=(8, 4.3))
-    fig.subplots_adjust(bottom=0.1, left=0.1, right=1, top=0.75, wspace=0.1, hspace=0.1)
+    fig, ax = plt.subplots(1, 1, figsize=(4, 3))
+    fig.subplots_adjust(bottom=0.2, left=0.08, right=0.95, top=0.8, wspace=0.1, hspace=0.1)
     file_name = log_file.split('/')[-1] + ".eps"
     impl_representations = {impl['name']: impl['representation'] for impl in config['implementations']}
     impl_colors = {impl['name']: impl['color'] for impl in config['implementations']}
@@ -259,7 +258,7 @@ def plot_stack_bar(log_folder,log_file_name, config):
         cur_mat_nnz = cur_mat['NNZ'].unique()[0]
         rows = cur_mat['nRows'].unique()[0]
         nnz_list.append(cur_mat_nnz)
-        mat_gflops.append((cur_mat_nnz * bcol + rows * bcol * bcol) / 1e9)
+        mat_gflops.append((cur_mat_nnz * bcol + cur_mat_nnz * bcol) / 1e9)
         for x in impls:
             if x not in tuned_implementations:
                 try:
@@ -302,44 +301,35 @@ def plot_stack_bar(log_folder,log_file_name, config):
         target_speed_up[impl] = np.array(np.array(times[impl] / times[config['target']]))
         gflops[impl] = np.array(mat_gflops) / np.array(times[impl])
     k = 0
-    print(geo_mean_overflow(speedups['Coarse Grained Tile']))
-    check = gflops['Coarse Grained Tile'] > 0
-    gflops['Coarse Grained Tile'] = gflops['Coarse Grained Tile'][check]
-    gflops['GCN_SingleLayer_UnFused'] = gflops['GCN_SingleLayer_UnFused_sequential'][check]
-    gflops['GCN_SingleLayer_FusedSeperated'] = gflops['GCN_SingleLayer_FusedSeperated'][check]
-    plt_x = np.arange(len(gflops['Coarse Grained Tile']))
-    su1 = gflops['Coarse Grained Tile']-gflops['GCN_SingleLayer_UnFused']
+    su1 = speedups['Coarse Grained Tile']-speedups['GCN_SingleLayer_UnFused']
     check = su1 < 0
     su1[check] = 0
-    su2 = gflops['GCN_SingleLayer_FusedSeperated']-(su1+gflops['GCN_SingleLayer_UnFused'])
+    su2 = speedups['GCN_SingleLayer_FusedSeperated']-(su1+speedups['GCN_SingleLayer_UnFused'])
     check = su2 < 0
     su2[check] = 0
-    print(len(np.where(su2 > 0)[0]))
     part_speedup = {
-        'UnFused Sequential': gflops['GCN_SingleLayer_UnFused'],
-        'Tile Fusion - After Step 1': su1,
-        'Tile Fusion - After Step 2': su2,
+        'UnFused Baseline': speedups['GCN_SingleLayer_UnFused'],
+        'Coarse Grain Fused Tile': su1,
+        'Tile Fused': su2,
     }
     impl_colors = {
-        'UnFused Sequential': 'lightblue',
-        'Tile Fusion - After Step 1': 'orange',
-        'Tile Fusion - After Step 2': 'maroon',
+        'UnFused Baseline': 'deepskyblue',
+        'Coarse Grain Fused Tile': 'orange',
+        'Tile Fused': 'maroon',
     }
-    # plt.rcParams.update(plt.rcParamsDefault)
+    plt.rcParams.update(plt.rcParamsDefault)
     bottom = np.zeros(len(plt_x))
     for impl in part_speedup.keys():
         color = impl_colors[impl]
         # print(impl, ":", geo_mean_overflow(part_speedup[impl]))
-        ax.bar(plt_x, part_speedup[impl], color=color, label=impl, width=0.7,bottom=bottom)
+        ax.bar(plt_x, part_speedup[impl], color=color, label=impl, width=0.5,bottom=bottom)
         bottom += part_speedup[impl]
     # for impl in impls:
     #     print(impl, ":", geo_mean_overflow(target_speed_up[impl]))
     #     ax.plot(plt_x, gflops[impl], color=impl_colors[impl], label=impl_representations[impl], linewidth='0.6')
-    ax.set_xlabel('NNZ', fontsize=15)
-    ax.set_ylabel('GFLOP/s', fontsize=15)
-    ax.set_title('bCol=cCol='+str(bcol)+',sp', fontsize=15)
+    ax.set_xlabel('nnz', fontweight='bold', fontsize=7.5)
+    ax.set_title(str(bcol), fontsize=7)
     ax.set_xticks([])
-    ax.legend(loc='upper center', bbox_to_anchor=(0.45, 1.4), ncol=2, fontsize=15)
     ax.spines[['right', 'top']].set_visible(False)
     file_name = log_folder.split('/')[-1] + '_stacked' + ".eps"
     plot_path = os.path.join(log_folder, file_name)
@@ -347,119 +337,13 @@ def plot_stack_bar(log_folder,log_file_name, config):
     plt.show()
     fig.savefig(plot_path, format='eps')
 
-
-def plot_gflops_per_bcol(log_folder, log_file_name, config,ex_mat_list):
+def plot_gcn(log_folder, log_file_name, config,ex_mat_list):
     log_file = os.path.join(log_folder, log_file_name)
     df_fusion = pd.read_csv(log_file)
     # bcols = config['feature_sizes']
     bcols = df_fusion['bCols'].unique()
     print(bcols)
-    bcols = sorted(bcols, key=lambda f: int(f))
-    tuned_implementations = [impl['name'] for impl in config['implementations'] if impl['tuned']]
-    tuned_implementations_base_param = {impl['name']: impl['tune_parameters'] for impl in config['implementations'] if
-                                        impl['tuned']}
-    impl_representations = {impl['name']: impl['representation'] for impl in config['implementations']}
-    # sort df_fusion based on 'NNZ'
-    df_fusion = df_fusion.sort_values(by=['NNZ'])
-    impls = list(map(lambda i: i['name'], config['implementations']))
-    df_fusion_sorted = df_fusion.copy()
-    densities = np.array(df_fusion_sorted['NNZ'] / (df_fusion_sorted['nRows'] ** 2))
-    densities.sort()
-    df_fusion_sorted.sort_values(by=['NNZ'], key=lambda nnz: nnz / (df_fusion_sorted['nRows'] ** 2), inplace=True)
-    mat_list = list(df_fusion['Matrix Name'].unique())
-    mat_list = [mat for mat in mat_list if mat in ex_mat_list]
-    fig, ax = plt.subplots(1, 1, figsize=(5, 3))
-    fig.tight_layout()
-    file_name = log_file.split('/')[-1] + ".eps"
-    impl_representations = {impl['name']: impl['representation'] for impl in config['implementations']}
-    impl_colors = {impl['name']: impl['color'] for impl in config['implementations']}
-    gflops_bcol = {}
-    for impl in impls:
-        gflops_bcol[impl] = []
-    for i, bcol in enumerate(bcols):
-        print(bcol)
-        bcol = int(bcol)
-        mat_gflops = []
-        nnz_list = []
-        df_fusion_bcol = df_fusion[df_fusion['bCols'] == bcol]
-        df_fusion_bcol = df_fusion_bcol.sort_values(by=['NNZ'])
-        print(len(mat_list))
-        times = {}
-        bars = {}
-        plt_x = np.arange(len(mat_list))
-        for mat in mat_list:
-            # print(mat)
-            cur_mat = df_fusion_bcol[df_fusion_bcol['MatrixName'] == mat]
-            cur_mat_nnz = cur_mat['NNZ'].unique()[0]
-            rows = cur_mat['nRows'].unique()[0]
-            nnz_list.append(cur_mat_nnz)
-            mat_gflops.append((cur_mat_nnz * bcol + rows * bcol * bcol) / 1e9)
-            for x in impls:
-                if x not in tuned_implementations:
-                    try:
-                        if x in times:
-                            times[x].append(take_median(cur_mat[cur_mat['Implementation Name'] == x]))
-                        else:
-                            times[x] = [take_median(cur_mat[cur_mat['Implementation Name'] == x])]
-                    except IndexError as e:
-                        print("Error for Not Tuned Implementation: ", x, " in matrix: ", mat)
-        for impl in tuned_implementations:
-            seperated_list = get_fused_info(mat_list, df_fusion_bcol,
-                                            tuned_parameters=tuned_implementations_base_param[impl],
-                                            implementation_name=impl)
-            min_fused = np.array(seperated_list[0])
-            for x in seperated_list:
-                min_fused = np.minimum(min_fused, np.array(x))
-            times[impl] = min_fused
-        speedups = {}
-        gflops = {}
-        remove_last_mat = False
-        for impl in impls:
-            if len(times[impl]) != len(mat_list):
-                remove_last_mat = True
-                plt_x = plt_x[:len(times[impl])]
-                times[config['baseline']] = times[config['baseline']][:len(times[impl])]
-                mat_list = mat_list[:len(times[impl])]
-                nnz_list = nnz_list[:len(times[impl])]
-                mat_gflops = mat_gflops[:len(times[impl])]
-        target_speed_up = {}
-        for impl in impls:
-            if remove_last_mat:
-                times[impl] = times[impl][:len(plt_x)]
-            speedups[impl] = np.array(times[config['baseline']]) / np.array(times[impl])
-            target_speed_up[impl] = np.array(np.array(times[impl] / times[config['target']]))
-            gflops[impl] = np.array(mat_gflops) / np.array(times[impl])
-            gflops_bcol[impl].append(geo_mean_overflow(gflops[impl]))
-    for impl in impls:
-        print(impl, ":", gflops_bcol[impl])
-    # plt.rcParams.update(plt.rcParamsDefault)
-    plt_x = np.arange(len(bcols))
-    for impl in impls:
-        # ax.scatter(plt_x, gflops[impl], color='white', edgecolor=impl_colors[impl], label=impl_representations[impl],
-        #           marker=markers.pop(0), s=10)
-        # print(impl, ":", geo_mean_overflow(target_speed_up[impl]))
-        ax.plot(plt_x, gflops_bcol[impl], color=impl_colors[impl], label=impl_representations[impl], linewidth='0.6')
-    # for impl, bar in bars.items():
-    ax.set_xlabel('Dense Columns', fontweight='bold', fontsize=7.5)
-    ax.set_ylabel('mean GFLOPs per second', fontweight='bold', fontsize=7.5)
-    # ax.set_title(str(bcol), fontsize=7)
-    ax.set_xticks(plt_x, bcols)
-    ax.spines[['right', 'top']].set_visible(False)
-    file_name = 'gflops_per_bcol.eps'
-    plot_path = os.path.join(log_folder, file_name)
-    # h, l = axs[0].get_legend_handles_labels()
-    # fig.legend(h, l, loc='lower center', ncol=3)
-    # fig.suptitle('GeMM-SpMM for ss-graphs on Intel Skylake', fontsize=9)
-    # plt.show()
-    # fig.savefig(plot_path, format='eps')
-
-def plot_gcn(log_folder, log_file_name, config, ex_mat_list):
-    log_file = os.path.join(log_folder, log_file_name)
-    df_fusion = pd.read_csv(log_file)
-    # bcols = config['feature_sizes']
-    bcols = df_fusion['bCols'].unique()
-    print(bcols)
-    bcols = sorted(bcols, key=lambda f: int(f))
+    bcols = [64]
     tuned_implementations = [impl['name'] for impl in config['implementations'] if impl['tuned']]
     tuned_implementations_base_param = {impl['name']: impl['tune_parameters'] for impl in config['implementations'] if
                                         impl['tuned']}
@@ -474,21 +358,18 @@ def plot_gcn(log_folder, log_file_name, config, ex_mat_list):
     densities = np.array(df_fusion_sorted['NNZ'] / (df_fusion_sorted['nRows'] ** 2))
     densities.sort()
     df_fusion_sorted.sort_values(by=['NNZ'], key=lambda nnz: nnz / (df_fusion_sorted['nRows'] ** 2), inplace=True)
-    mat_list = list(df_fusion['Matrix Name'].unique())
+    mat_list = list(df_fusion['MatrixName'].unique())
     mat_list = [mat for mat in mat_list if mat in ex_mat_list]
-    # mat_list = list(df_fusion_sorted['MatrixName'].unique())
-    # mat_list.remove("Queen_4147.mtx")
-    # mat_list.remove("Hook_1498.mtx")
-    fig, axs = plt.subplots(1, 3, figsize=(16, 2.7))
-    # fig, axs = plt.subplots(1, 3, figsize=(16, 2))
-    fig.subplots_adjust(bottom=0.1, left=0.045, right=1, top=0.72, wspace=0.1, hspace=0.1)
-    # fig.subplots_adjust(bottom=0.1, left=0.05, right=1, top=0.87, wspace=0.1, hspace=0.1)
-    # fig.subplots_adjust(bottom=0.1, left=0.05, right=1, top=0.9, wspace=0.1, hspace=0.1)
+    # mat_list.remove('Queen_4147.mtx')
+    # mat_list.remove('sx-stackoverflow.mtx')
+    # mat_list.remove('Bump_2911.mtx')
+    # mat_list.remove('pa2010.mtx')
+    fig, ax = plt.subplots(figsize=(7.5, 3.5))
+    # fig.subplots_adjust(bottom=0.05, left=0.1, right=0.95, top=0.85, wspace=0.1, hspace=0.1)
+    fig.subplots_adjust(bottom=0.07, left=0.1, right=0.98, top=0.7, wspace=0.1, hspace=0.1)
     file_name = log_file.split('/')[-1] + ".eps"
     impl_representations = {impl['name']: impl['representation'] for impl in config['implementations']}
     impl_colors = {impl['name']: impl['color'] for impl in config['implementations']}
-    mat_list.remove('Queen_4147.mtx')
-    mat_list.remove('Hook_1498.mtx')
     for i, bcol in enumerate(bcols):
         print(bcol)
         bcol = int(bcol)
@@ -501,7 +382,11 @@ def plot_gcn(log_folder, log_file_name, config, ex_mat_list):
         # unique, counts = np.unique(mat_list_ext, return_counts=True)
         # print(unique)
         # df_fusion_sorted_bcol = df_fusion_sorted[df_fusion_sorted['bCols'] == bcol]
-        # mat_list = list(df_fusion['Matrix Name'].unique())
+        # df_fusion_sorted = df_fusion_bcol.copy()
+        # densities = np.array(df_fusion_sorted['NNZ'] / (df_fusion_sorted['nRows'] ** 2))
+        # densities.sort()
+        # df_fusion_sorted.sort_values(by=['NNZ'], key=lambda nnz: nnz / (df_fusion_sorted['nRows'] ** 2), inplace=True)
+        # mat_list = list(df_fusion_bcol['Matrix Name'].unique())
         # if bcol == 128:
         #     mat_list.remove("kron_g500-logn18.mtx")
         #     mat_list.remove("Emilia_923.mtx")
@@ -512,6 +397,7 @@ def plot_gcn(log_folder, log_file_name, config, ex_mat_list):
         # mat_list.remove("Queen_4147.mtx")
         # mat_list.remove("Hook_1498.mtx")
         print(len(mat_list))
+        print(mat_list)
         # mat_list = list(df_fusion_bcol['Matrix Name'].unique())
         # df_fusion_bcol_edim = df_fusion_bcol[df_fusion_bcol['EmbedDim'] == edim]
         times = {}
@@ -520,11 +406,9 @@ def plot_gcn(log_folder, log_file_name, config, ex_mat_list):
         for mat in mat_list:
             # print(mat)
             cur_mat = df_fusion_bcol[df_fusion_bcol['MatrixName'] == mat]
-            # print(bcol, mat)
             cur_mat_nnz = cur_mat['NNZ'].unique()[0]
             rows = cur_mat['nRows'].unique()[0]
             nnz_list.append(cur_mat_nnz)
-            # mat_gflops.append((cur_mat_nnz * bcol + rows * bcol * bcol) / 1e9)
             mat_gflops.append((cur_mat_nnz * bcol + cur_mat_nnz * bcol) / 1e9)
             for x in impls:
                 if x not in tuned_implementations:
@@ -561,9 +445,6 @@ def plot_gcn(log_folder, log_file_name, config, ex_mat_list):
             speedups[impl] = np.array(times[config['baseline']]) / np.array(times[impl])
             target_speed_up[impl] = np.array(np.array(times[impl] / times[config['target']]))
             gflops[impl] = np.array(mat_gflops) / np.array(times[impl])
-        # print('mkl',len(np.where(speedups[config['target']] > 1)[0]))
-        # print('unfused',len(np.where(target_speed_up['SpMM_SpMM_UnFusedParallelAvx512'] > 1)[0]))
-        # print(len(mat_list))
         colors = colors = ['deepskyblue', 'violet', 'mediumseagreen', 'blueviolet', 'black', 'goldenrod']
         markers = ['o', '<', 'v', '8', 's', 'p', '*', 'h', 'H', 'D', 'd', 'P', 'X', '^', '>', '1', '2', '3', '4', 'x',
                    '+']
@@ -576,62 +457,50 @@ def plot_gcn(log_folder, log_file_name, config, ex_mat_list):
         #     pd.DataFrame(data).to_csv('fused_unfused_gflops.csv', index=False)
 
         k = 0
-        # plt.rcParams.update(plt.rcParamsDefault)
-        ax = axs[i]
-        # new_gflops = {}
-        # new_speed_ups = {}
-        # for impl in impls:
-        #     new_gflops[impl] = [gflops[impl][p] for p,x in enumerate(speedups[config['target']]) if x > 0.7]
-        #     new_speed_ups[impl] = [speedups[impl][p] for p,x in enumerate(speedups[config['target']]) if x > 0.7]
-        # gflops = new_gflops
-        # speedups = new_speed_ups
-        # plt_x = plt_x[:len(gflops[config['target']])]
+        plt.rcParams.update(plt.rcParamsDefault)
+        plt.rcParams['font.family'] = 'serif'
+        # ax = axs[i]
+        new_gflops = {}
+        new_speed_ups = {}
         for impl in impls:
             color = colors.pop()
             # ax.scatter(plt_x, gflops[impl], color='white', edgecolor=impl_colors[impl], label=impl_representations[impl],
             #           marker=markers.pop(0), s=10)
             # print(impl, ":", geo_mean_overflow(speedups[impl]))
-            if impl in ['SpMM_SpMM_Demo_FusedCSCAtomic','SpMM_SpMM_FusedParallel_Redundant']:
-                gflops[impl] = 4*gflops[impl]
-                target_speed_up[impl] = target_speed_up[impl]/4
             print(impl, ":", geo_mean_overflow(target_speed_up[impl]))
-            # print(impl, min(gflops[impl]), max(gflops[impl]))
-            # print(impl, min(speedups[impl]), max(speedups[impl]))
+            if impl in ['GCN_SingleLayer_CSCAtomic_FusedSeperated', 'GCN_SingleLayer_TACO', 'SpMM_SpMM_Demo_FusedCSCAtomic', 'SpMM_SpMM_FusedParallel_Redundant']:
+                gflops[impl] = gflops[impl]*2
+                target_speed_up[impl] = target_speed_up[impl]/2
+                print(impl, ":", geo_mean_overflow(target_speed_up[impl]))
             ax.plot(plt_x, gflops[impl], color=impl_colors[impl], label=impl_representations[impl], linewidth='1')
         # for impl, bar in bars.items():
-        # ax.set_xlabel('NNZ', fontsize=15)
-        ax.set_title('bCol=cCol='+str(bcol)+',dp', fontsize=15)
-        #set the y scale to 0 to 600
-        # ax.set_ylim(0, 700)
+        ax.set_xlabel('NNZ', fontsize=15)
+        ax.set_title('bCol=cCol='+str(bcol)+',sp', fontsize=15)
         ax.set_xticks([])
+        ax.legend(loc='upper center', bbox_to_anchor=(0.46,1.5),fontsize=15, ncol=2,handletextpad=0.2)
         ax.spines[['right', 'top']].set_visible(False)
         mat_representations = [mat[:-4].split("_")[0] for mat in mat_list]
         # ax.set_xticks(plt_x, mat_representations, rotation='vertical')
         # ax.legend()
     file_name = log_folder.split('/')[-1] + ".eps"
     plot_path = os.path.join(log_folder, file_name)
-
-    axs[0].set_ylabel('GFLOP/s', fontsize=15)
-    h, l = axs[0].get_legend_handles_labels()
-    line = Line2D([0], [0], label='Unfused Baseline', color='deepskyblue', linewidth=1)
-    h.extend([line])
-    fig.legend(handles=h, loc='upper center', ncol=3, bbox_to_anchor=(0.5, 1),fontsize=15)
+    ax.set_ylabel('GFLOP/s', fontsize=15)
+    h, l = ax.get_legend_handles_labels()
+    # fig.legend(h, l, loc='lower center', ncol=3)
     # fig.suptitle('GeMM-SpMM for ss-graphs on Intel Skylake', fontsize=9)
     plt.show()
-    # plt.savefig(plot_path, format='eps')
+    fig.savefig(plot_path, format='eps')
 
 
 def plot_gcn_from_logs_folder(logs_folder, config_file, mat_list_file,should_merge="1"):
-    # print(should_merge)
-    plt.rcParams["font.family"] = "serif"
+    print(should_merge)
+    if should_merge == "1":
+        merge_logs(logs_folder)
     with open(mat_list_file) as f:
         mat_list = f.readlines()
     mat_list = [x.strip() for x in mat_list]
-    if should_merge == "1":
-        merge_logs(logs_folder)
     config = import_config(config_file)
     plot_gcn(logs_folder, "merged.csv", config, mat_list)
-    # plot_gflops_per_bcol(logs_folder, "merged.csv", config,mat_list)
     # plot_stack_bar(logs_folder, "merged.csv", config)
     # plot_performance_vs_fused_ratio(logs_folder, entry.name, config)
     # print_fusion_ratios(logs_folder, entry.name)
@@ -646,11 +515,9 @@ def merge_logs(logs_folder):
             # if entry is csv file
             if entry.name.endswith(".csv") and entry.is_file():
                 entry_names.append(entry.name)
-
         # entry_names = entry_names.sort(key=lambda x: int(x.split("_")[0]))
         df = pd.read_csv(os.path.join(logs_folder, entry_names[0]))
         for i in range(1, len(entry_names)):
-            print(entry_names[i])
             df = pd.concat([pd.read_csv(os.path.join(logs_folder, entry_names[i])), df], ignore_index=True)
         df.to_csv(os.path.join(logs_folder, "merged.csv"), index=False)
 

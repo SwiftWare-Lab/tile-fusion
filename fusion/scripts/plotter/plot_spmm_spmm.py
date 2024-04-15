@@ -322,7 +322,7 @@ def plot_spmm_spmm(log_folder, log_file_name, config, ax):
             if x < 0.5:
                 print(mat_list[i], x)
         print(impl, ":", geo_mean_overflow(speedups[impl]))
-        ax.scatter(plt_x, speedups[impl], color='white', edgecolor=impl_colors[impl], label=impl_representations[impl],
+        ax.scatter(plt_x, gflops[impl], color='white', edgecolor=impl_colors[impl], label=impl_representations[impl],
                    marker=markers.pop(0), s=10)
         # ax.plot(plt_x, gflops[impl], color=impl_colors[impl], label=impl_representations[impl], linewidth='0.7')
         # ax.scatter(plt_x, fused_ratios[impl], color=color, edgecolor='grey', label=impl)

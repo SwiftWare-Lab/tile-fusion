@@ -1,12 +1,35 @@
 experiment_name: "gcn_single_layer"
 implementations:
-#  - name: "GCN_SingleLayerFused"
-#    color: "yellow"
-#    tuned: False
-  - name: "GCN_SingleLayerMKL"
-    representation: "MKL"
-    color: "black"
+#  - name: "GCN_SingleLayer_CSCAtomic_FusedSeperated"
+#    representation: "Atomic Tiling"
+#    color: "gray"
+#    tuned: True
+#    tune_parameters:
+#      - "Iter Per Partition"
+  - name: "GCN_SingleLayer_UnFusedMKL"
+    representation: "Unfused MKL"
+    color: "green"
     tuned: False
+#  - name: "SpMMGeMM_UnFusedMKL"
+#    representation: "Unfused MKL"
+#    color: "green"
+#    tuned: False
+  - name: "GCN_SingleLayer_UnFused"
+    representation: "Unfused Baseline"
+    color: "deepskyblue"
+    tuned: False
+#  - name: "GCN_SingleLayer_TACO"
+#    representation: "Best of Tensor Compilers"
+#    color: "violet"
+#    tuned: False
+#  - name: "GCN_SingleLayer_LNR"
+#    representation: "LNR"
+#    color: "blue"
+#    tuned: False
+#  - name: "GCN_SingleLayer_CompressedGeMV"
+#    representation: "LNR"
+#    color: "lightseagreen"
+#    tuned: False
 #  - name: "GCN_SingleLayerUnfusedCSC"
 #    color: "green"
 #    tuned: False
@@ -15,14 +38,18 @@ implementations:
 #    tuned: True
 #    tune_parameters:
 #      - "NTile"
-#  - name: "GCN_SingleLayerTiledFusedParallel"
+#  - name: "GCN_SingleLayer_SpMMGeMM_Fused"
+#    representation: "SpMM GeMM Fused"
 #    color: "red"
 #    tuned: True
 #    tune_parameters:
-#      - "NTile"
-#  - name: "GCN_SingleLayerFusedCSC"
-#    color: "orange"
-#    tuned: False
+#      - "Iter Per Partition"
+#  - name: "GCN_SingleLayer_Redundant_FusedSeperated"
+#    representation: "Overlapped Tiling"
+#    color: "blue"
+#    tuned: True
+#    tune_parameters:
+#      - "Iter Per Partition"
 #  - name: "GCN_SingleLayerTiledFusedCSCParallel"
 #    representation: "Single Layer Fused CSC"
 #    color: "purple"
@@ -65,12 +92,19 @@ implementations:
 #    tuned: True
 #    tune_parameters:
 #      - "Iter Per Partition"
-  - name: "GCN_SingleLayerFusedSeperated"
-    representation: "TiledFused"
-    color: "goldenrod"
+  - name: "GCN_SingleLayer_FusedSeperated"
+    representation: "Tile Fusion"
+    color: "maroon"
     tuned: True
     tune_parameters:
       - "Iter Per Partition"
+#  - name: "SpMMGeMM_Fused"
+#    representation: "Tile Fusion"
+#    color: "maroon"
+#    tuned: True
+#    tune_parameters:
+#      - "Iter Per Partition"
+
 #  - name: "GCN_SingleLayerFusedParallel"
 #    color: "black"
 #    tuned: False
@@ -96,4 +130,5 @@ matrices:
   - "coauthor_cs_ordered.mtx"
   - "deezer_europe_ordered.mtx"
   - "facebook_page_page_ordered.mtx"
-baseline: "GCN_SingleLayerMKL"
+baseline: "GCN_SingleLayer_FusedSeperated"
+target: "GCN_SingleLayer_FusedSeperated"
