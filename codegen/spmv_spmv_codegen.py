@@ -10,7 +10,48 @@ from numba.core.untyped_passes import IRProcessing
 
 # from codegen.writer import mk_array_assign_stmt
 
-# not usable
+
+def mk_pointer_loop(loc, scope, ptr_index, ptr_var, prefix):
+    type_map = {}
+    call_types = {}
+    start_index = ptr_index
+    end_index = ir.Var(scope, mk_unique_var('end_index'), loc)
+    end_index_ass = ir.Assign(
+        ir.Expr.binop(
+            ir.BINOPS_TO_OPERATORS['+'],
+            start_index, ir.Const(1, loc), loc),
+        end_index,
+        loc)
+    p_start = ir.Var(scope, mk_unique_var('p_start'), loc)
+    p_end = ir.Var(scope, mk_unique_var('p_end'), loc)
+    start_ass = ir.Assign(ir.Expr.getitem(ptr_var, start_index, loc), p_start, loc)
+
+    end_ass = ir.Assign(ir.Expr.getitem(ptr_var, end_index, loc), p_end, loc)
+    range_block = mk_range_block(
+        type_map,
+        p_start,
+        p_end,
+        1,
+        call_types,
+        scope,
+        loc
+    )
+    phi_var = range_block.body[-2].target
+    header_block = mk_loop_header(type_map, phi_var, call_types,
+                                  scope, loc)
+    header_block.body.insert(0, end_ass)
+    header_block.body.insert(0, start_ass)
+    header_block.body.insert(0, end_index_ass)
+    # need to update target of jump instruction of header block after
+    header_label = prefix + '_header_block'
+    range_label = prefix + '_range_block'
+    header_block.body[-1].target = range_label
+    return {
+        header_label: header_block,
+        range_label + '_range_block': range_block
+    }, phi_var
+
+
 
 def mk_fused_loop_nest(
         loc, scope, nl, l_ptr, par_ptr, ids, types,
