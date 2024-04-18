@@ -187,6 +187,8 @@ class LoopFusion1(FunctionPass):
         blocks = func_ir.blocks
         dprint_func_ir(func_ir, "before maximize fusion down")
         cfg = ir_utils.compute_cfg_from_blocks(blocks)
+        # for node in cfg.topo_order():
+        #     print(node)
         order = find_topo_order(blocks)
         # find adjacent loops
         adj_loops = self.find_adjacent_loops(cfg)
@@ -203,7 +205,7 @@ class LoopFusion1(FunctionPass):
         #val = body_loop2[42].body[2].value
 
         for i, stmt in enumerate(body_loop2[80].body[1:4]):
-            blocks[42].body.insert(4+i, stmt)
+            blocks[42].body.insert(-1, stmt)
         #blocks[42].body[-1].target = 80
         # remove loop 2 header
         del (blocks[80])
@@ -243,11 +245,17 @@ class LoopFusion1(FunctionPass):
         new_blocks[range_label] = range_block
         header_block = mk_loop_header(typemap, phi_var, calltypes,
                                       scope, loc)
-        header_block.body[-2].target = index_variable
+        # header_block.body[-2].target = index_variable
         new_blocks[header_label] = header_block
         # jump to this new inner loop
         # init_block.body.append(ir.Jump(range_label, loc))
         # header_block.body[-1].falsebr = block_label
+        print('--------------------------------',header_label)
+        for v in new_blocks[header_label].body:
+            print(v)
+        print('--------------------------------',range_label)
+        for v in new_blocks[range_label].body:
+            print(v)
 
         prev_header_label = header_label  # to set truebr next loop
 
