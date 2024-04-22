@@ -11,15 +11,21 @@ from numba.core.untyped_passes import IRProcessing
 # from codegen.writer import mk_array_assign_stmt
 
 
-def mk_pointer_loop(loc, scope, ptr_index, ptr_var, prefix):
+def mk_pointer_loop(loc, scope, ptr_index, ptr_var, prefix, header_block_label):
     type_map = {}
     call_types = {}
     start_index = ptr_index
     end_index = ir.Var(scope, mk_unique_var('end_index'), loc)
+    const1_var = ir.Var(scope, mk_unique_var('const_one'), loc)
+    const1_ass = ir.Assign(
+        ir.Const(1, loc),
+        const1_var,
+        loc
+    )
     end_index_ass = ir.Assign(
         ir.Expr.binop(
             ir.BINOPS_TO_OPERATORS['+'],
-            start_index, ir.Const(1, loc), loc),
+            start_index, const1_var, loc),
         end_index,
         loc)
     p_start = ir.Var(scope, mk_unique_var('p_start'), loc)
@@ -39,23 +45,25 @@ def mk_pointer_loop(loc, scope, ptr_index, ptr_var, prefix):
     phi_var = range_block.body[-2].target
     header_block = mk_loop_header(type_map, phi_var, call_types,
                                   scope, loc)
-    header_block.body.insert(0, end_ass)
-    header_block.body.insert(0, start_ass)
-    header_block.body.insert(0, end_index_ass)
+    range_block.body.insert(0, end_ass)
+    range_block.body.insert(0, start_ass)
+    range_block.body.insert(0, end_index_ass)
+    range_block.body.insert(0, const1_ass)
     # need to update target of jump instruction of header block after
     header_label = prefix + '_header_block'
     range_label = prefix + '_range_block'
-    header_block.body[-1].target = range_label
+    print(range_label)
+    range_block.body[-1].target = header_block_label
     return {
         header_label: header_block,
-        range_label + '_range_block': range_block
+        range_label: range_block
     }, phi_var
-
 
 
 def mk_fused_loop_nest(
         loc, scope, nl, l_ptr, par_ptr, ids, types,
-        next_block_label, first_loop_body_block, second_loop_body_block):
+        next_block_label, first_loop_body_blocks, second_loop_body_blocks,
+        new_labels):
     # nl_var = ir.Var(scope, nl, loc)
     l_ptr_var = ir.Var(scope, l_ptr, loc)
     par_ptr_var = ir.Var(scope, par_ptr, loc)
@@ -79,61 +87,67 @@ def mk_fused_loop_nest(
     l_phi_var = l_range_block.body[-2].target
     l_header_block = mk_loop_header(type_map, l_phi_var, call_types,
                                     scope, loc)
-    l_header_block.body[-1].target = 'l_range_block'
-    l_range_block.body[-1].truebr = 'l_body_block'
-    l_range_block.body[-1].falsebr = next_block_label
-    new_blocks['l_header_block'] = l_header_block
-    new_blocks['l_range_block'] = l_range_block
-    l_index_ass = ir.Assign(l_phi_var, l_index, loc)
+    l_range_block.body[-1].target = new_labels['l_header_block']
+    l_header_block.body[-1].truebr = new_labels['l_body_block']
+    l_header_block.body[-1].falsebr = next_block_label
+    new_blocks[new_labels['l_header_block']] = l_header_block
+    new_blocks[new_labels['l_range_block']] = l_range_block
+    l_index_var = l_header_block.body[-2].target
+    l_index_ass = ir.Assign(l_index_var, l_index, loc)
     l_body_block = ir.Block(scope, loc)
     l_body_block.body.append(l_index_ass)
     # creating partition loop
-    p_loop_blocks, p_phi_var = mk_pointer_loop(loc, scope, l_index, l_ptr_var, 'p')
+    p_loop_blocks, p_phi_var = mk_pointer_loop(loc, scope, l_index, l_ptr_var, 'p', new_labels['p_header_block'])
     p_header_block = p_loop_blocks['p_header_block']
     p_range_block = p_loop_blocks['p_range_block']
-    p_range_block.body[-1].truebr = 'p_body_block'
-    p_range_block.body[-1].falsebr = 'l_range_block'
-    for st in p_header_block.body:
+    p_header_block.body[-1].truebr = new_labels['p_body_block']
+    p_header_block.body[-1].falsebr = new_labels['l_header_block']
+    for st in p_range_block.body:
         l_body_block.body.append(st)
-    new_blocks['l_body_block'] = l_body_block
-    new_blocks['p_range_block'] = p_range_block  # Fix branch targets
-    p_index_ass = ir.Assign(p_phi_var, p_index, loc)
+    new_blocks[new_labels['l_body_block']] = l_body_block
+    new_blocks[new_labels['p_header_block']] = p_header_block  # Fix branch targets
+    p_index_ass = ir.Assign(p_header_block.body[-2].target, p_index, loc)
     p_body_block = ir.Block(scope, loc)
     p_body_block.body.append(p_index_ass)
-    i_loop_blocks, i_phi_var = mk_pointer_loop(loc, scope, p_index, par_ptr_var, 'i')
+    i_loop_blocks, i_phi_var = mk_pointer_loop(loc, scope, p_index, par_ptr_var, 'i', new_labels['i_header_block'])
     i_header_block = i_loop_blocks['i_header_block']
     i_range_block = i_loop_blocks['i_range_block']
-    i_range_block.body[-1].truebr = 'i_body_block'
-    i_range_block.body[-1].falsebr = 'p_range_block'
-    for st in i_header_block.body:
-        p_body_block.append(st)
-    new_blocks['p_body_block'] = p_body_block
-    new_blocks['i_range_block'] = i_range_block  # Fix branch targets
-    i_body_block = ir.Block(scope, loc)   # loops body will be here in a conditional statement
-    i_index_ass = ir.Assign(i_phi_var, i_index, loc)
+    i_header_block.body[-1].truebr = new_labels['i_body_block']
+    i_header_block.body[-1].falsebr = new_labels['p_header_block']
+    for st in i_range_block.body:
+        p_body_block.body.append(st)
+    new_blocks[new_labels['p_body_block']] = p_body_block
+    new_blocks[new_labels['i_header_block']] = i_header_block  # Fix branch targets
+    i_body_block = ir.Block(scope, loc)  # loops body will be here in a conditional statement
+    i_index_ass = ir.Assign(i_header_block.body[-2].target, i_index, loc)
     i_body_block.append(i_index_ass)
     get_type_expr = ir.Expr.getitem(types_var, i_index, loc)
     type_var = ir.Var(scope, mk_unique_var('t'), loc)
     type_ass = ir.Assign(get_type_expr, type_var, loc)
     i_body_block.append(type_ass)
     get_iter_expr = ir.Expr.getitem(ids_var, i_index, loc)
-    first_loop_body_block.body[0].value = get_iter_expr
-    second_loop_body_block.body[0].value = get_iter_expr
+    first_loop_body_blocks[32].body[0].value = get_iter_expr  # hardcoded for now, need to be fixed
+    del second_loop_body_blocks[106].body[0]  # hardcoded for now, need to be fixed
+    i_body_block.append(first_loop_body_blocks[32].body[0])
+    del first_loop_body_blocks[32].body[0]
 
     # if condition
     # bool_func = ir.Var(scope, 'bool_func', loc)
     # bool_func_ass = ir.Assign(ir.Global('bool', bool.__class__, loc), bool_func, loc)
     # i_body_block.append(bool_func_ass)
 
-    type_cond = ir.Branch(type_var, 'second_loop_body_block', 'first_loop_body_block', loc)
+    type_cond = ir.Branch(type_var, 106, 32, loc)  # hardcoded for now, need to be fixed
     i_body_block.append(type_cond)
-    first_loop_body_block.body[-1].target = 'i_range_block'
-    second_loop_body_block.body[-1].target = 'i_range_block'
-    new_blocks['first_loop_body_block'] = first_loop_body_block
-    new_blocks['second_loop_body_block'] = second_loop_body_block
+    new_blocks[new_labels['i_body_block']] = i_body_block
+    first_loop_body_blocks[94].body[-1].target = new_labels['i_header_block']  # hardcoded for now, need to be fixed
+    second_loop_body_blocks[168].body[-1].target = new_labels['i_header_block']  # hardcoded for now, need to be fixed
+    # new_blocks[new_labels['first_loop_body_block']] = first_loop_body_block
+    # new_blocks[new_labels['second_loop_body_block']] = second_loop_body_block
+    for key, block in first_loop_body_blocks.items():
+        new_blocks[key] = block
+    for key, block in second_loop_body_blocks.items():
+        new_blocks[key] = block
     return new_blocks
-
-
 
 
 config.DEBUG_ARRAY_OPT = 3
@@ -173,9 +187,29 @@ class LoopFusion1(FunctionPass):
         blocks = func_ir.blocks
         dprint_func_ir(func_ir, "before maximize fusion down")
         cfg = ir_utils.compute_cfg_from_blocks(blocks)
-        for node in cfg.loops():
-            print(node)
         order = find_topo_order(blocks)
+        new_label = max(ir_utils.next_label(), max(func_ir.blocks.keys()) + 1)
+        new_labels = dict()
+        new_labels['l_range_block'] = new_label
+        new_labels['l_header_block'] = new_label + 1
+        new_labels['l_body_block'] = new_label + 2
+        new_labels['p_header_block'] = new_label + 3
+        new_labels['p_body_block'] = new_label + 4
+        new_labels['i_header_block'] = new_label + 5
+        new_labels['i_body_block'] = new_label + 6
+        new_labels['first_loop_body_block'] = new_label + 7
+        new_labels['second_loop_body_block'] = new_label + 8
+        loop1_body = {}
+        loop2_body = {}
+        loop1_body[32] = blocks[32]
+        loop1_body[56] = blocks[56]
+        loop1_body[58] = blocks[58]
+        loop1_body[94] = blocks[94]
+        loop2_body[106] = blocks[106]
+        loop2_body[130] = blocks[130]
+        loop2_body[132] = blocks[132]
+        loop2_body[168] = blocks[168]
+
         # find adjacent loops
         # adj_loops = self.find_adjacent_loops(cfg)
         # var_lp1 = blocks[adj_loops[0][0].header].body[0].target
@@ -194,9 +228,18 @@ class LoopFusion1(FunctionPass):
         #     blocks[42].body.insert(4+i, stmt)
         # #blocks[42].body[-1].target = 80
         # # remove loop 2 header
-        # del (blocks[80])
-        # del(blocks[62])
-        # del(blocks[78])
+        del (blocks[30])
+        del (blocks[32])
+        del (blocks[56])
+        del (blocks[58])
+        del (blocks[94])
+        del (blocks[96])
+        del (blocks[104])
+        del (blocks[106])
+        del (blocks[130])
+        del (blocks[132])
+        del (blocks[168])
+        blocks[0].body[-1].target = new_labels['l_range_block']
         # blocks[40].terminator.falsebr = 100
         #
         # aa = ir.Var(blocks[0].scope, mk_unique_var("aa"), state.func_ir.loc)
@@ -212,6 +255,12 @@ class LoopFusion1(FunctionPass):
         # calltypes = {}
         scope = func_ir.blocks[0].scope
         loc = state.func_ir.loc
+
+        new_blocks = mk_fused_loop_nest(loc, scope, 2, 'l_ptr', 'par_ptr', 'ids', 'types', 170, loop1_body, loop2_body,
+                                        new_labels)
+        # print(new_blocks)
+        for key, block in new_blocks.items():
+            blocks[key] = block
         # print(mk_fusion_loop(loc,scope,100))
         # start = ir.Var(scope, mk_unique_var("start"), loc)
         # stop = ir.Var(scope, mk_unique_var("stop"), loc)
@@ -240,7 +289,7 @@ class LoopFusion1(FunctionPass):
         # prev_header_label = header_label  # to set truebr next loop
 
         # generate a loop that adds two arrays
-        # dprint_func_ir(func_ir, "after maximize fusion down")
+        dprint_func_ir(func_ir, "after maximize fusion down")
         # add rand to the last block
 
         return mutate  # the pass has not mutated the IR
@@ -262,8 +311,8 @@ class MyCompiler(CompilerBase):  # custom compiler extends from CompilerBase
         return [pm]
 
 
-# @njit(float64[:](int32[:], int32[:], float64[:], float64[:], int32, int32[:], int32[:], int32[:], int32[:]),
-#       pipeline_class=MyCompiler)
+@njit(float64[:](int32[:], int32[:], float64[:], float64[:], int32, int32[:], int32[:], int32[:], int32[:]),
+      pipeline_class=MyCompiler)
 def spmv_spmv(Ap, Ai, Ax, B, m, l_ptr, par_ptr, ids, types):
     y = np.zeros(m)
     z = np.zeros(m)
@@ -276,14 +325,26 @@ def spmv_spmv(Ap, Ai, Ax, B, m, l_ptr, par_ptr, ids, types):
     return y
 
 
-@njit(pipeline_class=MyCompiler)
-def test_if(a):
-    b = 0
-    if a == 1:
-        b += 1
-    else:
-        b += 2
-    return b
+def spmv_spmv_python(Ap, Ai, Ax, B, m):
+    y = np.zeros(m)
+    z = np.zeros(m)
+    for i in range(m):
+        for j in range(Ap[i], Ap[i + 1]):
+            y[i] += Ax[j] * B[Ai[j]]
+    for i in range(m):
+        for j in range(Ap[i], Ap[i + 1]):
+            z[i] += Ax[j] * y[Ai[j]]
+    return y
+
+
+# @njit(pipeline_class=MyCompiler)
+# def test_if(a):
+#     b = 0
+#     if a == 1:
+#         b += 1
+#     else:
+#         b += 2
+#     return b
 
 
 def fused_spmv_spmv(Ap, Ai, Ax, B, m, lnum, lptr, pr_ptr, id, type):
@@ -309,12 +370,20 @@ A = np.ones(n)
 IA = np.zeros(n + 1, dtype=np.int32)
 JA = np.zeros(n, dtype=np.int32)
 x = np.random.random(n)
+l_ptr = np.array([0, 2, 2], dtype=np.int32)
+par_ptr = np.array([0, 100, 200], dtype=np.int32)
+ids = np.array([i for i in range(50)] * 2 + [i for i in range(50, 100)] * 2, dtype=np.int32)
+types = np.array([0] * 50 + [1] * 50 + [0] * 50 + [1] * 50, dtype=np.int32)
 for i in range(n):
     IA[i] = i
     JA[i] = i
 IA[n] = n
-# y = spmv_spmv(IA, JA, A, x, n)
-y = test_if(4)
+y = spmv_spmv(IA, JA, A, x, n, l_ptr, par_ptr, ids, types)
+print(y)
+
+y = spmv_spmv_python(IA, JA, A, x, n)
+print(y)
+# y = test_if(4)
 # print(y)
 # y = test_if_condition(1)
-print(y)
+# print(y)
