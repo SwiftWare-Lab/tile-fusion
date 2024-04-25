@@ -1,4 +1,5 @@
 import numpy as np
+import numba
 from numba import njit, float64, int32
 from numba.core import ir, ir_utils, config
 from numba.core.compiler import CompilerBase, DefaultPassBuilder
@@ -6,9 +7,18 @@ from numba.core.compiler_machinery import FunctionPass, register_pass
 from numba.core.ir_utils import mk_unique_var, next_label, mk_range_block, mk_loop_header, find_topo_order, \
     replace_var_names, dprint_func_ir
 from numba.core.untyped_passes import IRProcessing
+from  numba.core import typed_passes
 
 
 # from codegen.writer import mk_array_assign_stmt
+
+RANGE_JUMP_INDEX = -1
+RANGE_PHI_VAR_INDEX = -2
+HEADER_BR_INDEX = -1
+HEADER_PHI_VAR_INDEX = -2
+LOOP_VAR_INDEX = 0
+LOOP_BODY_INDEX = 0
+LOOP_EXIT_INDEX = -1
 
 
 def mk_pointer_loop(loc, scope, ptr_index, ptr_var, prefix, header_block_label):
@@ -63,7 +73,7 @@ def mk_pointer_loop(loc, scope, ptr_index, ptr_var, prefix, header_block_label):
 def mk_fused_loop_nest(
         loc, scope, nl, l_ptr, par_ptr, ids, types,
         next_block_label, first_loop_body_blocks, second_loop_body_blocks,
-        new_labels):
+        new_labels, loop1_labels, loop2_labels):
     # nl_var = ir.Var(scope, nl, loc)
     l_ptr_var = ir.Var(scope, l_ptr, loc)
     par_ptr_var = ir.Var(scope, par_ptr, loc)
@@ -84,15 +94,15 @@ def mk_fused_loop_nest(
         call_types,
         scope,
         loc)
-    l_phi_var = l_range_block.body[-2].target
+    l_phi_var = l_range_block.body[RANGE_PHI_VAR_INDEX].target
     l_header_block = mk_loop_header(type_map, l_phi_var, call_types,
                                     scope, loc)
-    l_range_block.body[-1].target = new_labels['l_header_block']
-    l_header_block.body[-1].truebr = new_labels['l_body_block']
-    l_header_block.body[-1].falsebr = next_block_label
+    l_range_block.body[RANGE_JUMP_INDEX].target = new_labels['l_header_block']
+    l_header_block.body[HEADER_BR_INDEX].truebr = new_labels['l_body_block']
+    l_header_block.body[HEADER_BR_INDEX].falsebr = next_block_label
     new_blocks[new_labels['l_header_block']] = l_header_block
     new_blocks[new_labels['l_range_block']] = l_range_block
-    l_index_var = l_header_block.body[-2].target
+    l_index_var = l_header_block.body[HEADER_PHI_VAR_INDEX].target
     l_index_ass = ir.Assign(l_index_var, l_index, loc)
     l_body_block = ir.Block(scope, loc)
     l_body_block.body.append(l_index_ass)
@@ -100,47 +110,47 @@ def mk_fused_loop_nest(
     p_loop_blocks, p_phi_var = mk_pointer_loop(loc, scope, l_index, l_ptr_var, 'p', new_labels['p_header_block'])
     p_header_block = p_loop_blocks['p_header_block']
     p_range_block = p_loop_blocks['p_range_block']
-    p_header_block.body[-1].truebr = new_labels['p_body_block']
-    p_header_block.body[-1].falsebr = new_labels['l_header_block']
+    p_header_block.body[HEADER_BR_INDEX].truebr = new_labels['p_body_block']
+    p_header_block.body[HEADER_BR_INDEX].falsebr = new_labels['l_header_block']
     for st in p_range_block.body:
         l_body_block.body.append(st)
     new_blocks[new_labels['l_body_block']] = l_body_block
     new_blocks[new_labels['p_header_block']] = p_header_block  # Fix branch targets
-    p_index_ass = ir.Assign(p_header_block.body[-2].target, p_index, loc)
+    p_index_ass = ir.Assign(p_header_block.body[HEADER_PHI_VAR_INDEX].target, p_index, loc)
     p_body_block = ir.Block(scope, loc)
     p_body_block.body.append(p_index_ass)
     i_loop_blocks, i_phi_var = mk_pointer_loop(loc, scope, p_index, par_ptr_var, 'i', new_labels['i_header_block'])
     i_header_block = i_loop_blocks['i_header_block']
     i_range_block = i_loop_blocks['i_range_block']
-    i_header_block.body[-1].truebr = new_labels['i_body_block']
-    i_header_block.body[-1].falsebr = new_labels['p_header_block']
+    i_header_block.body[HEADER_BR_INDEX].truebr = new_labels['i_body_block']
+    i_header_block.body[HEADER_BR_INDEX].falsebr = new_labels['p_header_block']
     for st in i_range_block.body:
         p_body_block.body.append(st)
     new_blocks[new_labels['p_body_block']] = p_body_block
     new_blocks[new_labels['i_header_block']] = i_header_block  # Fix branch targets
     i_body_block = ir.Block(scope, loc)  # loops body will be here in a conditional statement
-    i_index_ass = ir.Assign(i_header_block.body[-2].target, i_index, loc)
+    i_index_ass = ir.Assign(i_header_block.body[HEADER_PHI_VAR_INDEX].target, i_index, loc)
     i_body_block.append(i_index_ass)
     get_type_expr = ir.Expr.getitem(types_var, i_index, loc)
     type_var = ir.Var(scope, mk_unique_var('t'), loc)
     type_ass = ir.Assign(get_type_expr, type_var, loc)
     i_body_block.append(type_ass)
     get_iter_expr = ir.Expr.getitem(ids_var, i_index, loc)
-    first_loop_body_blocks[32].body[0].value = get_iter_expr  # hardcoded for now, need to be fixed
-    del second_loop_body_blocks[106].body[0]  # hardcoded for now, need to be fixed
-    i_body_block.append(first_loop_body_blocks[32].body[0])
-    del first_loop_body_blocks[32].body[0]
+    first_loop_body_blocks[loop1_labels[LOOP_BODY_INDEX]].body[LOOP_VAR_INDEX].value = get_iter_expr  # hardcoded for now, need to be fixed, loop1_body = 32
+    del second_loop_body_blocks[loop2_labels[LOOP_BODY_INDEX]].body[LOOP_VAR_INDEX]  # hardcoded for now, need to be fixed, loop2_body=106
+    i_body_block.append(first_loop_body_blocks[loop1_labels[LOOP_BODY_INDEX]].body[LOOP_VAR_INDEX])
+    del first_loop_body_blocks[loop1_labels[LOOP_BODY_INDEX]].body[LOOP_VAR_INDEX]
 
     # if condition
     # bool_func = ir.Var(scope, 'bool_func', loc)
     # bool_func_ass = ir.Assign(ir.Global('bool', bool.__class__, loc), bool_func, loc)
     # i_body_block.append(bool_func_ass)
 
-    type_cond = ir.Branch(type_var, 106, 32, loc)  # hardcoded for now, need to be fixed
+    type_cond = ir.Branch(type_var, loop2_labels[LOOP_BODY_INDEX], loop1_labels[LOOP_BODY_INDEX], loc)  # hardcoded for now, need to be fixed
     i_body_block.append(type_cond)
     new_blocks[new_labels['i_body_block']] = i_body_block
-    first_loop_body_blocks[94].body[-1].target = new_labels['i_header_block']  # hardcoded for now, need to be fixed
-    second_loop_body_blocks[168].body[-1].target = new_labels['i_header_block']  # hardcoded for now, need to be fixed
+    first_loop_body_blocks[loop1_labels[LOOP_EXIT_INDEX]].body[RANGE_JUMP_INDEX].target = new_labels['i_header_block']  # hardcoded for now, need to be fixed # merge these two lines
+    second_loop_body_blocks[loop2_labels[LOOP_EXIT_INDEX]].body[RANGE_JUMP_INDEX].target = new_labels['i_header_block']  # hardcoded for now, need to be fixed
     # new_blocks[new_labels['first_loop_body_block']] = first_loop_body_block
     # new_blocks[new_labels['second_loop_body_block']] = second_loop_body_block
     for key, block in first_loop_body_blocks.items():
@@ -160,6 +170,7 @@ class LoopFusion1(FunctionPass):
     def __init__(self):
         super().__init__(self)
 
+    #This needs to be fixed, it is not right for all cases
     def find_adjacent_loops(self, cfg):
         """Find adjacent loops that can be fused.
         """
@@ -170,8 +181,9 @@ class LoopFusion1(FunctionPass):
             all_loops.append(cfg.loops()[lp])
         # for every two items in all_loops, check if they are adjacent
         for i in range(len(all_loops) - 1):
-            if all_loops[i].exits == all_loops[i + 1].entries:
-                adjacent_loops.append((all_loops[i], all_loops[i + 1]))
+            for j in range(i,len(all_loops)):
+                if all_loops[i].exits == all_loops[j].entries:
+                    adjacent_loops.append((all_loops[i], all_loops[j]))
         return adjacent_loops
 
     # good numba overview : https://medium.com/rapids-ai/the-life-of-a-numba-kernel-a-compilation-pipeline-taking-user-defined-functions-in-python-to-cuda-71cc39b77625
@@ -187,7 +199,15 @@ class LoopFusion1(FunctionPass):
         blocks = func_ir.blocks
         dprint_func_ir(func_ir, "before maximize fusion down")
         cfg = ir_utils.compute_cfg_from_blocks(blocks)
+        print("loops:")
+        for l in cfg.loops():
+            print(l)
+        print("------------------------------------")
         order = find_topo_order(blocks)
+        print("order:")
+        print(order)
+        print("------------------------------------")
+        print(cfg.in_loops(30), cfg.in_loops(104))
         new_label = max(ir_utils.next_label(), max(func_ir.blocks.keys()) + 1)
         new_labels = dict()
         new_labels['l_range_block'] = new_label
@@ -201,15 +221,17 @@ class LoopFusion1(FunctionPass):
         new_labels['second_loop_body_block'] = new_label + 8
         loop1_body = {}
         loop2_body = {}
-        loop1_body[32] = blocks[32]
-        loop1_body[56] = blocks[56]
-        loop1_body[58] = blocks[58]
-        loop1_body[94] = blocks[94]
-        loop2_body[106] = blocks[106]
-        loop2_body[130] = blocks[130]
-        loop2_body[132] = blocks[132]
-        loop2_body[168] = blocks[168]
-
+        adjacent_loops = self.find_adjacent_loops(cfg)
+        loop1 = adjacent_loops[0][0]
+        loop2 = adjacent_loops[0][1]
+        for x in loop1.body:
+            if x != loop1.header:
+                loop1_body[x] = blocks[x]
+        for x in loop2.body:
+            if x != loop2.header:
+                loop2_body[x] = blocks[x]
+        loop1_labels = sorted(loop1_body.keys())
+        loop2_labels = sorted(loop2_body.keys())
         # find adjacent loops
         # adj_loops = self.find_adjacent_loops(cfg)
         # var_lp1 = blocks[adj_loops[0][0].header].body[0].target
@@ -228,17 +250,12 @@ class LoopFusion1(FunctionPass):
         #     blocks[42].body.insert(4+i, stmt)
         # #blocks[42].body[-1].target = 80
         # # remove loop 2 header
-        del (blocks[30])
-        del (blocks[32])
-        del (blocks[56])
-        del (blocks[58])
-        del (blocks[94])
-        del (blocks[96])
-        del (blocks[104])
-        del (blocks[106])
-        del (blocks[130])
-        del (blocks[132])
-        del (blocks[168])
+        for key in loop1.body:
+            del blocks[key]
+        for item in loop1.exits:
+            del blocks[item]
+        for key in loop2.body:
+            del blocks[key]
         blocks[0].body[-1].target = new_labels['l_range_block']
         # blocks[40].terminator.falsebr = 100
         #
@@ -255,9 +272,11 @@ class LoopFusion1(FunctionPass):
         # calltypes = {}
         scope = func_ir.blocks[0].scope
         loc = state.func_ir.loc
-
-        new_blocks = mk_fused_loop_nest(loc, scope, 2, 'l_ptr', 'par_ptr', 'ids', 'types', 170, loop1_body, loop2_body,
-                                        new_labels)
+        loop2_exit = 0
+        for item in loop2.exits:
+            loop2_exit = item
+        new_blocks = mk_fused_loop_nest(loc, scope, 2, 'l_ptr', 'par_ptr', 'ids', 'types', loop2_exit, loop1_body, loop2_body,
+                                        new_labels, loop1_labels, loop2_labels)
         # print(new_blocks)
         for key, block in new_blocks.items():
             blocks[key] = block
@@ -304,18 +323,64 @@ class MyCompiler(CompilerBase):  # custom compiler extends from CompilerBase
         pm = DefaultPassBuilder.define_nopython_pipeline(self.state)
         # Add the new pass to run after IRProcessing
         pm.add_pass_after(LoopFusion1, IRProcessing)
+        # if self.state.flags.auto_parallel.enabled:
+        #     pm.add_pass_after(LoopFusion1, typed_passes.ParforFusionPass)
+        # else:
+        #     pm.add_pass_after(LoopFusion1, typed_passes.InlineOverloads)
         # pm.add_pass_after(ParFdd, IRProcessing)
         # finalize
         pm.finalize()
         # return as an iterable, any number of pipelines may be defined!
         return [pm]
 
+@register_pass(mutates_CFG=False, analysis_only=False)
+class ObserveIRPass(FunctionPass):
+    _name = "dead_code_elimination1"
+
+    def __init__(self):
+        FunctionPass.__init__(self)
+
+    def run_pass(self, state):
+        # state contains the FunctionIR to be mutated,
+        mutate = False
+
+        # # along with environment and typing information
+        func_ir = state.func_ir
+        dprint_func_ir(func_ir, "generated IR")
+        # # create CFG from the IR
+        # cfg = ir_utils.compute_cfg_from_blocks(func_ir.blocks)
+        # cfg_simplied_blks = ir_utils.simplify_CFG(func_ir.blocks)
+        # cfg_simplied = ir_utils.compute_cfg_from_blocks(cfg_simplied_blks)
+        # print(func_ir.blocks)
+        # print("=====================================")
+        # # visualize the CFG
+        # cfg.render_dot("cfg.dot").save('ttt.dot')
+        # cfg_simplied.render_dot("cfg_simplied.dot").save('ttt_simplied.dot')
+        # # convert the dot filt to png
+        # #gv.render('dot', 'png', 'cfg.dot')
+        # #gv.render('dot', 'bmp', 'ttt.dot')
+        # # iterate over each block in the IR
+        # for blk in func_ir.blocks.values():
+        #     new_body = []
+        #     # iterate over each statement in the block
+        #     for stmt in blk.body:
+        #         print(stmt)
+        #         if isinstance(stmt, ir.Assign):
+        #             # if the statement is an assignment
+        #             # and the target is not used elsewhere
+        #             if stmt.target.name not in func_ir._definitions:
+        #                 mutate = True  # the pass will mutate the IR
+        #                 continue  # skip this statement
+        #         new_body.append(stmt)  # keep this statement
+        #     blk.body = new_body  # update the block with new statements
+        return mutate  # the pass has not mutated the IR
 
 @njit(float64[:](int32[:], int32[:], float64[:], float64[:], int32, int32[:], int32[:], int32[:], int32[:]),
       pipeline_class=MyCompiler)
 def spmv_spmv(Ap, Ai, Ax, B, m, l_ptr, par_ptr, ids, types):
     y = np.zeros(m)
     z = np.zeros(m)
+    Ax = Ax + 1
     for i in range(m):
         for j in range(Ap[i], Ap[i + 1]):
             y[i] += Ax[j] * B[Ai[j]]
@@ -328,6 +393,7 @@ def spmv_spmv(Ap, Ai, Ax, B, m, l_ptr, par_ptr, ids, types):
 def spmv_spmv_python(Ap, Ai, Ax, B, m):
     y = np.zeros(m)
     z = np.zeros(m)
+    Ax = Ax + 1
     for i in range(m):
         for j in range(Ap[i], Ap[i + 1]):
             y[i] += Ax[j] * B[Ai[j]]
@@ -364,7 +430,7 @@ def fused_spmv_spmv(Ap, Ai, Ax, B, m, lnum, lptr, pr_ptr, id, type):
 #     else:
 #         z +=1
 #     return y
-# print(numba.__version__)
+print(numba.__version__)
 n = 100
 A = np.ones(n)
 IA = np.zeros(n + 1, dtype=np.int32)
