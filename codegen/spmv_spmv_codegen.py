@@ -7,6 +7,7 @@ from numba.core.compiler_machinery import FunctionPass, register_pass
 from numba.core.ir_utils import mk_unique_var, next_label, mk_range_block, mk_loop_header, find_topo_order, \
     replace_var_names, dprint_func_ir
 from numba.core.untyped_passes import IRProcessing
+from scipy.io import mmread
 from  numba.core import typed_passes
 
 
@@ -257,6 +258,7 @@ class LoopFusion1(FunctionPass):
         for key in loop2.body:
             del blocks[key]
         blocks[0].body[-1].target = new_labels['l_range_block']
+        # blocks[0].body[-7].value = ir.Const(0, state.func_ir.loc)
         # blocks[40].terminator.falsebr = 100
         #
         # aa = ir.Var(blocks[0].scope, mk_unique_var("aa"), state.func_ir.loc)
@@ -430,20 +432,74 @@ def fused_spmv_spmv(Ap, Ai, Ax, B, m, lnum, lptr, pr_ptr, id, type):
 #     else:
 #         z +=1
 #     return y
+
+def generate_schedule_arrays(Ap, Ai, Ax):
+    n = len(Ap) - 1
+    l_ptr = np.zeros(3, dtype=np.int32)
+    par_ptr = np.zeros(17, dtype=np.int32)
+    ids = np.zeros(len(Ai)*2, dtype=np.int32)
+    types = np.zeros(len(Ai)*2, dtype=np.int32)
+    l_ptr[1] = 8
+    l_ptr[2] = 16
+    if n % 8 == 0:
+        tile_size = n//8
+    else:
+        tile_size = n//8 + 1
+    unfused_iterations = []
+    cur_index = 0
+    for ii in range(0, n, tile_size):
+        start = ii
+        end = min(ii + tile_size, n)
+        fused_iters = []
+        unfused_iterations.append([])
+        for i in range(start, end):
+            ids[cur_index] = i
+            types[cur_index] = 0
+            cur_index += 1
+            if Ai[Ap[i]] >= start and Ai[Ap[i+1]-1] < end:
+                fused_iters.append(i)
+            else:
+                unfused_iterations[-1].append(i)
+        for fi in fused_iters:
+            ids[cur_index] = fi
+            types[cur_index] = 1
+            cur_index += 1
+        par_ptr[ii//tile_size + 1] = cur_index
+    print(len(unfused_iterations))
+    for i in range(0, 8):
+        for j in range(len(unfused_iterations[i])):
+            ids[cur_index] = unfused_iterations[i][j]
+            types[cur_index] = 1
+            cur_index += 1
+        par_ptr[i+9] = cur_index
+    return l_ptr, par_ptr, ids, types
+
 print(numba.__version__)
-n = 100
-A = np.ones(n)
-IA = np.zeros(n + 1, dtype=np.int32)
-JA = np.zeros(n, dtype=np.int32)
+
+mat = mmread('../fusion/data/tri-banded/tri-banded-16.mtx')
+csr = mat.tocsr()
+n = csr.shape[0]
+IA = csr.indptr.astype(np.int32)
+JA = csr.indices.astype(np.int32)
+A = csr.data.astype(np.float64)
+
+# n = 80
+# A = np.ones(n)
+# IA = np.zeros(n + 1, dtype=np.int32)
+# JA = np.zeros(n, dtype=np.int32)
 x = np.random.random(n)
-l_ptr = np.array([0, 2, 2], dtype=np.int32)
-par_ptr = np.array([0, 100, 200], dtype=np.int32)
-ids = np.array([i for i in range(50)] * 2 + [i for i in range(50, 100)] * 2, dtype=np.int32)
-types = np.array([0] * 50 + [1] * 50 + [0] * 50 + [1] * 50, dtype=np.int32)
+
 for i in range(n):
     IA[i] = i
     JA[i] = i
 IA[n] = n
+
+l_ptr, par_ptr, ids, types = generate_schedule_arrays(IA, JA, A)
+print(l_ptr, par_ptr, ids, types)
+# l_ptr = np.array([0, 2, 2], dtype=np.int32)
+# par_ptr = np.array([0, 100, 200], dtype=np.int32)
+# ids = np.array([i for i in range(50)] * 2 + [i for i in range(50, 100)] * 2, dtype=np.int32)
+# types = np.array([0] * 50 + [1] * 50 + [0] * 50 + [1] * 50, dtype=np.int32)
 y = spmv_spmv(IA, JA, A, x, n, l_ptr, par_ptr, ids, types)
 print(y)
 
