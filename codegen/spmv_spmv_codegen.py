@@ -342,6 +342,17 @@ class ObserveIRPass(FunctionPass):
     def __init__(self):
         FunctionPass.__init__(self)
 
+    def find_reads(self, data_value, val, reads):
+        print(type(val))
+        if isinstance(val, ir.Expr) and val.op == 'getitem':
+            reads.append(val)
+        elif isinstance(val, ir.Expr) and val.op == 'binop':
+            self.find_reads(data_value, val.lhs, reads)
+            self.find_reads(data_value, val.rhs, reads)
+        elif isinstance(val, ir.Assign):
+            self.find_reads(data_value, val.value, reads)
+        elif isinstance(val, ir.Var):
+            self.find_reads(data_value, data_value[val.name], reads)
     def run_pass(self, state):
         # state contains the FunctionIR to be mutated,
         mutate = False
@@ -349,6 +360,22 @@ class ObserveIRPass(FunctionPass):
         # # along with environment and typing information
         func_ir = state.func_ir
         dprint_func_ir(func_ir, "generated IR")
+        index = func_ir.blocks[44].body[5].value.index
+        data = func_ir.blocks[44].body[5].value.value
+        print(index, data)
+        read = func_ir.blocks[118].body[4].value
+        stmnts = func_ir.blocks[118].body
+        data_values = {}
+        for st in stmnts:
+            if isinstance(st, ir.Assign):
+                data_values[st.target.name] = st.value
+        temp = read
+        print(read)
+        reads = []
+        self.find_reads(data_values, temp, reads)
+        data = reads[0].value
+        index = reads[0].index
+        print(data, index)
         # # create CFG from the IR
         # cfg = ir_utils.compute_cfg_from_blocks(func_ir.blocks)
         # cfg_simplied_blks = ir_utils.simplify_CFG(func_ir.blocks)
@@ -377,6 +404,25 @@ class ObserveIRPass(FunctionPass):
         #     blk.body = new_body  # update the block with new statements
         return mutate  # the pass has not mutated the IR
 
+class SPFGenerator(CompilerBase):  # custom compiler extends from CompilerBase
+
+    def define_pipelines(self):
+        # define a new set of pipelines (just one in this case) and for ease
+        # base it on an existing pipeline from the DefaultPassBuilder,
+        # namely the "nopython" pipeline
+        pm = DefaultPassBuilder.define_nopython_pipeline(self.state)
+        # Add the new pass to run after IRProcessing
+        pm.add_pass_after(ObserveIRPass, IRProcessing)
+        # if self.state.flags.auto_parallel.enabled:
+        #     pm.add_pass_after(LoopFusion1, typed_passes.ParforFusionPass)
+        # else:
+        #     pm.add_pass_after(LoopFusion1, typed_passes.InlineOverloads)
+        # pm.add_pass_after(ParFdd, IRProcessing)
+        # finalize
+        pm.finalize()
+        # return as an iterable, any number of pipelines may be defined!
+        return [pm]
+
 @njit(float64[:](int32[:], int32[:], float64[:], float64[:], int32, int32[:], int32[:], int32[:], int32[:]),
       pipeline_class=MyCompiler)
 def spmv_spmv(Ap, Ai, Ax, B, m, l_ptr, par_ptr, ids, types):
@@ -390,6 +436,18 @@ def spmv_spmv(Ap, Ai, Ax, B, m, l_ptr, par_ptr, ids, types):
         for j in range(Ap[i], Ap[i + 1]):
             z[i] += Ax[j] * y[Ai[j]]
     return y
+
+@njit(float64[:](int32[:], int32[:], float64[:], float64[:]), pipeline_class=SPFGenerator)
+def test_find_dependencies(Ap, Ai, Ax, B):
+    m = len(Ap) - 1
+    y = np.zeros(m)
+    z = np.zeros(m)
+    for i in range(m):
+        for j in range(Ap[i], Ap[i + 1]):
+            y[i] += Ax[j] * B[Ai[j]]
+    for i in range(m):
+        z[i] = y[i] * 2
+    return z
 
 
 def spmv_spmv_python(Ap, Ai, Ax, B, m):
@@ -495,16 +553,16 @@ for i in range(n):
 IA[n] = n
 
 l_ptr, par_ptr, ids, types = generate_schedule_arrays(IA, JA, A)
-print(l_ptr, par_ptr, ids, types)
+# print(l_ptr, par_ptr, ids, types)
 # l_ptr = np.array([0, 2, 2], dtype=np.int32)
 # par_ptr = np.array([0, 100, 200], dtype=np.int32)
 # ids = np.array([i for i in range(50)] * 2 + [i for i in range(50, 100)] * 2, dtype=np.int32)
 # types = np.array([0] * 50 + [1] * 50 + [0] * 50 + [1] * 50, dtype=np.int32)
-y = spmv_spmv(IA, JA, A, x, n, l_ptr, par_ptr, ids, types)
-print(y)
-
-y = spmv_spmv_python(IA, JA, A, x, n)
-print(y)
+# y = spmv_spmv(IA, JA, A, x, n, l_ptr, par_ptr, ids, types)
+# print(y)
+y = test_find_dependencies(IA, JA, A, x)
+# y = spmv_spmv_python(IA, JA, A, x, n)
+# print(y)
 # y = test_if(4)
 # print(y)
 # y = test_if_condition(1)
