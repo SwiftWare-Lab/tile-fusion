@@ -75,13 +75,13 @@ int main(const int argc, const char *argv[]) {
   delete gcnSingleLayerMkl;
   delete layer1Weight;
 
-  stats = new swiftware::benchmark::Stats("GCN_SingleLayer_TACO", "GCN", 7,
-                                          tp._matrix_name, numThread);
-  stats->OtherStats["PackingType"] = {Separated};
-  GCNSingleLayerLNRSP *gcnSingleLayerLNR =
-      new GCNSingleLayerLNRSP(inputs, stats);
-  gcnSingleLayerLNR->run();
-  auto gcnSingleLayerLNRStat = gcnSingleLayerLNR->printStats();
+//  stats = new swiftware::benchmark::Stats("GCN_SingleLayer_TACO", "GCN", 7,
+//                                          tp._matrix_name, numThread);
+//  stats->OtherStats["PackingType"] = {Separated};
+//  GCNSingleLayerLNRSP *gcnSingleLayerLNR =
+//      new GCNSingleLayerLNRSP(inputs, stats);
+//  gcnSingleLayerLNR->run();
+//  auto gcnSingleLayerLNRStat = gcnSingleLayerLNR->printStats();
 //  int N = gcnSingleLayerLNR->OutTensor->EmbedDim;
 //  for (int i = 0; i < gcnSingleLayerLNR->OutTensor->NumOfNodes; i++) {
 //    for (int j = 0; j < N; j++) {
@@ -90,16 +90,16 @@ int main(const int argc, const char *argv[]) {
 //    std::cout << std::endl;
 //  }
 
-  stats = new swiftware::benchmark::Stats("GCN_SingleLayer_LNR", "GCN", 7,
-                                          tp._matrix_name, numThread);
-  stats->OtherStats["PackingType"] = {Separated};
-  GCNSingleLayerTaco *gcnSingleLayerTACO =
-      new GCNSingleLayerTaco(inputs, stats);
-  gcnSingleLayerTACO->run();
-  auto gcnSingleLayerTACOStat = gcnSingleLayerTACO->printStats();
-
-  delete stats;
-  delete gcnSingleLayerLNR;
+//  stats = new swiftware::benchmark::Stats("GCN_SingleLayer_LNR", "GCN", 7,
+//                                          tp._matrix_name, numThread);
+//  stats->OtherStats["PackingType"] = {Separated};
+//  GCNSingleLayerTaco *gcnSingleLayerTACO =
+//      new GCNSingleLayerTaco(inputs, stats);
+//  gcnSingleLayerTACO->run();
+//  auto gcnSingleLayerTACOStat = gcnSingleLayerTACO->printStats();
+//
+//  delete stats;
+//  delete gcnSingleLayerLNR;
 
   stats = new swiftware::benchmark::Stats("GCN_SingleLayer_UnFused", "GCN", 7,
                                           tp._matrix_name, numThread);
@@ -135,8 +135,8 @@ int main(const int argc, const char *argv[]) {
   std::cout << gcnOneLayerMKLStat << spStat + tpStat << std::endl;
   std::cout << gcnSingleLayerUnFusedStat << spStat + tpStat << std::endl;
   std::cout << gcnSingleLayerSparseFusedSeparatedStat << spStat + tpStat << std::endl;
-  std::cout << gcnSingleLayerLNRStat << spStat + tpStat << std::endl;
-  std::cout << gcnSingleLayerTACOStat << spStat + tpStat << std::endl;
+//  std::cout << gcnSingleLayerLNRStat << spStat + tpStat << std::endl;
+//  std::cout << gcnSingleLayerTACOStat << spStat + tpStat << std::endl;
 
   delete[] inputs->CorrectSol;
   delete inputs;
