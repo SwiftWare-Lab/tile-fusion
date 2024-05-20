@@ -233,6 +233,93 @@ public:
   }
 };
 
+class GCNForwardFirstLayer
+    : public torch::autograd::Function<
+          GCNForwardFirstLayer> {
+public:
+  static torch::Tensor forward(torch::autograd::AutogradContext *ctx,
+                               torch::Tensor AggregatedInput,
+                               torch::Tensor Adj,
+                               torch::Tensor Weight, std::vector<torch::Tensor> ScheduleData) {
+
+    //        ctx->mark_non_differentiable({WorkloadPtr, Ids, TilePtr});
+    mkl_set_num_threads(1);
+    int *LevelPtr = ScheduleData[0].data_ptr<int>();
+    int *ParPtr = ScheduleData[1].data_ptr<int>();
+    int *Partition = ScheduleData[2].data_ptr<int>();
+    int *MixPtr = ScheduleData[3].data_ptr<int>();
+    int LevelNum = ScheduleData[4][0].item<int>();
+    int ThreadNum = ScheduleData[5][0].item<int>();
+    int outputSize = Adj.size(0) * Weight.size(0);
+    ctx->save_for_backward({AggregatedInput, Adj, Weight, ScheduleData[5]});
+    float *out = new float[outputSize]{};
+    //    swiftware::benchmark::Timer t1;
+    //    t1.start();
+    cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, AggregatedInput.size(0),
+                Weight.size(0), AggregatedInput.size(1), 1., AggregatedInput.data_ptr<float>(),
+                AggregatedInput.size(1), Weight.data_ptr<float>(), Weight.size(1), 0.,
+                out, Weight.size(0));
+    //    t1.stop();
+    //    std::cout <<  "GeMMSpMM_FW_TiledFused" << "," << "mat_name" << "," << t1.printTimeCsv(0) << std::endl;
+    //    mkl_set_num_threads(NumThreads);
+    return torch::from_blob(
+        out, {AggregatedInput.size(0), Weight.size(0)},
+        [](void *ptr) { delete[] static_cast<float *>(ptr); }, torch::kFloat32);
+  }
+
+  static torch::autograd::tensor_list
+  backward(torch::autograd::AutogradContext *ctx,
+           torch::autograd::tensor_list grad_outputs) {
+    auto saved = ctx->get_saved_variables();
+    auto input = saved[0];
+    auto adj = saved[1];
+    auto weight = saved[2];
+    int ThreadNum = saved[3][0].item<int>();
+    int *adjPtr = adj.crow_indices().data_ptr<int>();
+    int *adjIndex = adj.col_indices().data_ptr<int>();
+    auto grad_output = grad_outputs[0];
+    float *grad_output_raw = grad_output.data_ptr<float>();
+    float *inputRaw = input.data_ptr<float>();
+    torch::Tensor grad_input;
+    if (ctx->needs_input_grad(0)) {
+      mkl_set_num_threads(1);
+      float *weight_raw = weight.data_ptr<float>();
+      float *grad_input_raw = new float[adj.size(0) * weight.size(1)]{};
+      //      swiftware::benchmark::Timer t1;
+      //      t1.start();
+      inputGradFusedParallelSpMMGeMMFusedVectorizedSP(
+          grad_output.size(0), adjPtr, adjIndex, adj.values().data_ptr<float>(),
+          grad_output.size(1), weight.size(1), grad_output_raw,
+          weight_raw, grad_input_raw, ThreadNum, 4);
+      //      t1.stop();
+      //      std::cout <<  "GeMMSpMM_BWI_TiledFused" << "," << "mat_name" << "," << t1.printTimeCsv(0) << std::endl;
+      grad_input = torch::from_blob(
+          grad_input_raw, {(long)grad_output.size(0), (long)weight.size(1)},
+          [](void *ptr) { delete[] static_cast<float *>(ptr); },
+          torch::kFloat32);
+    }
+    torch::Tensor grad_weight;
+    if (ctx->needs_input_grad(2)){
+      mkl_set_num_threads(ThreadNum);
+      float *grad_weight_raw = new float[grad_output.size(1) * input.size(1)]{};
+      //      swiftware::benchmark::Timer t1;
+      //      t1.start();
+      cblas_sgemm(CblasRowMajor, CblasTrans, CblasNoTrans, grad_output.size(1),
+                  input.size(1), adj.size(0), 1., grad_output_raw,
+                  grad_output.size(1), inputRaw, input.size(1), 0.,
+                  grad_weight_raw, input.size(1));
+      //      t1.stop();
+      //      std::cout <<  "GeMMSpMM_BWW_TiledFused" << "," << "mat_name" << "," << t1.printTimeCsv(0) << std::endl;
+      grad_weight = torch::from_blob(
+          grad_weight_raw, {grad_output.size(1), input.size(1)},
+          [](void *ptr) { delete[] static_cast<float *>(ptr); }, torch::kFloat32);
+    }
+    at::Tensor undef;
+    return {grad_input, undef, grad_weight, undef, undef,
+            undef,      undef, undef,       undef};
+  }
+};
+
 
 class GCNForwardFunctionMKL
     : public torch::autograd::Function<

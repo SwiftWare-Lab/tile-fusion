@@ -108,8 +108,8 @@ torch::Tensor convertCSCToTorchTensor(sym_lib::CSC &matrix) {
       torch::from_blob(values, {long(matrix.nnz)}, torch::kFloat32),
       {long(matrix.m), long(matrix.n)}, torch::kFloat32);
 }
-torch::Tensor convertCSRToTorchTensor(sym_lib::CSR &matrix) {
-  float *values = new float[matrix.nnz];
+torch::Tensor convertCSRToTorchTensor(sym_lib::CSR &matrix, float* &values) {
+  values = new float[matrix.nnz];
   for (int i = 0; i < matrix.nnz; i++) {
     values[i] = (float)matrix.x[i];
   }

@@ -119,7 +119,8 @@ int main(const int argc, const char *argv[]) {
 
 //  std::cout << "Features Dim" << features.sizes() << std::endl;
   //  torch::Tensor adj = readCSCMatrix("../data/cora/Cora.mtx");
-  torch::Tensor adj = convertCSRToTorchTensor(*aCSR);
+  float* values;
+  torch::Tensor adj = convertCSRToTorchTensor(*aCSR, values);
   // Create a new Net.
 //  std::cout << "Building module" << std::endl;
   //  auto *net = new GCN(adj, features, tp._embed_dim, 32, 4, 8, 7);
@@ -152,13 +153,35 @@ int main(const int argc, const char *argv[]) {
   torch::optim::Adam optimizer(net->parameters(), /*lr=*/0.01);
   swiftware::benchmark::Timer t1;
   t1.start();
+  sparse_matrix_t MKLAdj;
+  matrix_descr d;
+  float* FirstLayerInput = new float[featuresData->row * featuresData->col];
+  d.type = SPARSE_MATRIX_TYPE_GENERAL;
+  mkl_sparse_s_create_csr(&MKLAdj, SPARSE_INDEX_BASE_ZERO, aCSR->m,
+                          aCSR->n, aCSR->p, aCSR->p + 1, aCSR->i,
+                          values);
+  mkl_sparse_s_mm(SPARSE_OPERATION_NON_TRANSPOSE, 1, MKLAdj, d,
+                  SPARSE_LAYOUT_ROW_MAJOR, featuresData->a,
+                  featuresData->col, featuresData->col, 0,
+                  FirstLayerInput, featuresData->col);
+//  for (int i = 0; i < featuresData->row; i++) {
+//    for (int j = 0; j < featuresData->col; j++) {
+//      if (FirstLayerInput[i * featuresData->col + j] != 0)
+//      std::cout << FirstLayerInput[i * featuresData->col + j] << " ";
+//    }
+//  }
+  auto firstLayerInputTensor = torch::from_blob(
+      FirstLayerInput, {(long)featuresData->row, (long)featuresData->col}, [](void* ptr){
+        delete[] static_cast<float*>(ptr);
+      },
+      torch::kFloat32);
   for (size_t epoch = 1; epoch <= 100; ++epoch) {
     // Reset gradients.
     optimizer.zero_grad();
     // Execute the model on the input data.
 //    swiftware::benchmark::Timer t2;
 //    t2.start();
-    torch::Tensor prediction = net->forward(features, adj);
+    torch::Tensor prediction = net->forward(features, adj, firstLayerInputTensor);
 //    t2.stop();
 //    std::cout << "backward time: " << t2.printTimeCsv(0) << std::endl;
     // Compute a loss value to judge the prediction of our model.
@@ -178,6 +201,9 @@ int main(const int argc, const char *argv[]) {
   std::cout <<  tp.expariment_name << "," << tp._matrix_name << "," << t1.printTimeCsv(0)
             << "," << ipL1 << "," << ipL2<< "," << std::endl;
   delete net;
+  delete[] values;
+  delete aCSC;
+  delete aCSR;
   delete fusedCompSet1;
   delete fusedCompSet2;
 }

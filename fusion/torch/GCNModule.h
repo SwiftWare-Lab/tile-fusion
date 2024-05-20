@@ -24,11 +24,11 @@ struct GCN : torch::nn::Module {
 //        Layer2 = register_module<CSCFusedGCNLayer>("layer2", std::make_shared<CSCFusedGCNLayer>(embedDim, numClasses, tileSize, maxTileSize, numThreads, numWorkloads, numAggregatedTiles, workloadPtr, ids, tilePtr));
 //    }
 
-    virtual torch::Tensor forward(torch::Tensor x, torch::Tensor adj){}
+    virtual torch::Tensor forward(torch::Tensor x, torch::Tensor adj, torch::Tensor FirstLayerInput){}
 };
 
 struct CSRFusedGCN : GCN {
-    std::shared_ptr<CSRFusedGCNLayer> Layer1;
+    std::shared_ptr<GCNFirstLayer> Layer1;
     std::shared_ptr<CSRFusedGCNLayer> Layer2;
     CSRFusedGCN(torch::Tensor Adj, torch::Tensor Features, int EmbedDim, int NumClasses, int NumThreads, sym_lib::MultiDimensionalSet *FusedCompSetL1, sym_lib::MultiDimensionalSet *FusedCompSetL2){
         auto scheduleTensors =
@@ -39,7 +39,7 @@ struct CSRFusedGCN : GCN {
         auto mixPtr = scheduleTensors[3];
         auto numericalTensor = scheduleTensors[4];
         auto levelNum = numericalTensor[0].item<int>();
-        Layer1 = register_module<CSRFusedGCNLayer>("layer1", std::make_shared<CSRFusedGCNLayer>(Features.size(1), EmbedDim, levelNum, NumThreads, levelPtr, parPtr, partition, mixPtr));
+        Layer1 = register_module<GCNFirstLayer>("layer1", std::make_shared<GCNFirstLayer>(Features.size(1), EmbedDim, levelNum, NumThreads, levelPtr, parPtr, partition, mixPtr));
         scheduleTensors =
             createScheduleForCSR(FusedCompSetL2);
         auto levelPtr2 = scheduleTensors[0];
@@ -51,8 +51,8 @@ struct CSRFusedGCN : GCN {
         Layer2 = register_module<CSRFusedGCNLayer>("layer2", std::make_shared<CSRFusedGCNLayer>(EmbedDim, NumClasses, levelNum2, NumThreads, levelPtr2, parPtr2, partition2, mixPtr2));
     }
 
-    torch::Tensor forward(torch::Tensor x, torch::Tensor adj) override{
-        x = this->Layer1->forward(x, adj);
+    torch::Tensor forward(torch::Tensor x, torch::Tensor adj, torch::Tensor FirstLayerTensor) override{
+        x = this->Layer1->forward(FirstLayerTensor, adj);
         //        std::cout << x << std::endl;
         x = torch::relu(x);
         x = this->Layer2->forward(x, adj);
@@ -61,7 +61,7 @@ struct CSRFusedGCN : GCN {
 };
 
 struct MKLGCN : GCN {
-    std::shared_ptr<MKLGCNLayer> Layer1;
+    std::shared_ptr<GCNFirstLayer> Layer1;
     std::shared_ptr<MKLGCNLayer> Layer2;
     MKLGCN(torch::Tensor Adj, torch::Tensor Features, int EmbedDim, int NumClasses, int NumThreads, sym_lib::MultiDimensionalSet *FusedCompSet){
         auto scheduleTensors =
@@ -72,12 +72,12 @@ struct MKLGCN : GCN {
         auto mixPtr = scheduleTensors[3];
         auto numericalTensor = scheduleTensors[4];
         auto levelNum = numericalTensor[0].item<int>();
-        Layer1 = register_module<MKLGCNLayer>("layer1", std::make_shared<MKLGCNLayer>(Features.size(1), EmbedDim, NumThreads));
+        Layer1 = register_module<GCNFirstLayer>("layer1", std::make_shared<GCNFirstLayer>(Features.size(1), EmbedDim, levelNum, NumThreads, levelPtr, parPtr, partition, mixPtr));
         Layer2 = register_module<MKLGCNLayer>("layer2", std::make_shared<MKLGCNLayer>(EmbedDim, NumClasses, NumThreads));
     }
 
-    torch::Tensor forward(torch::Tensor x, torch::Tensor adj) override{
-        x = this->Layer1->forward(x, adj);
+    torch::Tensor forward(torch::Tensor x, torch::Tensor adj, torch::Tensor FirstLayerInputTensor) override{
+        x = this->Layer1->forward(FirstLayerInputTensor, adj);
         //        std::cout << x << std::endl;
         x = torch::relu(x);
         x = this->Layer2->forward(x, adj);
