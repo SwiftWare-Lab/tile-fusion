@@ -90,7 +90,7 @@ int main(const int argc, const char *argv[]) {
   delete aCSCFull;
   normalizeAdjacencyMatrix(aCSR);
   FloatDense *featuresData = readFloatDenseMatrixFromParameter(
-      &tp, aCSC->m, tp._embed_dim, tp.e2e_data_path + "/features.mtx");
+      &tp, aCSR->m, tp._embed_dim, tp.e2e_data_path + "/features.mtx");
 //  std::cout << sp.IterPerPartition << std::endl;
 //  sp.IterPerPartition = 1024;
 //    float *weight1Data = readFloatDenseMatrixFromParameter(&tp, 16, 1433,
@@ -102,13 +102,13 @@ int main(const int argc, const char *argv[]) {
   //  auto testWeight1 = torch::from_blob(weight1Data, {16, 1433},
   //  torch::kFloat32); auto testWeight2 = torch::from_blob(weight2Data, {7,
   //  16}, torch::kFloat32);;
-  long *labels = getTargetsFromParameter(&tp, 1, aCSC->m,
+  long *labels = getTargetsFromParameter(&tp, 1, aCSR->m,
                                          tp.e2e_data_path + "/labels.mtx");
   if (tp.print_header){
     std::cout << "Impl,Graph,Time,t1,t2," << std::endl;
   }
   int numClasses = 0;
-  for (int i = 0; i < aCSC->m; i++) {
+  for (int i = 0; i < aCSR->m; i++) {
     if (labels[i] + 1 > numClasses) {
       numClasses = labels[i] + 1;
     }
@@ -116,7 +116,7 @@ int main(const int argc, const char *argv[]) {
 //  std::cout << "Num Classes: " << numClasses << std::endl;
   int trainSize = 200;
   torch::Tensor targets =
-      torch::from_blob(labels, {long(aCSC->m)},  [](void* ptr){
+      torch::from_blob(labels, {long(aCSR->m)},  [](void* ptr){
             delete[] static_cast<long*>(ptr);
           }, torch::kInt64);
   auto features = torch::from_blob(
