@@ -79,7 +79,15 @@ int main(const int argc, const char *argv[]) {
   swiftware::benchmark::Stats *stats;
   parse_args(argc, argv, &sp, &tp);
   CSC *aCSC = get_matrix_from_parameter_with_adding_self_loops(&tp, true);
-  CSR *aCSR = csc_to_csr(aCSC);
+  CSC *aCSCFull = NULLPNTR;
+  if (aCSC->stype == -1 || aCSC->stype == 1) {
+    aCSCFull = sym_lib::make_full(aCSC);
+  } else {
+    aCSCFull = sym_lib::copy_sparse(aCSC);
+  }
+  delete aCSC;
+  CSR *aCSR = csc_to_csr(aCSCFull);
+  delete aCSCFull;
   normalizeAdjacencyMatrix(aCSR);
   FloatDense *featuresData = readFloatDenseMatrixFromParameter(
       &tp, aCSC->m, tp._embed_dim, tp.e2e_data_path + "/features.mtx");
@@ -202,7 +210,6 @@ int main(const int argc, const char *argv[]) {
             << "," << ipL1 << "," << ipL2<< "," << std::endl;
   delete net;
   delete[] values;
-  delete aCSC;
   delete aCSR;
   delete fusedCompSet1;
   delete fusedCompSet2;
