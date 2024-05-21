@@ -443,7 +443,7 @@ void inputGradFusedParallelSpMMGeMMFusedVectorizedSP(
     int M, int *Ap, int *Ai, float *Ax, int InputChannelDim,
     int OutputChannelDim, float *Features, float *Weight, float *Output,
     int NumThreads, int MTile) {
-  float *intermediateResult = new float[M * InputChannelDim];
+  float *intermediateResult = new float[M * InputChannelDim]{};
   int residueStart1 = InputChannelDim - InputChannelDim%32;
   int residueStart2 = InputChannelDim - InputChannelDim%16;
   int residueStart3 = InputChannelDim - InputChannelDim%8;
@@ -552,8 +552,8 @@ void inputGradFusedParallelSpMMGeMMFusedVectorizedSP(
         }
         for (int k = Ap[ii]; k < Ap[ii + 1]; k++) {
           for (; kk < InputChannelDim; kk++) {
-            Features[ip + kk] +=
-                Ax[k] * intermediateResult[Ai[k] * InputChannelDim + kk];
+            intermediateResult[ip + kk] +=
+                Ax[k] * Features[Ai[k] * InputChannelDim + kk];
           }
         }
       }

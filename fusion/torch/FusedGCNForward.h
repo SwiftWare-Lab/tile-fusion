@@ -191,7 +191,7 @@ public:
 //      swiftware::benchmark::Timer t1;
 //      t1.start();
       inputGradFusedParallelSpMMGeMMFusedVectorizedSP(
-          grad_output.size(0), adjPtr, adjIndex, adj.values().data_ptr<float>(),
+          adj.size(0), adjPtr, adjIndex, adj.values().data_ptr<float>(),
           grad_output.size(1), weight.size(1), grad_output_raw,
           weight_raw, grad_input_raw, ThreadNum, 4);
 //      t1.stop();
