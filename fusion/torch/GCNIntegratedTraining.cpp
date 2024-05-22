@@ -31,7 +31,7 @@ int findBestParam(std::vector<double> &paramsAvgTime) {
   return bestParam;
 }
 
-int tuneMatrix(CSR *Matrix, FloatDense *Features,
+int tuneGeMMSpMM(CSR *Matrix, FloatDense *Features,
                sym_lib::ScheduleParameters &Sp, sym_lib::TestParameters &Tp, int InputDim, int OutputDim) {
   FloatDense *weight1 =
       generateRandomFloatDenseMatrix(InputDim, OutputDim);
@@ -61,6 +61,42 @@ int tuneMatrix(CSR *Matrix, FloatDense *Features,
     paramsAvgTime.push_back(avgTime);
 //    std::cout << "Param: " << parameters[j] << " Time: " << std::to_string(avgTime)
 //              << std::endl;
+  }
+
+  delete[] out;
+  delete[] matrixValues;
+  delete weight1;
+
+  int bestParamIndex = findBestParam(paramsAvgTime);
+  return parameters[bestParamIndex];
+}
+
+int tuneSpMMGeMM(CSR *Matrix, FloatDense *Features, sym_lib::ScheduleParameters &Sp,
+                 int InputDim, int OutputDim) {
+  FloatDense *weight1 =
+      generateRandomFloatDenseMatrix(InputDim, OutputDim);
+  std::vector<int> parameters = {4,8,16, 32, 64, 128, 256, 512, 1024};
+  std::vector<double> paramsAvgTime;
+  float *out = new float[Matrix->m * OutputDim];
+  float *matrixValues = new float[Matrix->nnz];
+  for (int i = 0; i < Matrix->nnz; i++) {
+    matrixValues[i] = (float)Matrix->x[i];
+  }
+  for (int j = 0; j < parameters.size(); j++) {
+    swiftware::benchmark::Timer t1;
+    for (int i = 0; i < 7; i++) {
+      std::memset(out, 0, Matrix->m * OutputDim * sizeof(float));
+      t1.start();
+      inputGradFusedParallelSpMMGeMMFusedVectorizedSP(
+          Matrix->m, Matrix->p, Matrix->i, matrixValues, InputDim,
+          OutputDim, Features->a, weight1->a, out, Sp._num_threads,
+          parameters[j]);
+      t1.stop();
+    }
+    double avgTime = calculateAverageTime(t1);
+    paramsAvgTime.push_back(avgTime);
+    //    std::cout << "Param: " << parameters[j] << " Time: " << std::to_string(avgTime)
+    //              << std::endl;
   }
 
   delete[] out;
@@ -105,7 +141,7 @@ int main(const int argc, const char *argv[]) {
   long *labels = getTargetsFromParameter(&tp, 1, aCSR->m,
                                          tp.e2e_data_path + "/labels.mtx");
   if (tp.print_header){
-    std::cout << "Impl,Graph,Time,t1,t2," << std::endl;
+    std::cout << "Impl,Graph,Time,ft,bt," << std::endl;
   }
   int numClasses = 0;
   for (int i = 0; i < aCSR->m; i++) {
@@ -132,14 +168,19 @@ int main(const int argc, const char *argv[]) {
   // Create a new Net.
 //  std::cout << "Building module" << std::endl;
   //  auto *net = new GCN(adj, features, tp._embed_dim, 32, 4, 8, 7);
-  int ipL2 = tuneMatrix(aCSR, featuresData, sp, tp, tp._embed_dim, numClasses);
-  int ipL1 = tuneMatrix(aCSR, featuresData, sp, tp, featuresData->col, tp._embed_dim);
-  sp.IterPerPartition = ipL1;
-  sym_lib::MultiDimensionalSet *fusedCompSet1 =
-      generateFusedScheduleForCSRFused(aCSR, sp);
+  int ipL2 =
+      tuneGeMMSpMM(aCSR, featuresData, sp, tp, tp._embed_dim, numClasses);
+
+  int spMMGeMMTileSize = tuneSpMMGeMM(aCSR, featuresData, sp, numClasses, tp._embed_dim);
+//  int ipL1 = tuneGeMMSpMM(aCSR, featuresData, sp, tp, featuresData->col,
+//                          tp._embed_dim);
+//  sp.IterPerPartition = ipL1;
+//  sym_lib::MultiDimensionalSet *fusedCompSet1 =
+//      generateFusedScheduleForCSRFused(aCSR, sp);
   sp.IterPerPartition = ipL2;
   sym_lib::MultiDimensionalSet *fusedCompSet2 =
       generateFusedScheduleForCSRFused(aCSR, sp);
+
 
 
   //  auto *net = new GCN(adj, features, tp._embed_dim, sp.TileN, 4,
@@ -152,11 +193,10 @@ int main(const int argc, const char *argv[]) {
 //  torch::set_num_threads(sp._num_threads);
   GCN *net;
   if (tp.expariment_name == "MKL"){
-    net = new MKLGCN(adj, features, tp._embed_dim, numClasses, sp._num_threads, fusedCompSet1);
-  }else if (tp.expariment_name == "TiledFused"){
+    net = new MKLGCN(adj, features, tp._embed_dim, numClasses, sp._num_threads, fusedCompSet2);
+  } else if (tp.expariment_name == "TiledFused"){
     net = new CSRFusedGCN(adj, features, tp._embed_dim, numClasses,
-                          sp._num_threads, fusedCompSet1, fusedCompSet2);
-
+                          sp._num_threads, fusedCompSet2, fusedCompSet2,  spMMGeMMTileSize);
   }
   torch::optim::Adam optimizer(net->parameters(), /*lr=*/0.01);
   swiftware::benchmark::Timer t1;
@@ -207,10 +247,9 @@ int main(const int argc, const char *argv[]) {
   }
   t1.stop();
   std::cout <<  tp.expariment_name << "," << tp._matrix_name << "," << t1.printTimeCsv(0)
-            << "," << ipL1 << "," << ipL2<< "," << std::endl;
+            << "," << ipL2 << "," << spMMGeMMTileSize<< "," << std::endl;
   delete net;
   delete[] values;
   delete aCSR;
-  delete fusedCompSet1;
   delete fusedCompSet2;
 }

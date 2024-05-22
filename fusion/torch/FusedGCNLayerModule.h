@@ -8,8 +8,8 @@
 
 struct CSRFusedGCNLayer : torch::nn::Module {
   CSRFusedGCNLayer(int inputChannelDim, int outputChannelDim, int levelNum,
-                   int numThreads, torch::Tensor levelPtr, torch::Tensor parPtr,
-                   torch::Tensor partition, torch::Tensor mixPtr) {
+                   int numThreads, int spMMGeMMTileSize, torch::Tensor levelPtr,
+                   torch::Tensor parPtr, torch::Tensor partition, torch::Tensor mixPtr) {
     this->LevelNum = levelNum;
     this->NumThreads = numThreads;
     this->weight = register_parameter(
@@ -21,9 +21,11 @@ struct CSRFusedGCNLayer : torch::nn::Module {
     this->MixPtr = mixPtr;
     auto numThreadsTensor = torch::tensor({numThreads});
     auto levelNumTensor = torch::tensor({levelNum});
+    auto spMMGeMMTileSizeTensor = torch::tensor({spMMGeMMTileSize});
     this->scheduleData =
         {this->LevelPtr, this->ParPtr, this->Partition,
-                      this->MixPtr, levelNumTensor, numThreadsTensor};
+         this->MixPtr, levelNumTensor, numThreadsTensor,
+         spMMGeMMTileSizeTensor};
   }
   CSRFusedGCNLayer() {
     this->NumThreads = 0;

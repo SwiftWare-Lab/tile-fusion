@@ -148,7 +148,7 @@ public:
     int LevelNum = ScheduleData[4][0].item<int>();
     int ThreadNum = ScheduleData[5][0].item<int>();
     int outputSize = X.size(0) * Weight.size(0);
-    ctx->save_for_backward({X, Adj, Weight, ScheduleData[5]});
+    ctx->save_for_backward({X, Adj, Weight, ScheduleData[5], ScheduleData[6]});
     float *out = new float[outputSize]{};
 //    swiftware::benchmark::Timer t1;
 //    t1.start();
@@ -178,6 +178,7 @@ public:
     auto adj = saved[1];
     auto weight = saved[2];
     int ThreadNum = saved[3][0].item<int>();
+    int TileSize = saved[4][0].item<int>();
     int *adjPtr = adj.crow_indices().data_ptr<int>();
     int *adjIndex = adj.col_indices().data_ptr<int>();
     auto grad_output = grad_outputs[0];
@@ -188,14 +189,14 @@ public:
       mkl_set_num_threads(1);
       float *weight_raw = weight.data_ptr<float>();
       float *grad_input_raw = new float[adj.size(0) * weight.size(1)]{};
-      swiftware::benchmark::Timer t1;
-      t1.start();
+//      swiftware::benchmark::Timer t1;
+//      t1.start();
       inputGradFusedParallelSpMMGeMMFusedVectorizedSP(
           adj.size(0), adjPtr, adjIndex, adj.values().data_ptr<float>(),
           grad_output.size(1), weight.size(1), grad_output_raw,
-          weight_raw, grad_input_raw, ThreadNum, 4);
-      t1.stop();
-      std::cout <<  "GeMMSpMM_BWI_TiledFused" << "," << "mat_name" << "," << t1.printTimeCsv(0) << std::endl;
+          weight_raw, grad_input_raw, ThreadNum, TileSize);
+//      t1.stop();
+//      std::cout <<  "GeMMSpMM_BWI_TiledFused" << "," << "mat_name" << "," << t1.printTimeCsv(0) << std::endl;
       grad_input = torch::from_blob(
           grad_input_raw, {(long)grad_output.size(0), (long)weight.size(1)},
           [](void *ptr) { delete[] static_cast<float *>(ptr); },
@@ -209,8 +210,8 @@ public:
                               adj.values().data_ptr<float>());
       float *grad_intermediate = new float[adj.size(0) * input.size(1)]{};
       float *grad_weight_raw = new float[grad_output.size(1) * input.size(1)]{};
-      swiftware::benchmark::Timer t1;
-      t1.start();
+//      swiftware::benchmark::Timer t1;
+//      t1.start();
       mkl_sparse_s_mm(SPARSE_OPERATION_NON_TRANSPOSE, 1, MKLAdj, d,
                       SPARSE_LAYOUT_ROW_MAJOR, inputRaw,
                       input.size(1), input.size(1), 0,
@@ -219,8 +220,8 @@ public:
                   input.size(1), adj.size(0), 1., grad_output_raw,
                   grad_output.size(1), grad_intermediate, input.size(1), 0.,
                   grad_weight_raw, input.size(1));
-      t1.stop();
-      std::cout <<  "GeMMSpMM_BWW_TiledFused" << "," << "mat_name" << "," << t1.printTimeCsv(0) << std::endl;
+//      t1.stop();
+//      std::cout <<  "GeMMSpMM_BWW_TiledFused" << "," << "mat_name" << "," << t1.printTimeCsv(0) << std::endl;
       mkl_free(MKLAdj);
       delete[] grad_intermediate;
       grad_weight = torch::from_blob(
@@ -383,8 +384,8 @@ public:
       float *weight_raw = weight.data_ptr<float>();
       float *grad_input_intermediate = new float[grad_output.size(0) * grad_output.size(1)];
       float *grad_input_raw = new float[adj.size(0) * weight.size(1)]{};
-      swiftware::benchmark::Timer t1;
-      t1.start();
+//      swiftware::benchmark::Timer t1;
+//      t1.start();
       mkl_sparse_s_mm(SPARSE_OPERATION_NON_TRANSPOSE, 1, MKLAdj, d,
                       SPARSE_LAYOUT_ROW_MAJOR, grad_output_raw,
                       grad_output.size(1), grad_output.size(1), 0,
@@ -394,8 +395,8 @@ public:
                   grad_output.size(1), weight_raw, weight.size(1), 0.,
                   grad_input_raw, weight.size(1));
 
-      t1.stop();
-      std::cout <<  "GeMMSpMM_BWI_MKL" << "," << "mat_name" << "," << t1.printTimeCsv(0) << std::endl;
+//      t1.stop();
+//      std::cout <<  "GeMMSpMM_BWI_MKL" << "," << "mat_name" << "," << t1.printTimeCsv(0) << std::endl;
       delete[] grad_input_intermediate;
       grad_input = torch::from_blob(
           grad_input_raw, {(long)grad_output.size(0), (long)weight.size(1)},
@@ -406,8 +407,8 @@ public:
     if (ctx->needs_input_grad(2)){
       float *grad_intermediate = new float[adj.size(0) * input.size(1)]{};
       float *grad_weight_raw = new float[grad_output.size(1) * input.size(1)]{};
-      swiftware::benchmark::Timer t1;
-      t1.start();
+//      swiftware::benchmark::Timer t1;
+//      t1.start();
       mkl_sparse_s_mm(SPARSE_OPERATION_NON_TRANSPOSE, 1, MKLAdj, d,
                       SPARSE_LAYOUT_ROW_MAJOR, inputRaw,
                       input.size(1), input.size(1), 0,
@@ -416,8 +417,8 @@ public:
                   input.size(1), adj.size(0), 1., grad_output_raw,
                   grad_output.size(1), grad_intermediate, input.size(1), 0.,
                   grad_weight_raw, input.size(1));
-      t1.stop();
-      std::cout <<  "GeMMSpMM_BWW_MKL" << "," << "mat_name" << "," << t1.printTimeCsv(0) << std::endl;
+//      t1.stop();
+//      std::cout <<  "GeMMSpMM_BWW_MKL" << "," << "mat_name" << "," << t1.printTimeCsv(0) << std::endl;
       mkl_free(MKLAdj);
       delete[] grad_intermediate;
       grad_weight = torch::from_blob(
@@ -439,12 +440,6 @@ public:
     int outputSize = X.size(0) * Weight.size(0);
     ctx->save_for_backward({X, Adj, Weight});
     auto out = Adj.mm(X.mm(Weight.t()));
-    //        for (int i = 0; i < X.size(0); i++){
-    //          for (int j = 0; j < Weight.size(0); j++){
-    //            std::cout << out[i * Weight.size(0) + j] << " ";
-    //          }
-    //          std::cout << std::endl;
-    //        }
     return out;
   }
 
@@ -456,7 +451,6 @@ public:
     auto adj = saved[1];
     auto weight = saved[2];
     auto grad_output = grad_outputs[0];
-    auto test = adj.mm(grad_output);
     auto grad_input = adj.mm(grad_output.mm(weight));
     auto grad_weight = grad_output.t().mm(adj.mm(input));
     at::Tensor undef;
