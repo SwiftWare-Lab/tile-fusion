@@ -38,7 +38,7 @@ struct CSRFusedGCNLayer : torch::nn::Module {
   }
 
   torch::Tensor forward(torch::Tensor x, torch::Tensor adj) {
-    return CSRFusedGCNForwardFunctionWithFusedBackward::apply(x, adj, weight, scheduleData);
+    return CSRFusedGCNForwardFunctionWithFusedSGBackward::apply(x, adj, weight, scheduleData);
   }
 
   int NumThreads;
@@ -109,7 +109,7 @@ struct MKLGCNLayer : torch::nn::Module {
   }
 
   torch::Tensor forward(torch::Tensor x, torch::Tensor adj) {
-    return GCNForwardFunctionMKL::apply(x, adj, weight, NumThreads);
+    return GCNForwardFunctionMKLSGBackward::apply(x, adj, weight, NumThreads);
   }
 
   int NumThreads;
