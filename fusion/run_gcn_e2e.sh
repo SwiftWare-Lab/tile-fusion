@@ -69,6 +69,7 @@ export OMP_DYNAMIC=FALSE;
 # echo "TEST"
 #fi
 
+LOGS="./build/logs/e2e-$SLURM_JOB_ID"
 
 sr=1
 for ED in {32,64,128,256}; do
@@ -76,12 +77,12 @@ for ED in {32,64,128,256}; do
   while read line; do
     echo "for $line $BCOL $ED $tn $mw"
     if [ $header -eq 1 ]; then
-      $BINPATH/fused_gcn -dp $DATA/$line -nt $THREADS -ah -ed $ED -en TiledFused > ./build/logs/gcn_end2end_$ED.csv
+      $BINPATH/fused_gcn -dp $DATA/$line -nt $THREADS -ah -ed $ED -en TiledFused > $LOGS/gcn_end2end_$ED.csv
       header=0
     else
-      $BINPATH/fused_gcn -dp $DATA/$line -nt $THREADS -ed $ED -en TiledFused>> ./build/logs/gcn_end2end_$ED.csv
+      $BINPATH/fused_gcn -dp $DATA/$line -nt $THREADS -ed $ED -en TiledFused>> $LOGS/gcn_end2end_$ED.csv
     fi
-    $BINPATH/fused_gcn -dp $DATA/$line -nt $THREADS -ed $ED -en MKL>> ./build/logs/gcn_end2end_$ED.csv
+    $BINPATH/fused_gcn -dp $DATA/$line -nt $THREADS -ed $ED -en MKL>> $LOGS/gcn_end2end_$ED.csv
   done < $MATLIST
 #  source $SCRATCH/.virtualenvs/end2end/bin/activate
 #  python ./torch/gcn-training-example-pyg.py --hidden_channels $ED --threads $THREADS >> ./build/logs/gcn_end2end_$ED.csv

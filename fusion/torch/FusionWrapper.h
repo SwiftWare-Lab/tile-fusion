@@ -443,17 +443,21 @@ void inputGradFusedParallelSpMMGeMMFusedVectorizedSP(
     int M, int *Ap, int *Ai, float *Ax, int InputChannelDim,
     int OutputChannelDim, float *Features, float *Weight, float *Output,
     int NumThreads, int MTile) {
-  float *intermediateResult = new float[M * InputChannelDim]{};
+  float *intermediateResult = new float[MTile * NumThreads * InputChannelDim]{};
   int residueStart1 = InputChannelDim - InputChannelDim%32;
   int residueStart2 = InputChannelDim - InputChannelDim%16;
   int residueStart3 = InputChannelDim - InputChannelDim%8;
 #pragma omp parallel num_threads(NumThreads)
   {
+    int threadId = omp_get_thread_num();
 #pragma omp for
     for (int i = 0; i < M; i += MTile) {
       int bound = std::min(i + MTile, M);
+      int tileSize = bound - i;
+      memset(intermediateResult + threadId * MTile * InputChannelDim, 0.,
+             sizeof(double) * InputChannelDim * MTile);
       for (int ii = i; ii < bound; ii++) {
-        int ip = ii * InputChannelDim;
+        int ip = (threadId * MTile + ii - i) * InputChannelDim;
         int kk = 0;
         for (; kk < residueStart1; kk += 32) {
           auto dxV1 = _mm256_loadu_ps(intermediateResult + ip + kk);
@@ -557,7 +561,6 @@ void inputGradFusedParallelSpMMGeMMFusedVectorizedSP(
           }
         }
       }
-      int tileSize = bound - i;
       cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, tileSize,
                   OutputChannelDim, InputChannelDim, 1.,
                   intermediateResult + i * InputChannelDim, InputChannelDim, Weight,
