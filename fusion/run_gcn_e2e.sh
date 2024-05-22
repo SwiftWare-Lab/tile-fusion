@@ -68,8 +68,11 @@ export OMP_DYNAMIC=FALSE;
 # python ./scripts/pyg_data_exporter.py ./pyg
 # echo "TEST"
 #fi
-
-LOGS="./build/logs/e2e-$SLURM_JOB_ID"
+if [ -z $SLURM_JOB_ID ]; then
+  LOGS="./build/logs/"
+else
+  LOGS="./build/logs-$SLURM_JOB_ID"
+fi
 
 sr=1
 for ED in {32,64,128,256}; do

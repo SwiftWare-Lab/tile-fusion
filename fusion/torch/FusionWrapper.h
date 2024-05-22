@@ -454,16 +454,17 @@ void inputGradFusedParallelSpMMGeMMFusedVectorizedSP(
     for (int i = 0; i < M; i += MTile) {
       int bound = std::min(i + MTile, M);
       int tileSize = bound - i;
-      memset(intermediateResult + threadId * MTile * InputChannelDim, 0.,
-             sizeof(double) * InputChannelDim * MTile);
+      float *tCache = intermediateResult + threadId * MTile * InputChannelDim;
+      memset(tCache, 0.,
+             sizeof(float) * InputChannelDim * MTile);
       for (int ii = i; ii < bound; ii++) {
-        int ip = (threadId * MTile + ii - i) * InputChannelDim;
+        int ip = (ii - i) * InputChannelDim;
         int kk = 0;
         for (; kk < residueStart1; kk += 32) {
-          auto dxV1 = _mm256_loadu_ps(intermediateResult + ip + kk);
-          auto dxV2 = _mm256_loadu_ps(intermediateResult + ip + kk + 8);
-          auto dxV3 = _mm256_loadu_ps(intermediateResult + ip + kk + 16);
-          auto dxV4 = _mm256_loadu_ps(intermediateResult + ip + kk + 24);
+          auto dxV1 = _mm256_loadu_ps(tCache + ip + kk);
+          auto dxV2 = _mm256_loadu_ps(tCache + ip + kk + 8);
+          auto dxV3 = _mm256_loadu_ps(tCache + ip + kk + 16);
+          auto dxV4 = _mm256_loadu_ps(tCache + ip + kk + 24);
           int k = Ap[ii];
           for (; k < Ap[ii + 1] - 1; k += 2) {
             int bij1 = Ai[k] * InputChannelDim;
@@ -499,10 +500,10 @@ void inputGradFusedParallelSpMMGeMMFusedVectorizedSP(
             dxV3 = _mm256_fmadd_ps(bxv0, cxV13, dxV3);
             dxV4 = _mm256_fmadd_ps(bxv0, cxV14, dxV4);
           }
-          _mm256_storeu_ps(intermediateResult + ip + kk, dxV1);
-          _mm256_storeu_ps(intermediateResult + ip + kk + 8, dxV2);
-          _mm256_storeu_ps(intermediateResult + ip + kk + 16, dxV3);
-          _mm256_storeu_ps(intermediateResult + ip + kk + 24, dxV4);
+          _mm256_storeu_ps(tCache + ip + kk, dxV1);
+          _mm256_storeu_ps(tCache + ip + kk + 8, dxV2);
+          _mm256_storeu_ps(tCache + ip + kk + 16, dxV3);
+          _mm256_storeu_ps(tCache + ip + kk + 24, dxV4);
         }
 //        for (; kk < residueStart2; kk += 16) {
 //          auto dxV1 = _mm256_loadu_ps(intermediateResult + ip + kk);
@@ -556,14 +557,14 @@ void inputGradFusedParallelSpMMGeMMFusedVectorizedSP(
 //        }
         for (int k = Ap[ii]; k < Ap[ii + 1]; k++) {
           for (; kk < InputChannelDim; kk++) {
-            intermediateResult[ip + kk] +=
+            tCache[ip + kk] +=
                 Ax[k] * Features[Ai[k] * InputChannelDim + kk];
           }
         }
       }
       cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, tileSize,
                   OutputChannelDim, InputChannelDim, 1.,
-                  intermediateResult + i * InputChannelDim, InputChannelDim, Weight,
+                  tCache, InputChannelDim, Weight,
                   OutputChannelDim, 0.,
                   Output + i * OutputChannelDim, OutputChannelDim);
     }
