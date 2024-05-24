@@ -24,8 +24,7 @@ struct CSRFusedGCNLayer : torch::nn::Module {
     auto spMMGeMMTileSizeTensor = torch::tensor({spMMGeMMTileSize});
     this->scheduleData =
         {this->LevelPtr, this->ParPtr, this->Partition,
-         this->MixPtr, levelNumTensor, numThreadsTensor,
-         spMMGeMMTileSizeTensor};
+         this->MixPtr, levelNumTensor, numThreadsTensor};
   }
   CSRFusedGCNLayer() {
     this->NumThreads = 0;
@@ -38,7 +37,7 @@ struct CSRFusedGCNLayer : torch::nn::Module {
   }
 
   torch::Tensor forward(torch::Tensor x, torch::Tensor adj) {
-    return CSRFusedGCNForwardFunctionWithFusedSGBackward::apply(x, adj, weight, scheduleData);
+    return CSRFusedGCNForwardFunctionWithFusedGSBackward::apply(x, adj, weight, scheduleData);
   }
 
   int NumThreads;
@@ -109,7 +108,7 @@ struct MKLGCNLayer : torch::nn::Module {
   }
 
   torch::Tensor forward(torch::Tensor x, torch::Tensor adj) {
-    return GCNForwardFunctionMKLSGBackward::apply(x, adj, weight, NumThreads);
+    return GCNForwardFunctionMKLGSBackward::apply(x, adj, weight, NumThreads);
   }
 
   int NumThreads;

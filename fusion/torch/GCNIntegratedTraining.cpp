@@ -243,7 +243,7 @@ int main(const int argc, const char *argv[]) {
 //    std::cout << "backward time: " << t3.printTimeCsv(0) << std::endl;
 //     Update the parameters based on the calculated gradients.
     optimizer.step();
-//    std::cout << "Epoch: " << epoch << " | Loss: " << loss.item<float>() << std::endl;
+    std::cout << "Epoch: " << epoch << " | Loss: " << loss.item<float>() << std::endl;
   }
   t1.stop();
   std::cout <<  tp.expariment_name << "," << tp._matrix_name << "," << t1.printTimeCsv(0)
