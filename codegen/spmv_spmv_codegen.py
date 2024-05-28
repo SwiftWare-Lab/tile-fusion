@@ -6,11 +6,10 @@ from numba.core.compiler import CompilerBase, DefaultPassBuilder
 from numba.core.compiler_machinery import FunctionPass, register_pass
 from numba.core.ir_utils import mk_unique_var, next_label, mk_range_block, mk_loop_header, find_topo_order, \
     replace_var_names, dprint_func_ir
-from numba.core.untyped_passes import IRProcessing
+from numba.core.untyped_passes import IRProcessing, ReconstructSSA
 from scipy.io import mmread
-from  numba.core import typed_passes
+from numba.core import typed_passes
 import graphviz as gv
-
 
 # from codegen.writer import mk_array_assign_stmt
 
@@ -138,8 +137,10 @@ def mk_fused_loop_nest(
     type_ass = ir.Assign(get_type_expr, type_var, loc)
     i_body_block.append(type_ass)
     get_iter_expr = ir.Expr.getitem(ids_var, i_index, loc)
-    first_loop_body_blocks[loop1_labels[LOOP_BODY_INDEX]].body[LOOP_VAR_INDEX].value = get_iter_expr  # hardcoded for now, need to be fixed, loop1_body = 32
-    del second_loop_body_blocks[loop2_labels[LOOP_BODY_INDEX]].body[LOOP_VAR_INDEX]  # hardcoded for now, need to be fixed, loop2_body=106
+    first_loop_body_blocks[loop1_labels[LOOP_BODY_INDEX]].body[
+        LOOP_VAR_INDEX].value = get_iter_expr  # hardcoded for now, need to be fixed, loop1_body = 32
+    del second_loop_body_blocks[loop2_labels[LOOP_BODY_INDEX]].body[
+        LOOP_VAR_INDEX]  # hardcoded for now, need to be fixed, loop2_body=106
     i_body_block.append(first_loop_body_blocks[loop1_labels[LOOP_BODY_INDEX]].body[LOOP_VAR_INDEX])
     del first_loop_body_blocks[loop1_labels[LOOP_BODY_INDEX]].body[LOOP_VAR_INDEX]
 
@@ -148,11 +149,14 @@ def mk_fused_loop_nest(
     # bool_func_ass = ir.Assign(ir.Global('bool', bool.__class__, loc), bool_func, loc)
     # i_body_block.append(bool_func_ass)
 
-    type_cond = ir.Branch(type_var, loop2_labels[LOOP_BODY_INDEX], loop1_labels[LOOP_BODY_INDEX], loc)  # hardcoded for now, need to be fixed
+    type_cond = ir.Branch(type_var, loop2_labels[LOOP_BODY_INDEX], loop1_labels[LOOP_BODY_INDEX],
+                          loc)  # hardcoded for now, need to be fixed
     i_body_block.append(type_cond)
     new_blocks[new_labels['i_body_block']] = i_body_block
-    first_loop_body_blocks[loop1_labels[LOOP_EXIT_INDEX]].body[RANGE_JUMP_INDEX].target = new_labels['i_header_block']  # hardcoded for now, need to be fixed # merge these two lines
-    second_loop_body_blocks[loop2_labels[LOOP_EXIT_INDEX]].body[RANGE_JUMP_INDEX].target = new_labels['i_header_block']  # hardcoded for now, need to be fixed
+    first_loop_body_blocks[loop1_labels[LOOP_EXIT_INDEX]].body[RANGE_JUMP_INDEX].target = new_labels[
+        'i_header_block']  # hardcoded for now, need to be fixed # merge these two lines
+    second_loop_body_blocks[loop2_labels[LOOP_EXIT_INDEX]].body[RANGE_JUMP_INDEX].target = new_labels[
+        'i_header_block']  # hardcoded for now, need to be fixed
     # new_blocks[new_labels['first_loop_body_block']] = first_loop_body_block
     # new_blocks[new_labels['second_loop_body_block']] = second_loop_body_block
     for key, block in first_loop_body_blocks.items():
@@ -172,7 +176,7 @@ class LoopFusion1(FunctionPass):
     def __init__(self):
         super().__init__(self)
 
-    #This needs to be fixed, it is not right for all cases
+    # This needs to be fixed, it is not right for all cases
     def find_adjacent_loops(self, cfg):
         """Find adjacent loops that can be fused.
         """
@@ -183,7 +187,7 @@ class LoopFusion1(FunctionPass):
             all_loops.append(cfg.loops()[lp])
         # for every two items in all_loops, check if they are adjacent
         for i in range(len(all_loops) - 1):
-            for j in range(i,len(all_loops)):
+            for j in range(i, len(all_loops)):
                 if all_loops[i].exits == all_loops[j].entries:
                     adjacent_loops.append((all_loops[i], all_loops[j]))
         return adjacent_loops
@@ -247,7 +251,8 @@ class LoopFusion1(FunctionPass):
         loop2_exit = 0
         for item in loop2.exits:
             loop2_exit = item
-        new_blocks = mk_fused_loop_nest(loc, scope, 2, 'l_ptr', 'par_ptr', 'ids', 'types', loop2_exit, loop1_body, loop2_body,
+        new_blocks = mk_fused_loop_nest(loc, scope, 2, 'l_ptr', 'par_ptr', 'ids', 'types', loop2_exit, loop1_body,
+                                        loop2_body,
                                         new_labels, loop1_labels, loop2_labels)
         for key, block in new_blocks.items():
             blocks[key] = block
@@ -255,6 +260,18 @@ class LoopFusion1(FunctionPass):
         # add rand to the last block
 
         return mutate  # the pass has not mutated the IR
+
+
+class Access:
+    def __init__(self, var, index):
+        self.var = var
+        self.index = index
+
+    def __str__(self):
+        return f"{self.var}[{self.index}]" if self.index is not None else self.var
+
+    def __repr__(self):
+        return self.__str__()
 
 
 class MyCompiler(CompilerBase):  # custom compiler extends from CompilerBase
@@ -276,6 +293,7 @@ class MyCompiler(CompilerBase):  # custom compiler extends from CompilerBase
         # return as an iterable, any number of pipelines may be defined!
         return [pm]
 
+
 @register_pass(mutates_CFG=False, analysis_only=False)
 class ObserveIRPass(FunctionPass):
     _name = "dead_code_elimination1"
@@ -283,40 +301,95 @@ class ObserveIRPass(FunctionPass):
     def __init__(self):
         FunctionPass.__init__(self)
 
-    def find_reads(self, data_value, val, reads):
-        print(type(val))
-        if isinstance(val, ir.Expr) and val.op == 'getitem':
-            reads.append(val)
-        elif isinstance(val, ir.Expr) and val.op == 'binop':
-            self.find_reads(data_value, val.lhs, reads)
-            self.find_reads(data_value, val.rhs, reads)
-        elif isinstance(val, ir.Assign):
-            self.find_reads(data_value, val.value, reads)
-        elif isinstance(val, ir.Var):
-            self.find_reads(data_value, data_value[val.name], reads)
+    def find_reads(self, data_value, var, reads):
+        # print(data_value)
+        if isinstance(var, ir.Expr) and var.op == 'getitem':
+            reads.append(var)
+        elif isinstance(var, ir.Expr) and (var.op == 'binop' or var.op == 'inplace_binop'):
+            self.find_reads(data_value, var.lhs, reads)
+            self.find_reads(data_value, var.rhs, reads)
+        elif isinstance(var, ir.Assign):
+            self.find_reads(data_value, var.value, reads)
+        elif isinstance(var, ir.Var):
+            # print(var.name)
+            if not var.name.startswith('$'):
+                reads.append(var)
+            if var.name in data_value:
+                self.find_reads(data_value, data_value[var.name], reads)
+            # reads.append(var)
+
+    def find_all_loop_bodies(self, cfg):
+        loop_bodies = set()
+        # print(cfg.loops())
+        loops = cfg.loops()
+        for lp in loops:
+            loop = loops[lp]
+            for x in loop.body:
+                if x not in loops:
+                    loop_bodies.add(x)
+        return loop_bodies
+
     def run_pass(self, state):
         # state contains the FunctionIR to be mutated,
         mutate = False
 
         # # along with environment and typing information
         func_ir = state.func_ir
+        ir_blocks = func_ir.blocks
         dprint_func_ir(func_ir, "generated IR")
-        index = func_ir.blocks[44].body[5].value.index
-        data = func_ir.blocks[44].body[5].value.value
-        print(index, data)
-        read = func_ir.blocks[118].body[4].value
-        stmnts = func_ir.blocks[118].body
-        data_values = {}
-        for st in stmnts:
-            if isinstance(st, ir.Assign):
-                data_values[st.target.name] = st.value
-        temp = read
-        print(read)
-        reads = []
-        self.find_reads(data_values, temp, reads)
-        data = reads[0].value
-        index = reads[0].index
-        print(data, index)
+        loop_bodies = self.find_all_loop_bodies(ir_utils.compute_cfg_from_blocks(func_ir.blocks))
+        # print(loop_bodies)
+        for block in sorted(loop_bodies):
+            reads = {}
+            writes = {}
+            read_stmnts = {}
+            data_values = {}
+            stmnts = ir_blocks[block].body
+            for st in stmnts:
+                if isinstance(st, ir.Assign):
+                    data_values[st.target.name] = st.value
+            # print(data_values)
+            for s, st in enumerate(stmnts):
+                if isinstance(st, ir.SetItem):
+                    writes[s] = Access(st.target.name, st.index)
+                    read_stmnts[s] = []
+                    self.find_reads(data_values, st.value, read_stmnts[s])
+                    print(read_stmnts[s]) #TODO: convert get item to read access
+                    for r in read_stmnts[s]:
+                        val = r.value
+                        temp_s_reads = []
+                        self.find_reads(data_values, r.index, temp_s_reads)
+                        if len(temp_s_reads) > 0:
+                            if isinstance(temp_s_reads[0], ir.Var):
+                                reads[s] = Access(val, temp_s_reads[0])
+                            elif isinstance(temp_s_reads[0], ir.Expr) and temp_s_reads[0].op == 'getitem':
+                                temp_s_reads2 = []
+                                self.find_reads(data_values, temp_s_reads[0].index, temp_s_reads2)
+                                if len(temp_s_reads2) > 0:
+                                    ind_acc = Access(temp_s_reads[0].value, temp_s_reads2[0])
+                                    reads[s] = Access(val,ind_acc)
+                        else:
+                            reads[s] = Access(val, None  )
+            print(writes)
+            print(reads)
+            # print(data_values)
+            # for dv in data_values:
+            #     if not dv.startswith('$'):
+            #         reads = []
+            #         self.find_reads(data_values, data_values[dv],reads)
+            #         print(dv, reads)
+        # index = func_ir.blocks[44].body[5].value.index
+        # data = func_ir.blocks[44].body[5].value.value
+        # print(index, data)
+        # read = func_ir.blocks[118].body[4].value
+        # temp = read
+        # print(read)
+        # reads = []
+        # self.find_reads(data_values, temp, reads)
+        # data = reads[0].value
+        # index = reads[0].index
+        # print(data, index)
+
         # # create CFG from the IR
         # cfg = ir_utils.compute_cfg_from_blocks(func_ir.blocks)
         # cfg_simplied_blks = ir_utils.simplify_CFG(func_ir.blocks)
@@ -345,6 +418,7 @@ class ObserveIRPass(FunctionPass):
         #     blk.body = new_body  # update the block with new statements
         return mutate  # the pass has not mutated the IR
 
+
 class SPFGenerator(CompilerBase):  # custom compiler extends from CompilerBase
 
     def define_pipelines(self):
@@ -353,7 +427,7 @@ class SPFGenerator(CompilerBase):  # custom compiler extends from CompilerBase
         # namely the "nopython" pipeline
         pm = DefaultPassBuilder.define_nopython_pipeline(self.state)
         # Add the new pass to run after IRProcessing
-        pm.add_pass_after(ObserveIRPass, IRProcessing)
+        pm.add_pass_after(ObserveIRPass, ReconstructSSA)
         # if self.state.flags.auto_parallel.enabled:
         #     pm.add_pass_after(LoopFusion1, typed_passes.ParforFusionPass)
         # else:
@@ -363,6 +437,7 @@ class SPFGenerator(CompilerBase):  # custom compiler extends from CompilerBase
         pm.finalize()
         # return as an iterable, any number of pipelines may be defined!
         return [pm]
+
 
 @njit(float64[:](int32[:], int32[:], float64[:], float64[:], int32, int32[:], int32[:], int32[:], int32[:]),
       pipeline_class=MyCompiler)
@@ -378,6 +453,7 @@ def spmv_spmv(Ap, Ai, Ax, B, m, l_ptr, par_ptr, ids, types):
             z[i] += Ax[j] * y[Ai[j]]
     return y
 
+
 @njit(float64[:](int32[:], int32[:], float64[:], float64[:]), pipeline_class=SPFGenerator)
 def test_find_dependencies(Ap, Ai, Ax, B):
     m = len(Ap) - 1
@@ -386,7 +462,9 @@ def test_find_dependencies(Ap, Ai, Ax, B):
     for i in range(m):
         for j in range(Ap[i], Ap[i + 1]):
             y[i] += Ax[j] * B[Ai[j]]
+            # y[i] *= 2
     for i in range(m):
+        # y[i] = y[i] + 1
         z[i] = y[i] * 2
     return z
 
@@ -436,14 +514,14 @@ def generate_schedule_arrays(Ap, Ai, Ax):
     n = len(Ap) - 1
     l_ptr = np.zeros(3, dtype=np.int32)
     par_ptr = np.zeros(17, dtype=np.int32)
-    ids = np.zeros(len(Ai)*2, dtype=np.int32)
-    types = np.zeros(len(Ai)*2, dtype=np.int32)
+    ids = np.zeros(len(Ai) * 2, dtype=np.int32)
+    types = np.zeros(len(Ai) * 2, dtype=np.int32)
     l_ptr[1] = 8
     l_ptr[2] = 16
     if n % 8 == 0:
-        tile_size = n//8
+        tile_size = n // 8
     else:
-        tile_size = n//8 + 1
+        tile_size = n // 8 + 1
     unfused_iterations = []
     cur_index = 0
     for ii in range(0, n, tile_size):
@@ -455,7 +533,7 @@ def generate_schedule_arrays(Ap, Ai, Ax):
             ids[cur_index] = i
             types[cur_index] = 0
             cur_index += 1
-            if Ai[Ap[i]] >= start and Ai[Ap[i+1]-1] < end:
+            if Ai[Ap[i]] >= start and Ai[Ap[i + 1] - 1] < end:
                 fused_iters.append(i)
             else:
                 unfused_iterations[-1].append(i)
@@ -463,15 +541,16 @@ def generate_schedule_arrays(Ap, Ai, Ax):
             ids[cur_index] = fi
             types[cur_index] = 1
             cur_index += 1
-        par_ptr[ii//tile_size + 1] = cur_index
+        par_ptr[ii // tile_size + 1] = cur_index
     print(len(unfused_iterations))
     for i in range(0, 8):
         for j in range(len(unfused_iterations[i])):
             ids[cur_index] = unfused_iterations[i][j]
             types[cur_index] = 1
             cur_index += 1
-        par_ptr[i+9] = cur_index
+        par_ptr[i + 9] = cur_index
     return l_ptr, par_ptr, ids, types
+
 
 print(numba.__version__)
 
