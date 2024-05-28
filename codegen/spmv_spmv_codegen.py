@@ -9,6 +9,7 @@ from numba.core.ir_utils import mk_unique_var, next_label, mk_range_block, mk_lo
 from numba.core.untyped_passes import IRProcessing
 from scipy.io import mmread
 from  numba.core import typed_passes
+import graphviz as gv
 
 
 # from codegen.writer import mk_array_assign_stmt
@@ -233,24 +234,6 @@ class LoopFusion1(FunctionPass):
                 loop2_body[x] = blocks[x]
         loop1_labels = sorted(loop1_body.keys())
         loop2_labels = sorted(loop2_body.keys())
-        # find adjacent loops
-        # adj_loops = self.find_adjacent_loops(cfg)
-        # var_lp1 = blocks[adj_loops[0][0].header].body[0].target
-        # idx_lp1, idx_lp2 = blocks[42].body[0].target, blocks[80].body[0].target
-        # body_loop2 = {}
-        # # copy body of loop2
-        # body_loop2[80] = blocks[80].copy()
-        # # modify the jump target to loop 1
-        # body_loop2[80].body[-1].target = 40
-        # # replace idx_lp2 in body_loop2 with idx_lp1
-        # replace_var_names(body_loop2, {idx_lp2.name: idx_lp1.name})
-        # #tgt = body_loop2[80].body[-2].target
-        # #val = body_loop2[42].body[2].value
-        #
-        # for i, stmt in enumerate(body_loop2[80].body[1:4]):
-        #     blocks[42].body.insert(4+i, stmt)
-        # #blocks[42].body[-1].target = 80
-        # # remove loop 2 header
         for key in loop1.body:
             del blocks[key]
         for item in loop1.exits:
@@ -258,20 +241,7 @@ class LoopFusion1(FunctionPass):
         for key in loop2.body:
             del blocks[key]
         blocks[0].body[-1].target = new_labels['l_range_block']
-        # blocks[0].body[-7].value = ir.Const(0, state.func_ir.loc)
-        # blocks[40].terminator.falsebr = 100
-        #
-        # aa = ir.Var(blocks[0].scope, mk_unique_var("aa"), state.func_ir.loc)
-        # bb = ir.Var(blocks[0].scope, mk_unique_var("bb"), state.func_ir.loc)
-        # A = ir.Var(blocks[0].scope, mk_unique_var("A"), state.func_ir.loc)
-        # iii = ir.Var(blocks[0].scope, mk_unique_var("iii"), state.func_ir.loc)
-        # tt, ttt = mk_array_assign_stmt(A, aa, iii, iii, state.func_ir.loc, func_ir.blocks[0].scope)
 
-        # create a new loop, not used here but can be used, see the writer file where there should be a function to create a loop
-        # range_label = next_label()
-        # header_label = next_label()
-        # typemap = {}
-        # calltypes = {}
         scope = func_ir.blocks[0].scope
         loc = state.func_ir.loc
         loop2_exit = 0
@@ -279,37 +249,8 @@ class LoopFusion1(FunctionPass):
             loop2_exit = item
         new_blocks = mk_fused_loop_nest(loc, scope, 2, 'l_ptr', 'par_ptr', 'ids', 'types', loop2_exit, loop1_body, loop2_body,
                                         new_labels, loop1_labels, loop2_labels)
-        # print(new_blocks)
         for key, block in new_blocks.items():
             blocks[key] = block
-        # print(mk_fusion_loop(loc,scope,100))
-        # start = ir.Var(scope, mk_unique_var("start"), loc)
-        # stop = ir.Var(scope, mk_unique_var("stop"), loc)
-        # step = ir.Var(scope, mk_unique_var("step"), loc)
-        # index_variable = ir.Var(scope, mk_unique_var("index_variable"), loc)
-        # range_block = mk_range_block(
-        #     typemap,
-        #     start,
-        #     stop,
-        #     step,
-        #     calltypes,
-        #     scope,
-        #     loc)
-        # new_blocks = {}
-        # range_block.body[-1].target = header_label  # fix jump target
-        # phi_var = range_block.body[-2].target
-        # new_blocks[range_label] = range_block
-        # header_block = mk_loop_header(typemap, phi_var, calltypes,
-        #                               scope, loc)
-        # header_block.body[-2].target = index_variable
-        # new_blocks[header_label] = header_block
-        # jump to this new inner loop
-        # init_block.body.append(ir.Jump(range_label, loc))
-        # header_block.body[-1].falsebr = block_label
-
-        # prev_header_label = header_label  # to set truebr next loop
-
-        # generate a loop that adds two arrays
         dprint_func_ir(func_ir, "after maximize fusion down")
         # add rand to the last block
 
