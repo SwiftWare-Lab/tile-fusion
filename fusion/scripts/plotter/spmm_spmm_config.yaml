@@ -4,24 +4,24 @@ implementations:
 #    color: "Fused with atomic"
 #    tuned: True
 #    tune_parameter: "Iter Per Partition"
-  - name: "SpMM_SpMM_Demo_FusedCSCAtomic"
-    representation: "Atomic Tiling"
-    color: "gray"
-    tuned: True
-    tune_parameters:
-      - "Iter Per Partition"
+#  - name: "SpMM_SpMM_Demo_FusedCSCAtomic"
+#    representation: "Atomic Tiling"
+#    color: "gray"
+#    tuned: True
+#    tune_parameters:
+#      - "Iter Per Partition"
 #  - name: "SpMM_SpMM_CSC_Interleaved_Coloring_FusedParallel"
 #    representation: "Tile Fused CSC"
 #    color: "red"
 #    tuned: True
 #    tune_parameters:
 #      - "Iter Per Partition"
-  - name: "SpMM_SpMM_FusedParallel_Redundant"
-    representation: "Overlapped Tiling"
-    color: "blue"
-    tuned: True
-    tune_parameters:
-      - "Iter Per Partition"
+#  - name: "SpMM_SpMM_FusedParallel_Redundant"
+#    representation: "Overlapped Tiling"
+#    color: "blue"
+#    tuned: True
+#    tune_parameters:
+#      - "Iter Per Partition"
 #  - name: "SpMM_SpMM_CSC_Interleaved_Coloring_FusedParallel_Vectorized"
 #    representation: "Tile Fused CSC Avx2"
 #    color: "red"
@@ -106,27 +106,27 @@ implementations:
 #    representation: "UnFused Baseline"
 #    color: "deepskyblue"
 #    tuned: False
-##
-  - name: "SpMM_SpMM_FusedParallelAvx512"
-    representation: "Tile Fusion"
-    color: "maroon"
-    tuned: True
-    tune_parameters:
-      - "Iter Per Partition"
-#  - name: "SpMM_SpMM_UnFusedParallel_VectorizedAvx256"
-#    representation: "UnFused Baseline"
-#    color: "deepskyblue"
-#    tuned: False
-#  - name: "SpMM_SpMM_UnFusedParallelAvx256"
-#    representation: "UnFused Baseline"
-#    color: "deepskyblue"
-#    tuned: False
-#  - name: "SpMM_SpMM_FusedParallelAvx256"
+#####
+#  - name: "SpMM_SpMM_FusedParallelAvx512"
 #    representation: "Tile Fusion"
 #    color: "maroon"
 #    tuned: True
 #    tune_parameters:
 #      - "Iter Per Partition"
+  - name: "SpMM_SpMM_UnFusedParallel_VectorizedAvx256"
+    representation: "UnFused Baseline"
+    color: "deepskyblue"
+    tuned: False
+#  - name: "SpMM_SpMM_UnFusedParallelAvx256"
+#    representation: "UnFused Baseline"
+#    color: "deepskyblue"
+#    tuned: False
+  - name: "SpMM_SpMM_FusedParallelAvx256"
+    representation: "Tile Fusion"
+    color: "maroon"
+    tuned: True
+    tune_parameters:
+      - "Iter Per Partition"
 #  - name: "SpMM_SpMM_FusedParallel_Conditional_Interleaved_Avx512"
 #    representation: "Fused Conditional Interleaved"
 #    color: "goldenrod"
@@ -167,5 +167,5 @@ feature_sizes:
 matrices:
   - "tri-banded-10000.mtx"
   - "tri-banded.mtx"
-baseline: "SpMM_SpMM_FusedParallelAvx512"
-target: "SpMM_SpMM_FusedParallelAvx512"
+baseline: "SpMM_SpMM_UnFusedParallel_VectorizedAvx256"
+target: "SpMM_SpMM_FusedParallelAvx256"

@@ -359,14 +359,15 @@ def plot_gcn(log_folder, log_file_name, config,ex_mat_list):
     densities.sort()
     df_fusion_sorted.sort_values(by=['NNZ'], key=lambda nnz: nnz / (df_fusion_sorted['nRows'] ** 2), inplace=True)
     mat_list = list(df_fusion['MatrixName'].unique())
-    mat_list = [mat for mat in mat_list if mat in ex_mat_list]
+    # mat_list = [mat for mat in mat_list if mat in ex_mat_list]
     # mat_list.remove('Queen_4147.mtx')
     # mat_list.remove('sx-stackoverflow.mtx')
     # mat_list.remove('Bump_2911.mtx')
     # mat_list.remove('pa2010.mtx')
-    fig, ax = plt.subplots(figsize=(7.5, 3.5))
+    # fig, ax = plt.subplots(figsize=(7.5, 3.5))
+    fig, ax = plt.subplots(figsize=(7.5, 5))
     # fig.subplots_adjust(bottom=0.05, left=0.1, right=0.95, top=0.85, wspace=0.1, hspace=0.1)
-    fig.subplots_adjust(bottom=0.07, left=0.1, right=0.98, top=0.7, wspace=0.1, hspace=0.1)
+    fig.subplots_adjust(bottom=0.15, left=0.1, right=0.98, top=0.7, wspace=0.1, hspace=0.1)
     file_name = log_file.split('/')[-1] + ".eps"
     impl_representations = {impl['name']: impl['representation'] for impl in config['implementations']}
     impl_colors = {impl['name']: impl['color'] for impl in config['implementations']}
@@ -409,7 +410,7 @@ def plot_gcn(log_folder, log_file_name, config,ex_mat_list):
             cur_mat_nnz = cur_mat['NNZ'].unique()[0]
             rows = cur_mat['nRows'].unique()[0]
             nnz_list.append(cur_mat_nnz)
-            mat_gflops.append((cur_mat_nnz * bcol + cur_mat_nnz * bcol) / 1e9)
+            mat_gflops.append((cur_mat_nnz * bcol + rows * bcol * bcol) / 1e9)
             for x in impls:
                 if x not in tuned_implementations:
                     try:
@@ -462,6 +463,8 @@ def plot_gcn(log_folder, log_file_name, config,ex_mat_list):
         # ax = axs[i]
         new_gflops = {}
         new_speed_ups = {}
+        for m, mat in enumerate(mat_list):
+            print(mat, ":", target_speed_up['GCN_SingleLayer_UnFused'][m])
         for impl in impls:
             color = colors.pop()
             # ax.scatter(plt_x, gflops[impl], color='white', edgecolor=impl_colors[impl], label=impl_representations[impl],
@@ -474,13 +477,13 @@ def plot_gcn(log_folder, log_file_name, config,ex_mat_list):
                 print(impl, ":", geo_mean_overflow(target_speed_up[impl]))
             ax.plot(plt_x, gflops[impl], color=impl_colors[impl], label=impl_representations[impl], linewidth='1')
         # for impl, bar in bars.items():
-        ax.set_xlabel('NNZ', fontsize=15)
+        # ax.set_xlabel('NNZ', fontsize=15)
         ax.set_title('bCol=cCol='+str(bcol)+',sp', fontsize=15)
-        ax.set_xticks([])
+        # ax.set_xticks([])
         ax.legend(loc='upper center', bbox_to_anchor=(0.46,1.5),fontsize=15, ncol=2,handletextpad=0.2)
         ax.spines[['right', 'top']].set_visible(False)
         mat_representations = [mat[:-4].split("_")[0] for mat in mat_list]
-        # ax.set_xticks(plt_x, mat_representations, rotation='vertical')
+        ax.set_xticks(plt_x, mat_representations, rotation='vertical')
         # ax.legend()
     file_name = log_folder.split('/')[-1] + ".eps"
     plot_path = os.path.join(log_folder, file_name)
@@ -500,7 +503,7 @@ def plot_gcn_from_logs_folder(logs_folder, config_file, mat_list_file,should_mer
         mat_list = f.readlines()
     mat_list = [x.strip() for x in mat_list]
     config = import_config(config_file)
-    plot_gcn(logs_folder, "merged.csv", config, mat_list)
+    plot_gcn(logs_folder, "spmv_spmv_64_0.csv", config, mat_list)
     # plot_stack_bar(logs_folder, "merged.csv", config)
     # plot_performance_vs_fused_ratio(logs_folder, entry.name, config)
     # print_fusion_ratios(logs_folder, entry.name)

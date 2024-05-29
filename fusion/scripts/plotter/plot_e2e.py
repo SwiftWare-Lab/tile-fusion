@@ -42,6 +42,7 @@ def plot_e2e(log_folder, log_file_name, ax):
         bars[impl] = [x + k * bar_width for x in br]
         speedups[impl] = (np.array(times['MKL']) / times[impl])
     print(speedups['TiledFused'])
+    print(geo_mean_overflow(speedups['TiledFused']))
     color = colors.pop()
     # ax.bar(bars['torch_geometric GCNConv'], speedups['torch_geometric GCNConv'], color=color, width=bar_width, label='torch_geometric GCNConv')
     ax.bar(bars['MKL'], speedups['MKL'], color='green', width=bar_width, label='Unfused MKL')

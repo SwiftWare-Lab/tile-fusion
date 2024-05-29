@@ -77,17 +77,18 @@ def fused_ratio_nnz(log_folder):
         print(matrix_name, ",", best_fused_ratio, ",", mtile)
         best_list.append(best_fused_ratio/nnz)
         density_list.append(nnz/nrows**2)
+    density_log = np.log(density_list)
     # convert to dataframe
     # best_df = pd.DataFrame(best_list)
     # plot the best fused ratio per matrix
     plt_x = np.arange(len(matrix_names))
     fig, ax = plt.subplots(figsize=(7.5, 4))
     fig.subplots_adjust(bottom=0.15, left=0.15, right=0.97, top=0.97, wspace=0.1, hspace=0.1)
-    ax.scatter(density_list, best_list, s=5, c='goldenrod')
+    ax.scatter(density_log, best_list, s=5, c='goldenrod')
     #change the font style of the x and y labels
 
     ax.set_ylabel('Percentage of Operations\nwith Shared Data', fontsize=15)
-    ax.set_xlabel('Density', fontsize=15)
+    ax.set_xlabel('Log Density', fontsize=15)
     ax.spines[['right', 'top']].set_visible(False)
     # add a horizontal line at 0
     plt.show()
@@ -118,7 +119,11 @@ def plot_fused_ratio_avg_per_tile(log_file_name):
     ax.plot(mtile_list, avg_fused_ratio, color='goldenrod')
     # plot a vertical line at 2048
     ax.spines[['right', 'top']].set_visible(False)
-    ax.axvline(x=2048, color='black', linestyle='--')
+    # add a horizontal line at 0.34 only until 2048
+    ax.axvline(x=2048, color='black', linestyle='--', ymax=0.85, linewidth=1)
+    ax.axhline(y=0.34, color='black', linestyle='--', xmax=0.5, linewidth=1)
+    #add ytick at 0.34
+    ax.set_yticks([0.34])
     ax.set_ylabel('Average\nFused Ratio', fontsize=15)
     ax.set_xlabel('Tile Size', fontsize=15)
     plt.show()

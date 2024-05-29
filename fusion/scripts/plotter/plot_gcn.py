@@ -8,6 +8,7 @@ from matplotlib.pyplot import cm
 import scipy.stats
 import random
 from matplotlib.lines import Line2D
+import statistics
 
 def geo_mean_overflow(iterable):
     return np.exp(np.log(iterable).mean())
@@ -475,20 +476,20 @@ def plot_gcn(log_folder, log_file_name, config, ex_mat_list):
     densities.sort()
     df_fusion_sorted.sort_values(by=['NNZ'], key=lambda nnz: nnz / (df_fusion_sorted['nRows'] ** 2), inplace=True)
     mat_list = list(df_fusion['Matrix Name'].unique())
-    mat_list = [mat for mat in mat_list if mat in ex_mat_list]
+    # mat_list = [mat for mat in mat_list if mat in ex_mat_list]
     # mat_list = list(df_fusion_sorted['MatrixName'].unique())
     # mat_list.remove("Queen_4147.mtx")
     # mat_list.remove("Hook_1498.mtx")
     fig, axs = plt.subplots(1, 3, figsize=(16, 2.7))
     # fig, axs = plt.subplots(1, 3, figsize=(16, 2))
-    fig.subplots_adjust(bottom=0.1, left=0.045, right=1, top=0.72, wspace=0.1, hspace=0.1)
-    # fig.subplots_adjust(bottom=0.1, left=0.05, right=1, top=0.87, wspace=0.1, hspace=0.1)
+    # fig.subplots_adjust(bottom=0.1, left=0.06, right=1, top=0.72, wspace=0.1, hspace=0.1)
+    fig.subplots_adjust(bottom=0.4, left=0.06, right=1, top=0.87, wspace=0.1, hspace=0.1)
     # fig.subplots_adjust(bottom=0.1, left=0.05, right=1, top=0.9, wspace=0.1, hspace=0.1)
     file_name = log_file.split('/')[-1] + ".eps"
     impl_representations = {impl['name']: impl['representation'] for impl in config['implementations']}
     impl_colors = {impl['name']: impl['color'] for impl in config['implementations']}
-    mat_list.remove('Queen_4147.mtx')
-    mat_list.remove('Hook_1498.mtx')
+    # mat_list.remove('Queen_4147.mtx')
+    # mat_list.remove('Hook_1498.mtx')
     for i, bcol in enumerate(bcols):
         print(bcol)
         bcol = int(bcol)
@@ -524,8 +525,8 @@ def plot_gcn(log_folder, log_file_name, config, ex_mat_list):
             cur_mat_nnz = cur_mat['NNZ'].unique()[0]
             rows = cur_mat['nRows'].unique()[0]
             nnz_list.append(cur_mat_nnz)
-            # mat_gflops.append((cur_mat_nnz * bcol + rows * bcol * bcol) / 1e9)
-            mat_gflops.append((cur_mat_nnz * bcol + cur_mat_nnz * bcol) / 1e9)
+            mat_gflops.append((cur_mat_nnz * bcol + rows * bcol * bcol) / 1e9)
+            # mat_gflops.append((cur_mat_nnz * bcol + cur_mat_nnz * bcol) / 1e9)
             for x in impls:
                 if x not in tuned_implementations:
                     try:
@@ -561,6 +562,9 @@ def plot_gcn(log_folder, log_file_name, config, ex_mat_list):
             speedups[impl] = np.array(times[config['baseline']]) / np.array(times[impl])
             target_speed_up[impl] = np.array(np.array(times[impl] / times[config['target']]))
             gflops[impl] = np.array(mat_gflops) / np.array(times[impl])
+        # print(max(target_speed_up['SpMM_SpMM_UnFusedParallelAvx512']))
+        # print(min(target_speed_up['SpMM_SpMM_UnFusedParallelAvx512']))
+        # print(statistics.median(target_speed_up['SpMM_SpMM_UnFusedParallelAvx512']))
         # print('mkl',len(np.where(speedups[config['target']] > 1)[0]))
         # print('unfused',len(np.where(target_speed_up['SpMM_SpMM_UnFusedParallelAvx512'] > 1)[0]))
         # print(len(mat_list))
@@ -586,24 +590,34 @@ def plot_gcn(log_folder, log_file_name, config, ex_mat_list):
         # gflops = new_gflops
         # speedups = new_speed_ups
         # plt_x = plt_x[:len(gflops[config['target']])]
-        for impl in impls:
-            color = colors.pop()
+        # for impl in impls:
+        #     color = colors.pop()
             # ax.scatter(plt_x, gflops[impl], color='white', edgecolor=impl_colors[impl], label=impl_representations[impl],
             #           marker=markers.pop(0), s=10)
             # print(impl, ":", geo_mean_overflow(speedups[impl]))
-            if impl in ['SpMM_SpMM_Demo_FusedCSCAtomic','SpMM_SpMM_FusedParallel_Redundant']:
-                gflops[impl] = 4*gflops[impl]
-                target_speed_up[impl] = target_speed_up[impl]/4
-            print(impl, ":", geo_mean_overflow(target_speed_up[impl]))
+        # if impl in ['SpMM_SpMM_Demo_FusedCSCAtomic','SpMM_SpMM_FusedParallel_Redundant']:
+        #     gflops[impl] = 4*gflops[impl]
+        #     target_speed_up[impl] = target_speed_up[impl]/4
+        # print(impl, ":", geo_mean_overflow(target_speed_up[impl]))
+        # print(impl, ":", "arithmatic mean", np.mean(target_speed_up[impl]))
+        # if impl == config['target']:
+        #     print(len(np.where(speedups[impl] > 1.15)[0])/len(speedups[impl]))
+        #     print(len(np.where(speedups[impl] > 1.3)[0])/len(speedups[impl]))
+        #     print(len(np.where(speedups[impl] > 1)[0])/len(speedups[impl]))
+            # print("arithmetic: ", impl, ":", np.mean(target_speed_up[impl]))
             # print(impl, min(gflops[impl]), max(gflops[impl]))
             # print(impl, min(speedups[impl]), max(speedups[impl]))
-            ax.plot(plt_x, gflops[impl], color=impl_colors[impl], label=impl_representations[impl], linewidth='1')
+        ax.scatter(gflops[config['baseline']], speedups[config['target']], color=impl_colors[config['target']], label=impl_representations[impl],s=5)
+        #set limit of y axis to 0-3
+        ax.set_ylim(0, 3)
+        #draw horizental line at 1
+        ax.axhline(y=1, color=impl_colors[config['baseline']], linestyle='--')
         # for impl, bar in bars.items():
-        # ax.set_xlabel('NNZ', fontsize=15)
+        ax.set_xlabel('Unfused MKL GFLOPs', fontsize=15)
         ax.set_title('bCol=cCol='+str(bcol)+',dp', fontsize=15)
         #set the y scale to 0 to 600
         # ax.set_ylim(0, 700)
-        ax.set_xticks([])
+        # ax.set_xticks([])
         ax.spines[['right', 'top']].set_visible(False)
         mat_representations = [mat[:-4].split("_")[0] for mat in mat_list]
         # ax.set_xticks(plt_x, mat_representations, rotation='vertical')
@@ -611,11 +625,11 @@ def plot_gcn(log_folder, log_file_name, config, ex_mat_list):
     file_name = log_folder.split('/')[-1] + ".eps"
     plot_path = os.path.join(log_folder, file_name)
 
-    axs[0].set_ylabel('GFLOP/s', fontsize=15)
+    axs[0].set_ylabel('Normalized Execution Time Unfused MKL', fontsize=15)
     h, l = axs[0].get_legend_handles_labels()
-    line = Line2D([0], [0], label='Unfused Baseline', color='deepskyblue', linewidth=1)
-    h.extend([line])
-    fig.legend(handles=h, loc='upper center', ncol=3, bbox_to_anchor=(0.5, 1),fontsize=15)
+    # line = Line2D([0], [0], label='Unfused Baseline', color='deepskyblue', linewidth=1)
+    # h.extend([line])
+    # fig.legend(handles=h, loc='upper center', ncol=3, bbox_to_anchor=(0.5, 1),fontsize=15)
     # fig.suptitle('GeMM-SpMM for ss-graphs on Intel Skylake', fontsize=9)
     plt.show()
     # plt.savefig(plot_path, format='eps')
