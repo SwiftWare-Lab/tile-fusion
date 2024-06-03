@@ -367,9 +367,9 @@ class ObserveIRPass(FunctionPass):
                                 self.find_reads(data_values, temp_s_reads[0].index, temp_s_reads2)
                                 if len(temp_s_reads2) > 0:
                                     ind_acc = Access(temp_s_reads[0].value, temp_s_reads2[0])
-                                    reads[s] = Access(val,ind_acc)
+                                    reads[s] = Access(val, ind_acc)
                         else:
-                            reads[s] = Access(val, None  )
+                            reads[s] = Access(val, None)
             print(writes)
             print(reads)
             # print(data_values)
