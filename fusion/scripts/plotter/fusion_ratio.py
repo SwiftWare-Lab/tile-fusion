@@ -77,18 +77,19 @@ def fused_ratio_nnz(log_folder):
         print(matrix_name, ",", best_fused_ratio, ",", mtile)
         best_list.append(best_fused_ratio/nnz)
         density_list.append(nnz/nrows**2)
-    density_log = np.log(density_list)
+    # density_log = np.log(density_list)
     # convert to dataframe
     # best_df = pd.DataFrame(best_list)
     # plot the best fused ratio per matrix
     plt_x = np.arange(len(matrix_names))
     fig, ax = plt.subplots(figsize=(7.5, 4))
     fig.subplots_adjust(bottom=0.15, left=0.15, right=0.97, top=0.97, wspace=0.1, hspace=0.1)
-    ax.scatter(density_log, best_list, s=5, c='goldenrod')
+    ax.scatter(density_list, best_list, s=5, c='goldenrod')
     #change the font style of the x and y labels
+    ax.set_xscale('log')
 
     ax.set_ylabel('Percentage of Operations\nwith Shared Data', fontsize=15)
-    ax.set_xlabel('Log Density', fontsize=15)
+    ax.set_xlabel('Density', fontsize=15)
     ax.spines[['right', 'top']].set_visible(False)
     # add a horizontal line at 0
     plt.show()
@@ -132,8 +133,8 @@ def plot_fused_ratio_avg_per_tile(log_file_name):
 
 
 def plot_gcn_from_logs_folder(logs_folder):
-    # fused_ratio_nnz(logs_folder)
-    plot_fused_ratio_avg_per_tile(logs_folder)
+    fused_ratio_nnz(logs_folder)
+    # plot_fused_ratio_avg_per_tile(logs_folder)
 
 
 def merge_logs(logs_folder):
