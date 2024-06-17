@@ -36,6 +36,7 @@ target_link_libraries(spmm_demo_gpu
         cusparse
         cublas
         CUDA::cusparse
+        fusion
         aggregation
         swbench::swbench
         )

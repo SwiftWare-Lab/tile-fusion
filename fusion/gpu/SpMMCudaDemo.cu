@@ -1,16 +1,19 @@
 //
 // Created by mehdi on 6/16/24.
 //
-#include "aggregation/def.h"
 #include "Timer.h"
+#include "aggregation/def.h"
+#include "aggregation/sparse_utilities.h"
+#include "sparse-fusion/Fusion_Defs.h"
+#include "sparse-fusion/Fusion_Utils.h"
 #include <cusparse.h>
 #include <iostream>
 
 #define WARMUP_NUM_CUDA 20
 #define EXE_NUM_CUDA 200
+using namespace sym_lib;
 
-
-void cusparseCSRSpMM(const sym_lib::CSR *mat1, const float *B,const int DenseRows, const int DenseCols, float* C, int algid, float& time) {
+void cusparseCSRSpMM(const sym_lib::CSR *mat1, const float *B,const int DenseRows, const int DenseCols, float* C, int algid) {
   swiftware::benchmark::Timer timer;
   const int n_rows_mat1 = mat1->m;
   const int n_cols_mat1 = mat1->n;
@@ -119,41 +122,56 @@ void cusparseCSRSpMM(const sym_lib::CSR *mat1, const float *B,const int DenseRow
         workspace);
   }
   timer.stopGPU("CuSparse CSR Exe Time");
-  time = timer.ElapsedSeconds.count() / EXE_NUM_CUDA;
+  float time = timer.ElapsedSeconds.count() / EXE_NUM_CUDA;
   std::cout << "cusparse csr exe time: " <<  time << " ms " << std::endl;
   cudaFree(workspace);
   cusparseDestroySpMat(matA);
   cusparseDestroyDnMat(matB);
   cusparseDestroyDnMat(matC);
+  delete valuesA;
 #endif
 }
 
-int main () {
-  int N = 1 << 20;
-  float *x, *y, *d_x, *d_y;
-  x = (float*) malloc(N*sizeof(float));
-  y = (float*) malloc(N*sizeof(float));
-  cudaMalloc(&d_x, N*sizeof(float));
-  cudaMalloc(&d_y, N*sizeof(float));
-
-  for (int i = 0; i < N; i++){
-    x[i] = 1.0f;
-    y[i] = 2.0f;
+int main (const int argc, const char *argv[]) {
+  TestParameters tp;
+  tp._order_method = SYM_ORDERING::NONE;
+  ScheduleParameters sp;
+  parse_args(argc, argv, &sp, &tp);
+  CSC *aCSC = get_matrix_from_parameter(&tp);
+  if (aCSC->m != aCSC->n) {
+    return -1;
+  }
+  CSC *aCSCFull = nullptr;
+  if (aCSC->stype == -1 || aCSC->stype == 1) {
+    aCSCFull = make_full(aCSC);
+  } else {
+    aCSCFull = copy_sparse(aCSC);
+  }
+  CSR *aCSR = csc_to_csr(aCSCFull);
+  tp._dim1 = aCSCFull->m;
+  tp._dim2 = aCSCFull->n;
+  int bRows = aCSCFull->n;
+  int bCols = tp._b_cols;
+  tp._nnz = aCSCFull->nnz;
+  tp._density = (double)tp._nnz / (double)(tp._dim1 * tp._dim2);
+  float *bX = new float[bRows * bCols]();
+  float *cX = new float[aCSCFull->m * bCols]();
+  // randomly initialize the input
+  for (int i = 0; i < bRows * bCols; ++i) {
+    bX[i] = 1.0; //(double)rand()/RAND_MAX;
+  }
+  cusparseCSRSpMM(aCSR, bX, bRows, bCols, cX, -1);
+  for (int i = 0; i < tp._dim1; i++){
+    for (int j = 0; j < bCols; j++){
+      std::cout << cX[i*bCols + j] << " ";
+    }
+    std::cout << std::endl;
   }
 
-  cudaMemcpy(d_x, x, N*sizeof(float), cudaMemcpyHostToDevice);
-  cudaMemcpy(d_y, y, N*sizeof(float), cudaMemcpyHostToDevice);
+  delete aCSCFull;
+  delete aCSC;
+  delete aCSR;
+  delete[] bX;
+  delete[] cX;
 
-  saxpy<<<(N+255)/256, 256>>>(N, 2.0f, d_x, d_y);
-  cudaMemcpy(d_y, y, N*sizeof(float), cudaMemcpyDeviceToHost);
-
-  float maxError = 0.0f;
-  for (int i = 0; i < N; i++)
-    maxError = std::max(maxError, abs(y[i]-4.0f));
-  printf("Max error: %f\n", maxError);
-
-  cudaFree(d_x);
-  cudaFree(d_y);
-  free(x);
-  free(y);
 }
