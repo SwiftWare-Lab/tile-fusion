@@ -36,8 +36,8 @@ struct CudaTensorInputs: public TensorInputs<float>{
     }
     cudaMemcpy(DACsrAp, ACsr->p, rPtrSize, cudaMemcpyHostToDevice);
     cudaMemcpy(DACsrI, ACsr->i, cIndexSize, cudaMemcpyHostToDevice);
-    cudaMemcpy(DACsrVal, ACsr->x, valSize, cudaMemcpyHostToDevice);
-    cudaMemcpy(DBx, ACsr->x, denseSize, cudaMemcpyHostToDevice);
+    cudaMemcpy(DACsrVal, HACsrVal, valSize, cudaMemcpyHostToDevice);
+    cudaMemcpy(DBx, Bx, denseSize, cudaMemcpyHostToDevice);
   }
 
   ~CudaTensorInputs(){
@@ -56,11 +56,11 @@ struct CudaTensorOutputs: public TensorOutputs<float>{
   CudaTensorOutputs(int M, int N, int L) : TensorOutputs<float>(M, N, L) {
     size_t outputSize = M * N * sizeof(float);
     cudaMalloc(&DACx, outputSize);
-    cudaMemcpy(DACx, ACx, outputSize, cudaMemcpyHostToDevice);
+//    cudaMemcpy(DACx, ACx, outputSize, cudaMemcpyHostToDevice);
   }
 
   void copyDeviceToHost(){
-    size_t outputSize = M * N;
+    size_t outputSize = M * N * sizeof(float);
     cudaMemcpy(ACx, DACx, outputSize, cudaMemcpyDeviceToHost);
   }
 
@@ -76,6 +76,57 @@ struct CudaTensorOutputs: public TensorOutputs<float>{
 };
 
 
+class CpuSpMM : public SWTensorBench<float> {
+  CudaTensorInputs *InTensor;
+
+  void setup() override {}
+
+  void preExecute() override {}
+
+  Timer execute() override {
+    //    std::fill_n(OutTensor->Xx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
+    OutTensor->reset();
+    Timer t;
+    t.start();
+    swiftware::sparse::spmmCsrSequential<float>(
+        InTensor->M, InTensor->N, InTensor->K, InTensor->ACsr->p,
+        InTensor->ACsr->i, InTensor->HACsrVal, InTensor->Bx, OutTensor->ACx);
+    t.stop();
+    return t;
+  }
+
+  bool verify(double &Error) override {
+    bool retValue = true;
+    if (!InTensor->IsSolProvided) {
+      Error = 0;
+      return true;
+    }
+    double infNorm = 0;
+    // Since For now This is For SpMM I'm Using ACx and its dimensions.
+    // TODO: Later on I need to have separate classes for SpMM and SpMM-SpMM or think of an other way.
+    for (int i = 0; i < InTensor->M * InTensor->N; ++i) {
+      if (std::abs(OutTensor->ACx[i] - InTensor->CorrectSol[i]) > infNorm) {
+        infNorm = std::abs(OutTensor->ACx[i] - InTensor->CorrectSol[i]);
+      }
+    }
+    Error = (double)infNorm;
+    if (infNorm > InTensor->Threshold) {
+      retValue = false;
+    }
+    return retValue;
+  }
+
+public:
+  CudaTensorOutputs *OutTensor;
+  CpuSpMM(CudaTensorInputs *In1, Stats *Stat1)
+      : SWTensorBench<float>(In1, Stat1) {
+    OutTensor = new CudaTensorOutputs(In1->M, In1->N, In1->L);
+    InTensor = In1;
+  }
+
+};
+
 class GpuSpMMCuBlas : public SWTensorBench<float> {
 protected:
   CudaTensorInputs *InTensor;
@@ -88,11 +139,10 @@ protected:
   float beta = 0.0;
   cusparseSpMMAlg_t alg = CUSPARSE_SPMM_ALG_DEFAULT;
 
-  cusparseHandle_t cusparse_handle;
+  cusparseHandle_t cusparse_handle = 0;
   void setup() override {
-    cusparse_handle = 0;
     cusparseCreateCsr(&matA,
-                      InTensor->M, InTensor->K, InTensor->L,
+                      InTensor->M, InTensor->K, InTensor->ACsr->nnz,
                       InTensor->DACsrAp,
                       InTensor->DACsrI,
                       InTensor->DACsrVal,
@@ -114,6 +164,7 @@ protected:
     //    } else if (algid == 3) {
     //      alg = CUSPARSE_SPMM_CSR_ALG3;
     //    }
+    cusparseCreate(&cusparse_handle);
     cusparseSpMM_bufferSize(
         cusparse_handle, transA, transB,
         &alpha, matA, matB, &beta, matC,
@@ -139,6 +190,7 @@ protected:
         CUDA_R_32F, alg,
         Workspace);
     t.stopGPU(St->OperationName);
+    OutTensor->copyDeviceToHost();
     return t;
   }
 
