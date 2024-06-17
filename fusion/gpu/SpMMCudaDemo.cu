@@ -8,6 +8,7 @@
 #include "sparse-fusion/Fusion_Utils.h"
 #include <cusparse.h>
 #include <iostream>
+#include "Cuda_SpMM_Demo_Utils.h"
 
 #define WARMUP_NUM_CUDA 20
 #define EXE_NUM_CUDA 200
@@ -128,7 +129,7 @@ void cusparseCSRSpMM(const sym_lib::CSR *mat1, const float *B,const int DenseRow
   cusparseDestroySpMat(matA);
   cusparseDestroyDnMat(matB);
   cusparseDestroyDnMat(matC);
-  delete valuesA;
+  delete[] valuesA;
 #endif
 }
 
