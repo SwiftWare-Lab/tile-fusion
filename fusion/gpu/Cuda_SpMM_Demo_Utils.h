@@ -17,12 +17,27 @@ struct CudaTensorInputs: public TensorInputs<float>{
   float* DACsrVal;
   float* HACsrVal;
 
-
   float* DBx;
+
+  // Don't Forget to delete the output whenever used.
+  int* getCOORowIndForDevice(){
+    int* hARowInd = new int [ACsr->nnz];
+    int * dARowInd;
+    size_t rowIndSize = ACsr->nnz * sizeof(int);
+    cudaMalloc(&dARowInd, rowIndSize);
+    for(int i = 0; i < ACsr->m; i++){
+      for(int j = ACsr->p[i]; j < ACsr->p[i+1]; j++){
+        hARowInd[j] = i;
+      }
+    }
+    cudaMemcpy(dARowInd, hARowInd, rowIndSize, cudaMemcpyHostToDevice);
+    return dARowInd;
+  }
 
   CudaTensorInputs(int M1, int N1, int K1, int L1, sym_lib::CSC *A1,
                    sym_lib::CSC *B1, int NumThreads1, int NumTrial1,
                    std::string ExpN): TensorInputs<float>(M1, N1, K1, L1, A1, B1, NumThreads1, NumTrial1, ExpN){
+
     size_t rPtrSize = ACsr->m * sizeof(int);
     size_t cIndexSize = ACsr->nnz * sizeof(int);
     size_t valSize = ACsr->nnz * sizeof(float);
@@ -137,8 +152,8 @@ class GpuGeSpMM: public CpuSpMM{
     Timer t;
     t.startGPU();
     csrGeSpMM(
-        InTensor->M, InTensor->N, InTensor->K, InTensor->ACsr->p,
-        InTensor->ACsr->i, InTensor->HACsrVal, InTensor->Bx, OutTensor->ACx);
+        InTensor->M, InTensor->N, InTensor->K, InTensor->DACsrAp,
+        InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx);
     t.stopGPU("GpSpMM");
     OutTensor->copyDeviceToHost();
     return t;
@@ -149,6 +164,25 @@ public:
       : CpuSpMM(In1, Stat1){}
 };
 
+//class GpuHPSpMM: public CpuSpMM{
+//
+//  Timer execute() override {
+//    OutTensor->reset();
+//    Timer t;
+//    t.startGPU();
+//    cooLBSpMM(
+//        InTensor->M, InTensor->N, InTensor->K, InTensor->DACsrAp,
+//        InTensor->ACsr->i,  InTensor->ACsr->nnz, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx);
+//    t.stopGPU("GpSpMM");
+//    OutTensor->copyDeviceToHost();
+//    return t;
+//  }
+//
+//public:
+//  GpuHPSpMM(CudaTensorInputs *In1, Stats* Stat1)
+//      : CpuSpMM(In1, Stat1){}
+//};
+
 class GpuSpMMCuSparse : public CpuSpMM {
 protected:
   void *Workspace;
@@ -158,7 +192,7 @@ protected:
   cusparseOperation_t transB = CUSPARSE_OPERATION_NON_TRANSPOSE;
   float alpha = 1.0;
   float beta = 0.0;
-  cusparseSpMMAlg_t alg = CUSPARSE_SPMM_ALG_DEFAULT;
+  cusparseSpMMAlg_t Alg;
   cusparseHandle_t cusparse_handle = 0;
 
   void setup() override {
@@ -177,11 +211,11 @@ protected:
 
   Timer analysis() override {
     //    if(algid == -1){
-    //      alg = CUSPARSE_SPMM_ALG_DEFAULT;
+    //      Alg = CUSPARSE_SPMM_ALG_DEFAULT;
     //    } else if(algid == 2){
-    //      alg = CUSPARSE_SPMM_CSR_ALG2;
+    //      Alg = CUSPARSE_SPMM_CSR_ALG2;
     //    } else if (algid == 3) {
-    //      alg = CUSPARSE_SPMM_CSR_ALG3;
+    //      Alg = CUSPARSE_SPMM_CSR_ALG3;
     //    }
     cusparseCreate(&cusparse_handle);
     Timer t;
@@ -190,16 +224,12 @@ protected:
     cusparseSpMM_bufferSize(
         cusparse_handle, transA, transB,
         &alpha, matA, matB, &beta, matC,
-        CUDA_R_32F, alg,
+        CUDA_R_32F, Alg,
         &workspaceSize);
     cudaMalloc(&Workspace, workspaceSize);
     t.stopGPU("CuSparseSpMM_CSR_workspace");
     return t;
   }
-
-//  Timer analysis() override {
-//
-//  }
 
   Timer execute() override {
     //    std::fill_n(OutTensor->Xx, InTensor->L * InTensor->N, 0.0);
@@ -210,7 +240,7 @@ protected:
     cusparseSpMM(
         cusparse_handle, transA, transB,
         &alpha, matA, matB, &beta, matC,
-        CUDA_R_32F, alg,
+        CUDA_R_32F, Alg,
         Workspace);
     t.stopGPU("CuSparseSpMM_CSR");
     OutTensor->copyDeviceToHost();
@@ -219,14 +249,20 @@ protected:
 
 
 public:
-  GpuSpMMCuSparse(CudaTensorInputs *In1, Stats *Stat1)
-      : CpuSpMM(In1, Stat1) {}
+  GpuSpMMCuSparse(CudaTensorInputs *In1, Stats *Stat1, cusparseSpMMAlg_t Alg1)
+      : CpuSpMM(In1, Stat1), Alg(Alg1) {}
+
+  ~GpuSpMMCuSparse(){
+    cudaFree(Workspace);
+    cusparseDestroySpMat(matA);
+    cusparseDestroyDnMat(matB);
+    cusparseDestroyDnMat(matC);
+  }
 };
 
-
+// Only Works With Alg3 for CSR
 class GpuSpMMCuSparsePreProcessing : public GpuSpMMCuSparse {
   Timer analysis() override {
-    alg = CUSPARSE_SPMM_CSR_ALG3;
     Timer t;
     t.startGPU();
     cusparseCreate(&cusparse_handle);
@@ -234,13 +270,13 @@ class GpuSpMMCuSparsePreProcessing : public GpuSpMMCuSparse {
     cusparseSpMM_bufferSize(
         cusparse_handle, transA, transB,
         &alpha, matA, matB, &beta, matC,
-        CUDA_R_32F, alg,
+        CUDA_R_32F, Alg,
         &workspaceSize);
     cudaMalloc(&Workspace, workspaceSize);
-    cusparseSpMM_preprocess(cusparse_handle, transA, transB,
-                            &alpha, matA, matB, &beta, matC,
-                            CUDA_R_32F, alg,
-                            Workspace);
+//    cusparseSpMM_preprocess(cusparse_handle, transA, transB,
+//                            &alpha, matA, matB, &beta, matC,
+//                            CUDA_R_32F, Alg,
+//                            Workspace);
     t.stopGPU("CuSparseSpMM_CSR_preprocess");
     return t;
   }
@@ -248,14 +284,13 @@ class GpuSpMMCuSparsePreProcessing : public GpuSpMMCuSparse {
   Timer execute() override {
     //    std::fill_n(OutTensor->Xx, InTensor->L * InTensor->N, 0.0);
     //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
-    alg = CUSPARSE_SPMM_CSR_ALG3;
     OutTensor->reset();
     Timer t;
     t.startGPU();
     cusparseSpMM(
         cusparse_handle, transA, transB,
         &alpha, matA, matB, &beta, matC,
-        CUDA_R_32F, alg,
+        CUDA_R_32F, Alg,
         Workspace);
     t.stopGPU("CuSparseSpMM_WPP_CSR");
     OutTensor->copyDeviceToHost();
@@ -263,5 +298,5 @@ class GpuSpMMCuSparsePreProcessing : public GpuSpMMCuSparse {
   }
 public:
   GpuSpMMCuSparsePreProcessing(CudaTensorInputs *In1, Stats *Stat1)
-    : GpuSpMMCuSparse(In1, Stat1){}
+    : GpuSpMMCuSparse(In1, Stat1, CUSPARSE_SPMM_CSR_ALG3){}
 };

@@ -54,29 +54,37 @@ int main (const int argc, const char *argv[]) {
   delete cpuSpMM;
   delete stats;
 
-  stats = new swiftware::benchmark::Stats("GPU_cuSparse_SpMM_CSR_Demo","SpMM", numTrial,tp._matrix_name,numThread);
-  auto *gpuCuBlasSpMM = new GpuSpMMCuSparse(inSpMM,stats);
-  gpuCuBlasSpMM->run();
-//  gpuCuBlasSpMM->OutTensor->printDx();
-  auto gpuCuBlasSpMMVTStat = gpuCuBlasSpMM->printStats();
-  delete gpuCuBlasSpMM;
+  stats = new swiftware::benchmark::Stats("GPU_cuSparse_SpMM_CSR_Default_Demo","SpMM", numTrial,tp._matrix_name,numThread);
+  auto *gpuCuBlasSpMMDefault = new GpuSpMMCuSparse(inSpMM,stats, CUSPARSE_SPMM_ALG_DEFAULT);
+  gpuCuBlasSpMMDefault->run();
+//  gpuCuBlasSpMMDefault->OutTensor->printDx();
+  auto gpuCuBlasSpMMDefaultStat = gpuCuBlasSpMMDefault->printStats();
+  delete gpuCuBlasSpMMDefault;
   delete stats;
 
 
   // TODO: CuSparseWithPreprocessing has a bug and need to be fixed.
   //  Adding a check function to Benchmark may help. The bug occurs at StopGpu and cudaEventSynchronize function.
-//  stats = new swiftware::benchmark::Stats("GPU_cuSparse_SpMM_CSR_PreProcessing_Demo","SpMM", numTrial,tp._matrix_name,numThread);
-//  auto *gpuCuBlasPPSpMM = new GpuSpMMCuSparsePreProcessing(inSpMM,stats);
-//  gpuCuBlasPPSpMM->run();
-//  //  gpuCuBlasSpMM->OutTensor->printDx();
-//  auto gpuCuBlasPPSpMMVTStat = gpuCuBlasPPSpMM->printStats();
-//  delete gpuCuBlasPPSpMM;
-//  delete stats;
+  stats = new swiftware::benchmark::Stats("GPU_cuSparse_SpMM_CSR_ALG3_Demo","SpMM", numTrial,tp._matrix_name,numThread);
+  auto *gpuCuBlasSpMMAlg3 = new GpuSpMMCuSparse(inSpMM,stats, CUSPARSE_SPMM_CSR_ALG3);
+  gpuCuBlasSpMMAlg3->run();
+  //  gpuCuBlasSpMMDefault->OutTensor->printDx();
+  auto gpuCuBlasSpMMAlg3Stat = gpuCuBlasSpMMAlg3->printStats();
+  delete gpuCuBlasSpMMAlg3;
+  delete stats;
+
+  stats = new swiftware::benchmark::Stats("GPU_cuSparse_SpMM_CSR_Default_Demo","SpMM", numTrial,tp._matrix_name,numThread);
+  auto *gpuCuBlasSpMMAlg2 = new GpuSpMMCuSparse(inSpMM,stats, CUSPARSE_SPMM_CSR_ALG2);
+  gpuCuBlasSpMMAlg2->run();
+  //  gpuCuBlasSpMMDefault->OutTensor->printDx();
+  auto gpuCuBlasSpMMAlg2Stat = gpuCuBlasSpMMAlg2->printStats();
+  delete gpuCuBlasSpMMAlg2;
+  delete stats;
 
   stats = new swiftware::benchmark::Stats("GPU_GeSpMM_SpMM_CSR_Demo","SpMM", numTrial,tp._matrix_name,numThread);
   auto *gpuGeSpMM = new GpuGeSpMM(inSpMM,stats);
   gpuGeSpMM->run();
-  //  gpuCuBlasSpMM->OutTensor->printDx();
+//  gpuGeSpMM->OutTensor->printDx();
   auto gpuGeSpMMStat = gpuGeSpMM->printStats();
   delete gpuGeSpMM;
   delete stats;
@@ -95,11 +103,11 @@ int main (const int argc, const char *argv[]) {
   if (tp.print_header)
     std::cout << headerStat + spHeader + tpHeader + profHeader << std::endl;
   std::cout << cpuSpMMStat << spStat + tpStat + profStat << std::endl;
-  std::cout << gpuCuBlasSpMMVTStat << spStat + tpStat + profStat << std::endl;
-//  std::cout << gpuCuBlasPPSpMMVTStat << spStat + tpStat + profStat << std::endl;
+  std::cout << gpuCuBlasSpMMDefaultStat << spStat + tpStat + profStat << std::endl;
+  std::cout << gpuCuBlasSpMMAlg3Stat << spStat + tpStat + profStat << std::endl;
+  std::cout << gpuCuBlasSpMMAlg2Stat << spStat + tpStat + profStat << std::endl;
   std::cout << gpuGeSpMMStat << spStat + tpStat + profStat << std::endl;
 
-  std::cout << sizeof(int) << std::endl;
 
   delete aCSCFull;
   delete aCSC;
