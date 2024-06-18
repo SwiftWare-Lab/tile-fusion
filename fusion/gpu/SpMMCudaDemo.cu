@@ -1,15 +1,13 @@
 //
 // Created by mehdi on 6/16/24.
 //
-#include "Timer.h"
+#include "Cuda_SpMM_Demo_Utils.h"
 #include "Stats.h"
 #include "aggregation/def.h"
 #include "aggregation/sparse_utilities.h"
 #include "sparse-fusion/Fusion_Defs.h"
 #include "sparse-fusion/Fusion_Utils.h"
-#include <cusparse.h>
 #include <iostream>
-#include "Cuda_SpMM_Demo_Utils.h"
 
 #define WARMUP_NUM_CUDA 20
 #define EXE_NUM_CUDA 200
@@ -56,12 +54,20 @@ int main (const int argc, const char *argv[]) {
   delete cpuSpMM;
   delete stats;
 
-  stats = new swiftware::benchmark::Stats("GPU_cuBlas_SpMM_Demo","SpMM", numTrial,tp._matrix_name,numThread);
+  stats = new swiftware::benchmark::Stats("GPU_cuBlas_SpMM_CSR_Demo","SpMM", numTrial,tp._matrix_name,numThread);
   auto *gpuCuBlasSpMM = new GpuSpMMCuBlas(inSpMM,stats);
   gpuCuBlasSpMM->run();
 //  gpuCuBlasSpMM->OutTensor->printDx();
   auto gpuCuBlasSpMMVTStat = gpuCuBlasSpMM->printStats();
   delete gpuCuBlasSpMM;
+  delete stats;
+
+  stats = new swiftware::benchmark::Stats("GPU_GeSpMM_SpMM_CSR_Demo","SpMM", numTrial,tp._matrix_name,numThread);
+  auto *gpuGeSpMM = new GpuGeSpMM(inSpMM,stats);
+  gpuGeSpMM->run();
+  //  gpuCuBlasSpMM->OutTensor->printDx();
+  auto gpuGeSpMMStat = gpuGeSpMM->printStats();
+  delete gpuGeSpMM;
   delete stats;
 
   std::string profHeader = "";
@@ -79,6 +85,7 @@ int main (const int argc, const char *argv[]) {
     std::cout << headerStat + spHeader + tpHeader + profHeader << std::endl;
   std::cout << cpuSpMMStat << spStat + tpStat + profStat << std::endl;
   std::cout << gpuCuBlasSpMMVTStat << spStat + tpStat + profStat << std::endl;
+  std::cout << gpuGeSpMMStat << spStat + tpStat + profStat << std::endl;
 
   std::cout << sizeof(int) << std::endl;
 

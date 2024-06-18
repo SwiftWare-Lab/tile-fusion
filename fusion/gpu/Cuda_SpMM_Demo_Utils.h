@@ -6,7 +6,8 @@
 #define SPARSE_FUSION_CUDA_SPMM_DEMO_UTILS_H
 
 #include "../example/SpMM_SpMM_Demo_Utils.h"
-
+#include "SpMM_Kernels.h"
+#include "Timer.h"
 #endif // SPARSE_FUSION_CUDA_SPMM_DEMO_UTILS_H
 
 
@@ -77,6 +78,8 @@ struct CudaTensorOutputs: public TensorOutputs<float>{
 
 
 class CpuSpMM : public SWTensorBench<float> {
+protected:
+
   CudaTensorInputs *InTensor;
 
   void setup() override {}
@@ -125,6 +128,25 @@ public:
     InTensor = In1;
   }
 
+};
+
+class GpuGeSpMM: public CpuSpMM{
+
+  Timer execute() override {
+    OutTensor->reset();
+    Timer t;
+    t.startGPU();
+    csrGeSpMM(
+        InTensor->M, InTensor->N, InTensor->K, InTensor->ACsr->p,
+        InTensor->ACsr->i, InTensor->HACsrVal, InTensor->Bx, OutTensor->ACx);
+    t.stopGPU("GpSpMM");
+    OutTensor->copyDeviceToHost();
+    return t;
+  }
+
+public:
+  GpuGeSpMM(CudaTensorInputs *In1, Stats* Stat1)
+      : CpuSpMM(In1, Stat1){}
 };
 
 class GpuSpMMCuBlas : public SWTensorBench<float> {
@@ -202,7 +224,7 @@ protected:
     }
     double infNorm = 0;
     // Since For now This is For SpMM I'm Using ACx and its dimensions.
-    // TODO: Later on I need to have separate classes for SpMM and SpMM-SpMM or think of an other way.
+    // TODO: Later on I need to have a separate classes for SpMM and SpMM-SpMM or think of an other way.
     for (int i = 0; i < InTensor->M * InTensor->N; ++i) {
       if (std::abs(OutTensor->ACx[i] - InTensor->CorrectSol[i]) > infNorm) {
         infNorm = std::abs(OutTensor->ACx[i] - InTensor->CorrectSol[i]);
