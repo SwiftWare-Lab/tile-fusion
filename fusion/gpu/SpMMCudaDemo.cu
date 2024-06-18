@@ -81,13 +81,63 @@ int main (const int argc, const char *argv[]) {
   delete gpuCuBlasSpMMAlg2;
   delete stats;
 
-  stats = new swiftware::benchmark::Stats("GPU_GeSpMM_SpMM_CSR_Demo","SpMM", numTrial,tp._matrix_name,numThread);
+  stats = new swiftware::benchmark::Stats("GPU_GeSpMM_CSR_Demo","SpMM", numTrial,tp._matrix_name,numThread);
   auto *gpuGeSpMM = new GpuGeSpMM(inSpMM,stats);
   gpuGeSpMM->run();
 //  gpuGeSpMM->OutTensor->printDx();
   auto gpuGeSpMMStat = gpuGeSpMM->printStats();
   delete gpuGeSpMM;
   delete stats;
+
+  stats = new swiftware::benchmark::Stats("GPU_ParReduceRowBalance_CSR_Demo","SpMM", numTrial,tp._matrix_name,numThread);
+  auto *gpuParReduceRowBalanceSpMM = new GpuParReduceRowBalance(inSpMM,stats);
+  gpuParReduceRowBalanceSpMM->run();
+  //  gpuParReduceRowBalanceSpMM->OutTensor->printDx();
+  auto gpuParReduceRowBalanceSpMMStat = gpuParReduceRowBalanceSpMM->printStats();
+  delete gpuParReduceRowBalanceSpMM;
+  delete stats;
+
+  stats = new swiftware::benchmark::Stats("GPU_ParReduceNNZBalance_CSR_Demo","SpMM", numTrial,tp._matrix_name,numThread);
+  auto *gpuParReduceNNZBalanceSpMM = new GpuParReduceNnzBalance(inSpMM,stats);
+  gpuParReduceNNZBalanceSpMM->run();
+  //  gpuParReduceNNZBalanceSpMM->OutTensor->printDx();
+  auto gpuParReduceNNZBalanceSpMMStat = gpuParReduceNNZBalanceSpMM->printStats();
+  delete gpuParReduceNNZBalanceSpMM;
+  delete stats;
+
+  stats = new swiftware::benchmark::Stats("GPU_SeqReduceRowBalance_CSR_Demo","SpMM", numTrial,tp._matrix_name,numThread);
+  auto *gpuSeqReduceRowBalanceSpMM = new GpuSeqReduceRowBalance(inSpMM,stats);
+  gpuSeqReduceRowBalanceSpMM->run();
+  //  gpuSeqReduceRowBalanceSpMM->OutTensor->printDx();
+  auto gpuSeqReduceRowBalanceSpMMStat = gpuSeqReduceRowBalanceSpMM->printStats();
+  delete gpuSeqReduceRowBalanceSpMM;
+  delete stats;
+
+  stats = new swiftware::benchmark::Stats("GPU_SeqReduceNNZBalance_CSR_Demo","SpMM", numTrial,tp._matrix_name,numThread);
+  auto *gpuSeqReduceNNZBalanceSpMM = new GpuSeqReduceNnzBalance(inSpMM,stats);
+  gpuSeqReduceNNZBalanceSpMM->run();
+  //  gpuSeqReduceNNZBalanceSpMM->OutTensor->printDx();
+  auto gpuSeqReduceNNZBalanceSpMMStat = gpuSeqReduceNNZBalanceSpMM->printStats();
+  delete gpuSeqReduceNNZBalanceSpMM;
+  delete stats;
+
+  stats = new swiftware::benchmark::Stats("GPU_RowCachingRowBalance_CSR_Demo","SpMM", numTrial,tp._matrix_name,numThread);
+  auto *gpuRowCachingRowBalanceSpMM = new GpuRowCachingRowBalance(inSpMM,stats);
+  gpuRowCachingRowBalanceSpMM->run();
+  //  gpuRowCachingRowBalanceSpMM->OutTensor->printDx();
+  auto gpuRowCachingRowBalanceSpMMStat = gpuRowCachingRowBalanceSpMM->printStats();
+  delete gpuRowCachingRowBalanceSpMM;
+  delete stats;
+
+  stats = new swiftware::benchmark::Stats("GPU_RowCachingNNZBalance_CSR_Demo","SpMM", numTrial,tp._matrix_name,numThread);
+  auto *gpuRowCachingNNZBalanceSpMM = new GpuRowCachingNnzBalance(inSpMM,stats);
+  gpuRowCachingNNZBalanceSpMM->run();
+  //  gpuRowCachingNNZBalanceSpMM->OutTensor->printDx();
+  auto gpuRowCachingNNZBalanceSpMMStat = gpuRowCachingNNZBalanceSpMM->printStats();
+  delete gpuRowCachingNNZBalanceSpMM;
+  delete stats;
+
+
 
   std::string profHeader = "";
   std::string profStat = "";
@@ -107,6 +157,13 @@ int main (const int argc, const char *argv[]) {
   std::cout << gpuCuBlasSpMMAlg3Stat << spStat + tpStat + profStat << std::endl;
   std::cout << gpuCuBlasSpMMAlg2Stat << spStat + tpStat + profStat << std::endl;
   std::cout << gpuGeSpMMStat << spStat + tpStat + profStat << std::endl;
+  std::cout << gpuParReduceRowBalanceSpMMStat << spStat + tpStat + profStat << std::endl;
+  std::cout << gpuParReduceNNZBalanceSpMMStat << spStat + tpStat + profStat << std::endl;
+  std::cout << gpuSeqReduceRowBalanceSpMMStat << spStat + tpStat + profStat << std::endl;
+  std::cout << gpuSeqReduceNNZBalanceSpMMStat << spStat + tpStat + profStat << std::endl;
+  std::cout << gpuRowCachingRowBalanceSpMMStat << spStat + tpStat + profStat << std::endl;
+  std::cout << gpuRowCachingNNZBalanceSpMMStat << spStat + tpStat + profStat << std::endl;
+
 
 
   delete aCSCFull;

@@ -49,6 +49,9 @@ MODE=3
 if [ $EXP == "spmm_spmm" ]; then
   BINFILE="spmm_spmm_fusion"
   BINPATH="./build/example/"
+if [ $EXP == "gpu_spmm" ]; then
+  BINFILE="spmm_demo_gpu"
+  BINPATH="./build/example/"
 elif [ $EXP == "spmm_spmm_sp" ]; then
   BINFILE="spmm_spmm_fusion_sp"
   BINPATH="./build/example/"
@@ -78,6 +81,7 @@ which gcc
 which g++
 which gdb
 which make
+export CUDACXX="/usr/local/cuda-12.5/bin/nvcc" #need to make this dynamic
 if [ -z "${MKL_DIR}" ]; then
   echo "MKL_DIR is already  set to: ${MKL_DIR}"
 else

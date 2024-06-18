@@ -164,6 +164,121 @@ public:
       : CpuSpMM(In1, Stat1){}
 };
 
+class GpuParReduceRowBalance: public CpuSpMM{
+
+  Timer execute() override {
+    OutTensor->reset();
+    Timer t;
+    t.startGPU();
+    csrspmm_parreduce_rowbalance(
+        InTensor->M, InTensor->N, InTensor->K, InTensor->DACsrAp,
+        InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx);
+    t.stopGPU("csrspmm_parreduce_rowbalance");
+    OutTensor->copyDeviceToHost();
+    return t;
+  }
+
+public:
+  GpuParReduceRowBalance(CudaTensorInputs *In1, Stats* Stat1)
+      : CpuSpMM(In1, Stat1){}
+};
+
+class GpuParReduceNnzBalance: public CpuSpMM{
+
+  Timer execute() override {
+    OutTensor->reset();
+    Timer t;
+    t.startGPU();
+    csrspmm_parreduce_nnzbalance(
+        InTensor->M, InTensor->N, InTensor->K, InTensor->ACsr->nnz, InTensor->DACsrAp,
+        InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx);
+    t.stopGPU("csrspmm_parreduce_nnzbalance");
+    OutTensor->copyDeviceToHost();
+    return t;
+  }
+
+public:
+  GpuParReduceNnzBalance(CudaTensorInputs *In1, Stats* Stat1)
+      : CpuSpMM(In1, Stat1){}
+};
+
+class GpuSeqReduceRowBalance: public CpuSpMM{
+
+  Timer execute() override {
+    OutTensor->reset();
+    Timer t;
+    t.startGPU();
+    csrspmm_seqreduce_rowbalance(
+        InTensor->M, InTensor->N, InTensor->K, InTensor->DACsrAp,
+        InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx);
+    t.stopGPU("csrspmm_seqreduce_rowbalance");
+    OutTensor->copyDeviceToHost();
+    return t;
+  }
+
+public:
+  GpuSeqReduceRowBalance(CudaTensorInputs *In1, Stats* Stat1)
+      : CpuSpMM(In1, Stat1){}
+};
+
+class GpuSeqReduceNnzBalance: public CpuSpMM{
+
+  Timer execute() override {
+    OutTensor->reset();
+    Timer t;
+    t.startGPU();
+    csrspmm_seqreduce_nnzbalance(
+        InTensor->M, InTensor->N, InTensor->K, InTensor->ACsr->nnz, InTensor->DACsrAp,
+        InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx);
+    t.stopGPU("csrspmm_seqreduce_nnzbalance");
+    OutTensor->copyDeviceToHost();
+    return t;
+  }
+
+public:
+  GpuSeqReduceNnzBalance(CudaTensorInputs *In1, Stats* Stat1)
+      : CpuSpMM(In1, Stat1){}
+};
+
+class GpuRowCachingRowBalance: public CpuSpMM{
+
+  Timer execute() override {
+    OutTensor->reset();
+    Timer t;
+    t.startGPU();
+    csrspmm_rowcaching_rowbalance(
+        InTensor->M, InTensor->N, InTensor->K, InTensor->DACsrAp,
+        InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx);
+    t.stopGPU("csrspmm_rowcaching_rowbalance");
+    OutTensor->copyDeviceToHost();
+    return t;
+  }
+
+public:
+  GpuRowCachingRowBalance(CudaTensorInputs *In1, Stats* Stat1)
+      : CpuSpMM(In1, Stat1){}
+};
+
+class GpuRowCachingNnzBalance : public CpuSpMM{
+
+  Timer execute() override {
+    OutTensor->reset();
+    Timer t;
+    t.startGPU();
+    csrspmm_rowcaching_nnzbalance(
+        InTensor->M, InTensor->N, InTensor->K, InTensor->ACsr->nnz, InTensor->DACsrAp,
+        InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx);
+    t.stopGPU("csrspmm_rowcaching_nnzbalance");
+    OutTensor->copyDeviceToHost();
+    return t;
+  }
+
+public:
+  GpuRowCachingNnzBalance(CudaTensorInputs *In1, Stats* Stat1)
+      : CpuSpMM(In1, Stat1){}
+};
+
+
 //class GpuHPSpMM: public CpuSpMM{
 //
 //  Timer execute() override {
