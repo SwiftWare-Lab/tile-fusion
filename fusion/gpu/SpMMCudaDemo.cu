@@ -54,13 +54,24 @@ int main (const int argc, const char *argv[]) {
   delete cpuSpMM;
   delete stats;
 
-  stats = new swiftware::benchmark::Stats("GPU_cuBlas_SpMM_CSR_Demo","SpMM", numTrial,tp._matrix_name,numThread);
-  auto *gpuCuBlasSpMM = new GpuSpMMCuBlas(inSpMM,stats);
+  stats = new swiftware::benchmark::Stats("GPU_cuSparse_SpMM_CSR_Demo","SpMM", numTrial,tp._matrix_name,numThread);
+  auto *gpuCuBlasSpMM = new GpuSpMMCuSparse(inSpMM,stats);
   gpuCuBlasSpMM->run();
 //  gpuCuBlasSpMM->OutTensor->printDx();
   auto gpuCuBlasSpMMVTStat = gpuCuBlasSpMM->printStats();
   delete gpuCuBlasSpMM;
   delete stats;
+
+
+  // TODO: CuSparseWithPreprocessing has a bug and need to be fixed.
+  //  Adding a check function to Benchmark may help. The bug occurs at StopGpu and cudaEventSynchronize function.
+//  stats = new swiftware::benchmark::Stats("GPU_cuSparse_SpMM_CSR_PreProcessing_Demo","SpMM", numTrial,tp._matrix_name,numThread);
+//  auto *gpuCuBlasPPSpMM = new GpuSpMMCuSparsePreProcessing(inSpMM,stats);
+//  gpuCuBlasPPSpMM->run();
+//  //  gpuCuBlasSpMM->OutTensor->printDx();
+//  auto gpuCuBlasPPSpMMVTStat = gpuCuBlasPPSpMM->printStats();
+//  delete gpuCuBlasPPSpMM;
+//  delete stats;
 
   stats = new swiftware::benchmark::Stats("GPU_GeSpMM_SpMM_CSR_Demo","SpMM", numTrial,tp._matrix_name,numThread);
   auto *gpuGeSpMM = new GpuGeSpMM(inSpMM,stats);
@@ -85,6 +96,7 @@ int main (const int argc, const char *argv[]) {
     std::cout << headerStat + spHeader + tpHeader + profHeader << std::endl;
   std::cout << cpuSpMMStat << spStat + tpStat + profStat << std::endl;
   std::cout << gpuCuBlasSpMMVTStat << spStat + tpStat + profStat << std::endl;
+//  std::cout << gpuCuBlasPPSpMMVTStat << spStat + tpStat + profStat << std::endl;
   std::cout << gpuGeSpMMStat << spStat + tpStat + profStat << std::endl;
 
   std::cout << sizeof(int) << std::endl;

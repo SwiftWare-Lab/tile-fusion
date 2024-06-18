@@ -149,9 +149,8 @@ public:
       : CpuSpMM(In1, Stat1){}
 };
 
-class GpuSpMMCuBlas : public SWTensorBench<float> {
+class GpuSpMMCuSparse : public CpuSpMM {
 protected:
-  CudaTensorInputs *InTensor;
   void *Workspace;
   cusparseSpMatDescr_t matA;
   cusparseDnMatDescr_t matB, matC;
@@ -160,8 +159,8 @@ protected:
   float alpha = 1.0;
   float beta = 0.0;
   cusparseSpMMAlg_t alg = CUSPARSE_SPMM_ALG_DEFAULT;
-
   cusparseHandle_t cusparse_handle = 0;
+
   void setup() override {
     cusparseCreateCsr(&matA,
                       InTensor->M, InTensor->K, InTensor->ACsr->nnz,
@@ -176,9 +175,7 @@ protected:
                         InTensor->M, InTensor->N, InTensor->N, OutTensor->DACx, CUDA_R_32F, CUSPARSE_ORDER_ROW);
   }
 
-  void preExecute() override {
-    int algid = -1;
-    size_t workspaceSize;
+  Timer analysis() override {
     //    if(algid == -1){
     //      alg = CUSPARSE_SPMM_ALG_DEFAULT;
     //    } else if(algid == 2){
@@ -187,13 +184,17 @@ protected:
     //      alg = CUSPARSE_SPMM_CSR_ALG3;
     //    }
     cusparseCreate(&cusparse_handle);
+    Timer t;
+    t.startGPU();
+    size_t workspaceSize;
     cusparseSpMM_bufferSize(
         cusparse_handle, transA, transB,
         &alpha, matA, matB, &beta, matC,
         CUDA_R_32F, alg,
         &workspaceSize);
-
     cudaMalloc(&Workspace, workspaceSize);
+    t.stopGPU("CuSparseSpMM_CSR_workspace");
+    return t;
   }
 
 //  Timer analysis() override {
@@ -211,39 +212,56 @@ protected:
         &alpha, matA, matB, &beta, matC,
         CUDA_R_32F, alg,
         Workspace);
-    t.stopGPU(St->OperationName);
+    t.stopGPU("CuSparseSpMM_CSR");
     OutTensor->copyDeviceToHost();
     return t;
   }
 
-  bool verify(double &Error) override {
-    bool retValue = true;
-    if (!InTensor->IsSolProvided) {
-      Error = 0;
-      return true;
-    }
-    double infNorm = 0;
-    // Since For now This is For SpMM I'm Using ACx and its dimensions.
-    // TODO: Later on I need to have a separate classes for SpMM and SpMM-SpMM or think of an other way.
-    for (int i = 0; i < InTensor->M * InTensor->N; ++i) {
-      if (std::abs(OutTensor->ACx[i] - InTensor->CorrectSol[i]) > infNorm) {
-        infNorm = std::abs(OutTensor->ACx[i] - InTensor->CorrectSol[i]);
-      }
-    }
-    Error = (double)infNorm;
-    if (infNorm > InTensor->Threshold) {
-      retValue = false;
-    }
-    return retValue;
-  }
 
 public:
-  CudaTensorOutputs *OutTensor;
-  GpuSpMMCuBlas(CudaTensorInputs *In1, Stats *Stat1)
-      : SWTensorBench<float>(In1, Stat1) {
-    OutTensor = new CudaTensorOutputs(In1->M, In1->N, In1->L);
-    InTensor = In1;
+  GpuSpMMCuSparse(CudaTensorInputs *In1, Stats *Stat1)
+      : CpuSpMM(In1, Stat1) {}
+};
+
+
+class GpuSpMMCuSparsePreProcessing : public GpuSpMMCuSparse {
+  Timer analysis() override {
+    alg = CUSPARSE_SPMM_CSR_ALG3;
+    Timer t;
+    t.startGPU();
+    cusparseCreate(&cusparse_handle);
+    size_t workspaceSize;
+    cusparseSpMM_bufferSize(
+        cusparse_handle, transA, transB,
+        &alpha, matA, matB, &beta, matC,
+        CUDA_R_32F, alg,
+        &workspaceSize);
+    cudaMalloc(&Workspace, workspaceSize);
+    cusparseSpMM_preprocess(cusparse_handle, transA, transB,
+                            &alpha, matA, matB, &beta, matC,
+                            CUDA_R_32F, alg,
+                            Workspace);
+    t.stopGPU("CuSparseSpMM_CSR_preprocess");
+    return t;
   }
 
-  ~GpuSpMMCuBlas() { delete OutTensor; }
+  Timer execute() override {
+    //    std::fill_n(OutTensor->Xx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
+    alg = CUSPARSE_SPMM_CSR_ALG3;
+    OutTensor->reset();
+    Timer t;
+    t.startGPU();
+    cusparseSpMM(
+        cusparse_handle, transA, transB,
+        &alpha, matA, matB, &beta, matC,
+        CUDA_R_32F, alg,
+        Workspace);
+    t.stopGPU("CuSparseSpMM_WPP_CSR");
+    OutTensor->copyDeviceToHost();
+    return t;
+  }
+public:
+  GpuSpMMCuSparsePreProcessing(CudaTensorInputs *In1, Stats *Stat1)
+    : GpuSpMMCuSparse(In1, Stat1){}
 };
