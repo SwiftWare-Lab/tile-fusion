@@ -6,10 +6,10 @@ implementations:
 #    tuned: True
 #    tune_parameters:
 #      - "Iter Per Partition"
-  - name: "GCN_SingleLayer_UnFusedMKL"
-    representation: "Unfused MKL"
-    color: "green"
-    tuned: False
+#  - name: "GCN_SingleLayer_UnFusedMKL"
+#    representation: "Unfused MKL"
+#    color: "green"
+#    tuned: False
 #  - name: "SpMMGeMM_UnFusedMKL"
 #    representation: "Unfused MKL"
 #    color: "green"
@@ -130,5 +130,5 @@ matrices:
   - "coauthor_cs_ordered.mtx"
   - "deezer_europe_ordered.mtx"
   - "facebook_page_page_ordered.mtx"
-baseline: "GCN_SingleLayer_UnFusedMKL"
+baseline: "GCN_SingleLayer_UnFused"
 target: "GCN_SingleLayer_FusedSeperated"

@@ -512,7 +512,7 @@ def plot_gcn(log_folder, log_file_name, config, ex_mat_list):
         #     mat_list.remove("Queen_4147.mtx")
         # mat_list.remove("Queen_4147.mtx")
         # mat_list.remove("Hook_1498.mtx")
-        print(len(mat_list))
+        # print(len(mat_list))
         # mat_list = list(df_fusion_bcol['Matrix Name'].unique())
         # df_fusion_bcol_edim = df_fusion_bcol[df_fusion_bcol['EmbedDim'] == edim]
         times = {}
@@ -598,8 +598,11 @@ def plot_gcn(log_folder, log_file_name, config, ex_mat_list):
         # if impl in ['SpMM_SpMM_Demo_FusedCSCAtomic','SpMM_SpMM_FusedParallel_Redundant']:
         #     gflops[impl] = 4*gflops[impl]
         #     target_speed_up[impl] = target_speed_up[impl]/4
-        # print(impl, ":", geo_mean_overflow(target_speed_up[impl]))
-        # print(impl, ":", "arithmatic mean", np.mean(target_speed_up[impl]))
+        # print(speedups[config['target']])
+        speedups[config['target']] = np.where(speedups[config['target']] < 1, 1, speedups[config['target']])
+        # print(speedups[config['target']])
+        print("gmean", ":", geo_mean_overflow(speedups[config['target']]))
+        print("arithmatic mean", ":", np.mean(speedups[config['target']]))
         # if impl == config['target']:
         #     print(len(np.where(speedups[impl] > 1.15)[0])/len(speedups[impl]))
         #     print(len(np.where(speedups[impl] > 1.3)[0])/len(speedups[impl]))
