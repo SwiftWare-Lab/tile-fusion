@@ -73,7 +73,7 @@ int main (const int argc, const char *argv[]) {
   delete gpuCuBlasSpMMAlg3;
   delete stats;
 
-  stats = new swiftware::benchmark::Stats("GPU_cuSparse_SpMM_CSR_Default_Demo","SpMM", numTrial,tp._matrix_name,numThread);
+  stats = new swiftware::benchmark::Stats("GPU_cuSparse_SpMM_CSR_ALG2_Demo","SpMM", numTrial,tp._matrix_name,numThread);
   auto *gpuCuBlasSpMMAlg2 = new GpuSpMMCuSparse(inSpMM,stats, CUSPARSE_SPMM_CSR_ALG2);
   gpuCuBlasSpMMAlg2->run();
   //  gpuCuBlasSpMMDefault->OutTensor->printDx();
@@ -108,7 +108,7 @@ int main (const int argc, const char *argv[]) {
   stats = new swiftware::benchmark::Stats("GPU_SeqReduceRowBalance_CSR_Demo","SpMM", numTrial,tp._matrix_name,numThread);
   auto *gpuSeqReduceRowBalanceSpMM = new GpuSeqReduceRowBalance(inSpMM,stats);
   gpuSeqReduceRowBalanceSpMM->run();
-  //  gpuSeqReduceRowBalanceSpMM->OutTensor->printDx();
+    gpuSeqReduceRowBalanceSpMM->OutTensor->printDx();
   auto gpuSeqReduceRowBalanceSpMMStat = gpuSeqReduceRowBalanceSpMM->printStats();
   delete gpuSeqReduceRowBalanceSpMM;
   delete stats;
@@ -165,8 +165,18 @@ int main (const int argc, const char *argv[]) {
   std::cout << gpuRowCachingNNZBalanceSpMMStat << spStat + tpStat + profStat << std::endl;
 
 
+  int deviceCount;
+
+  cudaDeviceProp prop;
+
+  cudaGetDeviceCount(&deviceCount);
+  std::cout << "Device count: " << deviceCount << std::endl;
+  cudaGetDeviceProperties(&prop, 0);
+  std::cout << "Max Threads Per Block: " << prop.maxThreadsPerBlock << std::endl;
+  std::cout << "Max Threads Dim: " << prop.maxThreadsDim[0] << " * " << prop.maxThreadsDim[1] << " * " << prop.maxThreadsDim[1] << std::endl;
 
   delete aCSCFull;
   delete aCSC;
+  delete inSpMM;
 
 }

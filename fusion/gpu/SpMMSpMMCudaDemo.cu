@@ -1,0 +1,94 @@
+//
+// Created by salehm32 on 20/06/24.
+//
+#include "Cuda_SpMM_SpMM_Demo_Utils.h"
+#include "Stats.h"
+#include "aggregation/def.h"
+#include "aggregation/sparse_utilities.h"
+#include "sparse-fusion/Fusion_Defs.h"
+#include "sparse-fusion/Fusion_Utils.h"
+#include <iostream>
+
+using namespace sym_lib;
+int main (const int argc, const char *argv[]) {
+  TestParameters tp;
+  tp._order_method = SYM_ORDERING::NONE;
+  ScheduleParameters sp;
+  Stats *stats;
+  parse_args(argc, argv, &sp, &tp);
+  CSC *aCSC = get_matrix_from_parameter(&tp);
+  if (aCSC->m != aCSC->n) {
+    return -1;
+  }
+  CSC *aCSCFull = nullptr;
+  if (aCSC->stype == -1 || aCSC->stype == 1) {
+    aCSCFull = make_full(aCSC);
+  } else {
+    aCSCFull = copy_sparse(aCSC);
+  }
+  tp._dim1 = aCSCFull->m;
+  tp._dim2 = aCSCFull->n;
+  tp._nnz = aCSCFull->nnz;
+  tp._density = (double)tp._nnz / (double)(tp._dim1 * tp._dim2);
+
+  int numThread = sp._num_threads, numTrial = 7;
+  std::string expName = "SpMM_SpMM_Demo";
+  auto *inSpMM =
+      new CudaTensorInputs(aCSCFull->m, tp._b_cols, aCSCFull->m, aCSCFull->m,
+                           aCSCFull, aCSCFull, numThread, numTrial, expName);
+
+  stats = new swiftware::benchmark::Stats("CPU_Unfused_Seq", "SpMMSpMM", numTrial,
+                                          tp._matrix_name, numThread);
+  auto *cpuSpMMSpMM = new SeqSpMMSpMM(inSpMM, stats);
+  cpuSpMMSpMM->run();
+//  std::cout << "CPU: " << std::endl;
+//  cpuSpMMSpMM->OutTensor->printDx();
+  std::copy(cpuSpMMSpMM->OutTensor->Xx,
+            cpuSpMMSpMM->OutTensor->Xx +
+                cpuSpMMSpMM->OutTensor->M * cpuSpMMSpMM->OutTensor->N,
+            inSpMM->CorrectSol);
+  inSpMM->IsSolProvided = true;
+  auto headerStat = cpuSpMMSpMM->printStatsHeader();
+  auto cpuSpMMSpMMStat = cpuSpMMSpMM->printStats();
+  delete cpuSpMMSpMM;
+  delete stats;
+
+  stats = new swiftware::benchmark::Stats("GPU_Unfused_SeqReduceRowBalance","SpMMSpMM", numTrial,tp._matrix_name,numThread);
+  auto *unfusedSeqReduceRowBalance = new SpMMSpMMSeqReduceRowBalance(inSpMM,stats, 16);
+  unfusedSeqReduceRowBalance->run();
+  //  std::cout << "UNFUSED: " << std::endl;
+  //  unfusedSeqReduceRowBalance->OutTensor->printDx();
+  auto unfusedSeqReduceRowBalanceStat = unfusedSeqReduceRowBalance->printStats();
+  delete unfusedSeqReduceRowBalance;
+  delete stats;
+
+  stats = new swiftware::benchmark::Stats("GPU_Fused_SeqReduceRowBalance","SpMMSpMM", numTrial,tp._matrix_name,numThread);
+  auto *fusedSeqReduceRowBalance = new FusedSpMMSpMMSeqReduceRowBalance(inSpMM,stats, 16);
+  fusedSeqReduceRowBalance->run();
+//  std::cout << "FUSED: " << std::endl;
+//  fusedSeqReduceRowBalance->OutTensor->printDx();
+  auto fusedSeqReduceRowBalanceStat = fusedSeqReduceRowBalance->printStats();
+  delete fusedSeqReduceRowBalance;
+  delete stats;
+
+  std::string profHeader = "";
+  std::string profStat = "";
+
+  auto csvInfo = sp.print_csv(true);
+  std::string spHeader = std::get<0>(csvInfo);
+  std::string spStat = std::get<1>(csvInfo);
+
+  auto tpCsv = tp.print_csv(true);
+  std::string tpHeader = std::get<0>(tpCsv);
+  std::string tpStat = std::get<1>(tpCsv);
+
+
+  if (tp.print_header)
+    std::cout << headerStat + spHeader + tpHeader + profHeader << std::endl;
+  std::cout << cpuSpMMSpMMStat << spStat + tpStat + profStat << std::endl;
+  std::cout << unfusedSeqReduceRowBalanceStat << spStat + tpStat + profStat << std::endl;
+  std::cout << fusedSeqReduceRowBalanceStat << spStat + tpStat + profStat << std::endl;
+
+  delete inSpMM;
+
+}

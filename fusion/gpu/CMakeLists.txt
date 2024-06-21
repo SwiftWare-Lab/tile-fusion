@@ -41,6 +41,50 @@ target_link_libraries(spmm_demo_gpu
         swbench::swbench
         )
 
+add_executable(spmm_spmm_demo_gpu
+        SpMMSpMMCudaDemo.cu
+)
+
+set_target_properties(spmm_spmm_demo_gpu PROPERTIES CUDA_COMPILE_FLAGS "${CUDA_COMPILE_FLAGS}"
+)
+
+target_include_directories(spmm_spmm_demo_gpu
+        PRIVATE
+        ${SYM_AGG}/include
+        ${SYM_FUS}/include
+)
+target_link_libraries(spmm_spmm_demo_gpu
+        cusparse
+        cublas
+        CUDA::cusparse
+        fusion
+        aggregation
+        swbench::swbench
+)
+
+add_executable(cluster_group_demo
+        ClusterGroupTest.cu
+)
+
+set_target_properties(cluster_group_demo PROPERTIES CUDA_COMPILE_FLAGS "${CUDA_COMPILE_FLAGS}"
+)
+
+target_include_directories(cluster_group_demo
+        PRIVATE
+        ${SYM_AGG}/include
+        ${SYM_FUS}/include
+)
+
+target_link_libraries(cluster_group_demo
+        cusparse
+        cublas
+        CUDA::cusparse
+        fusion
+        aggregation
+        swbench::swbench
+)
+
+
 #if(OpenMP_CXX_FOUND)
 #    target_link_libraries(spmv_demo_gpu OpenMP::OpenMP_CXX)
 #endif()

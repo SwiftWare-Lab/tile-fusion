@@ -8,7 +8,6 @@
 #include "../example/SpMM_SpMM_Demo_Utils.h"
 #include "SpMM_Kernels.h"
 #include "Timer.h"
-#endif // SPARSE_FUSION_CUDA_SPMM_DEMO_UTILS_H
 
 
 struct CudaTensorInputs: public TensorInputs<float>{
@@ -38,7 +37,7 @@ struct CudaTensorInputs: public TensorInputs<float>{
                    sym_lib::CSC *B1, int NumThreads1, int NumTrial1,
                    std::string ExpN): TensorInputs<float>(M1, N1, K1, L1, A1, B1, NumThreads1, NumTrial1, ExpN){
 
-    size_t rPtrSize = ACsr->m * sizeof(int);
+    size_t rPtrSize = (ACsr->m + 1) * sizeof(int);
     size_t cIndexSize = ACsr->nnz * sizeof(int);
     size_t valSize = ACsr->nnz * sizeof(float);
     size_t denseSize = K * N * sizeof(float);
@@ -68,26 +67,33 @@ struct CudaTensorInputs: public TensorInputs<float>{
 struct CudaTensorOutputs: public TensorOutputs<float>{
 
   float* DACx;
+  float* DXx;
 
   CudaTensorOutputs(int M, int N, int L) : TensorOutputs<float>(M, N, L) {
-    size_t outputSize = M * N * sizeof(float);
-    cudaMalloc(&DACx, outputSize);
-//    cudaMemcpy(DACx, ACx, outputSize, cudaMemcpyHostToDevice);
+    size_t aCxSize = M * N * sizeof(float);
+    size_t xxSize = M * N * sizeof(float);
+    cudaMalloc(&DACx, aCxSize);
+    cudaMalloc(&DXx, xxSize);
+//    cudaMemcpy(DACx, ACx, aCxSize, cudaMemcpyHostToDevice);
   }
 
   void copyDeviceToHost(){
-    size_t outputSize = M * N * sizeof(float);
-    cudaMemcpy(ACx, DACx, outputSize, cudaMemcpyDeviceToHost);
+    size_t aCxSize = M * N * sizeof(float);
+    size_t xxSize = L * N * sizeof(float);
+    cudaMemcpy(ACx, DACx, aCxSize, cudaMemcpyDeviceToHost);
+    cudaMemcpy(Xx, DXx, xxSize, cudaMemcpyDeviceToHost);
   }
 
   void reset() override{
     std::fill_n(Xx, L * N, 0.0);
     std::fill_n(ACx, M * N, 0.0);
     cudaMemset(DACx, 0, M * N * sizeof(float));
+    cudaMemset(DXx, 0, L * N * sizeof(float));
   }
 
   ~CudaTensorOutputs(){
     cudaFree(DACx);
+    cudaFree(DXx);
   }
 };
 
@@ -141,6 +147,10 @@ public:
       : SWTensorBench<float>(In1, Stat1) {
     OutTensor = new CudaTensorOutputs(In1->M, In1->N, In1->L);
     InTensor = In1;
+  }
+
+  ~CpuSpMM(){
+    delete OutTensor;
   }
 
 };
@@ -415,3 +425,5 @@ public:
   GpuSpMMCuSparsePreProcessing(CudaTensorInputs *In1, Stats *Stat1)
     : GpuSpMMCuSparse(In1, Stat1, CUSPARSE_SPMM_CSR_ALG3){}
 };
+
+#endif // SPARSE_FUSION_CUDA_SPMM_DEMO_UTILS_H

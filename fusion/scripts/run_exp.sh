@@ -111,5 +111,19 @@ if [ "$TUNED" == 5 ]; then
         fi
     done < ${MATLIST}
   fi
+if [ "$TUNED" ==  6 ]; then
+  while read line; do
+    mat=$line
+      k=4
+      echo "for $line"
+      if [ $header -eq 1 ]; then
+        $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -ah -bc $BCOL > $OUTPUT_FILE
+        header=0
+      else
+        $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -bc $BCOL >> $OUTPUT_FILE
+      fi
+#    done
+  done < ${MATLIST}
+fi
 
 # shellcheck disable=SC2039
