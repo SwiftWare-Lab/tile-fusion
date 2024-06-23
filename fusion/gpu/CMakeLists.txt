@@ -21,7 +21,7 @@ else()
 endif()
 
 add_executable(spmm_demo_gpu
-        SpMMCudaDemo.cu
+        ../demo/SpMMCudaDemo.cu
         )
 
 set_target_properties(spmm_demo_gpu PROPERTIES CUDA_COMPILE_FLAGS "${CUDA_COMPILE_FLAGS}"
@@ -42,7 +42,7 @@ target_link_libraries(spmm_demo_gpu
         )
 
 add_executable(spmm_spmm_demo_gpu
-        SpMMSpMMCudaDemo.cu
+        demo/SpMMSpMMCudaDemo.cu
 )
 
 set_target_properties(spmm_spmm_demo_gpu PROPERTIES CUDA_COMPILE_FLAGS "${CUDA_COMPILE_FLAGS}"
@@ -62,8 +62,29 @@ target_link_libraries(spmm_spmm_demo_gpu
         swbench::swbench
 )
 
+add_executable(spmm_seqred_demo_gpu
+        demo/SeqReduceBlockDemo.cu
+)
+
+set_target_properties(spmm_seqred_demo_gpu PROPERTIES CUDA_COMPILE_FLAGS "${CUDA_COMPILE_FLAGS}"
+)
+
+target_include_directories(spmm_seqred_demo_gpu
+        PRIVATE
+        ${SYM_AGG}/include
+        ${SYM_FUS}/include
+)
+target_link_libraries(spmm_seqred_demo_gpu
+        cusparse
+        cublas
+        CUDA::cusparse
+        fusion
+        aggregation
+        swbench::swbench
+)
+
 add_executable(cluster_group_demo
-        ClusterGroupTest.cu
+        demo/ClusterGroupTest.cu
 )
 
 set_target_properties(cluster_group_demo PROPERTIES CUDA_COMPILE_FLAGS "${CUDA_COMPILE_FLAGS}"

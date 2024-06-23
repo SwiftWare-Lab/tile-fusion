@@ -14,7 +14,10 @@ class SeqSpMMSpMM : public SWTensorBench<float> {
 protected:
   CudaTensorInputs *InTensor;
 
-  void setup() override {}
+  void setup() override {
+    this->St->OtherStats["Number of Fused Rows"] = {0.};
+    this->St->OtherStats["Number of Fused Nnz"] = {0.};
+  }
 
   void preExecute() override {}
 
@@ -81,6 +84,7 @@ protected:
   cusparseHandle_t cusparse_handle = 0;
 
   void setup() override {
+    SeqSpMMSpMM::setup();
     cusparseCreateCsr(&matA, InTensor->M, InTensor->K, InTensor->ACsr->nnz,
                       InTensor->DACsrAp, InTensor->DACsrI, InTensor->DACsrVal,
                       CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I,
@@ -157,6 +161,7 @@ protected:
   // TODO: I assumed that we have one sparse matrix(or two graph adj matrices).
   //  This should be fix for two sparse matrices with different dimensions.
   void setup() override {
+    SeqSpMMSpMM::setup();
     NGridDim = CEIL(InTensor->N, ThreadPerBlock);
     NBlockDim = MIN(InTensor->N, ThreadPerBlock);
     MBlockDim = CEIL(ThreadPerBlock, NBlockDim);
@@ -212,13 +217,14 @@ protected:
     int rowTile = MBlockDim;
     int* ap = InTensor->ACsr->p;
     int* ai = InTensor->ACsr->i;
+    int NnzCount = 0;
     for (int i = 0; i < InTensor->M; i+=rowTile) {
       int t = i / rowTile;
       int end = MIN(i + rowTile, InTensor->M);
       for (int ii = i; ii < end; ii++){
         bool isUnfused = false;
         for (int j = ap[ii]; j < ap[ii + 1]; j++){
-          if (ai[j] < i && ai[j] >= end){
+          if (ai[j] < i || ai[j] >= end){
             ufRows.push_back(ii);
             isUnfused = true;
             break;
@@ -226,6 +232,7 @@ protected:
         }
         if (!isUnfused){
           fRows[t].push_back(ii);
+          NnzCount += ap[ii+1] - ap[ii];
         }
       }
     }
@@ -245,6 +252,10 @@ protected:
         HFId[j] = fRows[i][j-HFPtr[i]];
       }
     }
+    this->St->OtherStats["Number of Fused Rows"] = {(double)fIdCount};
+    this->St->OtherStats["Number of Fused Nnz"] = {(double)fIdCount};
+    UFDim = ufCount;
+    UFMGridDim = CEIL(UFDim, MBlockDim);
     cudaMalloc(&DUFPtr, ufCount * sizeof(int));
     cudaMalloc(&DFPtr, fPtrCount * sizeof(int));
     cudaMalloc(&DFId, fIdCount * sizeof(int));
@@ -290,6 +301,26 @@ public:
     cudaFree(DUFPtr);
     cudaFree(DFId);
   }
+};
+
+
+class FusedSpMMSpMMSeqReduceBColsBlocking: public FusedSpMMSpMMSeqReduceRowBalance
+{
+protected:
+
+  int NTile;
+  void setup() override {
+    NGridDim = CEIL(InTensor->N, NTile);
+    NBlockDim = MIN(InTensor->N, NTile);
+    MBlockDim = CEIL(ThreadPerBlock, NBlockDim);
+    MGridDim = CEIL(InTensor->M, MBlockDim);
+  }
+
+
+public:
+  FusedSpMMSpMMSeqReduceBColsBlocking(CudaTensorInputs *In1, Stats *Stat1,
+                                      int ThreadPerBlock, int NTile)
+      : FusedSpMMSpMMSeqReduceRowBalance(In1, Stat1, ThreadPerBlock), NTile(NTile) {}
 };
 
 #endif // SPARSE_FUSION_CUDA_SPMM_SPMM_DEMO_UTILS_H

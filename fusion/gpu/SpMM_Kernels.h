@@ -989,8 +989,6 @@ csrspmm_seqreduce_rowbalance_kernel(const int nr, const int nv, const int nc,
   }
 }
 
-// TODO: Fused tile Kernel is Done. unfused tile Part is Remaining. --> needs a
-// separate kernel.
 __global__ void csr_fusedTile_spmmspmm_seqreduce_rowbalance_kernel(
     const int M, const int N, const int K, const int Ap[], const int Ai[],
     const float Ax[], const float Bx[], float ACx[], float Xx[],
@@ -1063,6 +1061,58 @@ __global__ void csr_unfusedTile_spmmspmm_seqreduce_rowbalance_kernel(
         col = __ldg(Ai + p);
         val = __guard_load_default_one<float>(Ax, p);
         res += val * __ldg(ACx + col * N);
+      }
+      Xx[row * N] = res;
+    }
+  }
+}
+
+// TODO: use shared mamory for the shared data between two computations.
+__global__ void csr_fusedTile_spmmspmm_seqreduce_rowbalance_sm_kernel(
+    const int M, const int N, const int K, const int Ap[], const int Ai[],
+    const float Ax[], const float Bx[], float ACx[], float Xx[],
+    const int FPtr[], const int FId[]) {
+  extern __shared__ float sharedMem[];
+  int row_tile = blockDim.y;
+  int subwarp_id = threadIdx.y;
+  int stride = row_tile * gridDim.x;
+  int row = blockIdx.x * row_tile + subwarp_id;
+  int v_id = (blockIdx.y * blockDim.x) + threadIdx.x;
+  if (v_id < N) {
+    Bx += v_id;
+    float* aCxTemp = ACx + v_id;
+    float res = 0, val;
+    int col;
+    for (; row < M; row += stride) {
+      int start = __ldg(Ap + row);
+      int end = __ldg(Ap + row + 1);
+      for (int p = start; p < end; p++) {
+        col = __ldg(Ai + p);
+        val = __guard_load_default_one<float>(Ax, p);
+        res += val * __ldg(Bx + col * N);
+      }
+      aCxTemp[row * N] = res;
+    }
+  }
+  __syncthreads();
+  if (v_id < N) {
+    Xx += v_id;
+    float* aCxTemp = ACx + v_id;
+    float res = 0, val;
+    int col;
+    int rowTileId = blockIdx.x;
+    int firstInd = __ldg(FPtr + rowTileId);
+    int lastInd = __ldg(FPtr + rowTileId + 1);
+    int rowInd = firstInd + threadIdx.y;
+    if (rowInd < lastInd) {
+      row = __ldg(FId + rowInd);
+      res = 0;
+      int start = __ldg(Ap + row);
+      int end = __ldg(Ap + row + 1);
+      for (int p = start; p < end; p++) {
+        col = __ldg(Ai + p);
+        val = __guard_load_default_one<float>(Ax, p);
+        res += val * aCxTemp[col * N];
       }
       Xx[row * N] = res;
     }

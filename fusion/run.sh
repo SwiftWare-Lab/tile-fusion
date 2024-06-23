@@ -53,6 +53,14 @@ elif [ $EXP == "gpu_spmm" ]; then
   BINFILE="spmm_demo_gpu"
   BINPATH="./build/gpu/"
   MODE=6
+elif [ $EXP == "gpu_spmm_seqred" ]; then
+  BINFILE="spmm_seqred_demo_gpu"
+  BINPATH="./build/gpu/"
+  MODE=6
+elif [ $EXP == "gpu_spmm_spmm" ]; then
+  BINFILE="spmm_spmm_demo_gpu"
+  BINPATH="./build/gpu/"
+  MODE=6
 elif [ $EXP == "spmm_spmm_sp" ]; then
   BINFILE="spmm_spmm_fusion_sp"
   BINPATH="./build/example/"

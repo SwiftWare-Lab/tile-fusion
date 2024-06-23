@@ -231,6 +231,40 @@ public:
       : CpuSpMM(In1, Stat1){}
 };
 
+
+class GpuSeqReduceRowBalanceVariableThreadPerBlock: public CpuSpMM{
+protected:
+  int ThreadsPerBlock;
+  int MGridDim;
+  int NGridDim;
+  int MBlockDim;
+  int NBlockDim;
+
+  void setup() override {
+    NGridDim = CEIL(InTensor->N, ThreadsPerBlock);
+    NBlockDim = MIN(InTensor->N, ThreadsPerBlock);
+    MBlockDim = CEIL(ThreadsPerBlock, NBlockDim);
+    MGridDim = CEIL(InTensor->M, MBlockDim);
+  }
+
+  Timer execute() override{
+    OutTensor->reset();
+    dim3 gridDim(MGridDim, NGridDim, 1);
+    dim3 blockDim(NBlockDim, MBlockDim, 1);
+    Timer t1;
+    t1.startGPU();
+    csrspmm_seqreduce_rowbalance_kernel<<<gridDim, blockDim>>>(
+        InTensor->M, InTensor->N, InTensor->K, InTensor->DACsrAp,
+        InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx);
+    t1.stopGPU("spmm_seqreduce_rowbalance_tb_" + std::to_string(ThreadsPerBlock));
+    OutTensor->copyDeviceToHost();
+    return t1;
+  }
+public:
+  GpuSeqReduceRowBalanceVariableThreadPerBlock(CudaTensorInputs *In1, Stats* Stat1, int ThreadsPerBlock)
+      : CpuSpMM(In1, Stat1), ThreadsPerBlock(ThreadsPerBlock) {}
+};
+
 class GpuSeqReduceNnzBalance: public CpuSpMM{
 
   Timer execute() override {
