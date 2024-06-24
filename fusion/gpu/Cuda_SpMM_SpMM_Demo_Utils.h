@@ -323,4 +323,46 @@ public:
       : FusedSpMMSpMMSeqReduceRowBalance(In1, Stat1, ThreadPerBlock), NTile(NTile) {}
 };
 
+
+class FusedSpMMSpMMSeqReduceBColsBlockingWithSharedMem: public FusedSpMMSpMMSeqReduceRowBalance
+{
+protected:
+  int SharedMemSize;
+  int NTile;
+  void setup() override {
+    NGridDim = CEIL(InTensor->N, NTile);
+    NBlockDim = MIN(InTensor->N, NTile);
+    MBlockDim = CEIL(ThreadPerBlock, NBlockDim);
+    MGridDim = CEIL(InTensor->M, MBlockDim);
+    SharedMemSize = NBlockDim * MBlockDim * sizeof(float);
+  }
+
+  Timer execute() override{
+    Timer t1;
+    dim3 fGridDim(MGridDim, NGridDim, 1);
+    dim3 fBlockDim(NBlockDim, MBlockDim, 1);
+    dim3 ufGridDim(UFMGridDim, NGridDim, 1);
+    dim3 ufBlockDim(NBlockDim, MBlockDim, 1);
+    t1.startGPU();
+    csr_fusedTile_spmmspmm_seqreduce_rowbalance_sm_kernel<<<fGridDim, fBlockDim, SharedMemSize>>>
+        (InTensor->M, InTensor->N, InTensor->K, InTensor->DACsrAp,
+         InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx,
+         OutTensor->DXx, DFPtr, DFId);
+    cudaDeviceSynchronize();
+    csr_unfusedTile_spmmspmm_seqreduce_rowbalance_kernel<<<ufGridDim, ufBlockDim>>>
+        (UFDim, InTensor->N, InTensor->K, InTensor->DACsrAp,
+         InTensor->DACsrI, InTensor->DACsrVal, OutTensor->DACx, OutTensor->DXx,
+         DUFPtr);
+    cudaDeviceSynchronize();
+    t1.stopGPU("FusedSpMMSpMM");
+    OutTensor->copyDeviceToHost();
+    return t1;
+  }
+
+
+public:
+  FusedSpMMSpMMSeqReduceBColsBlockingWithSharedMem(CudaTensorInputs *In1, Stats *Stat1,
+                                      int ThreadPerBlock, int NTile)
+      : FusedSpMMSpMMSeqReduceRowBalance(In1, Stat1, ThreadPerBlock), NTile(NTile) {}
+};
 #endif // SPARSE_FUSION_CUDA_SPMM_SPMM_DEMO_UTILS_H

@@ -1067,13 +1067,14 @@ __global__ void csr_unfusedTile_spmmspmm_seqreduce_rowbalance_kernel(
   }
 }
 
-// TODO: use shared mamory for the shared data between two computations.
+// use shared memory for the shared data between two computations.
 __global__ void csr_fusedTile_spmmspmm_seqreduce_rowbalance_sm_kernel(
     const int M, const int N, const int K, const int Ap[], const int Ai[],
     const float Ax[], const float Bx[], float ACx[], float Xx[],
     const int FPtr[], const int FId[]) {
   extern __shared__ float sharedMem[];
   int row_tile = blockDim.y;
+  int col_tile = blockDim.x;
   int subwarp_id = threadIdx.y;
   int stride = row_tile * gridDim.x;
   int row = blockIdx.x * row_tile + subwarp_id;
@@ -1081,6 +1082,7 @@ __global__ void csr_fusedTile_spmmspmm_seqreduce_rowbalance_sm_kernel(
   if (v_id < N) {
     Bx += v_id;
     float* aCxTemp = ACx + v_id;
+    float* sharedTemp = sharedMem + threadIdx.x;
     float res = 0, val;
     int col;
     for (; row < M; row += stride) {
@@ -1091,6 +1093,7 @@ __global__ void csr_fusedTile_spmmspmm_seqreduce_rowbalance_sm_kernel(
         val = __guard_load_default_one<float>(Ax, p);
         res += val * __ldg(Bx + col * N);
       }
+      sharedTemp[subwarp_id * col_tile] = res;
       aCxTemp[row * N] = res;
     }
   }
@@ -1098,6 +1101,7 @@ __global__ void csr_fusedTile_spmmspmm_seqreduce_rowbalance_sm_kernel(
   if (v_id < N) {
     Xx += v_id;
     float* aCxTemp = ACx + v_id;
+    float* sharedTemp = sharedMem + threadIdx.x;
     float res = 0, val;
     int col;
     int rowTileId = blockIdx.x;
@@ -1110,9 +1114,9 @@ __global__ void csr_fusedTile_spmmspmm_seqreduce_rowbalance_sm_kernel(
       int start = __ldg(Ap + row);
       int end = __ldg(Ap + row + 1);
       for (int p = start; p < end; p++) {
-        col = __ldg(Ai + p);
+        col = __ldg(Ai + p) % row_tile ;
         val = __guard_load_default_one<float>(Ax, p);
-        res += val * aCxTemp[col * N];
+        res += val * sharedTemp[col * col_tile];
       }
       Xx[row * N] = res;
     }

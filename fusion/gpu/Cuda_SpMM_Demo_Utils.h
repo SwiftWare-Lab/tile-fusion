@@ -5,10 +5,16 @@
 #ifndef SPARSE_FUSION_CUDA_SPMM_DEMO_UTILS_H
 #define SPARSE_FUSION_CUDA_SPMM_DEMO_UTILS_H
 
+#include "Stats.h"
 #include "../example/SpMM_SpMM_Demo_Utils.h"
 #include "SpMM_Kernels.h"
 #include "Timer.h"
+#include "aggregation/def.h"
+#include "aggregation/sparse_utilities.h"
+#include "sparse-fusion/Fusion_Defs.h"
+#include "sparse-fusion/Fusion_Utils.h"
 
+using namespace sym_lib;
 
 struct CudaTensorInputs: public TensorInputs<float>{
   int* DACsrAp;
