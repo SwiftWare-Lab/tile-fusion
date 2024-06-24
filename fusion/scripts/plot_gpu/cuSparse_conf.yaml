@@ -1,0 +1,7 @@
+impls:
+  - name: "GPU_cuSparse_SpMM_CSR_Default_Demo"
+    repr: "CuSparse(Default)"
+  - name: "GPU_cuSparse_SpMM_CSR_ALG2_Demo"
+    repr: "CuSparse(ALG2)"
+  - name: "GPU_cuSparse_SpMM_CSR_ALG3_Demo"
+    repr: "CuSparse(ALG3)"
