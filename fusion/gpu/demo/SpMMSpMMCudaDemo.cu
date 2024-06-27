@@ -27,8 +27,8 @@ int main (const int argc, const char *argv[]) {
   tp._nnz = aCSCFull->nnz;
   tp._density = (double)tp._nnz / (double)(tp._dim1 * tp._dim2);
 
-  int numThread = sp._num_threads, numTrial = 7;
-  int ThreadsPerBlock = 256;
+  int numThread = sp._num_threads, numTrial = 5;
+  int ThreadsPerBlock = 128;
   std::string expName = "SpMM_SpMM_Demo";
   auto *inSpMM =
       new CudaTensorInputs(aCSCFull->m, tp._b_cols, aCSCFull->m, aCSCFull->m,
@@ -86,86 +86,131 @@ int main (const int argc, const char *argv[]) {
   delete fusedSeqReduceRowBalance;
   delete stats;
 
-  stats = new swiftware::benchmark::Stats("GPU_Fused_SeqReduceBColsBlocking_WSM","SpMMSpMM", numTrial,tp._matrix_name,numThread);
-  auto *fusedSeqReduceWSM = new FusedSpMMSpMMSeqReduceBColsBlockingWithSharedMem(inSpMM, stats, ThreadsPerBlock, tp._b_cols);
-  fusedSeqReduceWSM->run();
+  stats = new swiftware::benchmark::Stats("GPU_Fused_Reordered_SeqReduceRowBalance","SpMMSpMM", numTrial,tp._matrix_name,numThread);
+  auto *fusedSeqReduceRowBalanceReordered = new FusedSpMMSpMMSeqReduceRowBalanceReordered(inSpMM,stats, ThreadsPerBlock);
+  fusedSeqReduceRowBalanceReordered->run();
   //  std::cout << "FUSED: " << std::endl;
-  //  fusedSeqReduceBColsBlockinWSMg->OutTensor->printDx();
-  auto fusedSeqReduceWSMStat = fusedSeqReduceWSM->printStats();
-  delete fusedSeqReduceWSM;
+  //  fusedSeqReduceRowBalanceReordered->OutTensor->printDx();
+  auto fusedSeqReduceRowBalanceReorderedStat = fusedSeqReduceRowBalanceReordered->printStats();
+  delete fusedSeqReduceRowBalanceReordered;
   delete stats;
 
-  stats = new swiftware::benchmark::Stats("GPU_Fused_SeqReduceBColsBlocking_4","SpMMSpMM", numTrial,tp._matrix_name,numThread);
-  auto *fusedSeqReduceBColsBlocking4 = new FusedSpMMSpMMSeqReduceBColsBlocking(inSpMM, stats, ThreadsPerBlock, 4);
-  fusedSeqReduceBColsBlocking4->run();
+  stats = new swiftware::benchmark::Stats("GPU_Fused_Reordered_HighFusionRatio_8","SpMMSpMM", numTrial,tp._matrix_name,numThread);
+  auto *fusedHighFusionRatio8 = new FusedSpMMSpMMHighFusionRatio(inSpMM,stats, ThreadsPerBlock, 8);
+  fusedHighFusionRatio8->run();
   //  std::cout << "FUSED: " << std::endl;
-  //  fusedSeqReduceBColsBlocking->OutTensor->printDx();
-  auto fusedSeqReduceBColsBlocking4Stat = fusedSeqReduceBColsBlocking4->printStats();
-  delete fusedSeqReduceBColsBlocking4;
+  //  fusedHighFusionRatio8->OutTensor->printDx();
+  auto fusedHighFusionRatio8Stat = fusedHighFusionRatio8->printStats();
+  delete fusedHighFusionRatio8;
   delete stats;
 
-  stats = new swiftware::benchmark::Stats("GPU_Fused_SeqReduceBColsBlocking_WSM_4","SpMMSpMM", numTrial,tp._matrix_name,numThread);
-  auto *fusedSeqReduceBColsBlockingWSM4 = new FusedSpMMSpMMSeqReduceBColsBlockingWithSharedMem(inSpMM, stats, ThreadsPerBlock, 4);
-  fusedSeqReduceBColsBlockingWSM4->run();
+  stats = new swiftware::benchmark::Stats("GPU_Fused_Reordered_HighFusionRatio_16","SpMMSpMM", numTrial,tp._matrix_name,numThread);
+  auto *fusedHighFusionRatio16 = new FusedSpMMSpMMHighFusionRatio(inSpMM,stats, ThreadsPerBlock, 16);
+  fusedHighFusionRatio16->run();
   //  std::cout << "FUSED: " << std::endl;
-  //  fusedSeqReduceBColsBlockinWSMg->OutTensor->printDx();
-  auto fusedSeqReduceBColsBlockingWSM4Stat = fusedSeqReduceBColsBlockingWSM4->printStats();
-  delete fusedSeqReduceBColsBlockingWSM4;
+  //  fusedHighFusionRatio16->OutTensor->printDx();
+  auto fusedHighFusionRatio16Stat = fusedHighFusionRatio16->printStats();
+  delete fusedHighFusionRatio16;
   delete stats;
 
-  stats = new swiftware::benchmark::Stats("GPU_Fused_SeqReduceBColsBlocking_8","SpMMSpMM", numTrial,tp._matrix_name,numThread);
-  auto *fusedSeqReduceBColsBlocking8 = new FusedSpMMSpMMSeqReduceBColsBlocking(inSpMM, stats, ThreadsPerBlock, 8);
-  fusedSeqReduceBColsBlocking8->run();
+  stats = new swiftware::benchmark::Stats("GPU_Fused_Reordered_HighFusionRatio_32","SpMMSpMM", numTrial,tp._matrix_name,numThread);
+  auto *fusedHighFusionRatio32 = new FusedSpMMSpMMHighFusionRatio(inSpMM,stats, ThreadsPerBlock, 32);
+  fusedHighFusionRatio32->run();
   //  std::cout << "FUSED: " << std::endl;
-  //  fusedSeqReduceBColsBlocking->OutTensor->printDx();
-  auto fusedSeqReduceBColsBlocking8Stat = fusedSeqReduceBColsBlocking8->printStats();
-  delete fusedSeqReduceBColsBlocking8;
+  //  fusedHighFusionRatio32->OutTensor->printDx();
+  auto fusedHighFusionRatio32Stat = fusedHighFusionRatio32->printStats();
+  delete fusedHighFusionRatio32;
   delete stats;
 
-  stats = new swiftware::benchmark::Stats("GPU_Fused_SeqReduceBColsBlocking_WSM_8","SpMMSpMM", numTrial,tp._matrix_name,numThread);
-  auto *fusedSeqReduceBColsBlockingWSM8 = new FusedSpMMSpMMSeqReduceBColsBlockingWithSharedMem(inSpMM, stats, ThreadsPerBlock, 8);
-  fusedSeqReduceBColsBlockingWSM8->run();
+  stats = new swiftware::benchmark::Stats("GPU_Fused_Reordered_HighFusionRatio_64","SpMMSpMM", numTrial,tp._matrix_name,numThread);
+  auto *fusedHighFusionRatio64 = new FusedSpMMSpMMHighFusionRatio(inSpMM,stats, ThreadsPerBlock, 64);
+  fusedHighFusionRatio64->run();
   //  std::cout << "FUSED: " << std::endl;
-  //  fusedSeqReduceBColsBlockinWSMg->OutTensor->printDx();
-  auto fusedSeqReduceBColsBlockingWSM8Stat = fusedSeqReduceBColsBlockingWSM8->printStats();
-  delete fusedSeqReduceBColsBlockingWSM8;
+  //  fusedHighFusionRatio64->OutTensor->printDx();
+  auto fusedHighFusionRatio64Stat = fusedHighFusionRatio64->printStats();
+  delete fusedHighFusionRatio64;
   delete stats;
 
-  stats = new swiftware::benchmark::Stats("GPU_Fused_SeqReduceBColsBlocking_16","SpMMSpMM", numTrial,tp._matrix_name,numThread);
-  auto *fusedSeqReduceBColsBlocking16 = new FusedSpMMSpMMSeqReduceBColsBlocking(inSpMM, stats, ThreadsPerBlock, 16);
-  fusedSeqReduceBColsBlocking16->run();
-  //  std::cout << "FUSED: " << std::endl;
-  //  fusedSeqReduceBColsBlocking->OutTensor->printDx();
-  auto fusedSeqReduceBColsBlocking16Stat = fusedSeqReduceBColsBlocking16->printStats();
-  delete fusedSeqReduceBColsBlocking16;
-  delete stats;
-
-  stats = new swiftware::benchmark::Stats("GPU_Fused_SeqReduceBColsBlocking_WSM_16","SpMMSpMM", numTrial,tp._matrix_name,numThread);
-  auto *fusedSeqReduceBColsBlockingWSM16 = new FusedSpMMSpMMSeqReduceBColsBlockingWithSharedMem(inSpMM, stats, ThreadsPerBlock, 16);
-  fusedSeqReduceBColsBlockingWSM16->run();
-  //  std::cout << "FUSED: " << std::endl;
-  //  fusedSeqReduceBColsBlockinWSMg->OutTensor->printDx();
-  auto fusedSeqReduceBColsBlockingWSM16Stat = fusedSeqReduceBColsBlockingWSM16->printStats();
-  delete fusedSeqReduceBColsBlockingWSM16;
-  delete stats;
-
-  stats = new swiftware::benchmark::Stats("GPU_Fused_SeqReduceBColsBlocking_32","SpMMSpMM", numTrial,tp._matrix_name,numThread);
-  auto *fusedSeqReduceBColsBlocking32 = new FusedSpMMSpMMSeqReduceBColsBlocking(inSpMM, stats, ThreadsPerBlock, 32);
-  fusedSeqReduceBColsBlocking32->run();
-  //  std::cout << "FUSED: " << std::endl;
-  //  fusedSeqReduceBColsBlocking->OutTensor->printDx();
-  auto fusedSeqReduceBColsBlocking32Stat = fusedSeqReduceBColsBlocking32->printStats();
-  delete fusedSeqReduceBColsBlocking32;
-  delete stats;
-
-  stats = new swiftware::benchmark::Stats("GPU_Fused_SeqReduceBColsBlocking_WSM_32","SpMMSpMM", numTrial,tp._matrix_name,numThread);
-  auto *fusedSeqReduceBColsBlockingWSM32 = new FusedSpMMSpMMSeqReduceBColsBlockingWithSharedMem(inSpMM, stats, ThreadsPerBlock, 32);
-  fusedSeqReduceBColsBlockingWSM32->run();
-  //  std::cout << "FUSED: " << std::endl;
-  //  fusedSeqReduceBColsBlockinWSMg->OutTensor->printDx();
-  auto fusedSeqReduceBColsBlockingWSM32Stat = fusedSeqReduceBColsBlockingWSM32->printStats();
-  delete fusedSeqReduceBColsBlockingWSM32;
-  delete stats;
+//  stats = new swiftware::benchmark::Stats("GPU_Fused_SeqReduceBColsBlocking_WSM","SpMMSpMM", numTrial,tp._matrix_name,numThread);
+//  auto *fusedSeqReduceWSM = new FusedSpMMSpMMSeqReduceBColsBlockingWithSharedMem(inSpMM, stats, ThreadsPerBlock, tp._b_cols);
+//  fusedSeqReduceWSM->run();
+//  //  std::cout << "FUSED: " << std::endl;
+//  //  fusedSeqReduceBColsBlockinWSMg->OutTensor->printDx();
+//  auto fusedSeqReduceWSMStat = fusedSeqReduceWSM->printStats();
+//  delete fusedSeqReduceWSM;
+//  delete stats;
+//
+//  stats = new swiftware::benchmark::Stats("GPU_Fused_SeqReduceBColsBlocking_4","SpMMSpMM", numTrial,tp._matrix_name,numThread);
+//  auto *fusedSeqReduceBColsBlocking4 = new FusedSpMMSpMMSeqReduceBColsBlocking(inSpMM, stats, ThreadsPerBlock, 4);
+//  fusedSeqReduceBColsBlocking4->run();
+//  //  std::cout << "FUSED: " << std::endl;
+//  //  fusedSeqReduceBColsBlocking->OutTensor->printDx();
+//  auto fusedSeqReduceBColsBlocking4Stat = fusedSeqReduceBColsBlocking4->printStats();
+//  delete fusedSeqReduceBColsBlocking4;
+//  delete stats;
+//
+//  stats = new swiftware::benchmark::Stats("GPU_Fused_SeqReduceBColsBlocking_WSM_4","SpMMSpMM", numTrial,tp._matrix_name,numThread);
+//  auto *fusedSeqReduceBColsBlockingWSM4 = new FusedSpMMSpMMSeqReduceBColsBlockingWithSharedMem(inSpMM, stats, ThreadsPerBlock, 4);
+//  fusedSeqReduceBColsBlockingWSM4->run();
+//  //  std::cout << "FUSED: " << std::endl;
+//  //  fusedSeqReduceBColsBlockinWSMg->OutTensor->printDx();
+//  auto fusedSeqReduceBColsBlockingWSM4Stat = fusedSeqReduceBColsBlockingWSM4->printStats();
+//  delete fusedSeqReduceBColsBlockingWSM4;
+//  delete stats;
+//
+//  stats = new swiftware::benchmark::Stats("GPU_Fused_SeqReduceBColsBlocking_8","SpMMSpMM", numTrial,tp._matrix_name,numThread);
+//  auto *fusedSeqReduceBColsBlocking8 = new FusedSpMMSpMMSeqReduceBColsBlocking(inSpMM, stats, ThreadsPerBlock, 8);
+//  fusedSeqReduceBColsBlocking8->run();
+//  //  std::cout << "FUSED: " << std::endl;
+//  //  fusedSeqReduceBColsBlocking->OutTensor->printDx();
+//  auto fusedSeqReduceBColsBlocking8Stat = fusedSeqReduceBColsBlocking8->printStats();
+//  delete fusedSeqReduceBColsBlocking8;
+//  delete stats;
+//
+//  stats = new swiftware::benchmark::Stats("GPU_Fused_SeqReduceBColsBlocking_WSM_8","SpMMSpMM", numTrial,tp._matrix_name,numThread);
+//  auto *fusedSeqReduceBColsBlockingWSM8 = new FusedSpMMSpMMSeqReduceBColsBlockingWithSharedMem(inSpMM, stats, ThreadsPerBlock, 8);
+//  fusedSeqReduceBColsBlockingWSM8->run();
+//  //  std::cout << "FUSED: " << std::endl;
+//  //  fusedSeqReduceBColsBlockinWSMg->OutTensor->printDx();
+//  auto fusedSeqReduceBColsBlockingWSM8Stat = fusedSeqReduceBColsBlockingWSM8->printStats();
+//  delete fusedSeqReduceBColsBlockingWSM8;
+//  delete stats;
+//
+//  stats = new swiftware::benchmark::Stats("GPU_Fused_SeqReduceBColsBlocking_16","SpMMSpMM", numTrial,tp._matrix_name,numThread);
+//  auto *fusedSeqReduceBColsBlocking16 = new FusedSpMMSpMMSeqReduceBColsBlocking(inSpMM, stats, ThreadsPerBlock, 16);
+//  fusedSeqReduceBColsBlocking16->run();
+//  //  std::cout << "FUSED: " << std::endl;
+//  //  fusedSeqReduceBColsBlocking->OutTensor->printDx();
+//  auto fusedSeqReduceBColsBlocking16Stat = fusedSeqReduceBColsBlocking16->printStats();
+//  delete fusedSeqReduceBColsBlocking16;
+//  delete stats;
+//
+//  stats = new swiftware::benchmark::Stats("GPU_Fused_SeqReduceBColsBlocking_WSM_16","SpMMSpMM", numTrial,tp._matrix_name,numThread);
+//  auto *fusedSeqReduceBColsBlockingWSM16 = new FusedSpMMSpMMSeqReduceBColsBlockingWithSharedMem(inSpMM, stats, ThreadsPerBlock, 16);
+//  fusedSeqReduceBColsBlockingWSM16->run();
+//  //  std::cout << "FUSED: " << std::endl;
+//  //  fusedSeqReduceBColsBlockinWSMg->OutTensor->printDx();
+//  auto fusedSeqReduceBColsBlockingWSM16Stat = fusedSeqReduceBColsBlockingWSM16->printStats();
+//  delete fusedSeqReduceBColsBlockingWSM16;
+//  delete stats;
+//
+//  stats = new swiftware::benchmark::Stats("GPU_Fused_SeqReduceBColsBlocking_32","SpMMSpMM", numTrial,tp._matrix_name,numThread);
+//  auto *fusedSeqReduceBColsBlocking32 = new FusedSpMMSpMMSeqReduceBColsBlocking(inSpMM, stats, ThreadsPerBlock, 32);
+//  fusedSeqReduceBColsBlocking32->run();
+//  //  std::cout << "FUSED: " << std::endl;
+//  //  fusedSeqReduceBColsBlocking->OutTensor->printDx();
+//  auto fusedSeqReduceBColsBlocking32Stat = fusedSeqReduceBColsBlocking32->printStats();
+//  delete fusedSeqReduceBColsBlocking32;
+//  delete stats;
+//
+//  stats = new swiftware::benchmark::Stats("GPU_Fused_SeqReduceBColsBlocking_WSM_32","SpMMSpMM", numTrial,tp._matrix_name,numThread);
+//  auto *fusedSeqReduceBColsBlockingWSM32 = new FusedSpMMSpMMSeqReduceBColsBlockingWithSharedMem(inSpMM, stats, ThreadsPerBlock, 32);
+//  fusedSeqReduceBColsBlockingWSM32->run();
+//  //  std::cout << "FUSED: " << std::endl;
+//  //  fusedSeqReduceBColsBlockinWSMg->OutTensor->printDx();
+//  auto fusedSeqReduceBColsBlockingWSM32Stat = fusedSeqReduceBColsBlockingWSM32->printStats();
+//  delete fusedSeqReduceBColsBlockingWSM32;
+//  delete stats;
 
 //  stats = new swiftware::benchmark::Stats("GPU_Fused_SeqReduceBColsBlocking_64","SpMMSpMM", numTrial,tp._matrix_name,numThread);
 //  auto *fusedSeqReduceBColsBlocking64 = new FusedSpMMSpMMSeqReduceBColsBlocking(inSpMM, stats, ThreadsPerBlock, 64);
@@ -203,18 +248,23 @@ int main (const int argc, const char *argv[]) {
     std::cout << headerStat + spHeader + tpHeader + profHeader << std::endl;
   std::cout << cpuSpMMSpMMStat << spStat + tpStat + profStat << std::endl;
   std::cout << unfusedSeqReduceRowBalanceStat << spStat + tpStat + profStat << std::endl;
-  std::cout << unfusedCuSparseAlg2Stat << spStat + tpStat + profStat << std::endl;
-  std::cout << unfusedCuSparseAlg3Stat << spStat + tpStat + profStat << std::endl;
+//  std::cout << unfusedCuSparseAlg2Stat << spStat + tpStat + profStat << std::endl;
+//  std::cout << unfusedCuSparseAlg3Stat << spStat + tpStat + profStat << std::endl;
   std::cout << fusedSeqReduceRowBalanceStat << spStat + tpStat + profStat << std::endl;
-  std::cout << fusedSeqReduceWSMStat << spStat + tpStat + profStat << std::endl;
-  std::cout << fusedSeqReduceBColsBlocking4Stat << spStat + tpStat + profStat << std::endl;
-  std::cout << fusedSeqReduceBColsBlockingWSM4Stat << spStat + tpStat + profStat << std::endl;
-  std::cout << fusedSeqReduceBColsBlocking8Stat << spStat + tpStat + profStat << std::endl;
-  std::cout << fusedSeqReduceBColsBlockingWSM8Stat << spStat + tpStat + profStat << std::endl;
-  std::cout << fusedSeqReduceBColsBlocking16Stat << spStat + tpStat + profStat << std::endl;
-  std::cout << fusedSeqReduceBColsBlockingWSM16Stat << spStat + tpStat + profStat << std::endl;
-  std::cout << fusedSeqReduceBColsBlocking32Stat << spStat + tpStat + profStat << std::endl;
-  std::cout << fusedSeqReduceBColsBlockingWSM32Stat << spStat + tpStat + profStat << std::endl;
+  std::cout << fusedSeqReduceRowBalanceReorderedStat << spStat + tpStat + profStat << std::endl;
+  std::cout << fusedHighFusionRatio8Stat << spStat + tpStat + profStat << std::endl;
+  std::cout << fusedHighFusionRatio16Stat << spStat + tpStat + profStat << std::endl;
+  std::cout << fusedHighFusionRatio32Stat << spStat + tpStat + profStat << std::endl;
+  std::cout << fusedHighFusionRatio64Stat << spStat + tpStat + profStat << std::endl;
+//  std::cout << fusedSeqReduceWSMStat << spStat + tpStat + profStat << std::endl;
+//  std::cout << fusedSeqReduceBColsBlocking4Stat << spStat + tpStat + profStat << std::endl;
+//  std::cout << fusedSeqReduceBColsBlockingWSM4Stat << spStat + tpStat + profStat << std::endl;
+//  std::cout << fusedSeqReduceBColsBlocking8Stat << spStat + tpStat + profStat << std::endl;
+//  std::cout << fusedSeqReduceBColsBlockingWSM8Stat << spStat + tpStat + profStat << std::endl;
+//  std::cout << fusedSeqReduceBColsBlocking16Stat << spStat + tpStat + profStat << std::endl;
+//  std::cout << fusedSeqReduceBColsBlockingWSM16Stat << spStat + tpStat + profStat << std::endl;
+//  std::cout << fusedSeqReduceBColsBlocking32Stat << spStat + tpStat + profStat << std::endl;
+//  std::cout << fusedSeqReduceBColsBlockingWSM32Stat << spStat + tpStat + profStat << std::endl;
 //  std::cout << fusedSeqReduceBColsBlocking64Stat << spStat + tpStat + profStat << std::endl;
 //  std::cout << fusedSeqReduceBColsBlocking128Stat << spStat + tpStat + profStat << std::endl;
 
