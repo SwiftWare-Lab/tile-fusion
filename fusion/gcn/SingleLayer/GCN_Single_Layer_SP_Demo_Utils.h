@@ -543,6 +543,101 @@ public:
   }
 };
 
+
+//only for two kernels now.
+class GCNSingleLayerSparseFusedReorderedAdjWithGeMM_SP : public GCNSingleLayerUnFusedCSRMKLGeMMSP {
+protected:
+  sym_lib::MultiDimensionalSet *FusedCompSet;
+  InspectorForAllFused *Inspector;
+  int* Ap;
+  int* Ai;
+  float* Ax;
+  int* NewMixPtr;
+  int* L2Ptr;
+
+  Timer analysis() override {
+    Timer t;
+    t.start();
+    FusedCompSet =
+        Inspector->generateFusedScheduleForAllFused(InTensor->AdjacencyMatrix);
+    createReorderedAdj(FusedCompSet->ptr1_, FusedCompSet->ker_begin_, FusedCompSet->id_);
+    t.stop();
+    return t;
+  }
+
+  void createReorderedAdj(int *LevelPtr, int *MixPtr, int *Id){
+    int numKernels = 2;
+    //    int unfusedStart = MixPtr[LevelPtr[1] * numKernels];
+    int* ap = InTensor->AdjacencyMatrix->p;
+    int* ai = InTensor->AdjacencyMatrix->i;
+    float* ax = InTensor->AMValues;
+    int nnzCount = 0;
+    int rowCountL2 = 0;
+    Ap = new int[InTensor->AdjacencyMatrix->m + 1];
+    Ai = new int[InTensor->AdjacencyMatrix->nnz];
+    Ax = new float[InTensor->AdjacencyMatrix->nnz];
+    L2Ptr = new int[(InTensor->AdjacencyMatrix->m)];
+    NewMixPtr = new int[(LevelPtr[numKernels]+1)*numKernels];
+    Ap[0] = 0;
+    NewMixPtr[0] = 0;
+    NewMixPtr[1] = 0;
+    for (int l1 = 0; l1 < numKernels; l1++){
+      for (int p1 = LevelPtr[l1]; p1 < LevelPtr[l1+1]; p1++){
+        int kBeginL2 = MixPtr[p1 * numKernels];
+        NewMixPtr[(p1+1) * numKernels] = kBeginL2 - rowCountL2;
+        int kEndL2 = MixPtr[p1 * numKernels + 1];
+        for (int i1=kBeginL2; i1 < kEndL2; i1++) {
+          int oldRow = Id[i1];
+          L2Ptr[rowCountL2] = oldRow;
+          for (int j = ap[oldRow]; j < ap[oldRow + 1]; j++){
+            Ax[nnzCount] = ax[j];
+            Ai[nnzCount] = ai[j];
+            nnzCount += 1;
+          }
+          rowCountL2 += 1;
+          Ap[rowCountL2] = nnzCount;
+        }
+        NewMixPtr[(p1+1) * numKernels + 1] = rowCountL2;
+      }
+    }
+  }
+
+  Timer execute() override {
+    float *intermediateResult = new float [InTensor->NumOfNodes * InTensor->EmbedDim];
+    Timer t;
+    St->OtherStats["FusedIterations"] = {(double)FusedCompSet->getNumberOfFusedNodes()};
+    mkl_set_num_threads(1);
+    OutTensor->reset();
+    t.start();
+    forwardForOneLayerFusedParallelSeparatedReorderedAdjVectorizedSP(
+        InTensor->AdjacencyMatrix->m, Ap,
+        Ai, Ax,
+        InTensor->FeatureDim, InTensor->EmbedDim,
+        InTensor->FeatureMatrix, InTensor->Weight1,
+        OutTensor->FirstLayerOutput, intermediateResult, InTensor->NumThreads, FusedCompSet->n1_,
+        FusedCompSet->ptr1_, NewMixPtr, L2Ptr);
+    t.stop();
+    delete[] intermediateResult;
+    return t;
+  }
+
+public:
+  GCNSingleLayerSparseFusedReorderedAdjWithGeMM_SP(GnnTensorSpInputs *In1, Stats *Stat1,
+                                                       sym_lib::ScheduleParameters SpIn)
+      : GCNSingleLayerUnFusedCSRMKLGeMMSP(In1, Stat1) {
+    Inspector = new InspectorForAllFused(SpIn, Stat1);
+  }
+  ~GCNSingleLayerSparseFusedReorderedAdjWithGeMM_SP() {
+    delete FusedCompSet;
+    delete Inspector;
+    delete[] Ap;
+    delete[] Ai;
+    delete[] Ax;
+    delete[] NewMixPtr;
+    delete[] L2Ptr;
+  }
+};
+
 class GCNSingleLayerSparseFusedRedundantParallelWithGeMM_SP : public GCNSingleLayerUnFusedCSRMKLGeMMSP {
 protected:
   sym_lib::MultiDimensionalSet *FusedCompSet;
