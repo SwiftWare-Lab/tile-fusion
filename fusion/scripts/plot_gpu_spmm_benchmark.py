@@ -101,25 +101,29 @@ def plot_gpu_spmm_benchmark(log_folder, config_file, log_file_name):
         h, l = axs[0].get_legend_handles_labels()
         fig.legend(loc='upper center', handles=h, labels=l, ncol=5)
         axs[i].spines[['right', 'top']].set_visible(False)
-        axs[i].set_xticks([])
+        axs[i].set_xticks(mat_list, mat_list,rotation=45)
         axs[i].set_title('bCol='+str(bcol))
     plt.show()
 
-def plot_gpu_spmm_speedups_vs_cusparse(log_folder, log_file_name):
+def plot_gpu_spmm_speedups_vs_cusparse(log_folder, config_file, log_file_name):
     log_file = os.path.join(log_folder, log_file_name)
     df_benchmark = pd.read_csv(log_file)
     df_benchmark = df_benchmark.sort_values(by=['NNZ'])
     mat_list = df_benchmark['Matrix Name'].unique()
     bcols = df_benchmark['bCols'].unique()
     bcols = np.sort(bcols)
-    impls = df_benchmark['Implementation Name'].unique()
-    baseline_impls = ['GPU_cuSparse_SpMM_CSR_ALG2_Demo', 'GPU_cuSparse_SpMM_CSR_ALG3_Demo', 'GPU_cuSparse_SpMM_CSR_Default_Demo'] #TODO: Fix this
-    fig, axs = plt.subplots(7, 3, figsize=(16, 12))
-    fig.subplots_adjust(bottom=0.03, left=0.06, right=1, top=0.92, wspace=0.2, hspace=0.2)
+    with open(config_file) as f:
+        conf = yaml.load(f, Loader=yaml.FullLoader)
+    impls = [impl['name'] for impl in conf['impls']]
+    impl_reprs = {impl['name']: impl['repr'] for impl in conf['impls']}
+    # baseline_impls = ['GPU_cuSparse_SpMM_CSR_ALG2_Demo', 'GPU_cuSparse_SpMM_CSR_ALG3_Demo', 'GPU_cuSparse_SpMM_CSR_Default_Demo'] #TODO: Fix this
+    baseline_impls = ['GPU_Unfused_SeqReduceRowBalance']
+    fig, axs = plt.subplots(6, 3, figsize=(16, 12))
+    fig.subplots_adjust(bottom=0.1, left=0.06, right=1, top=0.92, wspace=0.2, hspace=0.3)
     baseline_impl = baseline_impls[0]
     impls = list(impls)
     target_impls = deepcopy(impls)
-    target_impls.remove('CPU_SpMM_Demo')
+    # target_impls.remove('CPU_SpMM_Demo')
     for bi in baseline_impls:
         target_impls.remove(bi)
 
@@ -148,14 +152,15 @@ def plot_gpu_spmm_speedups_vs_cusparse(log_folder, log_file_name):
         for ii, impl in enumerate(target_impls):
             speed_ups[impl] = np.array(times[baseline_impl]) / np.array(times[impl])
             ax = axs[ii, i]
-            impl_repr = impl.split("_")[1]
-            if impl_repr == "cuSparse":
-                impl_repr += "_" + impl.split("_")[-2]
+            impl_repr = impl_reprs[impl]
             # ax.scatter(gflops[baseline_impl], speed_ups[impl], label=impl_repr, s=5)
             ax.scatter(mat_list, speed_ups[impl], label=impl_repr, s=5)
             ax.axhline(y=1, color='black', linestyle='--')
-            ax.set_xticks([])
             ax.spines[['right', 'top']].set_visible(False)
+            if ii == len(target_impls) - 1:
+                ax.set_xticks(mat_list, mat_list, rotation=45)
+            else:
+                ax.set_xticks([])
             if i == 1:
                 ax.set_title(impl_repr)
             else:
@@ -189,8 +194,8 @@ def plot_gcn_from_logs_folder(logs_folder, config_file, should_merge="1"):
     if should_merge == "1":
         merge_logs(logs_folder)
     # config = import_config(config_file)
-    plot_fused_ratio(logs_folder, "merged.csv", config_file)
+    # plot_fused_ratio(logs_folder, "merged.csv", config_file)
     # plot_gpu_spmm_benchmark(logs_folder, config_file, "merged.csv")
-    # plot_gpu_spmm_speedups_vs_cusparse(logs_folder, "merged.csv")
+    plot_gpu_spmm_speedups_vs_cusparse(logs_folder, config_file, "merged.csv")
 
 plot_gcn_from_logs_folder(sys.argv[1], sys.argv[2])
