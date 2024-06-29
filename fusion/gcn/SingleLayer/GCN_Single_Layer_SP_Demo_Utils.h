@@ -396,7 +396,6 @@ protected:
           }
         }
       }
-      std::cout << std::endl;
       nPar[l1] = parsVec.size();
       parents[l1] = new int[nPar[l1]];
       int parCntr = 0;
