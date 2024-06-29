@@ -58,22 +58,22 @@ int main(const int argc, const char *argv[]) {
    * Method that calculates the output by doing a GeMM and then an SpMM to the
    * input.
    */
-//  stats = new swiftware::benchmark::Stats("SpMMGeMM_UnFusedMKL", "GCN", 7,
-//                                          tp._matrix_name, numThread);
-//  stats->OtherStats["PackingType"] = {Separated};
-//  GCNSingleLayerMKLSpMMGeMM_SP *gcnSingleLayerMkl = new GCNSingleLayerMKLSpMMGeMM_SP(inputs, stats);
-//  gcnSingleLayerMkl->run();
-//  auto gcnOneLayerMKLStat = gcnSingleLayerMkl->printStats();
-//  inputs->CorrectSol =
-//      new float[inputs->AdjacencyMatrix->m * layer1Weight->col];
-//  std::copy(gcnSingleLayerMkl->OutTensor->FirstLayerOutput,
-//            gcnSingleLayerMkl->OutTensor->FirstLayerOutput +
-//                inputs->AdjacencyMatrix->m * layer1Weight->col,
-//            inputs->CorrectSol);
-//  auto headerStat = gcnSingleLayerMkl->printStatsHeader();
-//  delete stats;
-//  delete gcnSingleLayerMkl;
-//  delete layer1Weight;
+  stats = new swiftware::benchmark::Stats("GCN_SingleLayer_UnFusedMKL", "GCN", 7,
+                                          tp._matrix_name, numThread);
+  stats->OtherStats["PackingType"] = {Separated};
+  GCNSingleLayerMKLSpMMGeMM_SP *gcnSingleLayerMkl = new GCNSingleLayerMKLSpMMGeMM_SP(inputs, stats);
+  gcnSingleLayerMkl->run();
+  auto gcnOneLayerMKLStat = gcnSingleLayerMkl->printStats();
+  inputs->CorrectSol =
+      new float[inputs->AdjacencyMatrix->m * layer1Weight->col];
+  std::copy(gcnSingleLayerMkl->OutTensor->FirstLayerOutput,
+            gcnSingleLayerMkl->OutTensor->FirstLayerOutput +
+                inputs->AdjacencyMatrix->m * layer1Weight->col,
+            inputs->CorrectSol);
+  auto headerStat = gcnSingleLayerMkl->printStatsHeader();
+  delete stats;
+  delete gcnSingleLayerMkl;
+  delete layer1Weight;
 
 //  stats = new swiftware::benchmark::Stats("GCN_SingleLayer_TACO", "GCN", 7,
 //                                          tp._matrix_name, numThread);
@@ -121,13 +121,6 @@ int main(const int argc, const char *argv[]) {
       new GCNSingleLayerUnFusedCSRMKLGeMMSP(inputs, stats);
   gcnSingleLayerUnFused->run();
   auto gcnSingleLayerUnFusedStat = gcnSingleLayerUnFused->printStats();
-  inputs->CorrectSol =
-      new float[inputs->AdjacencyMatrix->m * layer1Weight->col];
-  std::copy(gcnSingleLayerUnFused->OutTensor->FirstLayerOutput,
-            gcnSingleLayerUnFused->OutTensor->FirstLayerOutput +
-                inputs->AdjacencyMatrix->m * layer1Weight->col,
-            inputs->CorrectSol);
-  auto headerStat = gcnSingleLayerUnFused->printStatsHeader();
   delete stats;
   delete gcnSingleLayerUnFused;
 
@@ -202,7 +195,7 @@ int main(const int argc, const char *argv[]) {
   if (tp.print_header)
     std::cout << headerStat + spHeader + tpHeader << std::endl;
 
-//  std::cout << gcnOneLayerMKLStat << spStat + tpStat << std::endl;
+  std::cout << gcnOneLayerMKLStat << spStat + tpStat << std::endl;
   std::cout << gcnSingleLayerUnFusedStat << spStat + tpStat << std::endl;
   std::cout << gcnSingleLayerSparseFusedSeparatedStat << spStat + tpStat << std::endl;
   std::cout << gcnSingleLayerSparseFusedSeparatedP2PStat << spStat + tpStat << std::endl;
