@@ -494,12 +494,11 @@ void geMMSpMMFusedParallelSeparatedP2PThreadVectorizedSP(
     const int *__restrict__ ParPtr, const int *__restrict__ MixPtr, const int *__restrict__ Partition,
     int *__restrict__ NParents, int **__restrict__ Parents, bool *__restrict__ TaskFinished) {
   int numKernels = 2;
-  for (int i1 = 0; i1 < LevelNo; i1++) {
 #pragma omp parallel num_threads(NumThreads)
     {
 #pragma omp for
-      for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; j1++) {
-        BUSY_WAIT_CONSTRUCT(i1);
+      for (int j1 = LevelPtr[0]; j1 < LevelPtr[2]; j1++) {
+        BUSY_WAIT_CONSTRUCT(j1);
         int kBeginL1 = ParPtr[j1];
         int kEndL1 = MixPtr[j1 * numKernels];
         int iL1 = Partition[kBeginL1];
@@ -559,9 +558,9 @@ void geMMSpMMFusedParallelSeparatedP2PThreadVectorizedSP(
             _mm256_storeu_ps(Output + ip + kk + 24, dxV4);
           }
         }
+        TaskFinished[j1] = true;
       }
     }
-  }
 }
 
 
