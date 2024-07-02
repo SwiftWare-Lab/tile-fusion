@@ -164,6 +164,36 @@ int main(const int argc, const char *argv[]) {
   delete stats;
   std::cout<<fusedParallelVectorized256SMatReuseStat<<spStat+tpStat+profStat<<std::endl;
 
+
+  stats = new
+      swiftware::benchmark::Stats("SpMM_SpMM_SMatReuse_P2P_FusedParallelAvx256","SpMM",
+                                  7,tp._matrix_name,numThread);
+  stats->OtherStats["PackingType"] ={Separated};
+  stats->OtherStats["TilingMethod"] = {Fixed};
+  auto *fusedParallelVectorized256P2PSMatReuse = new
+      SpMMSpMMFusedInterLayerVectorizedAvx256P2PThreadingSP(inSpMM, stats, sp);
+  fusedParallelVectorized256P2PSMatReuse->run();
+  //    fusedParallelVectorized256P2PSMatReuse->OutTensor->printDx();
+  auto fusedParallelVectorized256P2PSMatReuseStat =
+      fusedParallelVectorized256P2PSMatReuse->printStats();
+  delete fusedParallelVectorized256P2PSMatReuse;
+  delete stats;
+  std::cout<<fusedParallelVectorized256P2PSMatReuseStat<<spStat+tpStat+profStat<<std::endl;
+
+  stats = new
+      swiftware::benchmark::Stats("SpMM_SpMM_SMatReuse_RO_FusedParallelAvx256","SpMM",
+                                  7,tp._matrix_name,numThread);
+  stats->OtherStats["PackingType"] ={Separated};
+  stats->OtherStats["TilingMethod"] = {Fixed};
+  auto *fusedParallelVectorized256ROSMatReuse = new
+      SpMMSpMMFusedReorderedUnFusedMatInterLayerVectorizedAvx256SP(inSpMM, stats, sp);
+  fusedParallelVectorized256ROSMatReuse->run();
+  //    fusedParallelVectorized256ROSMatReuse->OutTensor->printDx();
+  auto fusedParallelVectorized256ROSMatReuseStat =
+      fusedParallelVectorized256ROSMatReuse->printStats();
+  delete fusedParallelVectorized256ROSMatReuse;
+  delete stats;
+  std::cout<<fusedParallelVectorized256ROSMatReuseStat<<spStat+tpStat+profStat<<std::endl;
 #endif
 
 #ifdef __AVX512F__
