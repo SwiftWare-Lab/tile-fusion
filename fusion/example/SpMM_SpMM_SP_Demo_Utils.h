@@ -534,7 +534,7 @@ protected:
         InTensor->ACsr->i, AValues, UFAp,
         UFAi, UFAx, InTensor->Bx, OutTensor->Xx,
         OutTensor->ACx, FusedCompSet->n1_, FusedCompSet->ptr1_,
-        FusedCompSet->ptr2_, FusedCompSet->id_, FusedCompSet->type_,
+        FusedCompSet->ptr2_, FusedCompSet->id_, FusedCompSet->ker_begin_,
         InTensor->NumThreads);
 
     t.stop();

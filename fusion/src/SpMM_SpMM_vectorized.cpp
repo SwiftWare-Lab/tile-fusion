@@ -1228,6 +1228,7 @@ void spmmCsrSpmmCsrOneSparseMatrixFusedVectorizedReorderedUnfused_32SP(
       }
       pw_stop_instruments_loop(omp_get_thread_num());
     }
+
     int unfusedStart = MixPtr[LevelPtr[1] * numKernels];
 #pragma omp parallel num_threads(NThreads)
     {
