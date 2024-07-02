@@ -109,6 +109,12 @@ void spmmCsrSpmmCsrFusedVectorized2_32SP(
     float *Dx, float *ACx, int LevelNo, const int *LevelPtr,
     const int *ParPtr, const int *Partition, const int *ParType, int NThreads);
 
+void spmmCsrSpmmCsrOneSparseMatrixFusedVectorized2_32SP(
+    int M, int N, int K, int L,  const int *__restrict__ Ap, const int *__restrict__ Ai, const float *__restrict__ Ax,
+    const float *Cx, float *Dx, float *__restrict__ ACx,
+    int LevelNo, const int *LevelPtr,const int *ParPtr,
+    const int* Partition, const int *MixPtr, int NThreads);
+
 void spmmCsrSpmmCsrFusedVectorized2_8(
     int M, int N, int K, int L, const int *Ap, const int *Ai, const double *Ax,
     const int *Bp, const int *Bi, const double *Bx, const double *Cx,

@@ -336,6 +336,32 @@ public:
       : SpMMSpMMFusedVariableTileSizeSP(In1, Stat1, SpIn){
   }
 };
+
+class SpMMSpMMFusedOneSparseMatInterLayerVectorizedAvx256SP: public SpMMSpMMFusedVariableTileSizeSP{
+protected:
+  Timer execute() override {
+    //    std::fill_n(OutTensor->Xx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
+    OutTensor->reset();
+    Timer t;
+    t.start();
+    swiftware::sparse::spmmCsrSpmmCsrOneSparseMatrixFusedVectorized2_32SP(
+        InTensor->M, InTensor->N, InTensor->K, InTensor->L, InTensor->ACsr->p,
+        InTensor->ACsr->i, AValues, InTensor->Bx, OutTensor->Xx,
+        OutTensor->ACx, FusedCompSet->n1_, FusedCompSet->ptr1_,
+        FusedCompSet->ptr2_, FusedCompSet->id_, FusedCompSet->ker_begin_,
+        InTensor->NumThreads);
+
+    t.stop();
+    return t;
+  }
+public:
+  SpMMSpMMFusedOneSparseMatInterLayerVectorizedAvx256SP(TensorInputs<float> *In1, Stats *Stat1,
+                                            sym_lib::ScheduleParameters SpIn)
+      : SpMMSpMMFusedVariableTileSizeSP(In1, Stat1, SpIn){
+  }
+};
+
 #endif
 
 #ifdef __AVX512F__
