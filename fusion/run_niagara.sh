@@ -58,5 +58,5 @@ fi
 if [ $TEST -eq 1 ]; then
     bash run.sh -m $UFDB -c $BCOL -e $EXP -t 8 "$ID_OPT" -j $SLURM_JOB_ID
 else
-  bash run.sh -t 4 -m $UFDB -c $BCOL -e $EXP "$ID_OPT" -j $SLURM_JOB_ID
+  bash run.sh -t 20 -m $UFDB -c $BCOL -e $EXP "$ID_OPT" -j $SLURM_JOB_ID
 fi
