@@ -523,7 +523,7 @@ public:
   sym_lib::MultiDimensionalSet* generateVariableTileSizeSchedule(sym_lib::CSR *ACsr, int BCol, int DataSize=8){
     std::vector<VariableTile> pTiles;
     std::vector<int> unfusedIters;
-    int CACHE_SIZE = Sp.IterPerPartition;
+    int CACHE_SIZE = Sp.TileM;
     int *ai = ACsr->i;
     int *ap = ACsr->p;
     int initialTileSize = std::min(4096,int(ACsr->m));
