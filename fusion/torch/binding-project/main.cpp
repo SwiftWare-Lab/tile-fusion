@@ -6,7 +6,7 @@
 
 std::vector<torch::Tensor> inspect(torch::Tensor Adj, int64_t MTileSize);
 
-torch::Tensor executeFusedGeMMSpMM(torch::Tensor Adj, torch::Tensor Weight, torch::Tensor Feature,
+std::vector<torch::Tensor> executeFusedGeMMSpMM(torch::Tensor Adj, torch::Tensor Weight, torch::Tensor Feature,
                                     torch::Tensor LevelPtr, torch::Tensor MixPtr, torch::Tensor Partition,
                                     int64_t NumThreads);
 
@@ -27,9 +27,10 @@ std::vector<torch::Tensor> inspect(torch::Tensor Adj, int64_t MTileSize) {
     return {levelPtr, mixPtr, partition};
 }
 
-torch::Tensor executeFusedGeMMSpMM(torch::Tensor Adj, torch::Tensor Weight, torch::Tensor Feature,
+std::vector<torch::Tensor> executeFusedGeMMSpMM(torch::Tensor Adj, torch::Tensor Weight, torch::Tensor Feature,
                                     torch::Tensor LevelPtr, torch::Tensor MixPtr, torch::Tensor Partition,
                                     int64_t NumThreads) {
+    auto start = std::chrono::system_clock::now();
     float *out = new float[Adj.size(0) * Weight.size(1)]{};
     fusedMKLGeMMSpMM(Adj.size(0),
                      Adj.crow_indices().data_ptr<int32_t>(),
@@ -40,9 +41,14 @@ torch::Tensor executeFusedGeMMSpMM(torch::Tensor Adj, torch::Tensor Weight, torc
                      Weight.data_ptr<float>(), out, NumThreads, 2, LevelPtr.data_ptr<int32_t>(),
                      MixPtr.data_ptr<int32_t>(),
                      Partition.data_ptr<int32_t>());
-    return torch::from_blob(
+    auto end = std::chrono::system_clock::now();
+    std::chrono::duration<float> elapsed = end - start;
+    auto timeWrapper = torch::tensor(elapsed.count());
+//    std::cout << elapsed.count() << '\n';
+    return {torch::from_blob(
             out, {Adj.size(0), Weight.size(1)},
-            [](void *ptr) { delete[] static_cast<float *>(ptr); }, torch::kFloat32);
+            [](void *ptr) { delete[] static_cast<float *>(ptr); }, torch::kFloat32),
+            timeWrapper};
 }
 
 
