@@ -33,7 +33,7 @@ MAT_LIST="$DATA_FOLDER/mat_list.txt"
 
 
 
-export MKL_DIR=$MKLROOT
+#export MKL_DIR=$MKLROOT
 
 source $VIRTUALENV_DIR/bin/activate
 

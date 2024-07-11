@@ -18,7 +18,6 @@ find_package( OpenMP REQUIRED)
 if(TARGET MKL::MKL)
     add_definitions(-DMKL)
     message(STATUS "${MKL_IMPORTED_TARGETS}")
-    message(STATUS "${MKL_LIBRARIES}")
 endif ()
 set(SYM_SW_GCN ${CMAKE_CURRENT_SOURCE_DIR})
 file(GLOB SYM_SW_GCN_SRC
@@ -37,8 +36,8 @@ target_include_directories(sw_gcn PRIVATE
         ${TORCH_INCLUDE_DIRS}
 )
 target_link_libraries(sw_gcn PRIVATE
-        $<LINK_ONLY:MKL::MKL>
         ${TORCH_LIBRARIES}
         Python::Python
         OpenMP::OpenMP_CXX
+        $<LINK_ONLY:MKL::MKL>
 )

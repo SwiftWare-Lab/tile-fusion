@@ -45,8 +45,8 @@ def train():
     model.train()
     optimizer.zero_grad()
     out = model(data.x)
-    print(out)
-    loss = F.cross_entropy(out, data.y)
+    # print(out)
+    loss = F.cross_entropy(out[train_mask], data.y[train_mask])
     loss.backward()
     optimizer.step()
     return float(loss)
@@ -77,20 +77,23 @@ train_mask = range(200)
 #     hidden_channels=args.hidden_channels,
 #     device=device,
 # )
+
+
 raw_folder_name = osp.join(osp.dirname(osp.realpath(__file__)), '..', 'data')
 dataset_list = [
-    # datasets.Coauthor(root=raw_folder_name + '/coauthor_cs/', name='CS', transform=None),
-    # datasets.Coauthor(root=raw_folder_name + '/coauthor_physics/', name='Physics', transform=None),
+    datasets.Coauthor(root=raw_folder_name + '/coauthor_cs/', name='CS', transform=None),
+    datasets.Coauthor(root=raw_folder_name + '/coauthor_physics/', name='Physics', transform=None),
     datasets.CoraFull(root=raw_folder_name + '/cora_full/', transform=None),
-    # # datasets.Flickr(root=raw_folder_name + '/flickr/', transform=None),
-    # # datasets.Yelp(root=raw_folder_name + '/yelp/', transform=None),
+    datasets.Flickr(root=raw_folder_name + '/flickr/', transform=None),
+    datasets.Yelp(root=raw_folder_name + '/yelp/', transform=None),
     # datasets.Planetoid(root=raw_folder_name + '/planetoid/pubmed/', name='Pubmed', transform=None),
     # datasets.Planetoid(root=raw_folder_name + '/planetoid/cora/', name='Cora', transform=None),
-    # datasets.GitHub(root=raw_folder_name + '/github/', transform=None),
-    # datasets.FacebookPagePage(root=raw_folder_name + '/facebook_page_page/', transform=None),
-    # datasets.DeezerEurope(root=raw_folder_name + '/deezer_europe/', transform=None)
-    # datasets.Reddit2(root=raw_folder_name + '/reddit2/', transform=None)
+    datasets.GitHub(root=raw_folder_name + '/github/', transform=None),
+    datasets.FacebookPagePage(root=raw_folder_name + '/facebook_page_page/', transform=None),
+    datasets.DeezerEurope(root=raw_folder_name + '/deezer_europe/', transform=None),
+    datasets.Reddit2(root=raw_folder_name + '/reddit2/', transform=None)
 ]
+
 for dataset in dataset_list:
     name = dataset.root.split('/')[-1]
     data = dataset[0].to(device)
@@ -139,9 +142,9 @@ for dataset in dataset_list:
         start = time.time()
         loss1 = train()
         times.append(time.time() - start)
-        log(Epoch=epoch, Loss=loss1)
+        # log(Epoch=epoch, Loss=loss1)
     # print(f'Median time per epoch: {torch.tensor(times).median():.4f}s')
-    print(f'torch_geometric GCNConv,{name},{torch.tensor(times).sum():.4f}')
+    print(f'FusedGCNConv,{name},{torch.tensor(times).sum():.4f}')
 
     # print('total conv1 time: ', model.conv1_time)
     # print('total conv2 time: ', model.conv2_time)
