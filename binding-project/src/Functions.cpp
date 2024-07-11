@@ -314,9 +314,9 @@ FusedGeMMSpMM::backward(torch::autograd::AutogradContext *Ctx,
     if (Ctx->needs_input_grad(2)){
         mkl_set_num_threads(threadNum);
         mkl_sparse_s_create_csr(&MKLAdj, SPARSE_INDEX_BASE_ZERO, adj.size(0),
-                                adj.size(1), reinterpret_cast<long long int *>(adjPtr),
-                                reinterpret_cast<long long int *>(adjPtr + 1),
-                                reinterpret_cast<long long int *>(adjIndex),
+                                adj.size(1), adjPtr,
+                                adjPtr + 1,
+                                adjIndex,
                                 adj.values().data_ptr<float>());
         float *grad_intermediate = new float[adj.size(0) * input.size(1)]{};
         float *grad_weight_raw = new float[grad_output.size(1) * input.size(1)]{};

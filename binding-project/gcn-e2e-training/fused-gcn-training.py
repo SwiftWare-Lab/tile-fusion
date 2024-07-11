@@ -81,10 +81,10 @@ raw_folder_name = osp.join(osp.dirname(osp.realpath(__file__)), '..', 'data')
 dataset_list = [
     # datasets.Coauthor(root=raw_folder_name + '/coauthor_cs/', name='CS', transform=None),
     # datasets.Coauthor(root=raw_folder_name + '/coauthor_physics/', name='Physics', transform=None),
-    # datasets.CoraFull(root=raw_folder_name + '/cora_full/', transform=None),
+    datasets.CoraFull(root=raw_folder_name + '/cora_full/', transform=None),
     # # datasets.Flickr(root=raw_folder_name + '/flickr/', transform=None),
     # # datasets.Yelp(root=raw_folder_name + '/yelp/', transform=None),
-    datasets.Planetoid(root=raw_folder_name + '/planetoid/pubmed/', name='Pubmed', transform=None),
+    # datasets.Planetoid(root=raw_folder_name + '/planetoid/pubmed/', name='Pubmed', transform=None),
     # datasets.Planetoid(root=raw_folder_name + '/planetoid/cora/', name='Cora', transform=None),
     # datasets.GitHub(root=raw_folder_name + '/github/', transform=None),
     # datasets.FacebookPagePage(root=raw_folder_name + '/facebook_page_page/', transform=None),
@@ -135,7 +135,7 @@ for dataset in dataset_list:
 
     best_val_acc = test_acc = 0
     times = []
-    for epoch in range(0, 2):
+    for epoch in range(0, 100):
         start = time.time()
         loss1 = train()
         times.append(time.time() - start)
