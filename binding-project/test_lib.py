@@ -3,7 +3,7 @@ import scipy.io as sio
 import sys
 
 
-torch.ops.load_library("lib/libsw_gcn.so")
+torch.ops.load_library("build/lib/libsw_gcn.so")
 # print(torch.utils.cmake_prefix_path)
 
 input_mat = sys.argv[1]
@@ -21,17 +21,17 @@ level_ptr = schedule[0]
 mix_ptr = schedule[1]
 partition = schedule[2]
 
-feature = torch.rand(adj.size(1), 8, dtype=torch.float32)
-weight = torch.rand(8, 8, dtype=torch.float32)
+feature = torch.rand(adj.size(1), 32, dtype=torch.float32)
+weight = torch.rand(5, 32, dtype=torch.float32)
 # print(feature)
 # print(weight)
 
-fused_out = torch.ops.sw_gcn.executeFusedGeMMSpMM(adj, weight, feature, level_ptr, mix_ptr, partition, num_threads)
+fused_out = torch.ops.sw_gcn.fusedGeMMSpMM(adj, feature, weight, schedule, num_threads)
 # print(fused_out)
 
 #Torch result
 
-unfused_out = torch.mm(adj,torch.mm(feature,weight))
+unfused_out = torch.mm(adj,torch.mm(feature,weight.t()))
 
 #I have a bug here for the times that rows is not product of mtile
 print("-----------------------------Fused Result-------------------------")

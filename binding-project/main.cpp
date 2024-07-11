@@ -10,6 +10,10 @@ std::vector<torch::Tensor> executeFusedGeMMSpMM(torch::Tensor Adj, torch::Tensor
                                     torch::Tensor LevelPtr, torch::Tensor MixPtr, torch::Tensor Partition,
                                     int64_t NumThreads);
 
+torch::Tensor fusedGeMMSpMM(torch::Tensor Adj, torch::Tensor Feature,
+                                    torch::Tensor Weight, std::vector<torch::Tensor> Schedule,
+                                    int64_t NumThreads);
+
 std::vector<torch::Tensor> inspect(torch::Tensor Adj, int64_t MTileSize) {
     std::vector<int *> schedule = createSchedule(Adj.crow_indices().data_ptr<int32_t>(),
                                                  Adj.col_indices().data_ptr<int32_t>(),
@@ -52,7 +56,15 @@ std::vector<torch::Tensor> executeFusedGeMMSpMM(torch::Tensor Adj, torch::Tensor
 }
 
 
+torch::Tensor fusedGeMMSpMM(torch::Tensor Adj, torch::Tensor Feature,
+                                    torch::Tensor Weight, std::vector<torch::Tensor> Schedule,
+                                    int64_t NumThreads){
+    return FusedGeMMSpMM::apply(Adj, Feature, Weight, Schedule[0], Schedule[1], Schedule[2], NumThreads);
+}
+
+
 TORCH_LIBRARY(sw_gcn, m) {
     m.def("inspect", &inspect);
     m.def("executeFusedGeMMSpMM", &executeFusedGeMMSpMM);
+    m.def("fusedGeMMSpMM", &fusedGeMMSpMM);
 }
