@@ -517,6 +517,16 @@ protected:
       this->Next = NULLPNTR;
     }
   };
+
+  //not used for now but later can replace the above struct.
+  struct UFVariableTilePtr{
+    int Index;
+    UFVariableTilePtr* Next;
+    UFVariableTilePtr(int Index){
+      this->Index = Index;
+      this->Next = NULLPNTR;
+    }
+  };
 public:
   InspectorForTileFusedCSRVariableTileSize(sym_lib::ScheduleParameters Sp1, Stats *St1)
       : Sp(Sp1), St(St1) {}
@@ -653,8 +663,179 @@ public:
     return fusedCompSet;
   }
 
+  sym_lib::MultiDimensionalSet* generateVariableTileSizeScheduleForBothWavefronts(sym_lib::CSR *ACsr, int BCol, int DataSize=8){
+    std::vector<VariableTile> pTiles;
+    int CACHE_SIZE = Sp.TileM;
+    int *ai = ACsr->i;
+    int *ap = ACsr->p;
+    int INITIAL_TILE_SIZE = 4096;
+    int initialTileSize = std::min(INITIAL_TILE_SIZE,int(ACsr->m));
+    int extraIters = ACsr->m % initialTileSize;
+    int extraRemoved = 0;
+    int numOfTiles = ACsr->m / initialTileSize;
+    std::vector<int> unfusedIters;
+
+    int extraIterPerTile = std::ceil(extraIters / double(numOfTiles));
+    VariableTile* head = new VariableTile(0,0);
+    VariableTile* curr = head;
+    //create initial tiles
+    for (int i = 0; i < numOfTiles; i++) {
+      int start = initialTileSize * i + extraRemoved;
+      int end = start + initialTileSize;
+      if (extraIters > extraRemoved) {
+        int ext = std::min(extraIters-extraRemoved, extraIterPerTile);
+        end += ext;
+        extraRemoved += ext;
+      }
+      auto *vt = new VariableTile(start, end);
+      curr->Next = vt;
+      curr = curr->Next;
+    }
+    //    std::cout << extraIters << " " << extraRemoved << std::endl;
+    // create initial tiles fused iterations
+
+    bool isFused = false;
+    curr = head;
+    while (curr->Next != NULLPNTR){
+      curr = curr->Next;
+      for (int i = curr->Start; i < curr->End; i++) {
+        if (ai[ap[i]] >= curr->Start && ai[ap[i + 1] - 1] < curr->End) {
+          curr->FusedIters.push_back(i);
+        }
+        else
+          unfusedIters.push_back(i);
+      }
+    }
+    // shrinking tiles
+    curr = head;
+    while(curr->Next != NULLPNTR){
+      auto *prev = curr;
+      curr = curr->Next;
+      int tileSize = curr->End - curr->Start;
+      int* firstColPtr = ai + ap[curr->Start];
+      int* lastColPtr = ai + ap[curr->End];
+      int nnzNum = ap[curr->End]-ap[curr->Start];
+      std::set<int> uniqueColumns(firstColPtr,lastColPtr);
+      int workingSet = calculateWorkingSetSize(nnzNum, uniqueColumns.size(), BCol, tileSize, curr->FusedIters.size(), DataSize);
+      if (workingSet > CACHE_SIZE && tileSize > 1){
+        int separator = tileSize/2 + curr->Start;
+        auto *vt1 = new VariableTile(curr->Start, separator);
+        auto *vt2 = new VariableTile(separator, curr->End);
+        for (auto fi: curr->FusedIters){
+          if (ai[ap[fi+1]-1] < separator){
+            vt1->FusedIters.push_back(fi);
+          }
+          else if(ai[ap[fi]] >= separator){
+            vt2->FusedIters.push_back(fi);
+          }
+          else{
+            unfusedIters.push_back(fi);
+          }
+        }
+        vt1->Next = vt2;
+        vt2->Next = curr->Next;
+        prev->Next = vt1;
+        numOfTiles += 1;
+        delete curr;
+        curr = prev;
+      }
+    }
+    std::sort(unfusedIters.begin(), unfusedIters.end());
+    std::vector<int> ufPartPtr;
+    int MIN_STRIDE = 16;
+    std::set<int> uniqueColumns;
+    int nnzNum = 0;
+    int uft = 0;
+    int ufTileSize = 0;
+    ufPartPtr.push_back(0);
+    while (uft < unfusedIters.size()){
+      for (int ii = uft; ii < std::min(int(unfusedIters.size()), uft + MIN_STRIDE); ii++){
+        int row = unfusedIters[ii];
+        uniqueColumns.insert(ai + ap[row], ai + ap[row+1]);
+        nnzNum += ap[row+1] - ap[row];
+        ufTileSize += 1;
+      }
+      int workingSet = calculateWorkingSetSize(nnzNum, uniqueColumns.size(), BCol, ufTileSize, 0, DataSize);
+      if((workingSet < CACHE_SIZE) || (ufTileSize == 1)){
+        uft += MIN_STRIDE;
+      }
+      else{
+        ufPartPtr.push_back(uft);
+        nnzNum = 0;
+        uniqueColumns.erase(uniqueColumns.begin(), uniqueColumns.end());
+        if (ufTileSize <= MIN_STRIDE){
+          MIN_STRIDE = MIN_STRIDE / 2;
+        }
+        if (ufTileSize >= 3*MIN_STRIDE){
+          MIN_STRIDE = MIN_STRIDE * 2;
+        }
+        ufTileSize = 0;
+      }
+    }
+    ufPartPtr.push_back(unfusedIters.size());
+    int numUfTiles = ufPartPtr.size() - 1;
+        // creating schedule multi dimensional set
+    sym_lib::MultiDimensionalSet* fusedCompSet = new sym_lib::MultiDimensionalSet();
+    fusedCompSet->n1_ = 2;
+    fusedCompSet->ptr1_ = new int[3];
+    fusedCompSet->ptr1_[0] = 0;
+    fusedCompSet->ptr1_[1] = numOfTiles;
+    fusedCompSet->ptr1_[2] = numOfTiles + numUfTiles;
+    fusedCompSet->ptr2_ = new int[numOfTiles + numUfTiles + 1];
+    fusedCompSet->ker_begin_ = new int[(numOfTiles + numUfTiles)*2];
+    fusedCompSet->id_ = new int[2 * ACsr->m];
+    fusedCompSet->type_ = new int[2 * ACsr->m];
+    fusedCompSet->ptr2_[0] = 0;
+    int cnt = 0;
+    int pCounter = 0;
+    curr = head;
+    while(curr->Next != NULLPNTR){
+      curr = curr->Next;
+      for (int j = curr->Start; j < curr->End; j++) {
+        fusedCompSet->id_[cnt] = j;
+        fusedCompSet->type_[cnt] = 0;
+        cnt++;
+      }
+      fusedCompSet->ker_begin_[(pCounter)*2] = cnt;
+      for (int fi : curr->FusedIters) {
+        fusedCompSet->id_[cnt] = fi;
+        fusedCompSet->type_[cnt] = 1;
+        cnt++;
+      }
+      fusedCompSet->ker_begin_[(pCounter)*2+1] = cnt;
+      fusedCompSet->ptr2_[pCounter + 1] = cnt;
+      pCounter+=1;
+    }
+    extractTilesSizeData(head);
+    // delete the tile tree
+    curr = head->Next;
+    while(curr != NULLPNTR) {
+      auto *tmp = curr;
+      curr = curr->Next;
+      delete tmp;
+    }
+    for (int i = numOfTiles; i < numOfTiles + numUfTiles; i++) {
+      int p = i - numOfTiles;
+      int partEnd = ufPartPtr[p+1];
+      fusedCompSet->ker_begin_[i*2] = cnt;
+      for (int j = ufPartPtr[p]; j < partEnd; j++) {
+        fusedCompSet->id_[cnt] = unfusedIters[j];
+        fusedCompSet->type_[cnt] = 1;
+        cnt++;
+      }
+      fusedCompSet->ker_begin_[i*2 + 1] = cnt;
+      fusedCompSet->ptr2_[i + 1] = cnt;
+    }
+    int fusedNodesNum = fusedCompSet->getNumberOfFusedNodes();
+    int fusedNnzNum = fusedCompSet->getFusedNnzNum(ACsr);
+    this->St->OtherStats["Number of Fused Nodes"] = {(double)fusedNodesNum};
+    this->St->OtherStats["Number of Fused nnz"] = {(double)fusedNnzNum};
+    return fusedCompSet;
+  }
+
+
   virtual int calculateWorkingSetSize(int Nnz, int UniqueColsNum, int BCol, int TileSize, int FusedIters, int DataSize = 8){
-    return (Nnz + UniqueColsNum * BCol + TileSize* BCol + FusedIters* BCol) * DataSize + Nnz*4;
+    return (Nnz + UniqueColsNum * BCol + TileSize * BCol + FusedIters * BCol) * DataSize + Nnz * 4;
   }
 
   void extractTilesSizeData(VariableTile* Head){

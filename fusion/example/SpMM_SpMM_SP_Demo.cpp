@@ -209,6 +209,22 @@ int main(const int argc, const char *argv[]) {
   delete fusedParallelVectorized256ROSMatReuse;
   delete stats;
   std::cout<<fusedParallelVectorized256ROSMatReuseStat<<spStat+tpStat+profStat<<std::endl;
+
+
+  stats = new
+      swiftware::benchmark::Stats("SpMM_SpMM_SMatReuseVT_RO_FusedParallelAvx256","SpMM",
+                                  7,tp._matrix_name,numThread);
+  stats->OtherStats["PackingType"] ={Separated};
+  stats->OtherStats["TilingMethod"] = {Variable};
+  auto *fusedParallelVectorized256ROSMatReuseVT = new
+      SpMMSpMMFusedReorderedUnFusedMatInterLayerVectorizedAvx256SP(inSpMM, stats, sp);
+  fusedParallelVectorized256ROSMatReuseVT->run();
+  //    fusedParallelVectorized256ROSMatReuseVT->OutTensor->printDx();
+  auto fusedParallelVectorized256ROSMatReuseVTStat =
+      fusedParallelVectorized256ROSMatReuseVT->printStats();
+  delete fusedParallelVectorized256ROSMatReuseVT;
+  delete stats;
+  std::cout<<fusedParallelVectorized256ROSMatReuseVTStat<<spStat+tpStat+profStat<<std::endl;
 #endif
 
 #ifdef __AVX512F__

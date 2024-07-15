@@ -307,6 +307,22 @@ public:
 
 class SpMMSpMMFusedInterLayerVectorizedAvx256SP: public SpMMSpMMFusedVariableTileSizeSP{
 protected:
+
+  Timer analysis() override{
+    auto tm = St->OtherStats["TilingMethod"];
+    if(tm[0] == sym_lib::Fixed){
+      return SpMMSpMMFusedInterLayerSP::analysis();
+    }
+    else {
+      Timer t1;
+      t1.start();
+      FusedCompSet = Inspector->generateVariableTileSizeScheduleForBothWavefronts(InTensor->ACsr,InTensor->N,sizeof(float));
+      //    FusedCompSet->print_3d();
+      t1.stop();
+      return t1;
+    }
+  }
+
   Timer execute() override {
     //    std::fill_n(OutTensor->Xx, InTensor->L * InTensor->N, 0.0);
     //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
@@ -477,7 +493,7 @@ protected:
       SpMMSpMMFusedInterLayerSP::analysis();
     }
     else {
-      FusedCompSet = Inspector->generateVariableTileSizeSchedule(InTensor->ACsr,InTensor->N,sizeof(float));
+      FusedCompSet = Inspector->generateVariableTileSizeScheduleForBothWavefronts(InTensor->ACsr,InTensor->N,sizeof(float));
       //    FusedCompSet->print_3d();
     }
     createUnfusedData(FusedCompSet->ptr1_, FusedCompSet->ker_begin_, FusedCompSet->id_);
