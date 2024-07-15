@@ -9,6 +9,7 @@ BINPATH="./build/example"
 USE_PAPI=0
 MATLIST_FOLDER=""
 OUTPUT_FOLDER=""
+JOB_ID=""
 while getopts ":t:dc:m:i:e:l:j:" arg; do
 
   case "${arg}" in
@@ -45,6 +46,7 @@ while getopts ":t:dc:m:i:e:l:j:" arg; do
       exit 0
   esac
 done
+echo $JOB_ID
 MODE=3
 if [ $EXP == "spmm_spmm" ]; then
   BINFILE="spmm_spmm_fusion"
@@ -99,7 +101,7 @@ make -j 40
 
 
 cd ..
-
+echo $JOB_ID
 #BINPATH=./build/example/
 DATE=$(date -d "today" +"%Y%m%d%H%M")
 if [ -z $JOB_ID ]; then
@@ -107,6 +109,7 @@ if [ -z $JOB_ID ]; then
 else
   LOGS="./build/logs-$JOB_ID"
 fi
+echo $LOGS
 #LOGS="./build/logs-${DATE}/"
 SCRIPTPATH=./scripts/
 if [ -z "$MATLIST_FOLDER" ]; then

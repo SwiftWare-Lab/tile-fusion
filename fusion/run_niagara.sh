@@ -60,7 +60,7 @@ if [ -z "$ID" ]; then
   ID_OPT=""
 fi
 if [ $TEST -eq 1 ]; then
-    bash run.sh -m $UFDB -c $BCOL -e $EXP -t $THREADS "$ID_OPT" -j $SLURM_JOB_ID
+    bash run.sh -m $UFDB -c $BCOL -e $EXP -t $THREADS -j $SLURM_JOB_ID "$ID_OPT"
 else
-  bash run.sh -t $THREADS -m $UFDB -c $BCOL -e $EXP "$ID_OPT" -j $SLURM_JOB_ID
+  bash run.sh -t $THREADS -m $UFDB -c $BCOL -e $EXP -j $SLURM_JOB_ID "$ID_OPT"
 fi
