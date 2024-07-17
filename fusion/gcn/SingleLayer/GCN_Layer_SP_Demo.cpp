@@ -134,15 +134,25 @@ int main(const int argc, const char *argv[]) {
   delete stats;
   delete gcnSingleLayerSparseFusedSeparated;
 
-  stats = new swiftware::benchmark::Stats("GCN_SingleLayer_FusedSeperated_P2PThreading", "GCN", 7,
+  stats = new swiftware::benchmark::Stats("GCN_SingleLayer_FusedSeperated_VT", "GCN", 7,
                                           tp._matrix_name, numThread);
   stats->OtherStats["PackingType"] = {Separated};
-  GCNSingleLayerSparseFusedP2PThreadWithGeMM_SP *gcnSingleLayerSparseFusedSeparatedP2P =
-      new GCNSingleLayerSparseFusedP2PThreadWithGeMM_SP(inputs, stats, sp);
-  gcnSingleLayerSparseFusedSeparatedP2P->run();
-  auto gcnSingleLayerSparseFusedSeparatedP2PStat = gcnSingleLayerSparseFusedSeparatedP2P->printStats();
+  GCNSingleLayerSparseFusedParallelVTWithGeMM_SP *gcnSingleLayerSparseFusedSeparatedVT =
+      new GCNSingleLayerSparseFusedParallelVTWithGeMM_SP(inputs, stats, sp);
+  gcnSingleLayerSparseFusedSeparatedVT->run();
+  auto gcnSingleLayerSparseFusedSeparatedVTStat = gcnSingleLayerSparseFusedSeparatedVT->printStats();
   delete stats;
-  delete gcnSingleLayerSparseFusedSeparatedP2P;
+  delete gcnSingleLayerSparseFusedSeparatedVT;
+
+//  stats = new swiftware::benchmark::Stats("GCN_SingleLayer_FusedSeperated_P2PThreading", "GCN", 7,
+//                                          tp._matrix_name, numThread);
+//  stats->OtherStats["PackingType"] = {Separated};
+//  GCNSingleLayerSparseFusedP2PThreadWithGeMM_SP *gcnSingleLayerSparseFusedSeparatedP2P =
+//      new GCNSingleLayerSparseFusedP2PThreadWithGeMM_SP(inputs, stats, sp);
+//  gcnSingleLayerSparseFusedSeparatedP2P->run();
+//  auto gcnSingleLayerSparseFusedSeparatedP2PStat = gcnSingleLayerSparseFusedSeparatedP2P->printStats();
+//  delete stats;
+//  delete gcnSingleLayerSparseFusedSeparatedP2P;
 
   stats = new swiftware::benchmark::Stats("GCN_SingleLayer_FusedSeperated_ReorderedUnfused", "GCN", 7,
                                           tp._matrix_name, numThread);
@@ -163,6 +173,16 @@ int main(const int argc, const char *argv[]) {
   auto gcnSingleLayerSparseFusedSeparatedROAdjStat = gcnSingleLayerSparseFusedSeparatedROAdj->printStats();
   delete stats;
   delete gcnSingleLayerSparseFusedSeparatedROAdj;
+
+  stats = new swiftware::benchmark::Stats("GCN_SingleLayer_FusedSeperated_ReorderedAdj_VT", "GCN", 7,
+                                          tp._matrix_name, numThread);
+  stats->OtherStats["PackingType"] = {Separated};
+  GCNSingleLayerSparseFusedReorderedAdjVT_SP *gcnSingleLayerSparseFusedSeparatedROAdjVT =
+      new GCNSingleLayerSparseFusedReorderedAdjVT_SP(inputs, stats, sp);
+  gcnSingleLayerSparseFusedSeparatedROAdjVT->run();
+  auto gcnSingleLayerSparseFusedSeparatedROAdjVTStat = gcnSingleLayerSparseFusedSeparatedROAdjVT->printStats();
+  delete stats;
+  delete gcnSingleLayerSparseFusedSeparatedROAdjVT;
 //
 //  stats = new swiftware::benchmark::Stats("GCN_SingleLayer_Redundant_FusedSeperated", "GCN", 7,
 //                                          tp._matrix_name, numThread);
@@ -208,9 +228,11 @@ int main(const int argc, const char *argv[]) {
   std::cout << gcnOneLayerMKLStat << spStat + tpStat << std::endl;
   std::cout << gcnSingleLayerUnFusedStat << spStat + tpStat << std::endl;
   std::cout << gcnSingleLayerSparseFusedSeparatedStat << spStat + tpStat << std::endl;
-  std::cout << gcnSingleLayerSparseFusedSeparatedP2PStat << spStat + tpStat << std::endl;
+  std::cout << gcnSingleLayerSparseFusedSeparatedVTStat << spStat + tpStat << std::endl;
+//  std::cout << gcnSingleLayerSparseFusedSeparatedP2PStat << spStat + tpStat << std::endl;
   std::cout << gcnSingleLayerSparseFusedSeparatedROUFStat << spStat + tpStat << std::endl;
   std::cout << gcnSingleLayerSparseFusedSeparatedROAdjStat << spStat + tpStat << std::endl;
+  std::cout << gcnSingleLayerSparseFusedSeparatedROAdjVTStat << spStat + tpStat << std::endl;
 //  std::cout << gcnSingleLayerSparseFusedSeparatedStat << spStat + tpStat << std::endl;
 //  std::cout << gcnSingleLayerSparseFusedRedundantStat << spStat + tpStat << std::endl;
 //  std::cout << gcnSingleLayerFusedCSCAtomicStat << spStat + tpStat << std::endl;

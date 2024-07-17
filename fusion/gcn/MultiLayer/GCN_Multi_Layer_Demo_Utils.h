@@ -264,7 +264,7 @@ public:
 class GCNAllFusedParallel : public GCNIntraFusedSequential {
 protected:
   sym_lib::MultiDimensionalSet *FusedCompSet;
-  InspectorForAllFused *Inspector;
+  SparseFusionInspector *Inspector;
 
   Timer analysis() override {
     Timer t;
@@ -297,7 +297,7 @@ public:
   GCNAllFusedParallel(GnnTensorInputs *In1, Stats *Stat1,
                       sym_lib::ScheduleParameters SpIn)
       : GCNIntraFusedSequential(In1, Stat1) {
-    Inspector = new InspectorForAllFused(SpIn, Stat1);
+    Inspector = new SparseFusionInspector(SpIn, Stat1);
   }
   ~GCNAllFusedParallel() {
     delete FusedCompSet;

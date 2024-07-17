@@ -105,7 +105,9 @@ protected:
     //    this->St->OtherStats["Number of First Layer Nodes"] = {
     //        double(InTensor->LayerMasks[0].size())};
     this->St->OtherStats["FusedIterations"] = {0.};
-    this->St->OtherStats["Min Workload Size"] = {10.};
+//    this->St->OtherStats["Min Workload Size"] = {10.};
+    this->St->OtherStats["Tile Size Mean"] = {0.};
+    this->St->OtherStats["Tile Size STD"] = {0.};
   }
 
   bool verify(double &Error) override {
@@ -302,7 +304,7 @@ public:
 class GCNSingleLayerSparseFusedParallelWithGeMM_SP : public GCNSingleLayerUnFusedCSRMKLGeMMSP {
 protected:
   sym_lib::MultiDimensionalSet *FusedCompSet;
-  InspectorForAllFused *Inspector;
+  SparseFusionInspector *Inspector;
 
   Timer analysis() override {
     Timer t;
@@ -337,9 +339,56 @@ public:
   GCNSingleLayerSparseFusedParallelWithGeMM_SP(GnnTensorSpInputs *In1, Stats *Stat1,
                                             sym_lib::ScheduleParameters SpIn)
       : GCNSingleLayerUnFusedCSRMKLGeMMSP(In1, Stat1) {
-    Inspector = new InspectorForAllFused(SpIn, Stat1);
+    Inspector = new SparseFusionInspector(SpIn, Stat1);
   }
   ~GCNSingleLayerSparseFusedParallelWithGeMM_SP() {
+    delete FusedCompSet;
+    delete Inspector;
+  }
+};
+
+class GCNSingleLayerSparseFusedParallelVTWithGeMM_SP : public GCNSingleLayerUnFusedCSRMKLGeMMSP {
+protected:
+  sym_lib::MultiDimensionalSet *FusedCompSet;
+  InspectorForTileFusedCSRVariableTileSize *Inspector;
+
+  Timer analysis() override {
+    Timer t;
+    t.start();
+    FusedCompSet = Inspector->generateVariableTileSizeScheduleGeMMSpMM(
+        InTensor->AdjacencyMatrix, InTensor->FeatureDim, InTensor->EmbedDim,
+        sizeof(float));
+    t.stop();
+    return t;
+  }
+
+  Timer execute() override {
+    float *intermediateResult = new float [InTensor->NumOfNodes*InTensor->EmbedDim];
+    Timer t;
+    St->OtherStats["FusedIterations"] = {(double)FusedCompSet->getNumberOfFusedNodes()};
+    mkl_set_num_threads(1);
+    OutTensor->reset();
+    t.start();
+    forwardForOneLayerFusedParallelSeparatedVectorizedSP(
+        InTensor->AdjacencyMatrix->m, InTensor->AdjacencyMatrix->p,
+        InTensor->AdjacencyMatrix->i, InTensor->AMValues,
+        InTensor->FeatureDim, InTensor->EmbedDim,
+        InTensor->FeatureMatrix, InTensor->Weight1,
+        OutTensor->FirstLayerOutput, intermediateResult, InTensor->NumThreads, FusedCompSet->n1_,
+        FusedCompSet->ptr1_, FusedCompSet->ptr2_, FusedCompSet->ker_begin_,
+        FusedCompSet->id_);
+    t.stop();
+    delete[] intermediateResult;
+    return t;
+  }
+
+public:
+  GCNSingleLayerSparseFusedParallelVTWithGeMM_SP(GnnTensorSpInputs *In1, Stats *Stat1,
+                                               sym_lib::ScheduleParameters SpIn)
+      : GCNSingleLayerUnFusedCSRMKLGeMMSP(In1, Stat1) {
+    Inspector = new InspectorForTileFusedCSRVariableTileSize(SpIn, Stat1);
+  }
+  ~GCNSingleLayerSparseFusedParallelVTWithGeMM_SP() {
     delete FusedCompSet;
     delete Inspector;
   }
@@ -350,7 +399,7 @@ class GCNSingleLayerSparseFusedP2PThreadWithGeMM_SP
 protected:
   sym_lib::ScheduleParameters Sp;
   sym_lib::MultiDimensionalSet *FusedCompSet;
-  InspectorForAllFused *Inspector;
+  SparseFusionInspector *Inspector;
   int **Parents;
   int NumTasks;
   int *NPar;
@@ -438,7 +487,7 @@ public:
   GCNSingleLayerSparseFusedP2PThreadWithGeMM_SP(GnnTensorSpInputs *In1, Stats *Stat1,
                                                sym_lib::ScheduleParameters SpIn)
       : GCNSingleLayerUnFusedCSRMKLGeMMSP(In1, Stat1), Sp(SpIn) {
-    Inspector = new InspectorForAllFused(SpIn, Stat1);
+    Inspector = new SparseFusionInspector(SpIn, Stat1);
   }
 
   ~GCNSingleLayerSparseFusedP2PThreadWithGeMM_SP() {
@@ -455,7 +504,7 @@ public:
 class GCNSingleLayerSparseFusedReorderedUnfusedWithGeMM_SP : public GCNSingleLayerUnFusedCSRMKLGeMMSP {
 protected:
   sym_lib::MultiDimensionalSet *FusedCompSet;
-  InspectorForAllFused *Inspector;
+  SparseFusionInspector *Inspector;
   int* UFAp;
   int* UFAi;
   float* UFAx;
@@ -532,7 +581,7 @@ public:
   GCNSingleLayerSparseFusedReorderedUnfusedWithGeMM_SP(GnnTensorSpInputs *In1, Stats *Stat1,
                                                sym_lib::ScheduleParameters SpIn)
       : GCNSingleLayerUnFusedCSRMKLGeMMSP(In1, Stat1) {
-    Inspector = new InspectorForAllFused(SpIn, Stat1);
+    Inspector = new SparseFusionInspector(SpIn, Stat1);
   }
   ~GCNSingleLayerSparseFusedReorderedUnfusedWithGeMM_SP() {
     delete FusedCompSet;
@@ -548,7 +597,7 @@ public:
 class GCNSingleLayerSparseFusedReorderedAdjWithGeMM_SP : public GCNSingleLayerUnFusedCSRMKLGeMMSP {
 protected:
   sym_lib::MultiDimensionalSet *FusedCompSet;
-  InspectorForAllFused *Inspector;
+  SparseFusionInspector *Inspector;
   int* Ap;
   int* Ai;
   float* Ax;
@@ -625,7 +674,7 @@ public:
   GCNSingleLayerSparseFusedReorderedAdjWithGeMM_SP(GnnTensorSpInputs *In1, Stats *Stat1,
                                                        sym_lib::ScheduleParameters SpIn)
       : GCNSingleLayerUnFusedCSRMKLGeMMSP(In1, Stat1) {
-    Inspector = new InspectorForAllFused(SpIn, Stat1);
+    Inspector = new SparseFusionInspector(SpIn, Stat1);
   }
   ~GCNSingleLayerSparseFusedReorderedAdjWithGeMM_SP() {
     delete FusedCompSet;
@@ -638,10 +687,33 @@ public:
   }
 };
 
+class GCNSingleLayerSparseFusedReorderedAdjVT_SP: public GCNSingleLayerSparseFusedReorderedAdjWithGeMM_SP{
+
+protected:
+  InspectorForTileFusedCSRVariableTileSize *Inspector;
+
+  Timer analysis() override {
+    Timer t;
+    t.start();
+    FusedCompSet = Inspector->generateVariableTileSizeScheduleGeMMSpMM(
+        InTensor->AdjacencyMatrix, InTensor->FeatureDim, InTensor->EmbedDim, sizeof(float ));
+    createReorderedAdj(FusedCompSet->ptr1_, FusedCompSet->ker_begin_, FusedCompSet->id_);
+    t.stop();
+    return t;
+  }
+
+public:
+  GCNSingleLayerSparseFusedReorderedAdjVT_SP(GnnTensorSpInputs *In1, Stats *Stat1,
+                                             sym_lib::ScheduleParameters SpIn)
+      : GCNSingleLayerSparseFusedReorderedAdjWithGeMM_SP(In1, Stat1, SpIn){
+    Inspector = new InspectorForTileFusedCSRVariableTileSize(SpIn, Stat1);
+  }
+};
+
 class GCNSingleLayerSparseFusedRedundantParallelWithGeMM_SP : public GCNSingleLayerUnFusedCSRMKLGeMMSP {
 protected:
   sym_lib::MultiDimensionalSet *FusedCompSet;
-  InspectorForAllFused *Inspector;
+  SparseFusionInspector *Inspector;
   sym_lib::ScheduleParameters Sp;
 
   Timer analysis() override {
@@ -696,7 +768,7 @@ public:
   GCNSingleLayerSparseFusedRedundantParallelWithGeMM_SP(GnnTensorSpInputs *In1, Stats *Stat1,
                                                sym_lib::ScheduleParameters SpIn)
       : GCNSingleLayerUnFusedCSRMKLGeMMSP(In1, Stat1), Sp(SpIn) {
-    Inspector = new InspectorForAllFused(SpIn, Stat1);
+    Inspector = new SparseFusionInspector(SpIn, Stat1);
   }
   ~GCNSingleLayerSparseFusedRedundantParallelWithGeMM_SP() {
     delete FusedCompSet;

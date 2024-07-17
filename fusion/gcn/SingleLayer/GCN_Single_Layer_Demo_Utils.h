@@ -559,7 +559,7 @@ public:
 class GCNSingleLayerSparseFusedParallel : public GCNSingleLayerSpMMGemVFused {
 protected:
   sym_lib::MultiDimensionalSet *FusedCompSet;
-  InspectorForAllFused *Inspector;
+  SparseFusionInspector *Inspector;
 
   Timer analysis() override {
     Timer t;
@@ -591,7 +591,7 @@ public:
   GCNSingleLayerSparseFusedParallel(GnnTensorInputs *In1, Stats *Stat1,
                                     sym_lib::ScheduleParameters SpIn)
       : GCNSingleLayerSpMMGemVFused(In1, Stat1) {
-    Inspector = new InspectorForAllFused(SpIn, Stat1);
+    Inspector = new SparseFusionInspector(SpIn, Stat1);
   }
   ~GCNSingleLayerSparseFusedParallel() {
     delete FusedCompSet;
@@ -602,7 +602,7 @@ public:
 class GCNSingleLayerSparseFusedParallelWithGeMM : public GCNSingleLayerSpMMGemVFused {
 protected:
   sym_lib::MultiDimensionalSet *FusedCompSet;
-  InspectorForAllFused *Inspector;
+  SparseFusionInspector *Inspector;
 
   Timer analysis() override {
     Timer t;
@@ -637,7 +637,7 @@ public:
   GCNSingleLayerSparseFusedParallelWithGeMM(GnnTensorInputs *In1, Stats *Stat1,
                                             sym_lib::ScheduleParameters SpIn)
       : GCNSingleLayerSpMMGemVFused(In1, Stat1) {
-    Inspector = new InspectorForAllFused(SpIn, Stat1);
+    Inspector = new SparseFusionInspector(SpIn, Stat1);
   }
   ~GCNSingleLayerSparseFusedParallelWithGeMM() {
     delete FusedCompSet;
