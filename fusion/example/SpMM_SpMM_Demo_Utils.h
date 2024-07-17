@@ -93,7 +93,7 @@ template <typename T> struct TensorOutputs : public Outputs<T> {
     std::cout << "\n";
   }
 
-  void reset() {
+  virtual void reset() {
     std::fill_n(Xx, L * N, 0.0);
     std::fill_n(ACx, M * N, 0.0);
   }

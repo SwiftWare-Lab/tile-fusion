@@ -1,0 +1,11 @@
+impls:
+  - name: "GPU_SeqReduceRowBalance_128"
+    repr: "SRRB_128"
+  - name: "GPU_SeqReduceRowBalance_256"
+    repr: "SRRB_256"
+  - name: "GPU_SeqReduceRowBalance_512"
+    repr: "SRRB_512"
+  - name: "GPU_SeqReduceRowBalance_1024"
+    repr: "SRRB_1024"
+
+
