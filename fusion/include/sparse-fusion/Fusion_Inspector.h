@@ -644,6 +644,7 @@ public:
       curr = curr->Next;
       delete tmp;
     }
+    delete head;
     int unfusedPerPart = ceil(unfusedIters.size() / float(Sp._num_threads));
     for (int i = numOfTiles; i < numOfTiles + Sp._num_threads; i++) {
       int p = i - numOfTiles;
@@ -814,6 +815,7 @@ public:
       curr = curr->Next;
       delete tmp;
     }
+    delete head;
     for (int i = numOfTiles; i < numOfTiles + numUfTiles; i++) {
       int p = i - numOfTiles;
       int partEnd = ufPartPtr[p+1];

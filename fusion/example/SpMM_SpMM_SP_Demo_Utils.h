@@ -71,7 +71,7 @@ public:
 
   ~SpMMSpMMUnFusedSP() {
     delete OutTensor;
-    delete AValues;
+    delete[] AValues;
   }
 };
 
@@ -156,6 +156,7 @@ public:
   }
 };
 #endif
+
 class SpMMSpMMFusedInterLayerSP : public SpMMSpMMUnFusedSP {
 protected:
   sym_lib::MultiDimensionalSet *FusedCompSet;
