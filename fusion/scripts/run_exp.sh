@@ -104,10 +104,10 @@ if [ "$TUNED" == 5 ]; then
        mat=$line
         echo "for $mat $ntile"
         if [ $header -eq 1 ]; then
-          $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -ah -bc $BCOL > $OUTPUT_FILE
+          $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -ah -bc $BCOL -tm 1000000 > $OUTPUT_FILE
           header=0
         else
-          $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -bc $BCOL >> $OUTPUT_FILE
+          $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -bc $BCOL -tm 1000000 >> $OUTPUT_FILE
         fi
     done < ${MATLIST}
   fi
