@@ -74,10 +74,10 @@ if [ "$TUNED" ==  3 ]; then
 #        fi
       echo "for $line $BCOL $w $ntile"
       if [ $header -eq 1 ]; then
-        $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -ah -bc $BCOL -ip $ntile -tm $ntile -tn 32 -ed $BCOL > $OUTPUT_FILE
+        $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -ah -bc $BCOL -ip $ntile -tm 1000000 -tn 32 -ed $BCOL > $OUTPUT_FILE
         header=0
       else
-        $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -bc $BCOL -ip $ntile -tm $ntile -tn 32 -ed $BCOL >> $OUTPUT_FILE
+        $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -bc $BCOL -ip $ntile -tm 1000000 -tn 32 -ed $BCOL >> $OUTPUT_FILE
       fi
       done
 #    done
