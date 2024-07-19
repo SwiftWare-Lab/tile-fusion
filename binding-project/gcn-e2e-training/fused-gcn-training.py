@@ -106,7 +106,6 @@ with open(mat_file_path) as mat_file:
         labels = torch.from_numpy(mmread(labels_path).astype(np.int64))
         labels = torch.squeeze(labels)
         name = mat_folder
-        print(mat_folder)
         # if args.use_gdc:
         #     transform = T.GDC(
         #         self_loop_weight=1,

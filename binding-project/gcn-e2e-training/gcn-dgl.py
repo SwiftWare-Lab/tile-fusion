@@ -113,47 +113,47 @@ with open(mat_file_path) as mat_file:
         feature_path = os.path.join(args.dataset, mat_folder, 'features.mtx')
         labels_path = os.path.join(args.dataset, mat_folder, 'labels.mtx')
         adj = dgl.from_scipy(mmread(adj_path))
+        adj = dgl.add_self_loop(adj)
         feature = torch.from_numpy(mmread(feature_path).astype(np.float32))
         if feature.size(1) > 128:
             feature = feature[:, :128]
         labels = torch.from_numpy(mmread(labels_path).astype(np.int64))
         labels = torch.squeeze(labels)
         name = mat_folder
-        print(mat_folder)
 
-    num_classes = len(np.unique(labels))
-    model = DGLGCN(
-        in_channels=feature.size(1),
-        hidden_channels=args.hidden_channels,
-        out_channels=num_classes,
-    ).to(device)
+        num_classes = len(np.unique(labels))
+        model = DGLGCN(
+            in_channels=feature.size(1),
+            hidden_channels=args.hidden_channels,
+            out_channels=num_classes,
+        ).to(device)
 
-    optimizer = torch.optim.Adam([
-        dict(params=model.conv1.parameters(), weight_decay=5e-4),
-        dict(params=model.conv2.parameters(), weight_decay=0)
-    ], lr=args.lr)  # Only perform weight-decay on first convolution.
-
-
-    # @torch.no_grad()
-    # def test():
-    #     model.eval()
-    #     pred = model(data.x, data.edge_index, data.edge_attr).argmax(dim=-1)
-    #
-    #     accs = []
-    #     for mask in [data.train_mask, data.val_mask, data.test_mask]:
-    #         accs.append(int((pred[mask] == data.y[mask]).sum()) / int(mask.sum()))
-    #     return accs
+        optimizer = torch.optim.Adam([
+            dict(params=model.conv1.parameters(), weight_decay=5e-4),
+            dict(params=model.conv2.parameters(), weight_decay=0)
+        ], lr=args.lr)  # Only perform weight-decay on first convolution.
 
 
-    best_val_acc = test_acc = 0
-    times = []
-    for epoch in range(0, 100):
-        start = time.time()
-        loss1 = train()
-        times.append(time.time() - start)
-        # log(Epoch=epoch, Loss=loss1)
-    # print(f'Median time per epoch: {torch.tensor(times).median():.4f}s')
-    print(f'DGL GraphConv,{name},{torch.tensor(times).sum():.4f}')
+        # @torch.no_grad()
+        # def test():
+        #     model.eval()
+        #     pred = model(data.x, data.edge_index, data.edge_attr).argmax(dim=-1)
+        #
+        #     accs = []
+        #     for mask in [data.train_mask, data.val_mask, data.test_mask]:
+        #         accs.append(int((pred[mask] == data.y[mask]).sum()) / int(mask.sum()))
+        #     return accs
+
+
+        best_val_acc = test_acc = 0
+        times = []
+        for epoch in range(0, 100):
+            start = time.time()
+            loss1 = train()
+            times.append(time.time() - start)
+            # log(Epoch=epoch, Loss=loss1)
+        # print(f'Median time per epoch: {torch.tensor(times).median():.4f}s')
+        print(f'DGL GraphConv,{name},{torch.tensor(times).sum():.4f}')
 
     # print('total conv1 time: ', model.conv1_time)
     # print('total conv2 time: ', model.conv2_time)
