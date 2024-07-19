@@ -45,12 +45,10 @@ from FusedGCNModule import FusedGCN
 def convert_scipy_coo_to_torch_csr(coo):
     values = coo.data
     indices = np.vstack((coo.row, coo.col))
-
     edge_index = torch.IntTensor(indices)
-    # print(edge_index)
     v = torch.FloatTensor(values)
-
-    csr = pygUtils.to_torch_csr_tensor(edge_index, v)
+    # print(v)
+    csr = pygUtils.to_torch_csr_tensor(edge_index)
     return csr
 
 def train():
