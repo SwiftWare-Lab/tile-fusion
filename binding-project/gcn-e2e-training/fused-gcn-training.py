@@ -6,13 +6,14 @@ import torch
 import torch.nn.functional as F
 
 import torch_geometric.transforms as T
-from scipy.io import mmwrite
+from scipy.io import mmread
 from torch_geometric.datasets import Planetoid
 import torch_geometric.datasets as datasets
 from torch_geometric.logging import init_wandb, log
 from torch_geometric import utils as pygUtils
 from torch_geometric.nn import GCNConv
 import numpy as np
+import os
 
 from FusedGCNModule import FusedGCN
 
@@ -41,19 +42,30 @@ from FusedGCNModule import FusedGCN
 #
 #         return x
 
+def convert_scipy_coo_to_torch_csr(coo):
+    values = coo.data
+    indices = np.vstack((coo.row, coo.col))
+
+    edge_index = torch.IntTensor(indices)
+    # print(edge_index)
+    v = torch.FloatTensor(values)
+
+    csr = pygUtils.to_torch_csr_tensor(edge_index, v)
+    return csr
+
 def train():
     model.train()
     optimizer.zero_grad()
-    out = model(data.x)
+    out = model(feature)
     # print(out)
-    loss = F.cross_entropy(out[train_mask], data.y[train_mask])
+    loss = F.cross_entropy(out[train_mask], labels[train_mask])
     loss.backward()
     optimizer.step()
     return float(loss)
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--dataset', type=str, default='Cora')
+parser.add_argument('--dataset', type=str, default='./data')
 parser.add_argument('--threads', type=int, default=8)
 parser.add_argument('--hidden_channels', type=int, default=16)
 parser.add_argument('--lr', type=float, default=0.001)
@@ -77,74 +89,72 @@ train_mask = range(200)
 #     hidden_channels=args.hidden_channels,
 #     device=device,
 # )
+mat_file_path = args.dataset + '/mat_list.txt'
+with open(mat_file_path) as mat_file:
+    matrices = mat_file.readlines()
+    for mat in matrices:
+        mat = mat.rstrip()
+        datafolder = args.dataset
+        mat_folder = mat.split('/')[0]
+        adj_path = os.path.join(args.dataset, mat)
+        feature_path = os.path.join(args.dataset, mat_folder, 'features.mtx')
+        labels_path = os.path.join(args.dataset, mat_folder, 'labels.mtx')
+        adj = convert_scipy_coo_to_torch_csr(mmread(adj_path))
+        feature = torch.from_numpy(mmread(feature_path).astype(np.float32))
+        if feature.size(1) > 128:
+            feature = feature[:, :128]
+        labels = torch.from_numpy(mmread(labels_path).astype(np.int64))
+        labels = torch.squeeze(labels)
+        name = mat_folder
+        print(mat_folder)
+        # if args.use_gdc:
+        #     transform = T.GDC(
+        #         self_loop_weight=1,
+        #         normalization_in='sym',
+        #         normalization_out='col',
+        #         diffusion_kwargs=dict(method='ppr', alpha=0.05),
+        #         sparsification_kwargs=dict(method='topk', k=128, dim=0),
+        #         exact=True,
+        #     )
+        #     data = transform(data)
 
+        # adj = pygUtils.to_torch_csr_tensor(data.edge_index)
+        # crow_indices = adj.crow_indices().type(torch.int32)
+        # col_indices = adj.col_indices().type(torch.int32)
+        # adj = torch.sparse_csr_tensor(crow_indices, col_indices, adj.values())
+        num_classes = len(np.unique(labels))
+        model = FusedGCN(
+            feat_dim=feature.size(1),
+            embed_dim=args.hidden_channels,
+            num_classes=num_classes,
+            adj=adj,
+            num_threads=args.threads,
+        ).to(device)
 
-raw_folder_name = osp.join(osp.dirname(osp.realpath(__file__)), '..', 'data')
-dataset_list = [
-    datasets.Coauthor(root=raw_folder_name + '/coauthor_cs/', name='CS', transform=None),
-    datasets.Coauthor(root=raw_folder_name + '/coauthor_physics/', name='Physics', transform=None),
-    datasets.CoraFull(root=raw_folder_name + '/cora_full/', transform=None),
-    datasets.Flickr(root=raw_folder_name + '/flickr/', transform=None),
-    datasets.Yelp(root=raw_folder_name + '/yelp/', transform=None),
-    # datasets.Planetoid(root=raw_folder_name + '/planetoid/pubmed/', name='Pubmed', transform=None),
-    # datasets.Planetoid(root=raw_folder_name + '/planetoid/cora/', name='Cora', transform=None),
-    datasets.GitHub(root=raw_folder_name + '/github/', transform=None),
-    datasets.FacebookPagePage(root=raw_folder_name + '/facebook_page_page/', transform=None),
-    datasets.DeezerEurope(root=raw_folder_name + '/deezer_europe/', transform=None),
-    datasets.Reddit2(root=raw_folder_name + '/reddit2/', transform=None)
-]
+        optimizer = torch.optim.Adam([
+            dict(params=model.conv1.parameters(), weight_decay=5e-4),
+            dict(params=model.conv2.parameters(), weight_decay=0)
+        ], lr=args.lr)  # Only perform weight-decay on first convolution.
 
-for dataset in dataset_list:
-    name = dataset.root.split('/')[-1]
-    data = dataset[0].to(device)
-    if args.use_gdc:
-        transform = T.GDC(
-            self_loop_weight=1,
-            normalization_in='sym',
-            normalization_out='col',
-            diffusion_kwargs=dict(method='ppr', alpha=0.05),
-            sparsification_kwargs=dict(method='topk', k=128, dim=0),
-            exact=True,
-        )
-        data = transform(data)
+        # @torch.no_grad()
+        # def test():
+        #     model.eval()
+        #     pred = model(data.x, data.edge_index, data.edge_attr).argmax(dim=-1)
+        #
+        #     accs = []
+        #     for mask in [data.train_mask, data.val_mask, data.test_mask]:
+        #         accs.append(int((pred[mask] == data.y[mask]).sum()) / int(mask.sum()))
+        #     return accs
 
-    adj = pygUtils.to_torch_csr_tensor(data.edge_index)
-    crow_indices = adj.crow_indices().type(torch.int32)
-    col_indices = adj.col_indices().type(torch.int32)
-    adj = torch.sparse_csr_tensor(crow_indices, col_indices, adj.values())
-
-    model = FusedGCN(
-        feat_dim=dataset.num_features,
-        embed_dim=args.hidden_channels,
-        num_classes=dataset.num_classes,
-        adj=adj,
-        num_threads=args.threads,
-    ).to(device)
-
-    optimizer = torch.optim.Adam([
-        dict(params=model.conv1.parameters(), weight_decay=5e-3),
-        dict(params=model.conv2.parameters(), weight_decay=0)
-    ], lr=args.lr)  # Only perform weight-decay on first convolution.
-
-    # @torch.no_grad()
-    # def test():
-    #     model.eval()
-    #     pred = model(data.x, data.edge_index, data.edge_attr).argmax(dim=-1)
-    #
-    #     accs = []
-    #     for mask in [data.train_mask, data.val_mask, data.test_mask]:
-    #         accs.append(int((pred[mask] == data.y[mask]).sum()) / int(mask.sum()))
-    #     return accs
-
-    best_val_acc = test_acc = 0
-    times = []
-    for epoch in range(0, 100):
-        start = time.time()
-        loss1 = train()
-        times.append(time.time() - start)
-        # log(Epoch=epoch, Loss=loss1)
-    # print(f'Median time per epoch: {torch.tensor(times).median():.4f}s')
-    print(f'FusedGCNConv,{name},{torch.tensor(times).sum():.4f}')
+        best_val_acc = test_acc = 0
+        times = []
+        for epoch in range(0, 100):
+            start = time.time()
+            loss1 = train()
+            times.append(time.time() - start)
+            # log(Epoch=epoch, Loss=loss1)
+        # print(f'Median time per epoch: {torch.tensor(times).median():.4f}s')
+        print(f'FusedGCNConv,{name},{torch.tensor(times).sum():.4f}')
 
     # print('total conv1 time: ', model.conv1_time)
     # print('total conv2 time: ', model.conv2_time)
