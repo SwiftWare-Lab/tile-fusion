@@ -6,7 +6,6 @@
 
 int**
 generateVariableTileSizeScheduleGeMMSpMM(int M, int* Ap, int* Ai, int BCol, int CCol, int CacheSize,int DataSize){
-    std::vector<VariableTile> pTiles;
     int minCacheSize = CacheSize * 2 / 3;
     int INITIAL_TILE_SIZE = findInitialTileSize(BCol, CCol, minCacheSize, DataSize);
     if (INITIAL_TILE_SIZE == 0){
@@ -55,8 +54,8 @@ generateVariableTileSizeScheduleGeMMSpMM(int M, int* Ap, int* Ai, int BCol, int 
     while (uft < unfusedIters.size()){
         for (int ii = uft; ii < std::min(int(unfusedIters.size()), uft + MIN_STRIDE); ii++){
             int row = unfusedIters[ii];
-            uniqueColumns.insert(Ai + Ap[row], Ai + Ap[row + 1]);
             nnzNum += Ap[row + 1] - Ap[row];
+            uniqueColumns.insert(Ai + Ap[row], Ai + Ap[row + 1]);
             ufTileSize += 1;
         }
         int workingSet = calculateWorkingSetSize(nnzNum, uniqueColumns.size(), CCol, ufTileSize, 0, DataSize);
@@ -64,11 +63,13 @@ generateVariableTileSizeScheduleGeMMSpMM(int M, int* Ap, int* Ai, int BCol, int 
             uft += MIN_STRIDE;
         }
         else{
-            ufPartPtr.push_back(uft);
             nnzNum = 0;
-            uniqueColumns.erase(uniqueColumns.begin(), uniqueColumns.end());
+            uniqueColumns.clear();
             if (ufTileSize <= MIN_STRIDE){
                 MIN_STRIDE = MIN_STRIDE / 2;
+            }
+            else{
+                ufPartPtr.push_back(uft);
             }
             if (ufTileSize >= 3*MIN_STRIDE){
                 MIN_STRIDE = MIN_STRIDE * 2;

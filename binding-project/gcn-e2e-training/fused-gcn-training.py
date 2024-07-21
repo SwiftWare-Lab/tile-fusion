@@ -44,12 +44,13 @@ from FusedGCNModule import FusedGCN
 
 def convert_scipy_coo_to_torch_csr(coo):
     values = coo.data
-    indices = np.vstack((coo.row, coo.col))
-    edge_index = torch.IntTensor(indices)
-    v = torch.FloatTensor(values)
-    # print(v)
-    csr = pygUtils.to_torch_csr_tensor(edge_index)
-    return csr
+    adj_cs = coo.tocsr()
+    crow_indices = torch.tensor(adj_cs.indptr, dtype=torch.int32)
+    col_indices = torch.tensor(adj_cs.indices, dtype=torch.int32)
+    values = torch.tensor(adj_cs.data, dtype=torch.float32)
+    adj = torch.sparse_csr_tensor(crow_indices, col_indices, values)
+    # print(adj)
+    return adj
 
 def train():
     model.train()
@@ -88,6 +89,7 @@ train_mask = range(200)
 #     device=device,
 # )
 mat_file_path = args.dataset + '/mat_list.txt'
+torch.set_num_threads(args.threads)
 with open(mat_file_path) as mat_file:
     matrices = mat_file.readlines()
     for mat in matrices:
@@ -127,7 +129,6 @@ with open(mat_file_path) as mat_file:
             adj=adj,
             num_threads=args.threads,
         ).to(device)
-
         optimizer = torch.optim.Adam([
             dict(params=model.conv1.parameters(), weight_decay=5e-4),
             dict(params=model.conv2.parameters(), weight_decay=0)

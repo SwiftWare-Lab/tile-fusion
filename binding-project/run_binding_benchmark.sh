@@ -68,7 +68,7 @@ HEADER=1
 
 echo 'impl,matrix,time' > ./build/logs/e2e_$BCOL.csv
 
-python gcn-e2e-training/gcn-dgl.py --threads $THRD --hidden_channels $BCOL --dataset $DATA_FOLDER >> ./build/logs/e2e_$BCOL.csv
+#python gcn-e2e-training/gcn-dgl.py --threads $THRD --hidden_channels $BCOL --dataset $DATA_FOLDER >> ./build/logs/e2e_$BCOL.csv
 python gcn-e2e-training/fused-gcn-training.py --threads $THRD --hidden_channels $BCOL --dataset $DATA_FOLDER >> ./build/logs/e2e_$BCOL.csv
 #python gcn-e2e-training/gcn-pyg.py --threads $THRD --hidden_channels $BCOL --dataset $DATA_FOLDER >> ./build/logs/e2e_$BCOL.csv
 deactivate
