@@ -27,4 +27,5 @@ class FusedGCNLayer(torch.nn.Module):
 
     def forward(self, x):
         x = self.forward_fn(self.adj, self.ro_adj, x, self.weight, self.schedule, self.num_threads)
+        # print(x)
         return x

@@ -609,7 +609,7 @@ torch::Tensor FusedGeMMSpMMROAdj::forward(torch::autograd::AutogradContext *Ctx,
                                      Weight.data_ptr<float>(), out, NumThreads, 2, LevelPtr.data_ptr<int32_t>(),
                                      MixPtr.data_ptr<int32_t>(),
                                      L2Ptr.data_ptr<int32_t>());
-    Ctx->save_for_backward({Adj, ROAdj, Feature, Weight, LevelPtr, MixPtr, L2Ptr});
+    Ctx->save_for_backward({Adj, Feature, Weight});
     Ctx->saved_data["num_threads"] = NumThreads;
     return torch::from_blob(
             out, {Adj.size(0), Weight.size(0)},
@@ -624,18 +624,12 @@ FusedGeMMSpMMROAdj::backward(torch::autograd::AutogradContext *Ctx,
     matrix_descr d;
     d.type = SPARSE_MATRIX_TYPE_GENERAL;
     auto saved = Ctx->get_saved_variables();
-    auto input = saved[2];
+    auto input = saved[1];
     auto adj = saved[0];
-    auto weight = saved[3];
+    auto weight = saved[2];
     int threadNum = Ctx->saved_data["num_threads"].toInt();
-    int* levelPtr = saved[4].data_ptr<int>();
-    int* mixPtr = saved[5].data_ptr<int>();
-    int* partition = saved[6].data_ptr<int>();
-    auto roAdj = saved[1];
     int *adjPtr = adj.crow_indices().data_ptr<int>();
     int *adjIndex = adj.col_indices().data_ptr<int>();
-    int *roAdjPtr = roAdj.crow_indices().data_ptr<int>();
-    int *roAdjIndex = roAdj.col_indices().data_ptr<int>();
     auto grad_output = GradOutputs[0];
     float *grad_output_raw = grad_output.data_ptr<float>();
     float *inputRaw = input.data_ptr<float>();
@@ -648,7 +642,6 @@ FusedGeMMSpMMROAdj::backward(torch::autograd::AutogradContext *Ctx,
     torch::Tensor grad_weight;
     if (Ctx->needs_input_grad(3)){
         mkl_set_num_threads(threadNum);
-        float *grad_intermediate = new float[adj.size(0) * input.size(1)]{};
         float *grad_weight_raw = new float[grad_output.size(1) * input.size(1)]{};
         //      swiftware::benchmark::Timer t1;
         //      t1.start();
@@ -667,7 +660,6 @@ FusedGeMMSpMMROAdj::backward(torch::autograd::AutogradContext *Ctx,
         //      t1.stop();
         //      std::cout <<  "GeMMSpMM_BWW_TiledFused" << "," << "mat_name" << "," << t1.printTimeCsv(0) << std::endl;
         mkl_free(MKLAdj);
-        delete[] grad_intermediate;
         grad_weight = torch::from_blob(
                 grad_weight_raw, {grad_output.size(1), input.size(1)},
                 [](void *ptr) { delete[] static_cast<float *>(ptr); }, torch::kFloat32);
@@ -818,6 +810,7 @@ torch::Tensor FusedGeMMSpMMROAdjCaching::forward(torch::autograd::AutogradContex
     auto intermediateTensor = torch::from_blob(
             outIntermediate, {Adj.size(0), Feature.size(1)},
             [](void *ptr) { delete[] static_cast<float *>(ptr); }, torch::kFloat32);
+    mkl_free(MKLAdj);
     Ctx->save_for_backward({intermediateTensor, ROAdj, Weight, LevelPtr, MixPtr, L2Ptr});
     Ctx->saved_data["num_threads"] = NumThreads;
     return torch::from_blob(
