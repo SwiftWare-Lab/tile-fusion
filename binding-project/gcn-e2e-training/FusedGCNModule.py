@@ -13,4 +13,4 @@ class FusedGCN(torch.nn.Module):
         x = self.conv1(x)
         x = x.relu()
         x = self.conv2(x)
-        return F.log_softmax(x, dim=1)
+        return x

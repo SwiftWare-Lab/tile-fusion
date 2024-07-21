@@ -72,4 +72,16 @@ public:
     backward(torch::autograd::AutogradContext *Ctx,
              torch::autograd::tensor_list GradOutputs);
 };
+
+class FusedGeMMSpMMROAdjCaching: public torch::autograd::Function<FusedGeMMSpMMROAdj>{
+public:
+    static torch::Tensor forward(torch::autograd::AutogradContext *Ctx,
+                                 torch::Tensor Adj, torch::Tensor ROAdj, torch::Tensor Feature, torch::Tensor Weight,
+                                 torch::Tensor LevelPtr, torch::Tensor MixPtr, torch::Tensor Partition,
+                                 int64_t NumThreads);
+
+    static torch::autograd::tensor_list
+    backward(torch::autograd::AutogradContext *Ctx,
+             torch::autograd::tensor_list GradOutputs);
+};
 #endif // SPARSE_FUSION_FUNCTIONS_H

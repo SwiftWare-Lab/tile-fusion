@@ -14,12 +14,17 @@ class FusedGCNLayer(torch.nn.Module):
         # print(adj._nnz())
         # print(adj.size(0))
         self.adj = adj
-        self.schedule_data = torch.ops.sw_gcn.inspect_vt_ro(adj, feat_dim, embed_dim, 1000000)
+        if (feat_dim > embed_dim):
+            self.schedule_data = torch.ops.sw_gcn.inspect_vt_ro(adj, feat_dim, embed_dim, 1000000)
+            self.forward_fn = torch.ops.sw_gcn.fusedGeMMSpMM_vt_ro
+        else:
+            self.schedule_data = torch.ops.sw_gcn.inspect_vt_ro(adj, embed_dim, feat_dim, 1000000)
+            self.forward_fn = torch.ops.sw_gcn.geMMSpMM_f_bw
         # print(schedule)
         self.num_threads = num_threads
         self.ro_adj = torch.sparse_csr_tensor(self.schedule_data[0], self.schedule_data[1], self.schedule_data[2])
         self.schedule = self.schedule_data[3:]
 
     def forward(self, x):
-        x = torch.ops.sw_gcn.fusedGeMMSpMM_vt_ro(self.adj, self.ro_adj, x, self.weight, self.schedule, self.num_threads)
+        x = self.forward_fn(self.adj, self.ro_adj, x, self.weight, self.schedule, self.num_threads)
         return x

@@ -19,6 +19,9 @@ torch::Tensor fusedGeMMSpMM(torch::Tensor Adj, torch::Tensor Feature,
 torch::Tensor fusedGeMMSpMM_vt_ro(torch::Tensor Adj, torch::Tensor ROAdj, torch::Tensor Feature,
                                  torch::Tensor Weight, std::vector<torch::Tensor> Schedule,
                                  int64_t NumThreads);
+torch::Tensor geMMSpMMFusedBackward(torch::Tensor Adj, torch::Tensor ROAdj, torch::Tensor Feature,
+                                    torch::Tensor Weight, std::vector<torch::Tensor> Schedule,
+                                    int64_t NumThreads);
 
 std::vector<torch::Tensor> inspect(torch::Tensor Adj, int64_t MTileSize) {
     std::vector<int *> schedule = createSchedule(Adj.crow_indices().data_ptr<int32_t>(),
@@ -105,6 +108,12 @@ torch::Tensor fusedGeMMSpMM_vt_ro(torch::Tensor Adj, torch::Tensor ROAdj, torch:
     return FusedGeMMSpMMROAdj::apply(Adj, ROAdj, Feature, Weight, Schedule[0], Schedule[1], Schedule[2], NumThreads);
 }
 
+torch::Tensor geMMSpMMFusedBackward(torch::Tensor Adj, torch::Tensor ROAdj, torch::Tensor Feature,
+                                   torch::Tensor Weight, std::vector<torch::Tensor> Schedule,
+                                   int64_t NumThreads){
+    return FusedGeMMSpMMROAdjCaching::apply(Adj, ROAdj, Feature, Weight, Schedule[0], Schedule[1], Schedule[2], NumThreads);
+}
+
 
 TORCH_LIBRARY(sw_gcn, m) {
     m.def("inspect", &inspect);
@@ -112,4 +121,5 @@ TORCH_LIBRARY(sw_gcn, m) {
     m.def("executeFusedGeMMSpMM", &executeFusedGeMMSpMM);
     m.def("fusedGeMMSpMM", &fusedGeMMSpMM);
     m.def("fusedGeMMSpMM_vt_ro", &fusedGeMMSpMM_vt_ro);
+    m.def("geMMSpMM_f_bw", &geMMSpMMFusedBackward);
 }
