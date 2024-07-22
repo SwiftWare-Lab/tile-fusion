@@ -48,6 +48,15 @@ void fusedMKLGeMMSpMMTransposedWeight(
         int M, int *Ap, int *Ai, float *Ax, int InputChannelDim,
         int OutputChannelDim, float *Features, float *Weight, float *Output,
         int NumThreads, int LevelNo, const int *LevelPtr, const int *MixPtr, const int *Partition);
+void
+registerReuseVectorizedSpMM(const int *Ap, const int *Ai, const float *Ax, const int OutputChannelDim, float *Output,
+                            const int *L2Ptr, int residueStart, const float *intermediateResult, int kBeginL2,
+                            int kEndL2);
+
+void
+perfectSpatialLocalitySpMM(const int *Ap, const int *Ai, const float *Ax, const int OutputChannelDim, float *Output,
+                           const int *L2Ptr, int residueStart, const float *intermediateResult, int kBeginL2,
+                           int kEndL2);
 
 class FusedGeMMSpMMROAdj: public torch::autograd::Function<FusedGeMMSpMMROAdj>{
 public:
