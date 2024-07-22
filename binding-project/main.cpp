@@ -46,7 +46,7 @@ std::vector<torch::Tensor> inspect_vt_ro(torch::Tensor Adj, int64_t InDim, int64
     int** rawSchedule = generateVariableTileSizeScheduleGeMMSpMM(m,
                                                                              Adj.crow_indices().data_ptr<int>(),
                                                                              Adj.col_indices().data_ptr<int>(),
-                                                                             InDim, OutDim, CacheSize);
+                                                                             InDim, OutDim, CacheSize, sizeof(float));
 
     int numKernels = 2;
     int *uFAp = new int[m + 1];

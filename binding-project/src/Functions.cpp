@@ -43,37 +43,36 @@ generateVariableTileSizeScheduleGeMMSpMM(int M, int* Ap, int* Ai, int BCol, int 
                 unfusedIters.push_back(i);
         }
     }
+        // shrinking tiles
+    curr = head;
     while(curr->Next != nullptr){
-        auto *prev = curr;
-        curr = curr->Next;
-        int tileSize = curr->End - curr->Start;
-        int* firstColPtr = Ai + Ap[curr->Start];
-        int* lastColPtr = Ai + Ap[curr->End];
-        int nnzNum = Ap[curr->End]-Ap[curr->Start];
-        std::set<int> uniqueColumns(firstColPtr,lastColPtr);
-        int workingSet = calculateWorkingSetSize(nnzNum, uniqueColumns.size(), BCol, tileSize, curr->FusedIters.size(), DataSize);
-        if (workingSet > minCacheSize && tileSize > 1){
-            int separator = tileSize/2 + curr->Start;
-            auto *vt1 = new VariableTile(curr->Start, separator);
-            auto *vt2 = new VariableTile(separator, curr->End);
-            for (auto fi: curr->FusedIters){
-                if (Ai[Ap[fi+1]-1] < separator){
-                    vt1->FusedIters.push_back(fi);
-                }
-                else if(Ai[Ap[fi]] >= separator){
-                    vt2->FusedIters.push_back(fi);
-                }
-                else{
-                    unfusedIters.push_back(fi);
-                }
-            }
-            vt1->Next = vt2;
-            vt2->Next = curr->Next;
-            prev->Next = vt1;
-            numOfTiles += 1;
-            delete curr;
-            curr = prev;
+      auto *prev = curr;
+      curr = curr->Next;
+      int tileSize = curr->End - curr->Start;
+      int fusedNnzNum = curr->getFusedNnzNum(Ap);
+      int workingSet = calculateWorkingSetSizeForGeMM(fusedNnzNum, BCol, CCol, tileSize, curr->FusedIters.size(), DataSize);
+      if (workingSet > minCacheSize && tileSize > 1){
+        int separator = tileSize/2 + curr->Start;
+        auto *vt1 = new VariableTile(curr->Start, separator);
+        auto *vt2 = new VariableTile(separator, curr->End);
+        for (auto fi: curr->FusedIters){
+          if (Ai[Ap[fi+1]-1] < separator){
+            vt1->FusedIters.push_back(fi);
+          }
+          else if(Ai[Ap[fi]] >= separator){
+            vt2->FusedIters.push_back(fi);
+          }
+          else{
+            unfusedIters.push_back(fi);
+          }
         }
+        vt1->Next = vt2;
+        vt2->Next = curr->Next;
+        prev->Next = vt1;
+        numOfTiles += 1;
+        delete curr;
+        curr = prev;
+      }
     }
     std::sort(unfusedIters.begin(), unfusedIters.end());
     std::vector<int> ufPartPtr;
@@ -164,6 +163,10 @@ generateVariableTileSizeScheduleGeMMSpMM(int M, int* Ap, int* Ai, int BCol, int 
 
 int calculateWorkingSetSize(int Nnz, int UniqueColsNum, int BCol, int TileSize, int FusedIters, int DataSize){
     return (Nnz + UniqueColsNum * BCol + TileSize* BCol + FusedIters* BCol) * DataSize + Nnz*4;
+}
+
+int calculateWorkingSetSizeForGeMM(int FusedNnz, int BCol, int CCol, int TileSize, int FusedIters, int DataSize){
+    return (TileSize * CCol + CCol * BCol + TileSize * BCol + FusedIters * CCol + FusedNnz) * DataSize + FusedNnz * 4;
 }
 
 int findInitialTileSize(int BCol, int CCol, int MaxWSSize, int DataSize){

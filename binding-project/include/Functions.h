@@ -25,6 +25,13 @@ struct VariableTile{
         this->End = End;
         this->Next = nullptr;
     }
+    int getFusedNnzNum(int* Ap){
+        int nnzNum = 0;
+        for (int i = 0; i < FusedIters.size(); i++){
+            nnzNum += Ap[FusedIters[i] + 1] - Ap[FusedIters[i]];
+        }
+        return nnzNum;
+    }
 };
 
 int** generateVariableTileSizeScheduleGeMMSpMM(int M, int* Ap, int* Ai, int BCol, int CCol, int CacheSize,
@@ -35,6 +42,7 @@ void createReorderedAdj(int M, int NNZ, int* Ap, int* Ai, float* Ax, int *LevelP
 
 int findInitialTileSize(int BCol, int CCol, int MaxWSSize, int DataSize = 4);
 int calculateWorkingSetSize(int Nnz, int UniqueColsNum, int BCol, int TileSize, int FusedIters, int DataSize = 4);
+int calculateWorkingSetSizeForGeMM(int FusedNnz, int BCol, int CCol, int TileSize, int FusedIters, int DataSize = 8);
 
 
 std::vector<int*> createSchedule(int32_t* Ap, int32_t* Ai, int64_t ARows, int64_t MTileSize);
