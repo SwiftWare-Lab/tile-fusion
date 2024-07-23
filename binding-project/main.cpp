@@ -6,7 +6,7 @@
 
 std::vector<torch::Tensor> inspect(torch::Tensor Adj, int64_t MTileSize);
 
-std::vector<torch::Tensor> inspect_vt_ro(torch::Tensor Adj, int64_t InDim, int64_t OutDim, int64_t CacheSize);
+std::vector<torch::Tensor> inspect_vt_ro(torch::Tensor Adj, int64_t InDim, int64_t OutDim, int64_t CacheSize, int64_t NumThreads);
 
 std::vector<torch::Tensor> executeFusedGeMMSpMM(torch::Tensor Adj, torch::Tensor Weight, torch::Tensor Feature,
                                     torch::Tensor LevelPtr, torch::Tensor MixPtr, torch::Tensor Partition,
@@ -41,13 +41,13 @@ std::vector<torch::Tensor> inspect(torch::Tensor Adj, int64_t MTileSize) {
     return {levelPtr, mixPtr, partition};
 }
 
-std::vector<torch::Tensor> inspect_vt_ro(torch::Tensor Adj, int64_t InDim, int64_t OutDim, int64_t CacheSize){
+std::vector<torch::Tensor> inspect_vt_ro(torch::Tensor Adj, int64_t InDim, int64_t OutDim, int64_t CacheSize, int64_t NumThreads){
     int m = Adj.size(0);
     int nnz = Adj._nnz();
     int** rawSchedule = generateVariableTileSizeScheduleGeMMSpMM(m,
                                                                              Adj.crow_indices().data_ptr<int>(),
                                                                              Adj.col_indices().data_ptr<int>(),
-                                                                             InDim, OutDim, CacheSize, sizeof(float));
+                                                                             InDim, OutDim, CacheSize, NumThreads, sizeof(float));
 
     int numKernels = 2;
     int *uFAp = new int[m + 1];

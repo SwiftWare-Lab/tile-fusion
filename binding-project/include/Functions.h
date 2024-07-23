@@ -34,7 +34,7 @@ struct VariableTile{
     }
 };
 
-int** generateVariableTileSizeScheduleGeMMSpMM(int M, int* Ap, int* Ai, int BCol, int CCol, int CacheSize,
+int** generateVariableTileSizeScheduleGeMMSpMM(int M, int* Ap, int* Ai, int BCol, int CCol, int CacheSize, int NumThreads,
                                                            int DataSize= 4);
 
 void createReorderedAdj(int M, int NNZ, int* Ap, int* Ai, float* Ax, int *LevelPtr, int *MixPtr, int *Id,

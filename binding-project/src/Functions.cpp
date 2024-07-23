@@ -5,7 +5,7 @@
 #include "Functions.h"
 
 int**
-generateVariableTileSizeScheduleGeMMSpMM(int M, int* Ap, int* Ai, int BCol, int CCol, int CacheSize,int DataSize){
+generateVariableTileSizeScheduleGeMMSpMM(int M, int* Ap, int* Ai, int BCol, int CCol, int CacheSize, int NumThreads,int DataSize){
     int minCacheSize = CacheSize;
     int INITIAL_TILE_SIZE = findInitialTileSize(BCol, CCol, minCacheSize, DataSize);
     if (INITIAL_TILE_SIZE == 0){
@@ -77,6 +77,7 @@ generateVariableTileSizeScheduleGeMMSpMM(int M, int* Ap, int* Ai, int BCol, int 
     std::sort(unfusedIters.begin(), unfusedIters.end());
     std::vector<int> ufPartPtr;
     int MIN_STRIDE = 16;
+    int maxStride = M / NumThreads;
     std::set<int> uniqueColumns;
     int nnzNum = 0;
     int uft = 0;
@@ -90,7 +91,7 @@ generateVariableTileSizeScheduleGeMMSpMM(int M, int* Ap, int* Ai, int BCol, int 
             ufTileSize += 1;
         }
         int workingSet = calculateWorkingSetSize(nnzNum, uniqueColumns.size(), CCol, ufTileSize, 0, DataSize);
-        if((workingSet < CacheSize) || (ufTileSize == 1)){
+        if(((workingSet < CacheSize) || (ufTileSize == 1)) && ufTileSize < maxStride){
             uft += MIN_STRIDE;
         }
         else{
