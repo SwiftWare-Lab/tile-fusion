@@ -29,3 +29,21 @@ class FusedGCNLayer(torch.nn.Module):
         x = self.forward_fn(self.adj, self.ro_adj, x, self.weight, self.schedule, self.num_threads)
         # print(x)
         return x
+
+
+class FirstLayerGCNCached(torch.nn.Module):
+
+    def __init__(self, feat_dim, embed_dim, m_tile_size, adj, feature, num_threads):
+        super(FirstLayerGCNCached, self).__init__()
+        self.weight = torch.nn.Parameter(
+            torch.FloatTensor(embed_dim, feat_dim))
+        torch.nn.init.xavier_uniform_(self.weight)
+        self.af = torch.matmul(adj, feature)
+        # print(schedule)
+        self.num_threads = num_threads
+        self.forward_fn = torch.ops.sw_gcn.cachedSpMMGeMM
+
+    def forward(self, x):
+        x = self.forward_fn(self.af, self.weight, self.num_threads)
+        # print(x)
+        return x

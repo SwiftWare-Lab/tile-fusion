@@ -90,11 +90,22 @@ public:
              torch::autograd::tensor_list GradOutputs);
 };
 
-class FusedGeMMSpMMROAdjCaching: public torch::autograd::Function<FusedGeMMSpMMROAdj>{
+class SGForwardFusedGSBackward: public torch::autograd::Function<SGForwardFusedGSBackward>{
 public:
     static torch::Tensor forward(torch::autograd::AutogradContext *Ctx,
                                  torch::Tensor Adj, torch::Tensor ROAdj, torch::Tensor Feature, torch::Tensor Weight,
                                  torch::Tensor LevelPtr, torch::Tensor MixPtr, torch::Tensor Partition,
+                                 int64_t NumThreads);
+
+    static torch::autograd::tensor_list
+    backward(torch::autograd::AutogradContext *Ctx,
+             torch::autograd::tensor_list GradOutputs);
+};
+
+class ForwardCachingAF: public torch::autograd::Function<ForwardCachingAF>{
+public:
+    static torch::Tensor forward(torch::autograd::AutogradContext *Ctx,
+                                 torch::Tensor AF, torch::Tensor Weight,
                                  int64_t NumThreads);
 
     static torch::autograd::tensor_list

@@ -127,6 +127,7 @@ with open(mat_file_path) as mat_file:
             embed_dim=args.hidden_channels,
             num_classes=num_classes,
             adj=adj,
+            feature=feature,
             num_threads=args.threads,
         ).to(device)
         optimizer = torch.optim.Adam([

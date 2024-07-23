@@ -878,10 +878,10 @@ FusedGeMMSpMM::backward(torch::autograd::AutogradContext *Ctx,
     return {undef, grad_input, grad_weight, undef, undef, undef, undef};
 }
 
-torch::Tensor FusedGeMMSpMMROAdjCaching::forward(torch::autograd::AutogradContext *Ctx,
-                                          torch::Tensor Adj, torch::Tensor ROAdj, torch::Tensor Feature, torch::Tensor Weight,
-                                          torch::Tensor LevelPtr, torch::Tensor MixPtr, torch::Tensor L2Ptr,
-                                          int64_t NumThreads) {
+torch::Tensor SGForwardFusedGSBackward::forward(torch::autograd::AutogradContext *Ctx,
+                                                torch::Tensor Adj, torch::Tensor ROAdj, torch::Tensor Feature, torch::Tensor Weight,
+                                                torch::Tensor LevelPtr, torch::Tensor MixPtr, torch::Tensor L2Ptr,
+                                                int64_t NumThreads) {
     mkl_set_num_threads(NumThreads);
     sparse_matrix_t MKLAdj;
     matrix_descr d;
@@ -917,8 +917,8 @@ torch::Tensor FusedGeMMSpMMROAdjCaching::forward(torch::autograd::AutogradContex
 }
 
 torch::autograd::tensor_list
-FusedGeMMSpMMROAdjCaching::backward(torch::autograd::AutogradContext *Ctx,
-                             torch::autograd::tensor_list GradOutputs) {
+SGForwardFusedGSBackward::backward(torch::autograd::AutogradContext *Ctx,
+                                   torch::autograd::tensor_list GradOutputs) {
     sparse_matrix_t MKLAdj;
     matrix_descr d;
     d.type = SPARSE_MATRIX_TYPE_GENERAL;
@@ -972,4 +972,58 @@ FusedGeMMSpMMROAdjCaching::backward(torch::autograd::AutogradContext *Ctx,
     }
     at::Tensor undef;
     return {undef, undef, grad_input, grad_weight, undef, undef, undef, undef};
+}
+
+
+torch::Tensor ForwardCachingAF::forward(torch::autograd::AutogradContext *Ctx,
+                                                torch::Tensor AF,torch::Tensor Weight,
+                                                int64_t NumThreads) {
+    mkl_set_num_threads(NumThreads);
+    sparse_matrix_t MKLAdj;
+    matrix_descr d;
+    d.type = SPARSE_MATRIX_TYPE_GENERAL;
+    float* weightRaw = Weight.data_ptr<float>();
+    float* afRaw = AF.data_ptr<float>();
+    float *out = new float[AF.size(0) * Weight.size(0)]{};
+    cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, AF.size(0),
+                Weight.size(0), AF.size(1), 1., afRaw,
+                AF.size(1), weightRaw, Weight.size(1), 0.,
+                out, Weight.size(0));
+    mkl_free(MKLAdj);
+    Ctx->save_for_backward({AF});
+    Ctx->saved_data["num_threads"] = NumThreads;
+    return torch::from_blob(
+            out, {AF.size(0), Weight.size(0)},
+            [](void *ptr) { delete[] static_cast<float *>(ptr); }, torch::kFloat32);
+}
+
+torch::autograd::tensor_list
+ForwardCachingAF::backward(torch::autograd::AutogradContext *Ctx,
+                                   torch::autograd::tensor_list GradOutputs) {
+    sparse_matrix_t MKLAdj;
+    matrix_descr d;
+    d.type = SPARSE_MATRIX_TYPE_GENERAL;
+    auto saved = Ctx->get_saved_variables();
+    int threadNum = Ctx->saved_data["num_threads"].toInt();
+    auto afRes = saved[0];
+    auto grad_output = GradOutputs[0];
+    float *grad_output_raw = grad_output.data_ptr<float>();
+    float *af_raw = afRes.data_ptr<float>();
+    torch::Tensor grad_weight;
+    if (Ctx->needs_input_grad(1)){
+        float *grad_weight_raw = new float[grad_output.size(1) * afRes.size(1)]{};
+        mkl_set_num_threads(threadNum);
+        cblas_sgemm(CblasRowMajor, CblasTrans, CblasNoTrans, grad_output.size(1),
+                    afRes.size(1), afRes.size(0), 1., grad_output_raw,
+                    grad_output.size(1), af_raw, afRes.size(1), 0.,
+                    grad_weight_raw, afRes.size(1));
+        //      t1.stop();
+        //      std::cout <<  "GeMMSpMM_BWW_TiledFused" << "," << "mat_name" << "," << t1.printTimeCsv(0) << std::endl;
+        mkl_free(MKLAdj);
+        grad_weight = torch::from_blob(
+                grad_weight_raw, {grad_output.size(1), afRes.size(1)},
+                [](void *ptr) { delete[] static_cast<float *>(ptr); }, torch::kFloat32);
+    }
+    at::Tensor undef;
+    return {undef, grad_weight, undef};
 }
