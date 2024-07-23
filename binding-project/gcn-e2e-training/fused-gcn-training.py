@@ -48,7 +48,7 @@ def convert_scipy_coo_to_torch_csr(coo):
     crow_indices = torch.tensor(adj_cs.indptr, dtype=torch.int32)
     col_indices = torch.tensor(adj_cs.indices, dtype=torch.int32)
     values = torch.tensor(adj_cs.data, dtype=torch.float32)
-    adj = torch.sparse_csr_tensor(crow_indices, col_indices, values)
+    adj = torch.sparse_csr_tensor(crow_indices, col_indices, values, size=(coo.shape[0], coo.shape[1]))
     # print(adj)
     return adj
 
