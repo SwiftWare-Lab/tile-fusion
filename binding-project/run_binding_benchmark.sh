@@ -51,7 +51,8 @@ make -j 16
 
 cd ..
 
-
+export MKL_DYNAMIC=FALSE;
+export OMP_DYNAMIC=FALSE;
 
 
 HEADER=1
