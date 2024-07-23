@@ -978,7 +978,7 @@ torch::Tensor SGForwardFusedGSBackward::forward(torch::autograd::AutogradContext
                                                 torch::Tensor Adj, torch::Tensor ROAdj, torch::Tensor Feature, torch::Tensor Weight,
                                                 torch::Tensor LevelPtr, torch::Tensor MixPtr, torch::Tensor L2Ptr,
                                                 int64_t NumThreads) {
-    mkl_set_num_threads(NumThreads);
+//    mkl_set_num_threads(NumThreads);
     sparse_matrix_t MKLAdj;
     matrix_descr d;
     d.type = SPARSE_MATRIX_TYPE_GENERAL;
@@ -1034,7 +1034,7 @@ SGForwardFusedGSBackward::backward(torch::autograd::AutogradContext *Ctx,
     float *grad_output_raw = grad_output.data_ptr<float>();
     torch::Tensor grad_input;
     if (Ctx->needs_input_grad(2)) {
-        mkl_set_num_threads(1);
+//        mkl_set_num_threads(1);
         float *weight_raw = weight.data_ptr<float>();
         float *grad_input_raw = new float[roAdj.size(0) * weight.size(1)]{};
         //      swiftware::benchmark::Timer t1;
@@ -1054,14 +1054,14 @@ SGForwardFusedGSBackward::backward(torch::autograd::AutogradContext *Ctx,
     torch::Tensor grad_weight;
     if (Ctx->needs_input_grad(3)){
         float *grad_weight_raw = new float[grad_output.size(1) * intermediateRes.size(1)]{};
-        mkl_set_num_threads(threadNum);
+//        mkl_set_num_threads(threadNum);
         cblas_sgemm(CblasRowMajor, CblasTrans, CblasNoTrans, grad_output.size(1),
                     intermediateRes.size(1), intermediateRes.size(0), 1., grad_output_raw,
                     grad_output.size(1), intermediateRes.data_ptr<float>(), intermediateRes.size(1), 0.,
                     grad_weight_raw, intermediateRes.size(1));
         //      t1.stop();
         //      std::cout <<  "GeMMSpMM_BWW_TiledFused" << "," << "mat_name" << "," << t1.printTimeCsv(0) << std::endl;
-        mkl_free(MKLAdj);
+//        mkl_free(MKLAdj);
         grad_weight = torch::from_blob(
                 grad_weight_raw, {grad_output.size(1), intermediateRes.size(1)},
                 [](void *ptr) { delete[] static_cast<float *>(ptr); }, torch::kFloat32);
@@ -1074,7 +1074,7 @@ SGForwardFusedGSBackward::backward(torch::autograd::AutogradContext *Ctx,
 torch::Tensor ForwardCachingAF::forward(torch::autograd::AutogradContext *Ctx,
                                                 torch::Tensor AF,torch::Tensor Weight,
                                                 int64_t NumThreads) {
-    mkl_set_num_threads(NumThreads);
+//    mkl_set_num_threads(NumThreads);
     sparse_matrix_t MKLAdj;
     matrix_descr d;
     d.type = SPARSE_MATRIX_TYPE_GENERAL;
@@ -1108,7 +1108,7 @@ ForwardCachingAF::backward(torch::autograd::AutogradContext *Ctx,
     torch::Tensor grad_weight;
     if (Ctx->needs_input_grad(1)){
         float *grad_weight_raw = new float[grad_output.size(1) * afRes.size(1)]{};
-        mkl_set_num_threads(threadNum);
+//        mkl_set_num_threads(threadNum);
         cblas_sgemm(CblasRowMajor, CblasTrans, CblasNoTrans, grad_output.size(1),
                     afRes.size(1), afRes.size(0), 1., grad_output_raw,
                     grad_output.size(1), af_raw, afRes.size(1), 0.,
