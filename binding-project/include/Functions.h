@@ -60,8 +60,19 @@ void
 registerReuseVectorizedSpMM(const int *Ap, const int *Ai, const float *Ax, const int OutputChannelDim, float *Output,
                             const int *L2Ptr, int residueStart, const float *intermediateResult, int kBeginL2,
                             int kEndL2);
+#ifdef AVX512
 
-void
+inline void
+PerfectSpatialLocalitySpMMAVX512OutDim32(const int *Ap, const int *Ai, const float *Ax, const int OutputChannelDim, float *Output,
+                           const int *L2Ptr, const float *intermediateResult, int kBeginL2,
+                           int kEndL2);
+inline void
+perfectSpatialLocalitySpMMAVX512OutDim64(const int *Ap, const int *Ai, const float *Ax, const int OutputChannelDim, float *Output,
+                                         const int *L2Ptr, const float *intermediateResult, int kBeginL2,
+                                         int kEndL2);
+#endif
+
+inline void
 perfectSpatialLocalitySpMM(const int *Ap, const int *Ai, const float *Ax, const int OutputChannelDim, float *Output,
                            const int *L2Ptr, int residueStart, const float *intermediateResult, int kBeginL2,
                            int kEndL2);

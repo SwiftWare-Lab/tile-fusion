@@ -229,63 +229,13 @@ void fusedGeMMSpMMReorderedAdjVectorizedTransposedWeight(
                         intermediateResult + kBeginL1 * OutputChannelDim, OutputChannelDim);
                 int kBeginL2 = MixPtr[j1 * numKernels + 1];
                 int kEndL2 = MixPtr[(j1+1) * numKernels + 1];
-                for (int k1 = kBeginL2; k1 < kEndL2; ++k1) {
-                    int i = L2Ptr[k1];
-                    int row = k1;
-                    for (int kk = 0; kk < residueStart; kk += 32) {
-                        int ip = i * OutputChannelDim;
-                        auto dxV1 = _mm256_loadu_ps(Output + ip + kk);
-                        auto dxV2 = _mm256_loadu_ps(Output + ip + kk + 8);
-                        auto dxV3 = _mm256_loadu_ps(Output + ip + kk + 16);
-                        auto dxV4 = _mm256_loadu_ps(Output + ip + kk + 24);
-                        int k = Ap[row];
-                        for (; k < Ap[row + 1]-1; k+=2) {
-                            int bij1 = Ai[k] * OutputChannelDim;
-                            int bij2 = Ai[k+1] * OutputChannelDim;
-                            auto bxV1 = _mm256_set1_ps(Ax[k]);
-                            auto bxV2 = _mm256_set1_ps(Ax[k+1]);
-                            auto acxV11 = _mm256_loadu_ps(intermediateResult + bij1 + kk);
-                            auto acxV12 = _mm256_loadu_ps(intermediateResult + bij1 + kk + 8);
-                            auto acxV13 = _mm256_loadu_ps(intermediateResult + bij1 + kk + 16);
-                            auto acxV14 = _mm256_loadu_ps(intermediateResult + bij1 + kk + 24);
-                            auto acxV21 = _mm256_loadu_ps(intermediateResult + bij2 + kk);
-                            auto acxV22 = _mm256_loadu_ps(intermediateResult + bij2 + kk + 8);
-                            auto acxV23 = _mm256_loadu_ps(intermediateResult + bij2 + kk + 16);
-                            auto acxV24 = _mm256_loadu_ps(intermediateResult + bij2 + kk + 24);
-                            dxV1 = _mm256_fmadd_ps(bxV1, acxV11, dxV1);
-                            dxV1 = _mm256_fmadd_ps(bxV2, acxV21, dxV1);
-                            dxV2 = _mm256_fmadd_ps(bxV1, acxV12, dxV2);
-                            dxV2 = _mm256_fmadd_ps(bxV2, acxV22, dxV2);
-                            dxV3 = _mm256_fmadd_ps(bxV1, acxV13, dxV3);
-                            dxV3 = _mm256_fmadd_ps(bxV2, acxV23, dxV3);
-                            dxV4 = _mm256_fmadd_ps(bxV1, acxV14, dxV4);
-                            dxV4 = _mm256_fmadd_ps(bxV2, acxV24, dxV4);
-                        }
-                        for (; k < Ap[row + 1]; ++k) {
-                            int bij = Ai[k] * OutputChannelDim;
-                            auto bxv0 = _mm256_set1_ps(Ax[k]);
-                            auto cxV11 = _mm256_loadu_ps(intermediateResult + bij + kk);
-                            auto cxV12 = _mm256_loadu_ps(intermediateResult + bij + kk + 8);
-                            auto cxV13 = _mm256_loadu_ps(intermediateResult + bij + kk + 16);
-                            auto cxV14 = _mm256_loadu_ps(intermediateResult + bij + kk + 24);
-                            dxV1 = _mm256_fmadd_ps(bxv0, cxV11, dxV1);
-                            dxV2 = _mm256_fmadd_ps(bxv0, cxV12, dxV2);
-                            dxV3 = _mm256_fmadd_ps(bxv0, cxV13, dxV3);
-                            dxV4 = _mm256_fmadd_ps(bxv0, cxV14, dxV4);
-                        }
-                        _mm256_storeu_ps(Output + ip + kk, dxV1);
-                        _mm256_storeu_ps(Output + ip + kk + 8, dxV2);
-                        _mm256_storeu_ps(Output + ip + kk + 16, dxV3);
-                        _mm256_storeu_ps(Output + ip + kk + 24, dxV4);
-                    }
-                    for (int k = Ap[row]; k < Ap[row + 1]; k++) {
-                        int ip = OutputChannelDim * i;
-                        for (int kk = residueStart; kk < OutputChannelDim; kk++) {
-                            Output[ip + kk] +=
-                                    Ax[k] * intermediateResult[Ai[k] * OutputChannelDim + kk];
-                        }
-                    }
-                }
+#ifdef AVX512
+                perfectSpatialLocalitySpMMAVX512OutDim64(Ap, Ai, Ax, OutputChannelDim, Output, L2Ptr, residueStart,
+                                           intermediateResult, kBeginL2, kEndL2);
+#else
+                perfectSpatialLocalitySpMM(Ap, Ai, Ax, OutputChannelDim, Output, L2Ptr, residueStart,
+                                           intermediateResult, kBeginL2, kEndL2);
+#endif
             }
         }
     }
@@ -319,15 +269,21 @@ void fusedGeMMSpMMReorderedAdjVectorized(
                         intermediateResult + kBeginL1 * OutputChannelDim, OutputChannelDim);
                 int kBeginL2 = MixPtr[j1 * numKernels + 1];
                 int kEndL2 = MixPtr[(j1+1) * numKernels + 1];
+
+#ifdef AVX512
+                perfectSpatialLocalitySpMMAVX512OutDim64(Ap, Ai, Ax, OutputChannelDim, Output, L2Ptr, residueStart,
+                                           intermediateResult, kBeginL2, kEndL2);
+#else
                 perfectSpatialLocalitySpMM(Ap, Ai, Ax, OutputChannelDim, Output, L2Ptr, residueStart,
-                                            intermediateResult, kBeginL2, kEndL2);
+                                           intermediateResult, kBeginL2, kEndL2);
+#endif
             }
         }
     }
     delete[] intermediateResult;
 }
 
-void
+inline void
 perfectSpatialLocalitySpMM(const int *Ap, const int *Ai, const float *Ax, const int OutputChannelDim, float *Output,
                             const int *L2Ptr, int residueStart, const float *intermediateResult, int kBeginL2,
                             int kEndL2) {
@@ -445,6 +401,145 @@ registerReuseVectorizedSpMM(const int *Ap, const int *Ai, const float *Ax, const
         }
     }
 }
+
+#ifdef AVX512
+
+inline void
+PerfectSpatialLocalitySpMMAVX512OutDim32(const int *Ap, const int *Ai, const float *Ax, const int OutputChannelDim, float *Output,
+                           const int *L2Ptr, const float *intermediateResult, int kBeginL2,
+                           int kEndL2) {
+    int residueStart = OutputChannelDim % 32;
+    for (int k1 = kBeginL2; k1 < kEndL2; ++k1) {
+        int i = L2Ptr[k1];
+        int ip = i * OutputChannelDim;
+        int row = k1;
+        int k = Ap[row];
+
+        for (; k < Ap[row + 1]-1; k+=2) {
+            auto bxV1 = _mm512_set1_ps(Ax[k]);
+            auto bxV2 = _mm512_set1_ps(Ax[k + 1]);
+            int bij1 = Ai[k] * OutputChannelDim;
+            int bij2 = Ai[k + 1] * OutputChannelDim;
+            for (int kk = 0; kk < residueStart; kk += 32) {
+                auto dxV1 = _mm512_loadu_ps(Output + ip + kk);
+                auto dxV2 = _mm512_loadu_ps(Output + ip + kk + 16);
+                auto acxV11 = _mm512_loadu_ps(intermediateResult + bij1 + kk);
+                auto acxV12 = _mm512_loadu_ps(intermediateResult + bij1 + kk + 16);
+                auto acxV21 = _mm512_loadu_ps(intermediateResult + bij2 + kk);
+                auto acxV22 = _mm512_loadu_ps(intermediateResult + bij2 + kk + 16);
+                dxV1 = _mm512_fmadd_ps(bxV1, acxV11, dxV1);
+                dxV1 = _mm512_fmadd_ps(bxV2, acxV21, dxV1);
+                dxV2 = _mm512_fmadd_ps(bxV1, acxV12, dxV2);
+                dxV2 = _mm512_fmadd_ps(bxV2, acxV22, dxV2);
+                _mm512_storeu_ps(Output + ip + kk, dxV1);
+                _mm512_storeu_ps(Output + ip + kk + 16, dxV2);
+            }
+            for (int kk = residueStart; kk < OutputChannelDim; kk++) {
+                Output[ip + kk] +=
+                        Ax[k] * intermediateResult[bij1 + kk];
+                Output[ip + kk] +=
+                        Ax[k+1] * intermediateResult[bij2 + kk];
+            }
+        }
+        for (; k < Ap[row + 1]; k+=1) {
+            auto bxV1 = _mm512_set1_ps(Ax[k]);
+            int bij1 = Ai[k] * OutputChannelDim;
+            for (int kk = 0; kk < residueStart; kk += 32) {
+                auto dxV1 = _mm512_loadu_ps(Output + ip + kk);
+                auto dxV2 = _mm512_loadu_ps(Output + ip + kk + 16);
+                auto acxV11 = _mm512_loadu_ps(intermediateResult + bij1 + kk);
+                auto acxV12 = _mm512_loadu_ps(intermediateResult + bij1 + kk + 16);
+                dxV1 = _mm512_fmadd_ps(bxV1, acxV11, dxV1);
+                dxV2 = _mm512_fmadd_ps(bxV1, acxV12, dxV2);
+                _mm512_storeu_ps(Output + ip + kk, dxV1);
+                _mm512_storeu_ps(Output + ip + kk + 16, dxV2);
+            }
+            for (int kk = residueStart; kk < OutputChannelDim; kk++) {
+                Output[ip + kk] +=
+                        Ax[k] * intermediateResult[bij1 + kk];
+            }
+        }
+    }
+}
+
+inline void
+perfectSpatialLocalitySpMMAVX512OutDim64(const int *Ap, const int *Ai, const float *Ax, const int OutputChannelDim, float *Output,
+                                         const int *L2Ptr, const float *intermediateResult, int kBeginL2,
+                                         int kEndL2) {
+    int residueStart = OutputChannelDim % 64;
+    for (int k1 = kBeginL2; k1 < kEndL2; ++k1) {
+        int i = L2Ptr[k1];
+        int ip = i * OutputChannelDim;
+        int row = k1;
+        int k = Ap[row];
+
+        for (; k < Ap[row + 1]-1; k+=2) {
+            auto bxV1 = _mm512_set1_ps(Ax[k]);
+            auto bxV2 = _mm512_set1_ps(Ax[k + 1]);
+            int bij1 = Ai[k] * OutputChannelDim;
+            int bij2 = Ai[k + 1] * OutputChannelDim;
+            for (int kk = 0; kk < residueStart; kk += 64) {
+                auto dxV1 = _mm512_loadu_ps(Output + ip + kk);
+                auto dxV2 = _mm512_loadu_ps(Output + ip + kk + 16);
+                auto dxV3 = _mm512_loadu_ps(Output + ip + kk + 32);
+                auto dxV4 = _mm512_loadu_ps(Output + ip + kk + 48);
+                auto acxV11 = _mm512_loadu_ps(intermediateResult + bij1 + kk);
+                auto acxV12 = _mm512_loadu_ps(intermediateResult + bij1 + kk + 16);
+                auto acxV13 = _mm512_loadu_ps(intermediateResult + bij1 + kk + 32);
+                auto acxV14 = _mm512_loadu_ps(intermediateResult + bij1 + kk + 48);
+                auto acxV21 = _mm512_loadu_ps(intermediateResult + bij2 + kk);
+                auto acxV22 = _mm512_loadu_ps(intermediateResult + bij2 + kk + 16);
+                auto acxV23 = _mm512_loadu_ps(intermediateResult + bij2 + kk + 32);
+                auto acxV24 = _mm512_loadu_ps(intermediateResult + bij2 + kk + 48);
+                dxV1 = _mm512_fmadd_ps(bxV1, acxV11, dxV1);
+                dxV1 = _mm512_fmadd_ps(bxV2, acxV21, dxV1);
+                dxV2 = _mm512_fmadd_ps(bxV1, acxV12, dxV2);
+                dxV2 = _mm512_fmadd_ps(bxV2, acxV22, dxV2);
+                dxV3 = _mm512_fmadd_ps(bxV1, acxV13, dxV3);
+                dxV3 = _mm512_fmadd_ps(bxV2, acxV23, dxV3);
+                dxV4 = _mm512_fmadd_ps(bxV1, acxV14, dxV4);
+                dxV4 = _mm512_fmadd_ps(bxV2, acxV24, dxV4);
+                _mm512_storeu_ps(Output + ip + kk, dxV1);
+                _mm512_storeu_ps(Output + ip + kk + 16, dxV2);
+                _mm512_storeu_ps(Output + ip + kk + 32, dxV3);
+                _mm512_storeu_ps(Output + ip + kk + 48, dxV4);
+            }
+            for (int kk = residueStart; kk < OutputChannelDim; kk++) {
+                Output[ip + kk] +=
+                        Ax[k] * intermediateResult[bij1 + kk];
+                Output[ip + kk] +=
+                        Ax[k+1] * intermediateResult[bij2 + kk];
+            }
+        }
+        for (; k < Ap[row + 1]; k+=1) {
+            auto bxV1 = _mm512_set1_ps(Ax[k]);
+            int bij1 = Ai[k] * OutputChannelDim;
+            for (int kk = 0; kk < residueStart; kk += 64) {
+                auto dxV1 = _mm512_loadu_ps(Output + ip + kk);
+                auto dxV2 = _mm512_loadu_ps(Output + ip + kk + 16);
+                auto dxV3 = _mm512_loadu_ps(Output + ip + kk + 32);
+                auto dxV4 = _mm512_loadu_ps(Output + ip + kk + 48);
+                auto acxV11 = _mm512_loadu_ps(intermediateResult + bij1 + kk);
+                auto acxV12 = _mm512_loadu_ps(intermediateResult + bij1 + kk + 16);
+                auto acxV13 = _mm512_loadu_ps(intermediateResult + bij1 + kk + 32);
+                auto acxV14 = _mm512_loadu_ps(intermediateResult + bij1 + kk + 48);
+                dxV1 = _mm512_fmadd_ps(bxV1, acxV11, dxV1);
+                dxV2 = _mm512_fmadd_ps(bxV1, acxV12, dxV2);
+                dxV3 = _mm512_fmadd_ps(bxV1, acxV13, dxV3);
+                dxV4 = _mm512_fmadd_ps(bxV1, acxV14, dxV4);
+                _mm512_storeu_ps(Output + ip + kk, dxV1);
+                _mm512_storeu_ps(Output + ip + kk + 16, dxV2);
+                _mm512_storeu_ps(Output + ip + kk + 32, dxV3);
+                _mm512_storeu_ps(Output + ip + kk + 48, dxV4);
+            }
+            for (int kk = residueStart; kk < OutputChannelDim; kk++) {
+                Output[ip + kk] +=
+                        Ax[k] * intermediateResult[bij1 + kk];
+            }
+        }
+    }
+}
+#endif
 
 std::vector<int*> createSchedule(int32_t* Ap, int32_t* Ai, int64_t ARows, int64_t MTileSize){
     int *levelPtr;
