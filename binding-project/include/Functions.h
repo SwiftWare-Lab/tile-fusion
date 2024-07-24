@@ -56,6 +56,10 @@ void fusedMKLGeMMSpMMTransposedWeight(
         int M, int *Ap, int *Ai, float *Ax, int InputChannelDim,
         int OutputChannelDim, float *Features, float *Weight, float *Output,
         int NumThreads, int LevelNo, const int *LevelPtr, const int *MixPtr, const int *Partition);
+
+void spMMTiled(int M, int *Ap, int *Ai, float *Ax, int N,
+               float *B, float *Output,
+               int NumThreads, const int *LevelPtr, const int *MixPtr);
 void
 registerReuseVectorizedSpMM(const int *Ap, const int *Ai, const float *Ax, const int OutputChannelDim, float *Output,
                             const int *L2Ptr, int residueStart, const float *intermediateResult, int kBeginL2,
@@ -80,7 +84,7 @@ perfectSpatialLocalitySpMM(const int *Ap, const int *Ai, const float *Ax, const 
 class FusedGeMMSpMMROAdj: public torch::autograd::Function<FusedGeMMSpMMROAdj>{
 public:
     static torch::Tensor forward(torch::autograd::AutogradContext *Ctx,
-                                 torch::Tensor Adj, torch::Tensor ROAdj, torch::Tensor Feature, torch::Tensor Weight,
+                                 torch::Tensor Adj, torch::Tensor Feature, torch::Tensor Weight,
                                  torch::Tensor LevelPtr, torch::Tensor MixPtr, torch::Tensor Partition,
                                  int64_t NumThreads);
 
@@ -104,7 +108,7 @@ public:
 class SGForwardFusedGSBackward: public torch::autograd::Function<SGForwardFusedGSBackward>{
 public:
     static torch::Tensor forward(torch::autograd::AutogradContext *Ctx,
-                                 torch::Tensor Adj, torch::Tensor ROAdj, torch::Tensor Feature, torch::Tensor Weight,
+                                 torch::Tensor Adj, torch::Tensor Feature, torch::Tensor Weight,
                                  torch::Tensor LevelPtr, torch::Tensor MixPtr, torch::Tensor Partition,
                                  int64_t NumThreads);
 

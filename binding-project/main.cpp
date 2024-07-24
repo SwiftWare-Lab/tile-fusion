@@ -16,10 +16,10 @@ torch::Tensor fusedGeMMSpMM(torch::Tensor Adj, torch::Tensor Feature,
                                     torch::Tensor Weight, std::vector<torch::Tensor> Schedule,
                                     int64_t NumThreads);
 
-torch::Tensor fusedGeMMSpMM_vt_ro(torch::Tensor Adj, torch::Tensor ROAdj, torch::Tensor Feature,
+torch::Tensor fusedGeMMSpMM_vt_ro(torch::Tensor Adj, torch::Tensor Feature,
                                  torch::Tensor Weight, std::vector<torch::Tensor> Schedule,
                                  int64_t NumThreads);
-torch::Tensor geMMSpMMFusedBackward(torch::Tensor Adj, torch::Tensor ROAdj, torch::Tensor Feature,
+torch::Tensor geMMSpMMFusedBackward(torch::Tensor Adj, torch::Tensor Feature,
                                     torch::Tensor Weight, std::vector<torch::Tensor> Schedule,
                                     int64_t NumThreads);
 torch::Tensor cachedSpMMGeMM(torch::Tensor AF, torch::Tensor Weight, int64_t NumThreads);
@@ -50,26 +50,29 @@ std::vector<torch::Tensor> inspect_vt_ro(torch::Tensor Adj, int64_t InDim, int64
                                                                              InDim, OutDim, CacheSize, NumThreads, sizeof(float));
 
     int numKernels = 2;
-    int *uFAp = new int[m + 1];
-    int *uFAi = new int[nnz];
-    float *uFAx = new float[nnz];
-    int* l2Ptr = new int[m];
+//    int *uFAp = new int[m + 1];
+//    int *uFAi = new int[nnz];
+//    float *uFAx = new float[nnz];
+//    int* l2Ptr = new int[m];
     int* levelPtr = rawSchedule[0];
-    int newMixPtrSize = (levelPtr[numKernels] + 1) * numKernels;
-    int* newMixPtr = new int[newMixPtrSize];
-    createReorderedAdj(Adj.size(0), nnz, Adj.crow_indices().data_ptr<int>(),
-                       Adj.col_indices().data_ptr<int>(), Adj.values().data_ptr<float>(), levelPtr,
-                       rawSchedule[1], rawSchedule[2], uFAp, uFAi, uFAx, newMixPtr, l2Ptr);
-    delete[] rawSchedule[1];
-    delete[] rawSchedule[2];
-    auto uFApTensor = torch::from_blob(uFAp, {m+1}, [](void *Ptr) { delete[] static_cast<int32_t *>(Ptr); }, torch::kInt32);
-    auto uFAiTensor = torch::from_blob(uFAi, {nnz}, [](void *Ptr) { delete[] static_cast<int32_t *>(Ptr); }, torch::kInt32);
-    auto uFAxTensor = torch::from_blob(uFAx, {nnz}, [](void *Ptr) { delete[] static_cast<float *>(Ptr); }, torch::kFloat32);
+    int* mixPtr = rawSchedule[1];
+    int* id = rawSchedule[2];
+    int mixPtrSize = levelPtr[2] * 2 + 2;
+//    int newMixPtrSize = (levelPtr[numKernels] + 1) * numKernels;
+//    int* newMixPtr = new int[newMixPtrSize];
+//    createReorderedAdj(Adj.size(0), nnz, Adj.crow_indices().data_ptr<int>(),
+//                       Adj.col_indices().data_ptr<int>(), Adj.values().data_ptr<float>(), levelPtr,
+//                       rawSchedule[1], rawSchedule[2], uFAp, uFAi, uFAx, newMixPtr, l2Ptr);
+//    delete[] rawSchedule[1];
+//    delete[] rawSchedule[2];
+//    auto uFApTensor = torch::from_blob(uFAp, {m+1}, [](void *Ptr) { delete[] static_cast<int32_t *>(Ptr); }, torch::kInt32);
+//    auto uFAiTensor = torch::from_blob(uFAi, {nnz}, [](void *Ptr) { delete[] static_cast<int32_t *>(Ptr); }, torch::kInt32);
+//    auto uFAxTensor = torch::from_blob(uFAx, {nnz}, [](void *Ptr) { delete[] static_cast<float *>(Ptr); }, torch::kFloat32);
 //    auto adjTensor = torch::sparse_csr_tensor(uFApTensor, uFAiTensor, uFAxTensor, torch::kFloat32);
     auto levelPtrTensor = torch::from_blob(levelPtr, {3}, [](void *Ptr) { delete[] static_cast<int32_t *>(Ptr); }, torch::kInt32);
-    auto mixPtrTensor = torch::from_blob(newMixPtr, {newMixPtrSize}, [](void *Ptr) { delete[] static_cast<int32_t *>(Ptr); }, torch::kInt32);
-    auto l2PtrTensor = torch::from_blob(l2Ptr, {m}, [](void *Ptr) { delete[] static_cast<int32_t *>(Ptr); }, torch::kInt32);
-    return {uFApTensor, uFAiTensor, uFAxTensor, levelPtrTensor, mixPtrTensor, l2PtrTensor};
+    auto mixPtrTensor = torch::from_blob(mixPtr, {mixPtrSize}, [](void *Ptr) { delete[] static_cast<int32_t *>(Ptr); }, torch::kInt32);
+    auto l2PtrTensor = torch::from_blob(id, {m}, [](void *Ptr) { delete[] static_cast<int32_t *>(Ptr); }, torch::kInt32);
+    return {levelPtrTensor, mixPtrTensor, l2PtrTensor};
 }
 
 std::vector<torch::Tensor> executeFusedGeMMSpMM(torch::Tensor Adj, torch::Tensor Weight, torch::Tensor Feature,
@@ -103,16 +106,16 @@ torch::Tensor fusedGeMMSpMM(torch::Tensor Adj, torch::Tensor Feature,
     return FusedGeMMSpMM::apply(Adj, Feature, Weight, Schedule[0], Schedule[1], Schedule[2], NumThreads);
 }
 
-torch::Tensor fusedGeMMSpMM_vt_ro(torch::Tensor Adj, torch::Tensor ROAdj, torch::Tensor Feature,
+torch::Tensor fusedGeMMSpMM_vt_ro(torch::Tensor Adj, torch::Tensor Feature,
                                  torch::Tensor Weight, std::vector<torch::Tensor> Schedule,
                                  int64_t NumThreads){
-    return FusedGeMMSpMMROAdj::apply(Adj, ROAdj, Feature, Weight, Schedule[0], Schedule[1], Schedule[2], NumThreads);
+    return FusedGeMMSpMMROAdj::apply(Adj, Feature, Weight, Schedule[0], Schedule[1], Schedule[2], NumThreads);
 }
 
-torch::Tensor geMMSpMMFusedBackward(torch::Tensor Adj, torch::Tensor ROAdj, torch::Tensor Feature,
+torch::Tensor geMMSpMMFusedBackward(torch::Tensor Adj, torch::Tensor Feature,
                                    torch::Tensor Weight, std::vector<torch::Tensor> Schedule,
                                    int64_t NumThreads){
-    return SGForwardFusedGSBackward::apply(Adj, ROAdj, Feature, Weight, Schedule[0], Schedule[1], Schedule[2], NumThreads);
+    return SGForwardFusedGSBackward::apply(Adj, Feature, Weight, Schedule[0], Schedule[1], Schedule[2], NumThreads);
 }
 
 torch::Tensor cachedSpMMGeMM(torch::Tensor AF, torch::Tensor Weight, int64_t NumThreads){
