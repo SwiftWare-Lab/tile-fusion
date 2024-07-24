@@ -56,9 +56,11 @@ def train():
     model.train()
     optimizer.zero_grad()
     out = model(feature)
+    # print("forward")
     # print(out)
     loss = F.cross_entropy(out[train_mask], labels[train_mask])
     loss.backward()
+    # print("backward")
     optimizer.step()
     return float(loss)
 

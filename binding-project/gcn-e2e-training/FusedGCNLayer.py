@@ -14,6 +14,7 @@ class FusedGCNLayer(torch.nn.Module):
         # print(adj._nnz())
         # print(adj.size(0))
         self.adj = adj
+        # print(adj)
         if (feat_dim > embed_dim):
             self.schedule = torch.ops.sw_gcn.inspect_vt_ro(adj, feat_dim, embed_dim, 1250000, num_threads)
             self.forward_fn = torch.ops.sw_gcn.fusedGeMMSpMM_vt_ro
