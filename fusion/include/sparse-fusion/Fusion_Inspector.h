@@ -670,7 +670,7 @@ public:
     int *ai = ACsr->i;
     int *ap = ACsr->p;
     int INITIAL_TILE_SIZE = 4096;
-    int minMaxTileSize = ACsr->m / Sp._num_threads;
+    int minMaxTileSize = ACsr->m / (2 * Sp._num_threads);
     int initialTileSize = std::min(INITIAL_TILE_SIZE, minMaxTileSize);
     int extraIters = ACsr->m % initialTileSize;
     int extraRemoved = 0;
