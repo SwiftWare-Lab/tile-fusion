@@ -670,7 +670,8 @@ public:
     int *ai = ACsr->i;
     int *ap = ACsr->p;
     int INITIAL_TILE_SIZE = 4096;
-    int initialTileSize = std::min(INITIAL_TILE_SIZE,int(ACsr->m));
+    int minMaxTileSize = ACsr->m / Sp._num_threads;
+    int initialTileSize = std::min(INITIAL_TILE_SIZE, minMaxTileSize);
     int extraIters = ACsr->m % initialTileSize;
     int extraRemoved = 0;
     int numOfTiles = ACsr->m / initialTileSize;
@@ -757,7 +758,7 @@ public:
         ufTileSize += 1;
       }
       int workingSet = calculateWorkingSetSize(nnzNum, uniqueColumns.size(), BCol, ufTileSize, 0, DataSize);
-      if((workingSet < CACHE_SIZE) || (ufTileSize == 1)){
+      if(((workingSet < CACHE_SIZE) || (ufTileSize == 1)) and (ufTileSize + MIN_STRIDE < minMaxTileSize)){
         uft += MIN_STRIDE;
       }
       else{
