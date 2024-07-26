@@ -54,7 +54,7 @@ if [ $EXP == "spmm_spmm" ]; then
 elif [ $EXP == "spmm_spmm_sp" ]; then
   BINFILE="spmm_spmm_fusion_sp"
   BINPATH="./build/example/"
-#  MODE=5
+  MODE=6
 elif [ $EXP == "spmv_spmv" ]; then
   BINPATH="./build/spmv-spmv/"
   BINFILE="spmv_spmv_demo"
