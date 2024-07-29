@@ -62,6 +62,7 @@ elif [ $EXP == "gemm_spmm" ]; then
 elif [ $EXP == "gemm_spmm_sp" ]; then
   BINFILE="gcn_layer_sp_demo"
   BINPATH="./build/gcn/"
+  MODE=6
 elif [ $EXP == "spmv_spmv" ]; then
   BINPATH="./build/spmv-spmv/"
   BINFILE="spmv_spmv_demo"
