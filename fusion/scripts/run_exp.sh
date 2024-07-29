@@ -126,15 +126,15 @@ if [ "$TUNED" ==  6 ]; then
 #        fi
       echo "for $line $BCOL $ntile "
       if [ $header -eq 1 ]; then
-        $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -ah -bc $BCOL -ip $ntile -tm -1 -tn 32 > $OUTPUT_FILE
+        $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -ah -bc $BCOL -ip $ntile -tm -1 -tn 32 -ed $BCOL > $OUTPUT_FILE
         header=0
       else
-        $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -bc $BCOL -ip $ntile -tm -1 -tn 32 >> $OUTPUT_FILE
+        $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -bc $BCOL -ip $ntile -tm -1 -tn 32 -ed $BCOL >> $OUTPUT_FILE
       fi
       done
       for csize in {60000,100000,500000,1000000,1280000,1500000}; do
         echo "for $line $BCOL $csize"
-         $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -bc $BCOL -ip $ntile -tm $csize -tn 32 >> $OUTPUT_FILE
+         $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -bc $BCOL -ip $ntile -tm $csize -tn 32 -ed $BCOL >> $OUTPUT_FILE
         done
 #    done
   done < ${MATLIST}
