@@ -1,7 +1,7 @@
 import dgl.data as datasets
 import os
 import scipy.sparse as sp
-from scipy.sparse import csr_matrix
+from scipy.sparse import coo_matrix
 from scipy.io import mmwrite
 from scipy.sparse.csgraph import reverse_cuthill_mckee
 from torch_sparse import coalesce
@@ -59,8 +59,7 @@ for dataset in datasets:
             src_start_idx = node_type_start_idx[src_type]
             dst_start_idx = node_type_start_idx[dst_type]
             adj_coo = adj_coo.coo()
-            coo = coalesce(adj_coo, None, num_nodes[src_type], num_nodes[src_type])
-            coo = coo[0]
+            coo = coo_matrix(adj_coo, shape=(num_nodes[src_type], num_nodes[src_type]))
             # Insert the adjacency matrix into the block matrix
             block_matrix[src_start_idx:src_start_idx+num_nodes[src_type],
             dst_start_idx:dst_start_idx+num_nodes[dst_type]] = coo.toarray()
