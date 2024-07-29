@@ -113,3 +113,31 @@ if [ "$TUNED" == 5 ]; then
   fi
 
 # shellcheck disable=SC2039
+if [ "$TUNED" ==  6 ]; then
+  while read line; do
+    mat=$line
+    # shellcheck disable=SC2039
+#    for w in {100,1000,5000,10000,500000}; do
+      k=4
+#      for ntile in {15000,32000,100000,500000,1000000,2600000}; do
+        for ntile in {16,32,64,128,256,512,1024,2048}; do
+#        if [ $ntile -gt $BCOL ]; then/
+#          continue
+#        fi
+      echo "for $line $BCOL $ntile "
+      if [ $header -eq 1 ]; then
+        $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -ah -bc $BCOL -ip $ntile -tm -1 -tn 32 > $OUTPUT_FILE
+        header=0
+      else
+        $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -bc $BCOL -ip $ntile -tm -1 -tn 32 >> $OUTPUT_FILE
+      fi
+      done
+      for csize in {60000,100000,500000,1000000,1280000,1500000}; do
+        echo "for $line $BCOL $csize"
+         $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -bc $BCOL -ip $ntile -tm $csize -tn 32 >> $OUTPUT_FILE
+        done
+#    done
+  done < ${MATLIST}
+fi
+
+# shellcheck disable=SC2039

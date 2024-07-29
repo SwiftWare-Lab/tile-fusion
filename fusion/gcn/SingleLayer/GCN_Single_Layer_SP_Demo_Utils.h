@@ -108,6 +108,7 @@ protected:
 //    this->St->OtherStats["Min Workload Size"] = {10.};
     this->St->OtherStats["Tile Size Mean"] = {0.};
     this->St->OtherStats["Tile Size STD"] = {0.};
+    this->St->OtherStats["NumPartitions"] = {0};
   }
 
   bool verify(double &Error) override {

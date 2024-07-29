@@ -74,7 +74,6 @@ int main(const int argc, const char *argv[]) {
   delete stats;
   delete gcnSingleLayerMkl;
   delete layer1Weight;
-
 //  stats = new swiftware::benchmark::Stats("GCN_SingleLayer_TACO", "GCN", 7,
 //                                          tp._matrix_name, numThread);
 //  stats->OtherStats["PackingType"] = {Separated};
@@ -124,65 +123,92 @@ int main(const int argc, const char *argv[]) {
   delete stats;
   delete gcnSingleLayerUnFused;
 
-  stats = new swiftware::benchmark::Stats("GCN_SingleLayer_FusedSeperated", "GCN", 7,
-                                          tp._matrix_name, numThread);
-  stats->OtherStats["PackingType"] = {Separated};
-  GCNSingleLayerSparseFusedParallelWithGeMM_SP *gcnSingleLayerSparseFusedSeparated =
-      new GCNSingleLayerSparseFusedParallelWithGeMM_SP(inputs, stats, sp);
-  gcnSingleLayerSparseFusedSeparated->run();
-  auto gcnSingleLayerSparseFusedSeparatedStat = gcnSingleLayerSparseFusedSeparated->printStats();
-  delete stats;
-  delete gcnSingleLayerSparseFusedSeparated;
 
-  stats = new swiftware::benchmark::Stats("GCN_SingleLayer_FusedSeperated_VT", "GCN", 7,
-                                          tp._matrix_name, numThread);
-  stats->OtherStats["PackingType"] = {Separated};
-  GCNSingleLayerSparseFusedParallelVTWithGeMM_SP *gcnSingleLayerSparseFusedSeparatedVT =
-      new GCNSingleLayerSparseFusedParallelVTWithGeMM_SP(inputs, stats, sp);
-  gcnSingleLayerSparseFusedSeparatedVT->run();
-  auto gcnSingleLayerSparseFusedSeparatedVTStat = gcnSingleLayerSparseFusedSeparatedVT->printStats();
-  delete stats;
-  delete gcnSingleLayerSparseFusedSeparatedVT;
+  auto csvInfo = sp.print_csv(true);
+  std::string spHeader = std::get<0>(csvInfo);
+  std::string spStat = std::get<1>(csvInfo);
 
-//  stats = new swiftware::benchmark::Stats("GCN_SingleLayer_FusedSeperated_P2PThreading", "GCN", 7,
-//                                          tp._matrix_name, numThread);
-//  stats->OtherStats["PackingType"] = {Separated};
-//  GCNSingleLayerSparseFusedP2PThreadWithGeMM_SP *gcnSingleLayerSparseFusedSeparatedP2P =
-//      new GCNSingleLayerSparseFusedP2PThreadWithGeMM_SP(inputs, stats, sp);
-//  gcnSingleLayerSparseFusedSeparatedP2P->run();
-//  auto gcnSingleLayerSparseFusedSeparatedP2PStat = gcnSingleLayerSparseFusedSeparatedP2P->printStats();
-//  delete stats;
-//  delete gcnSingleLayerSparseFusedSeparatedP2P;
+  auto tpCsv = tp.print_csv(true);
+  std::string tpHeader = std::get<0>(tpCsv);
+  std::string tpStat = std::get<1>(tpCsv);
 
-  stats = new swiftware::benchmark::Stats("GCN_SingleLayer_FusedSeperated_ReorderedUnfused", "GCN", 7,
-                                          tp._matrix_name, numThread);
-  stats->OtherStats["PackingType"] = {Separated};
-  GCNSingleLayerSparseFusedReorderedUnfusedWithGeMM_SP *gcnSingleLayerSparseFusedSeparatedROUF =
-      new GCNSingleLayerSparseFusedReorderedUnfusedWithGeMM_SP(inputs, stats, sp);
-  gcnSingleLayerSparseFusedSeparatedROUF->run();
-  auto gcnSingleLayerSparseFusedSeparatedROUFStat = gcnSingleLayerSparseFusedSeparatedROUF->printStats();
-  delete stats;
-  delete gcnSingleLayerSparseFusedSeparatedROUF;
+  if (tp.print_header)
+    std::cout << headerStat + spHeader + tpHeader << std::endl;
 
-  stats = new swiftware::benchmark::Stats("GCN_SingleLayer_FusedSeperated_ReorderedAdj", "GCN", 7,
-                                          tp._matrix_name, numThread);
-  stats->OtherStats["PackingType"] = {Separated};
-  GCNSingleLayerSparseFusedReorderedAdjWithGeMM_SP *gcnSingleLayerSparseFusedSeparatedROAdj =
-      new GCNSingleLayerSparseFusedReorderedAdjWithGeMM_SP(inputs, stats, sp);
-  gcnSingleLayerSparseFusedSeparatedROAdj->run();
-  auto gcnSingleLayerSparseFusedSeparatedROAdjStat = gcnSingleLayerSparseFusedSeparatedROAdj->printStats();
-  delete stats;
-  delete gcnSingleLayerSparseFusedSeparatedROAdj;
+  std::cout << gcnOneLayerMKLStat << spStat + tpStat << std::endl;
+  std::cout << gcnSingleLayerUnFusedStat << spStat + tpStat << std::endl;
 
-  stats = new swiftware::benchmark::Stats("GCN_SingleLayer_FusedSeperated_ReorderedAdj_VT", "GCN", 7,
-                                          tp._matrix_name, numThread);
-  stats->OtherStats["PackingType"] = {Separated};
-  GCNSingleLayerSparseFusedReorderedAdjVT_SP *gcnSingleLayerSparseFusedSeparatedROAdjVT =
-      new GCNSingleLayerSparseFusedReorderedAdjVT_SP(inputs, stats, sp);
-  gcnSingleLayerSparseFusedSeparatedROAdjVT->run();
-  auto gcnSingleLayerSparseFusedSeparatedROAdjVTStat = gcnSingleLayerSparseFusedSeparatedROAdjVT->printStats();
-  delete stats;
-  delete gcnSingleLayerSparseFusedSeparatedROAdjVT;
+  if(sp.TileM == -1) {
+    stats = new swiftware::benchmark::Stats(
+        "GCN_SingleLayer_FusedSeperated", "GCN", 7, tp._matrix_name, numThread);
+    stats->OtherStats["PackingType"] = {Separated};
+    GCNSingleLayerSparseFusedParallelWithGeMM_SP
+        *gcnSingleLayerSparseFusedSeparated =
+            new GCNSingleLayerSparseFusedParallelWithGeMM_SP(inputs, stats, sp);
+    gcnSingleLayerSparseFusedSeparated->run();
+    auto gcnSingleLayerSparseFusedSeparatedStat =
+        gcnSingleLayerSparseFusedSeparated->printStats();
+    delete stats;
+    delete gcnSingleLayerSparseFusedSeparated;
+    std::cout << gcnSingleLayerSparseFusedSeparatedStat << spStat + tpStat << std::endl;
+  }
+  if(sp.TileM != -1) {
+    stats =
+        new swiftware::benchmark::Stats("GCN_SingleLayer_FusedSeperated_VT",
+                                        "GCN", 7, tp._matrix_name, numThread);
+    stats->OtherStats["PackingType"] = {Separated};
+    GCNSingleLayerSparseFusedParallelVTWithGeMM_SP
+        *gcnSingleLayerSparseFusedSeparatedVT =
+            new GCNSingleLayerSparseFusedParallelVTWithGeMM_SP(inputs, stats,
+                                                               sp);
+    gcnSingleLayerSparseFusedSeparatedVT->run();
+    auto gcnSingleLayerSparseFusedSeparatedVTStat =
+        gcnSingleLayerSparseFusedSeparatedVT->printStats();
+    delete stats;
+    delete gcnSingleLayerSparseFusedSeparatedVT;
+    std::cout << gcnSingleLayerSparseFusedSeparatedVTStat << spStat + tpStat << std::endl;
+
+    //  stats = new swiftware::benchmark::Stats("GCN_SingleLayer_FusedSeperated_P2PThreading", "GCN", 7,
+    //                                          tp._matrix_name, numThread);
+    //  stats->OtherStats["PackingType"] = {Separated};
+    //  GCNSingleLayerSparseFusedP2PThreadWithGeMM_SP *gcnSingleLayerSparseFusedSeparatedP2P =
+    //      new GCNSingleLayerSparseFusedP2PThreadWithGeMM_SP(inputs, stats, sp);
+    //  gcnSingleLayerSparseFusedSeparatedP2P->run();
+    //  auto gcnSingleLayerSparseFusedSeparatedP2PStat = gcnSingleLayerSparseFusedSeparatedP2P->printStats(); delete stats;
+    //  delete gcnSingleLayerSparseFusedSeparatedP2P;
+
+    //  stats = new swiftware::benchmark::Stats("GCN_SingleLayer_FusedSeperated_ReorderedUnfused", "GCN", 7,
+    //                                          tp._matrix_name, numThread);
+    //  stats->OtherStats["PackingType"] = {Separated};
+    //  GCNSingleLayerSparseFusedReorderedUnfusedWithGeMM_SP *gcnSingleLayerSparseFusedSeparatedROUF =
+    //      new GCNSingleLayerSparseFusedReorderedUnfusedWithGeMM_SP(inputs, stats, sp);
+    //  gcnSingleLayerSparseFusedSeparatedROUF->run();
+    //  auto gcnSingleLayerSparseFusedSeparatedROUFStat = gcnSingleLayerSparseFusedSeparatedROUF->printStats(); delete stats;
+    //  delete gcnSingleLayerSparseFusedSeparatedROUF;
+
+    //  stats = new swiftware::benchmark::Stats("GCN_SingleLayer_FusedSeperated_ReorderedAdj", "GCN", 7,
+    //                                          tp._matrix_name, numThread);
+    //  stats->OtherStats["PackingType"] = {Separated};
+    //  GCNSingleLayerSparseFusedReorderedAdjWithGeMM_SP *gcnSingleLayerSparseFusedSeparatedROAdj =
+    //      new GCNSingleLayerSparseFusedReorderedAdjWithGeMM_SP(inputs, stats, sp);
+    //  gcnSingleLayerSparseFusedSeparatedROAdj->run();
+    //  auto gcnSingleLayerSparseFusedSeparatedROAdjStat = gcnSingleLayerSparseFusedSeparatedROAdj->printStats(); delete stats;
+    //  delete gcnSingleLayerSparseFusedSeparatedROAdj;
+
+    stats = new swiftware::benchmark::Stats(
+        "GCN_SingleLayer_FusedSeperated_ReorderedAdj_VT", "GCN", 7,
+        tp._matrix_name, numThread);
+    stats->OtherStats["PackingType"] = {Separated};
+    GCNSingleLayerSparseFusedReorderedAdjVT_SP
+        *gcnSingleLayerSparseFusedSeparatedROAdjVT =
+            new GCNSingleLayerSparseFusedReorderedAdjVT_SP(inputs, stats, sp);
+    gcnSingleLayerSparseFusedSeparatedROAdjVT->run();
+    auto gcnSingleLayerSparseFusedSeparatedROAdjVTStat =
+        gcnSingleLayerSparseFusedSeparatedROAdjVT->printStats();
+    delete stats;
+    delete gcnSingleLayerSparseFusedSeparatedROAdjVT;
+    std::cout << gcnSingleLayerSparseFusedSeparatedROAdjVTStat << spStat + tpStat << std::endl;
+  }
 //
 //  stats = new swiftware::benchmark::Stats("GCN_SingleLayer_Redundant_FusedSeperated", "GCN", 7,
 //                                          tp._matrix_name, numThread);
@@ -214,25 +240,10 @@ int main(const int argc, const char *argv[]) {
 //  delete stats;
 //  delete gcnSingleLayerSpMMGeMM;
 
-  auto csvInfo = sp.print_csv(true);
-  std::string spHeader = std::get<0>(csvInfo);
-  std::string spStat = std::get<1>(csvInfo);
 
-  auto tpCsv = tp.print_csv(true);
-  std::string tpHeader = std::get<0>(tpCsv);
-  std::string tpStat = std::get<1>(tpCsv);
-
-  if (tp.print_header)
-    std::cout << headerStat + spHeader + tpHeader << std::endl;
-
-  std::cout << gcnOneLayerMKLStat << spStat + tpStat << std::endl;
-  std::cout << gcnSingleLayerUnFusedStat << spStat + tpStat << std::endl;
-  std::cout << gcnSingleLayerSparseFusedSeparatedStat << spStat + tpStat << std::endl;
-  std::cout << gcnSingleLayerSparseFusedSeparatedVTStat << spStat + tpStat << std::endl;
 //  std::cout << gcnSingleLayerSparseFusedSeparatedP2PStat << spStat + tpStat << std::endl;
-  std::cout << gcnSingleLayerSparseFusedSeparatedROUFStat << spStat + tpStat << std::endl;
-  std::cout << gcnSingleLayerSparseFusedSeparatedROAdjStat << spStat + tpStat << std::endl;
-  std::cout << gcnSingleLayerSparseFusedSeparatedROAdjVTStat << spStat + tpStat << std::endl;
+//  std::cout << gcnSingleLayerSparseFusedSeparatedROUFStat << spStat + tpStat << std::endl;
+//  std::cout << gcnSingleLayerSparseFusedSeparatedROAdjStat << spStat + tpStat << std::endl;
 //  std::cout << gcnSingleLayerSparseFusedSeparatedStat << spStat + tpStat << std::endl;
 //  std::cout << gcnSingleLayerSparseFusedRedundantStat << spStat + tpStat << std::endl;
 //  std::cout << gcnSingleLayerFusedCSCAtomicStat << spStat + tpStat << std::endl;

@@ -46,6 +46,7 @@ public:
     auto pt = St->OtherStats["PackingType"];
     sym_lib::MultiDimensionalSet *fusedCompSet =
         sf01->getFusedCompressed((int)pt[0]);
+    this->St->OtherStats["NumPartitions"] = {(double)fusedCompSet->ptr1_[2]};
     //    FusedCompSet->print_3d();
     delete sf01;
     delete mvDAG;
@@ -828,6 +829,7 @@ public:
     int fusedNodesNum = fusedCompSet->getNumberOfFusedNodes();
     int fusedNnzNum = fusedCompSet->getFusedNnzNum(ACsr);
     this->St->OtherStats["FusedIterations"] = {(double)fusedNodesNum};
+    this->St->OtherStats["NumPartitions"] = {(double)fusedCompSet->ptr1_[2]};
 //    this->St->OtherStats["Number of Fused nnz"] = {(double)fusedNnzNum};
     return fusedCompSet;
   }
