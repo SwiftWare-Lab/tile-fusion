@@ -30,35 +30,41 @@ matrix_list_file_name = folder_name + '/mat_list.txt'
 for dataset in datasets:
     with open(matrix_list_file_name, 'a') as f:
         name = dataset[1]
-        graph = dataset[0][0]
+        g = dataset[0][0]
         category = dataset[0].predict_category
-        # print(category)
+        # Extract adjacency matrices for each canonical edge type
         adj_matrices = {}
-        for etype in graph.etypes:
-            adj_matrices[etype] = graph.adjacency_matrix(etype=etype)
+        for canonical_etype in g.canonical_etypes:
+            adj_matrices[canonical_etype] = g.adjacency_matrix(etype=canonical_etype, scipy_fmt='coo')
 
         # Determine the sizes of the node sets
-        node_types = graph.ntypes
-        num_nodes = {ntype: graph.num_nodes(ntype) for ntype in node_types}
+        node_types = g.ntypes
+        num_nodes = {ntype: g.num_nodes(ntype) for ntype in node_types}
 
         # Create a block matrix with dimensions based on the number of nodes
+        # Initialize a zero matrix of the appropriate size
         total_nodes = sum(num_nodes.values())
-        block_matrices = []
-        for etype in graph.etypes:
-            src_type, _, dst_type = etype
-            num_src = num_nodes[src_type]
-            num_dst = num_nodes[dst_type]
+        block_matrix = sp.lil_matrix((total_nodes, total_nodes))
 
-            # Create a block matrix for this edge type
-            adj_coo = adj_matrices[etype]
-            # Initialize a zero matrix of the appropriate size
-            block_matrix = sp.lil_matrix((total_nodes, total_nodes))
-            # Insert the adjacency matrix for this edge type into the appropriate block
-            block_matrix[:num_src, num_src:num_src+num_dst] = adj_coo.tocoo()
-            block_matrices.append(block_matrix)
+        # Track the starting index for each node type in the block matrix
+        node_type_start_idx = {}
+        current_idx = 0
+        for ntype in node_types:
+            node_type_start_idx[ntype] = current_idx
+            current_idx += num_nodes[ntype]
+
+        # Populate the block matrix with the adjacency matrices
+        for canonical_etype, adj_coo in adj_matrices.items():
+            src_type, _, dst_type = canonical_etype
+            src_start_idx = node_type_start_idx[src_type]
+            dst_start_idx = node_type_start_idx[dst_type]
+
+            # Insert the adjacency matrix into the block matrix
+            block_matrix[src_start_idx:src_start_idx+num_nodes[src_type],
+            dst_start_idx:dst_start_idx+num_nodes[dst_type]] = adj_coo
 
         # Combine all block matrices into a single sparse matrix
-        full_matrix = sp.bmat(block_matrices, format='coo')
+        full_matrix = sp.bmat(block_matrix, format='coo')
 
         # Convert to CSR format if needed
         # full_matrix_csr = full_matrix.tocsr()
