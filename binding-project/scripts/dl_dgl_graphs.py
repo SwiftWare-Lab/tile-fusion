@@ -63,7 +63,7 @@ for dataset in datasets:
             coo = coo[0]
             # Insert the adjacency matrix into the block matrix
             block_matrix[src_start_idx:src_start_idx+num_nodes[src_type],
-            dst_start_idx:dst_start_idx+num_nodes[dst_type]] = coo
+            dst_start_idx:dst_start_idx+num_nodes[dst_type]] = coo.toarray()
 
         # Combine all block matrices into a single sparse matrix
         full_matrix = sp.bmat(block_matrix, format='coo')
