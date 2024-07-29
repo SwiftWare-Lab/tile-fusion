@@ -59,6 +59,7 @@ for dataset in datasets:
             src_start_idx = node_type_start_idx[src_type]
             dst_start_idx = node_type_start_idx[dst_type]
             adj_coo = adj_coo.coo()
+            print(adj_coo)
             coo = coo_matrix(adj_coo, shape=(num_nodes[src_type], num_nodes[src_type]))
             # Insert the adjacency matrix into the block matrix
             block_matrix[src_start_idx:src_start_idx+num_nodes[src_type],
