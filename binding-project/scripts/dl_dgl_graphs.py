@@ -35,7 +35,7 @@ for dataset in datasets:
         # Extract adjacency matrices for each canonical edge type
         adj_matrices = {}
         for canonical_etype in g.canonical_etypes:
-            adj_matrices[canonical_etype] = g.adjacency_matrix(etype=canonical_etype, scipy_fmt='coo')
+            adj_matrices[canonical_etype] = g.adjacency_matrix(etype=canonical_etype)
 
         # Determine the sizes of the node sets
         node_types = g.ntypes
@@ -58,10 +58,12 @@ for dataset in datasets:
             src_type, _, dst_type = canonical_etype
             src_start_idx = node_type_start_idx[src_type]
             dst_start_idx = node_type_start_idx[dst_type]
-
+            adj_coo = adj_coo.coo()
+            coo = coalesce(adj_coo, None, num_nodes[src_type], num_nodes[src_type])
+            coo = coo[0]
             # Insert the adjacency matrix into the block matrix
             block_matrix[src_start_idx:src_start_idx+num_nodes[src_type],
-            dst_start_idx:dst_start_idx+num_nodes[dst_type]] = adj_coo
+            dst_start_idx:dst_start_idx+num_nodes[dst_type]] = coo
 
         # Combine all block matrices into a single sparse matrix
         full_matrix = sp.bmat(block_matrix, format='coo')
