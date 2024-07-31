@@ -9,7 +9,7 @@ void spmmKernel(const int *Ap, const int *Ai, const float *Ax, int N, const floa
 
 int**
 generateVariableTileSizeScheduleGeMMSpMM(int M, int* Ap, int* Ai, int BCol, int CCol, int CacheSize, int NumThreads,int DataSize){
-    int minCacheSize = CacheSize/4;
+    int minCacheSize = CacheSize/2;
     //create initial tiles
     int MIN_STRIDE = 16;
     int maxStride = M / NumThreads;
