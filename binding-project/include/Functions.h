@@ -34,8 +34,8 @@ struct VariableTile{
     }
 };
 
-void gcnBackwardFused(int M, int *Ap, int *Ai, float *Ax, int N, int Ow, int Of,
-                      float *B, float* F, float* W, float* OutW, float* OutF, int MaxTileSize,
+void gcnBackwardFused(int M, int *Ap, int *Ai, float *Ax, int N, int Of, int Ow,
+                      float *B, float* F, float* W, float* OutF, float* OutW, int MaxTileSize,
                       int NumThreads, const int *LevelPtr, const int *MixPtr);
 
 int** generateVariableTileSizeScheduleGeMMSpMM(int M, int* Ap, int* Ai, int BCol, int CCol, int CacheSize, int NumThreads,
@@ -90,7 +90,7 @@ public:
     static torch::Tensor forward(torch::autograd::AutogradContext *Ctx,
                                  torch::Tensor Adj, torch::Tensor Feature, torch::Tensor Weight,
                                  torch::Tensor LevelPtr, torch::Tensor MixPtr, torch::Tensor Partition,
-                                 int64_t NumThreads);
+                                 int64_t NumThreads, int64_t MaxTileSize);
 
     static torch::autograd::tensor_list
     backward(torch::autograd::AutogradContext *Ctx,

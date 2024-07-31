@@ -18,7 +18,7 @@ torch::Tensor fusedGeMMSpMM(torch::Tensor Adj, torch::Tensor Feature,
 
 torch::Tensor fusedGeMMSpMM_vt_ro(torch::Tensor Adj, torch::Tensor Feature,
                                  torch::Tensor Weight, std::vector<torch::Tensor> Schedule,
-                                 int64_t NumThreads);
+                                 int64_t NumThreads,int64_t MaxTileSize);
 torch::Tensor geMMSpMMFusedBackward(torch::Tensor Adj, torch::Tensor Feature,
                                     torch::Tensor Weight, std::vector<torch::Tensor> Schedule,
                                     int64_t NumThreads);
@@ -108,8 +108,8 @@ torch::Tensor fusedGeMMSpMM(torch::Tensor Adj, torch::Tensor Feature,
 
 torch::Tensor fusedGeMMSpMM_vt_ro(torch::Tensor Adj, torch::Tensor Feature,
                                  torch::Tensor Weight, std::vector<torch::Tensor> Schedule,
-                                 int64_t NumThreads){
-    return FusedGeMMSpMMROAdj::apply(Adj, Feature, Weight, Schedule[0], Schedule[1], Schedule[2], NumThreads);
+                                 int64_t NumThreads,int64_t MaxTileSize){
+    return FusedGeMMSpMMROAdj::apply(Adj, Feature, Weight, Schedule[0], Schedule[1], Schedule[2], NumThreads, MaxTileSize);
 }
 
 torch::Tensor geMMSpMMFusedBackward(torch::Tensor Adj, torch::Tensor Feature,

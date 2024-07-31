@@ -9,166 +9,88 @@ void spmmKernel(const int *Ap, const int *Ai, const float *Ax, int N, const floa
 
 int**
 generateVariableTileSizeScheduleGeMMSpMM(int M, int* Ap, int* Ai, int BCol, int CCol, int CacheSize, int NumThreads,int DataSize){
-    int minCacheSize = CacheSize/2;
-    int INITIAL_TILE_SIZE = findInitialTileSize(BCol, CCol, minCacheSize, DataSize);
-    if (INITIAL_TILE_SIZE == 0){
-        INITIAL_TILE_SIZE = 32;
-    }
-    int initialTileSize = std::min(INITIAL_TILE_SIZE,int(M));
-    int extraIters = M % initialTileSize;
-    int extraRemoved = 0;
-    int numOfTiles = M / initialTileSize;
-    std::vector<int> unfusedIters;
-    int extraIterPerTile = std::ceil(extraIters / double(numOfTiles));
-    VariableTile* head = new VariableTile(0,0);
-    VariableTile* curr = head;
+    int minCacheSize = CacheSize/4;
     //create initial tiles
-    for (int i = 0; i < numOfTiles; i++) {
-        int start = initialTileSize * i + extraRemoved;
-        int end = start + initialTileSize;
-        if (extraIters > extraRemoved) {
-            int ext = std::min(extraIters-extraRemoved, extraIterPerTile);
-            end += ext;
-            extraRemoved += ext;
-        }
-        auto *vt = new VariableTile(start, end);
-        curr->Next = vt;
-        curr = curr->Next;
-    }
-    curr = head;
-    while (curr->Next != nullptr){
-        curr = curr->Next;
-        for (int i = curr->Start; i < curr->End; i++) {
-            if (Ai[Ap[i]] >= curr->Start && Ai[Ap[i + 1] - 1] < curr->End) {
-                curr->FusedIters.push_back(i);
-            }
-            else
-                unfusedIters.push_back(i);
-        }
-    }
-//        // shrinking tiles
-//    curr = head;
-//    while(curr->Next != nullptr){
-//      auto *prev = curr;
-//      curr = curr->Next;
-//      int tileSize = curr->End - curr->Start;
-//      int fusedNnzNum = curr->getFusedNnzNum(Ap);
-//      int workingSet = calculateWorkingSetSizeForGeMM(fusedNnzNum, BCol, CCol, tileSize, curr->FusedIters.size(), DataSize);
-//      if (workingSet > minCacheSize && tileSize > 1){
-//        int separator = tileSize/2 + curr->Start;
-//        auto *vt1 = new VariableTile(curr->Start, separator);
-//        auto *vt2 = new VariableTile(separator, curr->End);
-//        for (auto fi: curr->FusedIters){
-//          if (Ai[Ap[fi+1]-1] < separator){
-//            vt1->FusedIters.push_back(fi);
-//          }
-//          else if(Ai[Ap[fi]] >= separator){
-//            vt2->FusedIters.push_back(fi);
-//          }
-//          else{
-//            unfusedIters.push_back(fi);
-//          }
-//        }
-//        vt1->Next = vt2;
-//        vt2->Next = curr->Next;
-//        prev->Next = vt1;
-//        numOfTiles += 1;
-//        delete curr;
-//        curr = prev;
-//      }
-//    }
-    std::sort(unfusedIters.begin(), unfusedIters.end());
-    std::vector<int> ufPartPtr;
-//    int MIN_STRIDE = 16;
-//    int maxStride = M / NumThreads;
-//    std::set<int> uniqueColumns;
-//    int nnzNum = 0;
-//    int uft = 0;
-//    int ufTileSize = 0;
-//    ufPartPtr.push_back(0);
-//    while (uft < unfusedIters.size()){
-//        for (int ii = uft; ii < std::min(int(unfusedIters.size()), uft + MIN_STRIDE); ii++){
-//            int row = unfusedIters[ii];
-//            nnzNum += Ap[row + 1] - Ap[row];
-//            uniqueColumns.insert(Ai + Ap[row], Ai + Ap[row + 1]);
-//            ufTileSize += 1;
-//        }
-//        int workingSet = calculateWorkingSetSize(nnzNum, uniqueColumns.size(), CCol, ufTileSize, 0, DataSize);
-//        if(((workingSet < CacheSize) || (ufTileSize == 1)) && ufTileSize < maxStride){
-//            uft += MIN_STRIDE;
-//        }
-//        else{
-//            nnzNum = 0;
-//            uniqueColumns.clear();
-//            if (ufTileSize <= MIN_STRIDE){
-//                MIN_STRIDE = MIN_STRIDE / 2;
-//            }
-//            else{
-//                ufPartPtr.push_back(uft);
-//            }
-//            if (ufTileSize >= 3*MIN_STRIDE){
-//                MIN_STRIDE = MIN_STRIDE * 2;
-//            }
-//            ufTileSize = 0;
-//        }
-//    }
-//    ufPartPtr.push_back(unfusedIters.size());
+    int MIN_STRIDE = 16;
+    int maxStride = M / NumThreads;
     std::set<int> uniqueColumns;
-    ufPartPtr.push_back(0);
-    curr = head->Next;
-    for (int i = 0; i < unfusedIters.size(); i++){
-        if(unfusedIters[i] >= curr->End){
-            ufPartPtr.push_back(i);
-            curr = curr->Next;
+    int nnzNum = 0;
+    int uft = 0;
+    int ufTileSize = 0;
+    std::vector<int> partPtr;
+    partPtr.push_back(0);
+    while (uft < M){
+        for (int ii = uft; ii < std::min(M, uft + MIN_STRIDE); ii++){
+            int row = ii;
+            nnzNum += Ap[row + 1] - Ap[row];
+            uniqueColumns.insert(Ai + Ap[row], Ai + Ap[row + 1]);
+            ufTileSize += 1;
+        }
+        int workingSet = calculateWorkingSetSize(nnzNum, uniqueColumns.size(), CCol, ufTileSize, 0, DataSize);
+        if(((workingSet < minCacheSize) || (ufTileSize == 1)) && ufTileSize < maxStride){
+            uft += MIN_STRIDE;
+        }
+        else{
+            nnzNum = 0;
+            uniqueColumns.clear();
+            if (ufTileSize <= MIN_STRIDE){
+                MIN_STRIDE = MIN_STRIDE / 2;
+            }
+            else{
+                partPtr.push_back(uft);
+            }
+            if (ufTileSize >= 3*MIN_STRIDE){
+                MIN_STRIDE = MIN_STRIDE * 2;
+            }
+            ufTileSize = 0;
         }
     }
-    ufPartPtr.push_back(unfusedIters.size());
-    int numUfTiles = ufPartPtr.size() - 1;
-    // creating schedule multi dimensional set
+    partPtr.push_back(M);
+    int partPerWF = partPtr.size() - 1;
     int* ptr1 = new int[3];
     ptr1[0] = 0;
-    ptr1[1] = numOfTiles;
-    ptr1[2] = numOfTiles + numUfTiles;
-    int* kerBegin = new int[(numOfTiles + numUfTiles)*2+2];
+    ptr1[1] = partPerWF;
+    ptr1[2] = partPerWF*2;
+    int* kerBegin = new int[(partPerWF*2)*2+2];
     int* id = new int[M];
     int cnt = 0;
     int pCounter = 0;
-    curr = head;
     kerBegin[0] = 0;
     kerBegin[1] = 0;
-    while(curr->Next != nullptr){
-        curr = curr->Next;
-//        for (int j = curr->Start; j < curr->End; j++) {
-//            id[cnt] = j;
-//            cnt++;
-//        }
-        kerBegin[(pCounter+1)*2] = curr->End;
-        for (int fi : curr->FusedIters) {
-            id[cnt] = fi;
-            cnt++;
+    std::vector<std::vector<int>> ufTiles(partPerWF);
+    for (int i = 0; i < partPtr.size()-1; i++){
+        int start = partPtr[i];
+        int end = partPtr[i+1];
+        kerBegin[(i+1)*2] = end;
+        for (int j = start; j < end; j++){
+            int fused = true;
+            for (int k = Ap[j]; k < Ap[j+1]; k++){
+                if(Ai[k] >= end || Ai[k] < start){
+                    fused=false;
+                    break;
+                }
+            }
+            if (fused){
+                id[cnt] = j;
+                cnt+=1;
+            }
+            else{
+                ufTiles[i].push_back(j);
+            }
         }
-        kerBegin[(pCounter+1)*2 + 1] = cnt;
-        pCounter+=1;
-    }
-    // delete the tile tree
-    curr = head->Next;
-    while(curr != nullptr) {
-        auto *tmp = curr;
-        curr = curr->Next;
-        delete tmp;
-    }
-    delete head;
-    for (int i = numOfTiles; i < numOfTiles + numUfTiles; i++) {
-        int p = i - numOfTiles;
-        int partEnd = ufPartPtr[p+1];
-        kerBegin[(i+1)*2] = kerBegin[i*2];
-        for (int j = ufPartPtr[p]; j < partEnd; j++) {
-            id[cnt] = unfusedIters[j];
-            cnt++;
-        }
+
         kerBegin[(i+1)*2 + 1] = cnt;
     }
-//    this->St->OtherStats["Number of Fused nnz"] = {(double)fusedNnzNum};
+
+    for (int i = 0; i < partPtr.size()-1; i++){
+        int p = i + partPerWF;
+        for (int j = 0; j < ufTiles[i].size(); j++){
+            id[cnt] = ufTiles[i][j];
+            cnt++;
+        }
+        kerBegin[(p+1)*2] =  kerBegin[p*2];
+        kerBegin[(p+1)*2 + 1] = cnt;
+    }
     int** out = new int*[3];
     out[0] = ptr1;
     out[1] = kerBegin;
@@ -855,7 +777,7 @@ void gcnBackwardFused(int M, int *Ap, int *Ai, float *Ax, int N, int Of, int Ow,
                     CblasRowMajor, CblasTrans, CblasNoTrans, N, Of,
                     tileSize, 1., interMediateCache,
                     N, F + tBegin * Of, Of, 0.,
-                    outWTemp, Of);
+                    outWCache, Of);
             for (int i = 0; i < N * Ow; i++){
 #pragma omp atomic
                 OutW[i] += outWCache[i];
@@ -918,7 +840,7 @@ inline void spmmKernel(const int *Ap, const int *Ai, const float *Ax, int N, con
 torch::Tensor FusedGeMMSpMMROAdj::forward(torch::autograd::AutogradContext *Ctx,
                                      torch::Tensor Adj, torch::Tensor Feature, torch::Tensor Weight,
                                      torch::Tensor LevelPtr, torch::Tensor MixPtr, torch::Tensor L2Ptr,
-                                     int64_t NumThreads) {
+                                     int64_t NumThreads, int64_t MaxTileSize) {
     float *out = new float[Adj.size(0) * Weight.size(0)]{};
     mkl_set_num_threads(1);
     fusedGeMMSpMMReorderedAdjVectorizedTransposedWeight(Adj.size(0),
@@ -932,6 +854,7 @@ torch::Tensor FusedGeMMSpMMROAdj::forward(torch::autograd::AutogradContext *Ctx,
                                      L2Ptr.data_ptr<int32_t>());
     Ctx->save_for_backward({Adj, Feature, Weight, LevelPtr, MixPtr});
     Ctx->saved_data["num_threads"] = NumThreads;
+    Ctx->saved_data["max_tile_size"] = MaxTileSize;
     return torch::from_blob(
             out, {Adj.size(0), Weight.size(0)},
             [](void *ptr) { delete[] static_cast<float *>(ptr); }, torch::kFloat32);
@@ -1025,7 +948,8 @@ FusedGeMMSpMMROAdj::backward(torch::autograd::AutogradContext *Ctx,
     auto weight = saved[2];
     auto *levelPtr = saved[3].data_ptr<int>();
     auto *mixPtr = saved[4].data_ptr<int>();
-    int threadNum = Ctx->saved_data["num_threads"].toInt();
+    int numThreads = Ctx->saved_data["num_threads"].toInt();
+    int maxTileSize = Ctx->saved_data["max_tile_size"].toInt();
     int *adjPtr = adj.crow_indices().data_ptr<int>();
     int *adjIndex = adj.col_indices().data_ptr<int>();
     auto grad_output = GradOutputs[0];
@@ -1039,32 +963,11 @@ FusedGeMMSpMMROAdj::backward(torch::autograd::AutogradContext *Ctx,
 //                            adj.values().data_ptr<float>());
     float *grad_weight_raw = new float[grad_output.size(1) * input.size(1)]{};
     float *grad_input_raw = new float[adj.size(0) * weight.size(1)]{};
-    int tileSize = mixPtr[2] - mixPtr[0];
     gcnBackwardFused(adj.size(0), adjPtr, adjIndex, adj.values().data_ptr<float>(),
-              grad_output.size(1), input.size(1), weight.size(1), grad_output_raw, inputRaw, weightRaw,
-              grad_input_raw, grad_weight_raw, tileSize,
-              threadNum, levelPtr, mixPtr);
+                     grad_output.size(1), input.size(1), weight.size(1), grad_output_raw, inputRaw, weightRaw,
+                     grad_input_raw, grad_weight_raw, maxTileSize,
+                     numThreads, levelPtr, mixPtr);
     torch::Tensor grad_weight;
-//    mkl_set_num_threads(threadNum);
-//    if (Ctx->needs_input_grad(2)){
-//        float *grad_weight_raw = new float[grad_output.size(1) * input.size(1)]{};
-//        //      swiftware::benchmark::Timer t1;
-//        //      t1.start();
-////        mkl_sparse_s_mm(SPARSE_OPERATION_NON_TRANSPOSE, 1, MKLAdj, d,
-////                        SPARSE_LAYOUT_ROW_MAJOR, inputRaw,
-////                        input.size(1), input.size(1), 0,
-////                        grad_intermediate, input.size(1));
-////        mkl_sparse_s_mm(SPARSE_OPERATION_NON_TRANSPOSE, 1, MKLAdj, d,
-////                        SPARSE_LAYOUT_ROW_MAJOR, grad_output_raw,
-////                        grad_output.size(1), grad_output.size(1), 0,
-////                        adjTGradRes, grad_output.size(1));
-//        cblas_sgemm(CblasRowMajor, CblasTrans, CblasNoTrans, grad_output.size(1),
-//                    weight.size(1), adj.size(0), 1., adjTGradRes,
-//                    grad_output.size(1), inputRaw, input.size(1), 0.,
-//                    grad_weight_raw, input.size(1));
-//        //      t1.stop();
-//        //      std::cout <<  "GeMMSpMM_BWW_TiledFused" << "," << "mat_name" << "," << t1.printTimeCsv(0) << std::endl;
-////        mkl_free(MKLAdj);
         grad_weight = torch::from_blob(
                 grad_weight_raw, {grad_output.size(1), input.size(1)},
                 [](void *ptr) { delete[] static_cast<float *>(ptr); }, torch::kFloat32);
@@ -1074,27 +977,8 @@ FusedGeMMSpMMROAdj::backward(torch::autograd::AutogradContext *Ctx,
                 grad_input_raw, {grad_output.size(0), weight.size(1)},
                 [](void *ptr) { delete[] static_cast<float *>(ptr); },
                 torch::kFloat32);
-//    if (Ctx->needs_input_grad(1)) {
-//        mkl_set_num_threads(threadNum);
-//        float *weight_raw = weight.data_ptr<float>();
-//        float *grad_input_raw = new float[adj.size(0) * weight.size(1)]{};
-//
-//        //      swiftware::benchmark::Timer t1;
-//        //      t1.start();
-//        cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, adj.size(0),
-//                    weight.size(1), grad_output.size(1), 1., adjTGradRes,
-//                    grad_output.size(1), weight_raw, weight.size(1), 0.,
-//                    grad_input_raw, weight.size(1));
-//        //      t1.stop();
-//        //      std::cout <<  "GeMMSpMM_BWI_TiledFused" << "," << "mat_name" << "," << t1.printTimeCsv(0) << std::endl;
-//        grad_input = torch::from_blob(
-//                grad_input_raw, {grad_output.size(0), weight.size(1)},
-//                [](void *ptr) { delete[] static_cast<float *>(ptr); },
-//                torch::kFloat32);
-//    }
-//    delete[] adjTGradRes;
     at::Tensor undef;
-    return {undef, grad_input, grad_weight, undef, undef, undef, undef};
+    return {undef, grad_input, grad_weight, undef, undef, undef, undef, undef};
 }
 
 

@@ -45,6 +45,7 @@ from FusedGCNModule import FusedGCN
 def convert_scipy_coo_to_torch_csr(coo):
     values = coo.data
     adj_cs = coo.tocsr()
+    adj_cs.setdiag([1.] * adj_cs.shape[0])
     crow_indices = torch.tensor(adj_cs.indptr, dtype=torch.int32)
     col_indices = torch.tensor(adj_cs.indices, dtype=torch.int32)
     values = torch.tensor(adj_cs.data, dtype=torch.float32)
