@@ -34,6 +34,10 @@ struct VariableTile{
     }
 };
 
+void gcnBackwardFused(int M, int *Ap, int *Ai, float *Ax, int N, int Ow, int Of,
+                      float *B, float* F, float* W, float* OutW, float* OutF, int MaxTileSize,
+                      int NumThreads, const int *LevelPtr, const int *MixPtr);
+
 int** generateVariableTileSizeScheduleGeMMSpMM(int M, int* Ap, int* Ai, int BCol, int CCol, int CacheSize, int NumThreads,
                                                            int DataSize= 4);
 

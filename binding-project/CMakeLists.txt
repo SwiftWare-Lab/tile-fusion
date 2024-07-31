@@ -1,9 +1,10 @@
 cmake_minimum_required( VERSION 3.20)
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS} -std=c++17  -march=native")
 
 project(gcn_fusion_binding CXX C )
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS} -std=c++17  -march=native")
+
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY lib)
 

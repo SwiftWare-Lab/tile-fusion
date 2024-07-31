@@ -4,6 +4,9 @@
 
 #include "Functions.h"
 
+void spmmKernel(const int *Ap, const int *Ai, const float *Ax, int N, const float *B, float *Output, int residueStart,
+                int row);
+
 int**
 generateVariableTileSizeScheduleGeMMSpMM(int M, int* Ap, int* Ai, int BCol, int CCol, int CacheSize, int NumThreads,int DataSize){
     int minCacheSize = CacheSize/2;
@@ -813,54 +816,101 @@ void spMMTiled(int M, int *Ap, int *Ai, float *Ax, int N,
             for (int i = tBegin; i < tEnd; i++) {
                 int ip = i * N;
                 int row = i;
-                int k = Ap[row];
 //                std::cout << "1: " <<  k << std::endl;
-                for (; k < Ap[row + 1] - 1; k += 2) {
-                    auto bxV1 = _mm256_set1_ps(Ax[k]);
-                    auto bxV2 = _mm256_set1_ps(Ax[k + 1]);
-                    int bij1 = Ai[k] * N;
-                    int bij2 = Ai[k + 1] * N;
-                    for (int kk = 0; kk < residueStart; kk += 16) {
-                        auto dxV1 = _mm256_loadu_ps(Output + ip + kk);
-                        auto dxV2 = _mm256_loadu_ps(Output + ip + kk + 8);
-                        auto acxV11 = _mm256_loadu_ps(B + bij1 + kk);
-                        auto acxV12 = _mm256_loadu_ps(B + bij1 + kk + 8);
-                        auto acxV21 = _mm256_loadu_ps(B + bij2 + kk);
-                        auto acxV22 = _mm256_loadu_ps(B + bij2 + kk + 8);
-                        dxV1 = _mm256_fmadd_ps(bxV1, acxV11, dxV1);
-                        dxV1 = _mm256_fmadd_ps(bxV2, acxV21, dxV1);
-                        dxV2 = _mm256_fmadd_ps(bxV1, acxV12, dxV2);
-                        dxV2 = _mm256_fmadd_ps(bxV2, acxV22, dxV2);
-                        _mm256_storeu_ps(Output + ip + kk, dxV1);
-                        _mm256_storeu_ps(Output + ip + kk + 8, dxV2);
-                    }
-                    for (int kk = residueStart; kk < N; kk++) {
-                        Output[ip + kk] +=
-                                Ax[k] * B[bij1 + kk];
-                        Output[ip + kk] +=
-                                Ax[k + 1] * B[bij2 + kk];
-                    }
-                }
-//                std::cout << "2: " <<  k << std::endl;
-                for (; k < Ap[row + 1]; k += 1) {
-                    auto bxV1 = _mm256_set1_ps(Ax[k]);
-                    int bij1 = Ai[k] * N;
-                    for (int kk = 0; kk < residueStart; kk += 16) {
-                        auto dxV1 = _mm256_loadu_ps(Output + ip + kk);
-                        auto dxV2 = _mm256_loadu_ps(Output + ip + kk + 8);
-                        auto acxV11 = _mm256_loadu_ps(B + bij1 + kk);
-                        auto acxV12 = _mm256_loadu_ps(B + bij1 + kk + 8);
-                        dxV1 = _mm256_fmadd_ps(bxV1, acxV11, dxV1);
-                        dxV2 = _mm256_fmadd_ps(bxV1, acxV12, dxV2);
-                        _mm256_storeu_ps(Output + ip + kk, dxV1);
-                        _mm256_storeu_ps(Output + ip + kk + 8, dxV2);
-                    }
-                    for (int kk = residueStart; kk < N; kk++) {
-                        Output[ip + kk] +=
-                                Ax[k] * B[bij1 + kk];
-                    }
-                }
+                spmmKernel(Ap, Ai, Ax, N, B, Output + ip, residueStart, row);
             }
+        }
+    }
+}
+
+
+void gcnBackwardFused(int M, int *Ap, int *Ai, float *Ax, int N, int Of, int Ow,
+               float *B, float* F, float* W, float* OutF, float* OutW, int MaxTileSize,
+               int NumThreads, const int *LevelPtr, const int *MixPtr) {
+    float* outWTemp = new float[N * Ow * NumThreads]{};
+    float* intermediate = new float[MaxTileSize * N * NumThreads]{};
+    int residueStart = N - N % 16;
+#pragma omp parallel num_threads(NumThreads)
+    {
+        int tid = omp_get_thread_num();
+#pragma omp for
+        for (int i1 = 0; i1 < LevelPtr[1]; i1++) {
+            int tBegin = MixPtr[i1 * 2];
+            int tEnd = MixPtr[(i1 + 1) * 2];
+            float* interMediateCache = intermediate + tid * MaxTileSize * N;
+            int tileSize = tEnd - tBegin;
+            for (int i = tBegin; i < tEnd; i++) {
+                int ip = i * N;
+                int row = i;
+//                std::cout << "1: " <<  k << std::endl;
+                spmmKernel(Ap, Ai, Ax, N, B, interMediateCache, residueStart, row);
+            }
+            cblas_sgemm(
+                    CblasRowMajor, CblasNoTrans, CblasNoTrans, tileSize, Ow,
+                    N, 1., interMediateCache,
+                    N, W, Ow, 0.,
+                    OutF + tBegin * N, Ow);
+            float* outWCache = outWTemp + tid * Ow * N;
+            cblas_sgemm(
+                    CblasRowMajor, CblasTrans, CblasNoTrans, N, Of,
+                    tileSize, 1., interMediateCache,
+                    N, F + tBegin * Of, Of, 0.,
+                    outWTemp, Of);
+            for (int i = 0; i < N * Ow; i++){
+#pragma omp atomic
+                OutW[i] += outWCache[i];
+            }
+        }
+    }
+    delete[] outWTemp;
+    delete[] intermediate;
+}
+
+inline void spmmKernel(const int *Ap, const int *Ai, const float *Ax, int N, const float *B, float *Output, int residueStart, int row) {
+    int k = Ap[row];
+    for (; k < Ap[row + 1] - 1; k += 2) {
+        auto bxV1 = _mm256_set1_ps(Ax[k]);
+        auto bxV2 = _mm256_set1_ps(Ax[k + 1]);
+        int bij1 = Ai[k] * N;
+        int bij2 = Ai[k + 1] * N;
+        for (int kk = 0; kk < residueStart; kk += 16) {
+            auto dxV1 = _mm256_loadu_ps(Output + kk);
+            auto dxV2 = _mm256_loadu_ps(Output + kk + 8);
+            auto acxV11 = _mm256_loadu_ps(B + bij1 + kk);
+            auto acxV12 = _mm256_loadu_ps(B + bij1 + kk + 8);
+            auto acxV21 = _mm256_loadu_ps(B + bij2 + kk);
+            auto acxV22 = _mm256_loadu_ps(B + bij2 + kk + 8);
+            dxV1 = _mm256_fmadd_ps(bxV1, acxV11, dxV1);
+            dxV1 = _mm256_fmadd_ps(bxV2, acxV21, dxV1);
+            dxV2 = _mm256_fmadd_ps(bxV1, acxV12, dxV2);
+            dxV2 = _mm256_fmadd_ps(bxV2, acxV22, dxV2);
+            _mm256_storeu_ps(Output + kk, dxV1);
+            _mm256_storeu_ps(Output + kk + 8, dxV2);
+        }
+        for (int kk = residueStart; kk < N; kk++) {
+            Output[kk] +=
+                    Ax[k] * B[bij1 + kk];
+            Output[kk] +=
+                    Ax[k + 1] * B[bij2 + kk];
+        }
+    }
+//                std::cout << "2: " <<  k << std::endl;
+    for (; k < Ap[row + 1]; k += 1) {
+        auto bxV1 = _mm256_set1_ps(Ax[k]);
+        int bij1 = Ai[k] * N;
+        for (int kk = 0; kk < residueStart; kk += 16) {
+            auto dxV1 = _mm256_loadu_ps(Output + kk);
+            auto dxV2 = _mm256_loadu_ps(Output + kk + 8);
+            auto acxV11 = _mm256_loadu_ps(B + bij1 + kk);
+            auto acxV12 = _mm256_loadu_ps(B + bij1 + kk + 8);
+            dxV1 = _mm256_fmadd_ps(bxV1, acxV11, dxV1);
+            dxV2 = _mm256_fmadd_ps(bxV1, acxV12, dxV2);
+            _mm256_storeu_ps(Output + kk, dxV1);
+            _mm256_storeu_ps(Output + kk + 8, dxV2);
+        }
+        for (int kk = residueStart; kk < N; kk++) {
+            Output[kk] +=
+                    Ax[k] * B[bij1 + kk];
         }
     }
 }
@@ -888,9 +938,85 @@ torch::Tensor FusedGeMMSpMMROAdj::forward(torch::autograd::AutogradContext *Ctx,
 }
 
 
+//torch::autograd::tensor_list
+//FusedGeMMSpMMROAdj::backward(torch::autograd::AutogradContext *Ctx,
+//                        torch::autograd::tensor_list GradOutputs) {
+//    matrix_descr d;
+//    d.type = SPARSE_MATRIX_TYPE_GENERAL;
+//    auto saved = Ctx->get_saved_variables();
+//    auto input = saved[1];
+//    auto adj = saved[0];
+//    auto weight = saved[2];
+//    auto *levelPtr = saved[3].data_ptr<int>();
+//    auto *mixPtr = saved[4].data_ptr<int>();
+//    int threadNum = Ctx->saved_data["num_threads"].toInt();
+//    int *adjPtr = adj.crow_indices().data_ptr<int>();
+//    int *adjIndex = adj.col_indices().data_ptr<int>();
+//    auto grad_output = GradOutputs[0];
+//    float *grad_output_raw = grad_output.data_ptr<float>();
+//    float *inputRaw = input.data_ptr<float>();
+//
+////    mkl_sparse_s_create_csr(&MKLAdj, SPARSE_INDEX_BASE_ZERO, adj.size(0),
+////                            adj.size(1), adjPtr,
+////                            adjPtr + 1,
+////                            adjIndex,
+////                            adj.values().data_ptr<float>());
+//    float *adjTGradRes = new float[adj.size(0) * grad_output.size(1)]{};
+//    spMMTiled(adj.size(0), adjPtr, adjIndex, adj.values().data_ptr<float>(),
+//              grad_output.size(1), grad_output_raw, adjTGradRes,
+//              threadNum, levelPtr, mixPtr);
+//    torch::Tensor grad_weight;
+//    mkl_set_num_threads(threadNum);
+//    if (Ctx->needs_input_grad(2)){
+//        float *grad_weight_raw = new float[grad_output.size(1) * input.size(1)]{};
+//        //      swiftware::benchmark::Timer t1;
+//        //      t1.start();
+////        mkl_sparse_s_mm(SPARSE_OPERATION_NON_TRANSPOSE, 1, MKLAdj, d,
+////                        SPARSE_LAYOUT_ROW_MAJOR, inputRaw,
+////                        input.size(1), input.size(1), 0,
+////                        grad_intermediate, input.size(1));
+////        mkl_sparse_s_mm(SPARSE_OPERATION_NON_TRANSPOSE, 1, MKLAdj, d,
+////                        SPARSE_LAYOUT_ROW_MAJOR, grad_output_raw,
+////                        grad_output.size(1), grad_output.size(1), 0,
+////                        adjTGradRes, grad_output.size(1));
+//        cblas_sgemm(CblasRowMajor, CblasTrans, CblasNoTrans, grad_output.size(1),
+//                    weight.size(1), adj.size(0), 1., adjTGradRes,
+//                    grad_output.size(1), inputRaw, input.size(1), 0.,
+//                    grad_weight_raw, input.size(1));
+//        //      t1.stop();
+//        //      std::cout <<  "GeMMSpMM_BWW_TiledFused" << "," << "mat_name" << "," << t1.printTimeCsv(0) << std::endl;
+////        mkl_free(MKLAdj);
+//        grad_weight = torch::from_blob(
+//                grad_weight_raw, {grad_output.size(1), input.size(1)},
+//                [](void *ptr) { delete[] static_cast<float *>(ptr); }, torch::kFloat32);
+//    }
+//    torch::Tensor grad_input;
+//    if (Ctx->needs_input_grad(1)) {
+//        mkl_set_num_threads(threadNum);
+//        float *weight_raw = weight.data_ptr<float>();
+//        float *grad_input_raw = new float[adj.size(0) * weight.size(1)]{};
+//
+//        //      swiftware::benchmark::Timer t1;
+//        //      t1.start();
+//        cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, adj.size(0),
+//                    weight.size(1), grad_output.size(1), 1., adjTGradRes,
+//                    grad_output.size(1), weight_raw, weight.size(1), 0.,
+//                    grad_input_raw, weight.size(1));
+//        //      t1.stop();
+//        //      std::cout <<  "GeMMSpMM_BWI_TiledFused" << "," << "mat_name" << "," << t1.printTimeCsv(0) << std::endl;
+//        grad_input = torch::from_blob(
+//                grad_input_raw, {grad_output.size(0), weight.size(1)},
+//                [](void *ptr) { delete[] static_cast<float *>(ptr); },
+//                torch::kFloat32);
+//    }
+//    delete[] adjTGradRes;
+//    at::Tensor undef;
+//    return {undef, grad_input, grad_weight, undef, undef, undef, undef};
+//}
+
 torch::autograd::tensor_list
 FusedGeMMSpMMROAdj::backward(torch::autograd::AutogradContext *Ctx,
-                        torch::autograd::tensor_list GradOutputs) {
+                             torch::autograd::tensor_list GradOutputs) {
     matrix_descr d;
     d.type = SPARSE_MATRIX_TYPE_GENERAL;
     auto saved = Ctx->get_saved_variables();
@@ -905,64 +1031,73 @@ FusedGeMMSpMMROAdj::backward(torch::autograd::AutogradContext *Ctx,
     auto grad_output = GradOutputs[0];
     float *grad_output_raw = grad_output.data_ptr<float>();
     float *inputRaw = input.data_ptr<float>();
-
+    float *weightRaw = input.data_ptr<float>();
 //    mkl_sparse_s_create_csr(&MKLAdj, SPARSE_INDEX_BASE_ZERO, adj.size(0),
 //                            adj.size(1), adjPtr,
 //                            adjPtr + 1,
 //                            adjIndex,
 //                            adj.values().data_ptr<float>());
-    float *adjTGradRes = new float[adj.size(0) * grad_output.size(1)]{};
-    spMMTiled(adj.size(0), adjPtr, adjIndex, adj.values().data_ptr<float>(),
-              grad_output.size(1), grad_output_raw, adjTGradRes,
+    float *grad_weight_raw = new float[grad_output.size(1) * input.size(1)]{};
+    float *grad_input_raw = new float[adj.size(0) * weight.size(1)]{};
+    int tileSize = mixPtr[2] - mixPtr[0];
+    gcnBackwardFused(adj.size(0), adjPtr, adjIndex, adj.values().data_ptr<float>(),
+              grad_output.size(1), input.size(1), weight.size(1), grad_output_raw, inputRaw, weightRaw,
+              grad_input_raw, grad_weight_raw, tileSize,
               threadNum, levelPtr, mixPtr);
     torch::Tensor grad_weight;
-    mkl_set_num_threads(threadNum);
-    if (Ctx->needs_input_grad(2)){
-        float *grad_weight_raw = new float[grad_output.size(1) * input.size(1)]{};
-        //      swiftware::benchmark::Timer t1;
-        //      t1.start();
-//        mkl_sparse_s_mm(SPARSE_OPERATION_NON_TRANSPOSE, 1, MKLAdj, d,
-//                        SPARSE_LAYOUT_ROW_MAJOR, inputRaw,
-//                        input.size(1), input.size(1), 0,
-//                        grad_intermediate, input.size(1));
-//        mkl_sparse_s_mm(SPARSE_OPERATION_NON_TRANSPOSE, 1, MKLAdj, d,
-//                        SPARSE_LAYOUT_ROW_MAJOR, grad_output_raw,
-//                        grad_output.size(1), grad_output.size(1), 0,
-//                        adjTGradRes, grad_output.size(1));
-        cblas_sgemm(CblasRowMajor, CblasTrans, CblasNoTrans, grad_output.size(1),
-                    weight.size(1), adj.size(0), 1., adjTGradRes,
-                    grad_output.size(1), inputRaw, input.size(1), 0.,
-                    grad_weight_raw, input.size(1));
-        //      t1.stop();
-        //      std::cout <<  "GeMMSpMM_BWW_TiledFused" << "," << "mat_name" << "," << t1.printTimeCsv(0) << std::endl;
-//        mkl_free(MKLAdj);
+//    mkl_set_num_threads(threadNum);
+//    if (Ctx->needs_input_grad(2)){
+//        float *grad_weight_raw = new float[grad_output.size(1) * input.size(1)]{};
+//        //      swiftware::benchmark::Timer t1;
+//        //      t1.start();
+////        mkl_sparse_s_mm(SPARSE_OPERATION_NON_TRANSPOSE, 1, MKLAdj, d,
+////                        SPARSE_LAYOUT_ROW_MAJOR, inputRaw,
+////                        input.size(1), input.size(1), 0,
+////                        grad_intermediate, input.size(1));
+////        mkl_sparse_s_mm(SPARSE_OPERATION_NON_TRANSPOSE, 1, MKLAdj, d,
+////                        SPARSE_LAYOUT_ROW_MAJOR, grad_output_raw,
+////                        grad_output.size(1), grad_output.size(1), 0,
+////                        adjTGradRes, grad_output.size(1));
+//        cblas_sgemm(CblasRowMajor, CblasTrans, CblasNoTrans, grad_output.size(1),
+//                    weight.size(1), adj.size(0), 1., adjTGradRes,
+//                    grad_output.size(1), inputRaw, input.size(1), 0.,
+//                    grad_weight_raw, input.size(1));
+//        //      t1.stop();
+//        //      std::cout <<  "GeMMSpMM_BWW_TiledFused" << "," << "mat_name" << "," << t1.printTimeCsv(0) << std::endl;
+////        mkl_free(MKLAdj);
         grad_weight = torch::from_blob(
                 grad_weight_raw, {grad_output.size(1), input.size(1)},
                 [](void *ptr) { delete[] static_cast<float *>(ptr); }, torch::kFloat32);
-    }
+//    }
     torch::Tensor grad_input;
-    if (Ctx->needs_input_grad(1)) {
-        mkl_set_num_threads(threadNum);
-        float *weight_raw = weight.data_ptr<float>();
-        float *grad_input_raw = new float[adj.size(0) * weight.size(1)]{};
-
-        //      swiftware::benchmark::Timer t1;
-        //      t1.start();
-        cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, adj.size(0),
-                    weight.size(1), grad_output.size(1), 1., adjTGradRes,
-                    grad_output.size(1), weight_raw, weight.size(1), 0.,
-                    grad_input_raw, weight.size(1));
-        //      t1.stop();
-        //      std::cout <<  "GeMMSpMM_BWI_TiledFused" << "," << "mat_name" << "," << t1.printTimeCsv(0) << std::endl;
-        grad_input = torch::from_blob(
+    grad_input = torch::from_blob(
                 grad_input_raw, {grad_output.size(0), weight.size(1)},
                 [](void *ptr) { delete[] static_cast<float *>(ptr); },
                 torch::kFloat32);
-    }
-    delete[] adjTGradRes;
+//    if (Ctx->needs_input_grad(1)) {
+//        mkl_set_num_threads(threadNum);
+//        float *weight_raw = weight.data_ptr<float>();
+//        float *grad_input_raw = new float[adj.size(0) * weight.size(1)]{};
+//
+//        //      swiftware::benchmark::Timer t1;
+//        //      t1.start();
+//        cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, adj.size(0),
+//                    weight.size(1), grad_output.size(1), 1., adjTGradRes,
+//                    grad_output.size(1), weight_raw, weight.size(1), 0.,
+//                    grad_input_raw, weight.size(1));
+//        //      t1.stop();
+//        //      std::cout <<  "GeMMSpMM_BWI_TiledFused" << "," << "mat_name" << "," << t1.printTimeCsv(0) << std::endl;
+//        grad_input = torch::from_blob(
+//                grad_input_raw, {grad_output.size(0), weight.size(1)},
+//                [](void *ptr) { delete[] static_cast<float *>(ptr); },
+//                torch::kFloat32);
+//    }
+//    delete[] adjTGradRes;
     at::Tensor undef;
     return {undef, grad_input, grad_weight, undef, undef, undef, undef};
 }
+
+
 
 torch::Tensor FusedGeMMSpMM::forward(torch::autograd::AutogradContext *Ctx,
                                      torch::Tensor Adj, torch::Tensor Feature, torch::Tensor Weight,
@@ -1163,6 +1298,7 @@ torch::Tensor ForwardCachingAF::forward(torch::autograd::AutogradContext *Ctx,
     float* weightRaw = Weight.data_ptr<float>();
     float* afRaw = AF.data_ptr<float>();
     float *out = new float[AF.size(0) * Weight.size(0)]{};
+//    mkl_set_num_threads(NumThreads);
     cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, AF.size(0),
                 Weight.size(0), AF.size(1), 1., afRaw,
                 AF.size(1), weightRaw, Weight.size(1), 0.,
@@ -1178,9 +1314,6 @@ torch::Tensor ForwardCachingAF::forward(torch::autograd::AutogradContext *Ctx,
 torch::autograd::tensor_list
 ForwardCachingAF::backward(torch::autograd::AutogradContext *Ctx,
                                    torch::autograd::tensor_list GradOutputs) {
-    sparse_matrix_t MKLAdj;
-    matrix_descr d;
-    d.type = SPARSE_MATRIX_TYPE_GENERAL;
     auto saved = Ctx->get_saved_variables();
     int threadNum = Ctx->saved_data["num_threads"].toInt();
     auto afRes = saved[0];
@@ -1190,14 +1323,12 @@ ForwardCachingAF::backward(torch::autograd::AutogradContext *Ctx,
     torch::Tensor grad_weight;
     if (Ctx->needs_input_grad(1)){
         float *grad_weight_raw = new float[grad_output.size(1) * afRes.size(1)]{};
-//        mkl_set_num_threads(threadNum);
         cblas_sgemm(CblasRowMajor, CblasTrans, CblasNoTrans, grad_output.size(1),
                     afRes.size(1), afRes.size(0), 1., grad_output_raw,
                     grad_output.size(1), af_raw, afRes.size(1), 0.,
                     grad_weight_raw, afRes.size(1));
         //      t1.stop();
         //      std::cout <<  "GeMMSpMM_BWW_TiledFused" << "," << "mat_name" << "," << t1.printTimeCsv(0) << std::endl;
-        mkl_free(MKLAdj);
         grad_weight = torch::from_blob(
                 grad_weight_raw, {grad_output.size(1), afRes.size(1)},
                 [](void *ptr) { delete[] static_cast<float *>(ptr); }, torch::kFloat32);

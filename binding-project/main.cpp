@@ -6,7 +6,7 @@
 
 std::vector<torch::Tensor> inspect(torch::Tensor Adj, int64_t MTileSize);
 
-std::vector<torch::Tensor> inspect_vt_ro(torch::Tensor Adj, int64_t InDim, int64_t OutDim, int64_t CacheSize, int64_t NumThreads);
+std::vector<torch::Tensor> inspect_vt(torch::Tensor Adj, int64_t InDim, int64_t OutDim, int64_t CacheSize, int64_t NumThreads);
 
 std::vector<torch::Tensor> executeFusedGeMMSpMM(torch::Tensor Adj, torch::Tensor Weight, torch::Tensor Feature,
                                     torch::Tensor LevelPtr, torch::Tensor MixPtr, torch::Tensor Partition,
@@ -41,7 +41,7 @@ std::vector<torch::Tensor> inspect(torch::Tensor Adj, int64_t MTileSize) {
     return {levelPtr, mixPtr, partition};
 }
 
-std::vector<torch::Tensor> inspect_vt_ro(torch::Tensor Adj, int64_t InDim, int64_t OutDim, int64_t CacheSize, int64_t NumThreads){
+std::vector<torch::Tensor> inspect_vt(torch::Tensor Adj, int64_t InDim, int64_t OutDim, int64_t CacheSize, int64_t NumThreads){
     int m = Adj.size(0);
     int nnz = Adj._nnz();
     int** rawSchedule = generateVariableTileSizeScheduleGeMMSpMM(m,
@@ -125,7 +125,7 @@ torch::Tensor cachedSpMMGeMM(torch::Tensor AF, torch::Tensor Weight, int64_t Num
 
 TORCH_LIBRARY(sw_gcn, m) {
     m.def("inspect", &inspect);
-    m.def("inspect_vt_ro", &inspect_vt_ro);
+    m.def("inspect_vt_ro", &inspect_vt);
     m.def("executeFusedGeMMSpMM", &executeFusedGeMMSpMM);
     m.def("fusedGeMMSpMM", &fusedGeMMSpMM);
     m.def("fusedGeMMSpMM_vt_ro", &fusedGeMMSpMM_vt_ro);
