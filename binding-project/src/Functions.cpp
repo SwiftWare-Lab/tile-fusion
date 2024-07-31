@@ -760,6 +760,7 @@ void gcnBackwardFused(int M, int *Ap, int *Ai, float *Ax, int N, int Of, int Ow,
             int tBegin = MixPtr[i1 * 2];
             int tEnd = MixPtr[(i1 + 1) * 2];
             float* interMediateCache = intermediate + tid * MaxTileSize * N;
+            memset(interMediateCache, 0, sizeof (float) * MaxTileSize * N);
             int tileSize = tEnd - tBegin;
             for (int i = tBegin; i < tEnd; i++) {
                 int ip = i * N;
@@ -773,6 +774,7 @@ void gcnBackwardFused(int M, int *Ap, int *Ai, float *Ax, int N, int Of, int Ow,
                     N, W, Ow, 0.,
                     OutF + tBegin * N, Ow);
             float* outWCache = outWTemp + tid * Ow * N;
+            memset(outWCache, 0, sizeof (float) * Ow * N);
             cblas_sgemm(
                     CblasRowMajor, CblasTrans, CblasNoTrans, N, Of,
                     tileSize, 1., interMediateCache,
