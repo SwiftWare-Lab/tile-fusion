@@ -25,13 +25,11 @@ class FusedGCNLayer(torch.nn.Module):
         self.num_threads = num_threads
         level_ptr = self.schedule[0]
         mix_ptr = self.schedule[1]
-        print(level_ptr)
         self.max_tile_size = 0
         for x in range(level_ptr[0],level_ptr[1]):
             tile_size = mix_ptr[x*2 + 2] - mix_ptr[x*2]
             if tile_size > self.max_tile_size:
                 self.max_tile_size = tile_size
-        print(self.max_tile_size)
         # self.ro_adj = torch.sparse_csr_tensor(self.schedule_data[0], self.schedule_data[1], self.schedule_data[2])
 
     def forward(self, x):
