@@ -844,7 +844,7 @@ torch::Tensor FusedGeMMSpMMROAdj::forward(torch::autograd::AutogradContext *Ctx,
                                      torch::Tensor LevelPtr, torch::Tensor MixPtr, torch::Tensor L2Ptr,
                                      int64_t NumThreads, int64_t MaxTileSize) {
     float *out = new float[Adj.size(0) * Weight.size(0)]{};
-    mkl_set_num_threads(1);
+//    mkl_set_num_threads(1);
     fusedGeMMSpMMReorderedAdjVectorizedTransposedWeight(Adj.size(0),
                                      Adj.crow_indices().data_ptr<int32_t>(),
                                      Adj.col_indices().data_ptr<int32_t>(),
@@ -1178,9 +1178,6 @@ torch::Tensor ForwardCachingAF::forward(torch::autograd::AutogradContext *Ctx,
                                                 torch::Tensor AF,torch::Tensor Weight,
                                                 int64_t NumThreads) {
 //    mkl_set_num_threads(NumThreads);
-    sparse_matrix_t MKLAdj;
-    matrix_descr d;
-    d.type = SPARSE_MATRIX_TYPE_GENERAL;
     float* weightRaw = Weight.data_ptr<float>();
     float* afRaw = AF.data_ptr<float>();
     float *out = new float[AF.size(0) * Weight.size(0)]{};
@@ -1189,7 +1186,6 @@ torch::Tensor ForwardCachingAF::forward(torch::autograd::AutogradContext *Ctx,
                 Weight.size(0), AF.size(1), 1., afRaw,
                 AF.size(1), weightRaw, Weight.size(1), 0.,
                 out, Weight.size(0));
-    mkl_free(MKLAdj);
     Ctx->save_for_backward({AF});
     Ctx->saved_data["num_threads"] = NumThreads;
     return torch::from_blob(
