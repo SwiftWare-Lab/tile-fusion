@@ -7,8 +7,9 @@ import numpy as np
 class FusedGCN(torch.nn.Module):
     def __init__(self, feat_dim, embed_dim , num_classes, adj, feature, num_threads):
         super(FusedGCN, self).__init__()
-        self.conv1 = FirstLayerGCNCached(feat_dim, embed_dim, 128, adj, feature, num_threads)
-        self.conv2 = FusedGCNLayer(embed_dim, num_classes,  128, adj, num_threads)
+        schedule = torch.ops.sw_gcn.inspect_vt_ro(adj, feat_dim, embed_dim, 300000, num_threads)
+        self.conv1 = FusedGCNLayer(feat_dim, embed_dim, 128, adj, schedule)
+        self.conv2 = FusedGCNLayer(embed_dim, num_classes,  128, adj, schedule)
 
     def forward(self, x):
         x = self.conv1(x)

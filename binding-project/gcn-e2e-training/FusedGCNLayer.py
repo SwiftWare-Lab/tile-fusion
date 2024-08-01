@@ -5,7 +5,7 @@ torch.ops.load_library("build/lib/libsw_gcn.so")
 
 class FusedGCNLayer(torch.nn.Module):
 
-    def __init__(self, feat_dim, embed_dim, m_tile_size, adj, num_threads):
+    def __init__(self, feat_dim, embed_dim, m_tile_size, adj, schedule):
         super(FusedGCNLayer, self).__init__()
         self.weight = torch.nn.Parameter(
             torch.FloatTensor(embed_dim, feat_dim))
@@ -16,13 +16,12 @@ class FusedGCNLayer(torch.nn.Module):
         self.adj = adj
         # print(adj)
         # if (feat_dim > embed_dim):
-        self.schedule = torch.ops.sw_gcn.inspect_vt_ro(adj, feat_dim, embed_dim, 1250000, num_threads)
+        self.schedule = schedule
         self.forward_fn = torch.ops.sw_gcn.fusedGeMMSpMM_vt_ro
         # else:
         #     self.schedule = torch.ops.sw_gcn.inspect_vt_ro(adj, embed_dim, feat_dim, 1250000, num_threads)
         #     self.forward_fn = torch.ops.sw_gcn.geMMSpMM_f_bw
         # print(schedule)
-        self.num_threads = num_threads
         level_ptr = self.schedule[0]
         mix_ptr = self.schedule[1]
         self.max_tile_size = 0

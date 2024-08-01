@@ -9,7 +9,6 @@ void spmmKernel(const int *Ap, const int *Ai, const float *Ax, int N, const floa
 
 int**
 generateVariableTileSizeScheduleGeMMSpMM(int M, int* Ap, int* Ai, int BCol, int CCol, int CacheSize, int NumThreads,int DataSize){
-    int minCacheSize = CacheSize/2;
     //create initial tiles
     int MIN_STRIDE = 16;
     int maxStride = M / NumThreads;
@@ -27,7 +26,7 @@ generateVariableTileSizeScheduleGeMMSpMM(int M, int* Ap, int* Ai, int BCol, int 
             ufTileSize += 1;
         }
         int workingSet = calculateWorkingSetSize(nnzNum, uniqueColumns.size(), CCol, ufTileSize, 0, DataSize);
-        if(((workingSet < minCacheSize) || (ufTileSize == 1)) && ufTileSize < maxStride){
+        if(((workingSet < CacheSize) || (ufTileSize == 1)) && ufTileSize < maxStride){
             uft += MIN_STRIDE;
         }
         else{
@@ -862,7 +861,7 @@ torch::Tensor FusedGeMMSpMMROAdj::forward(torch::autograd::AutogradContext *Ctx,
             [](void *ptr) { delete[] static_cast<float *>(ptr); }, torch::kFloat32);
 }
 
-
+//
 //torch::autograd::tensor_list
 //FusedGeMMSpMMROAdj::backward(torch::autograd::AutogradContext *Ctx,
 //                        torch::autograd::tensor_list GradOutputs) {
@@ -891,7 +890,6 @@ torch::Tensor FusedGeMMSpMMROAdj::forward(torch::autograd::AutogradContext *Ctx,
 //              grad_output.size(1), grad_output_raw, adjTGradRes,
 //              threadNum, levelPtr, mixPtr);
 //    torch::Tensor grad_weight;
-//    mkl_set_num_threads(threadNum);
 //    if (Ctx->needs_input_grad(2)){
 //        float *grad_weight_raw = new float[grad_output.size(1) * input.size(1)]{};
 //        //      swiftware::benchmark::Timer t1;
@@ -917,7 +915,6 @@ torch::Tensor FusedGeMMSpMMROAdj::forward(torch::autograd::AutogradContext *Ctx,
 //    }
 //    torch::Tensor grad_input;
 //    if (Ctx->needs_input_grad(1)) {
-//        mkl_set_num_threads(threadNum);
 //        float *weight_raw = weight.data_ptr<float>();
 //        float *grad_input_raw = new float[adj.size(0) * weight.size(1)]{};
 //
@@ -936,7 +933,7 @@ torch::Tensor FusedGeMMSpMMROAdj::forward(torch::autograd::AutogradContext *Ctx,
 //    }
 //    delete[] adjTGradRes;
 //    at::Tensor undef;
-//    return {undef, grad_input, grad_weight, undef, undef, undef, undef};
+//    return {undef, grad_input, grad_weight, undef, undef, undef, undef, undef};
 //}
 
 torch::autograd::tensor_list
