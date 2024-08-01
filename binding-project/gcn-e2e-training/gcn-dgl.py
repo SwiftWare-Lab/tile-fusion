@@ -122,7 +122,6 @@ with open(mat_file_path) as mat_file:
             labels = torch.randint(0, args.hidden_channels, (adj.num_nodes(),), dtype=torch.long)
         if feature.size(1) > 128:
             feature = feature[:, :128]
-        labels = torch.from_numpy(mmread(labels_path).astype(np.int64))
         labels = torch.squeeze(labels)
         name = mat_folder
 
