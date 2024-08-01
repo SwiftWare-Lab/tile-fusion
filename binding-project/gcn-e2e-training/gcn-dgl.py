@@ -118,8 +118,8 @@ with open(mat_file_path) as mat_file:
             feature = torch.from_numpy(mmread(feature_path).astype(np.float32))
             labels = torch.from_numpy(mmread(labels_path).astype(np.int64))
         except ValueError:
-            feature = torch.FloatTensor(adj.shape[0], args.hidden_channels).uniform_(-1, 1)
-            labels = torch.randint(0, args.hidden_channels, (adj.shape[0],), dtype=torch.long)
+            feature = torch.FloatTensor(adj.num_nodes(), args.hidden_channels).uniform_(-1, 1)
+            labels = torch.randint(0, args.hidden_channels, (adj.num_nodes(),), dtype=torch.long)
         if feature.size(1) > 128:
             feature = feature[:, :128]
         labels = torch.from_numpy(mmread(labels_path).astype(np.int64))
