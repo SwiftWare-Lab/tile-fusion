@@ -103,12 +103,12 @@ with open(mat_file_path) as mat_file:
         feature_path = os.path.join(args.dataset, mat_folder, 'features.mtx')
         labels_path = os.path.join(args.dataset, mat_folder, 'labels.mtx')
         adj = convert_scipy_coo_to_torch_csr(mmread(adj_path))
-        try:
-            feature = torch.from_numpy(mmread(feature_path).astype(np.float32))
-            labels = torch.from_numpy(mmread(labels_path).astype(np.int64))
-        except ValueError:
-            feature = torch.FloatTensor(adj.shape[0], args.hidden_channels).uniform_(-1, 1)
-            labels = torch.randint(0, args.hidden_channels, (adj.shape[0],), dtype=torch.long)
+        # try:
+        #     feature = torch.from_numpy(mmread(feature_path).astype(np.float32))
+        #     labels = torch.from_numpy(mmread(labels_path).astype(np.int64))
+        # except ValueError:
+        feature = torch.FloatTensor(adj.shape[0], args.hidden_channels).uniform_(-1, 1)
+        labels = torch.randint(0, args.hidden_channels, (adj.shape[0],), dtype=torch.long)
         if feature.size(1) > 128:
             feature = feature[:, :128]
         labels = torch.squeeze(labels)

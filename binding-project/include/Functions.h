@@ -34,9 +34,12 @@ struct VariableTile{
     }
 };
 
-void gcnBackwardFused(int M, int *Ap, int *Ai, float *Ax, int N, int Of, int Ow,
+void calculateWeightGradAndInputGradFused(int M, int *Ap, int *Ai, float *Ax, int N, int Of, int Ow,
                       float *B, float* F, float* W, float* OutF, float* OutW, int MaxTileSize,
                       int NumThreads, const int *LevelPtr, const int *MixPtr);
+void calculateWGradFused(int M, int *Ap, int *Ai, float *Ax, int N, int Ow,
+                         float *B, float* F, float* OutW, int MaxTileSize,
+                         int NumThreads, const int *LevelPtr, const int *MixPtr);
 
 int** generateVariableTileSizeScheduleGeMMSpMM(int M, int* Ap, int* Ai, int BCol, int CCol, int CacheSize, int NumThreads,
                                                            int DataSize= 4);
@@ -47,7 +50,7 @@ void createReorderedAdj(int M, int NNZ, int* Ap, int* Ai, float* Ax, int *LevelP
 int findInitialTileSize(int BCol, int CCol, int MaxWSSize, int DataSize = 4);
 int calculateWorkingSetSize(int Nnz, int UniqueColsNum, int BCol, int TileSize, int FusedIters, int DataSize = 4);
 int calculateWorkingSetSizeForGeMM(int FusedNnz, int BCol, int CCol, int TileSize, int FusedIters, int DataSize = 8);
-
+int calculateWorkingSetSizeForGCNLayer(int Nnz, int UniqueColNnz, int BCol, int CCol, int TileSize, int DataSize);
 
 std::vector<int*> createSchedule(int32_t* Ap, int32_t* Ai, int64_t ARows, int64_t MTileSize);
 

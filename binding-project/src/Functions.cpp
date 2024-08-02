@@ -11,6 +11,7 @@ int**
 generateVariableTileSizeScheduleGeMMSpMM(int M, int* Ap, int* Ai, int BCol, int CCol, int CacheSize, int NumThreads,int DataSize){
     //create initial tiles
     int MIN_STRIDE = 16;
+    int variableStride = MIN_STRIDE;
     int maxStride = M / NumThreads;
     std::set<int> uniqueColumns;
     int nnzNum = 0;
@@ -19,27 +20,27 @@ generateVariableTileSizeScheduleGeMMSpMM(int M, int* Ap, int* Ai, int BCol, int 
     std::vector<int> partPtr;
     partPtr.push_back(0);
     while (uft < M){
-        for (int ii = uft; ii < std::min(M, uft + MIN_STRIDE); ii++){
+        for (int ii = uft; ii < std::min(M, uft + variableStride); ii++){
             int row = ii;
             nnzNum += Ap[row + 1] - Ap[row];
             uniqueColumns.insert(Ai + Ap[row], Ai + Ap[row + 1]);
             ufTileSize += 1;
         }
-        int workingSet = calculateWorkingSetSize(nnzNum, uniqueColumns.size(), CCol, ufTileSize, 0, DataSize);
-        if(((workingSet < CacheSize) || (ufTileSize == 1)) && ufTileSize < maxStride){
-            uft += MIN_STRIDE;
+        int workingSet = calculateWorkingSetSizeForGCNLayer(nnzNum, uniqueColumns.size(), BCol, CCol, ufTileSize, DataSize);
+        if(((workingSet < CacheSize) || (ufTileSize <= MIN_STRIDE)) && ufTileSize < maxStride){
+            uft += variableStride;
         }
         else{
             nnzNum = 0;
             uniqueColumns.clear();
-            if (ufTileSize <= MIN_STRIDE){
-                MIN_STRIDE = MIN_STRIDE / 2;
+            if (ufTileSize <= variableStride){
+                variableStride = variableStride / 2;
             }
             else{
                 partPtr.push_back(uft);
             }
-            if (ufTileSize >= 3*MIN_STRIDE){
-                MIN_STRIDE = MIN_STRIDE * 2;
+            if (ufTileSize >= 3*variableStride){
+                variableStride = variableStride * 2;
             }
             ufTileSize = 0;
         }
@@ -99,11 +100,15 @@ generateVariableTileSizeScheduleGeMMSpMM(int M, int* Ap, int* Ai, int BCol, int 
 
 
 int calculateWorkingSetSize(int Nnz, int UniqueColsNum, int BCol, int TileSize, int FusedIters, int DataSize){
-    return (Nnz + UniqueColsNum * BCol + TileSize* BCol + FusedIters* BCol) * DataSize + Nnz*4;
+    return (Nnz + UniqueColsNum * BCol + TileSize * BCol + FusedIters * BCol) * DataSize + Nnz*4;
 }
 
 int calculateWorkingSetSizeForGeMM(int FusedNnz, int BCol, int CCol, int TileSize, int FusedIters, int DataSize){
     return (TileSize * CCol + CCol * BCol + TileSize * BCol + FusedIters * CCol + FusedNnz) * DataSize + FusedNnz * 4;
+}
+
+int calculateWorkingSetSizeForGCNLayer(int Nnz, int UniqueColNnz, int BCol, int CCol, int TileSize, int DataSize){
+    return (CCol * BCol * 2 + TileSize * CCol + TileSize * BCol + UniqueColNnz * BCol + UniqueColNnz * CCol) * DataSize + Nnz * 4;
 }
 
 int findInitialTileSize(int BCol, int CCol, int MaxWSSize, int DataSize){
@@ -745,7 +750,7 @@ void spMMTiled(int M, int *Ap, int *Ai, float *Ax, int N,
 }
 
 
-void gcnBackwardFused(int M, int *Ap, int *Ai, float *Ax, int N, int Of, int Ow,
+void calculateWeightGradAndInputGradFused(int M, int *Ap, int *Ai, float *Ax, int N, int Of, int Ow,
                float *B, float* F, float* W, float* OutF, float* OutW, int MaxTileSize,
                int NumThreads, const int *LevelPtr, const int *MixPtr) {
     float* outWTemp = new float[N * Ow * NumThreads]{};
@@ -777,12 +782,133 @@ void gcnBackwardFused(int M, int *Ap, int *Ai, float *Ax, int N, int Of, int Ow,
             cblas_sgemm(
                     CblasRowMajor, CblasTrans, CblasNoTrans, N, Of,
                     tileSize, 1., interMediateCache,
-                    N, F + tBegin * Of, Of, 0.,
+                    N, F + tBegin * Of, Of, 1.,
                     outWCache, Of);
-            for (int i = 0; i < N * Ow; i++){
-#pragma omp atomic
-                OutW[i] += outWCache[i];
+//            for (int i = 0; i < N * Ow; i++){
+//#pragma omp atomic
+//                OutW[i] += outWCache[i];
+//            }
+        }
+    }
+//    int rowPerThread = std::max(N / NumThreads, 1);
+int prevT;
+for (int t = NumThreads/2; t > 1; t = t/2){
+#pragma omp parallel num_threads(NumThreads)
+        {
+            int tid = omp_get_thread_num();
+            int tidCorr = tid+t;
+            float* outWCache1 = outWTemp + tid * Ow * N;
+            float* outWCache2 = outWTemp + tidCorr * Ow * N;
+            mkl_somatadd(MKL_ROW_MAJOR, CblasNoTrans, CblasNoTrans, N, Ow, 1.,
+                         outWCache1, Ow, 1., outWCache2, Ow, outWCache1, Ow);
+            if (tidCorr == prevT - 2){
+                int tidCorr2 = tidCorr + 1;
+                float* outWCache3 = outWTemp + tidCorr2 * Ow * N;
+                mkl_somatadd(MKL_ROW_MAJOR, CblasNoTrans, CblasNoTrans, N, Ow, 1.,
+                             outWCache1, Ow, 1., outWCache3, Ow, outWCache1, Ow);
             }
+            prevT = t;
+//        for (int t = 0; t < NumThreads; t++){
+//            float* outWCache = outWTemp + t * Ow * N;
+//            for (int i = 0; i < N * Ow; i++){
+//#pragma omp atomic
+//                OutW[i] += outWCache[i];
+//            }
+//        }
+//        for (int i = 0; i < NumThreads; i += 1) {
+//            int rowStart = i * rowPerThread;
+//            int rowEnd = std::min(rowStart + rowPerThread, N);
+//            for (int r = rowStart; r < rowEnd; r++) {
+//                for (int t = 0; t < NumThreads; t++) {
+//                    int ip = r * Ow;
+//                    float *wPart = outWTemp + t * N * Ow + ip;
+//                    for (int j = 0; j < Ow; j++) {
+//                        OutW[ip + j] += wPart[j];
+//                    }
+//                }
+//            }
+//        }
+
+        }
+    }
+    delete[] outWTemp;
+    delete[] intermediate;
+}
+
+void calculateWGradFused(int M, int *Ap, int *Ai, float *Ax, int N, int Ow,
+                                              float *B, float* F, float* OutW, int MaxTileSize,
+                                              int NumThreads, const int *LevelPtr, const int *MixPtr) {
+    float* outWTemp = new float[N * Ow * NumThreads]{};
+    float* intermediate = new float[MaxTileSize * N * NumThreads]{};
+    int residueStart = N - N % 16;
+#pragma omp parallel num_threads(NumThreads)
+    {
+        int tid = omp_get_thread_num();
+#pragma omp for
+        for (int i1 = 0; i1 < LevelPtr[1]; i1++) {
+            int tBegin = MixPtr[i1 * 2];
+            int tEnd = MixPtr[(i1 + 1) * 2];
+            float* interMediateCache = intermediate + tid * MaxTileSize * N;
+            memset(interMediateCache, 0, sizeof (float) * MaxTileSize * N);
+            int tileSize = tEnd - tBegin;
+            for (int i = tBegin; i < tEnd; i++) {
+                int ip = i * N;
+                int row = i;
+//                std::cout << "1: " <<  k << std::endl;
+                spmmKernel(Ap, Ai, Ax, N, B, interMediateCache, residueStart, row);
+            }
+            float* outWCache = outWTemp + tid * Ow * N;
+            memset(outWCache, 0, sizeof (float) * Ow * N);
+            cblas_sgemm(
+                    CblasRowMajor, CblasTrans, CblasNoTrans, N, Ow,
+                    tileSize, 1., interMediateCache,
+                    N, F + tBegin * Ow, Ow, 1.,
+                    outWCache, Ow);
+//            for (int i = 0; i < N * Ow; i++){
+//#pragma omp atomic
+//                OutW[i] += outWCache[i];
+//            }
+        }
+    }
+//    int rowPerThread = std::max(N / NumThreads, 1);
+    int prevT;
+    for (int t = NumThreads/2; t > 1; t = t/2){
+#pragma omp parallel num_threads(NumThreads)
+        {
+            int tid = omp_get_thread_num();
+            int tidCorr = tid+t;
+            float* outWCache1 = outWTemp + tid * Ow * N;
+            float* outWCache2 = outWTemp + tidCorr * Ow * N;
+            mkl_somatadd(MKL_ROW_MAJOR, CblasNoTrans, CblasNoTrans, N, Ow, 1.,
+                         outWCache1, Ow, 1., outWCache2, Ow, outWCache1, Ow);
+            if (tidCorr == prevT - 2){
+                int tidCorr2 = tidCorr + 1;
+                float* outWCache3 = outWTemp + tidCorr2 * Ow * N;
+                mkl_somatadd(MKL_ROW_MAJOR, CblasNoTrans, CblasNoTrans, N, Ow, 1.,
+                             outWCache1, Ow, 1., outWCache3, Ow, outWCache1, Ow);
+            }
+            prevT = t;
+//        for (int t = 0; t < NumThreads; t++){
+//            float* outWCache = outWTemp + t * Ow * N;
+//            for (int i = 0; i < N * Ow; i++){
+//#pragma omp atomic
+//                OutW[i] += outWCache[i];
+//            }
+//        }
+//        for (int i = 0; i < NumThreads; i += 1) {
+//            int rowStart = i * rowPerThread;
+//            int rowEnd = std::min(rowStart + rowPerThread, N);
+//            for (int r = rowStart; r < rowEnd; r++) {
+//                for (int t = 0; t < NumThreads; t++) {
+//                    int ip = r * Ow;
+//                    float *wPart = outWTemp + t * N * Ow + ip;
+//                    for (int j = 0; j < Ow; j++) {
+//                        OutW[ip + j] += wPart[j];
+//                    }
+//                }
+//            }
+//        }
+
         }
     }
     delete[] outWTemp;
@@ -862,83 +988,9 @@ torch::Tensor FusedGeMMSpMMROAdj::forward(torch::autograd::AutogradContext *Ctx,
 }
 
 //
-torch::autograd::tensor_list
-FusedGeMMSpMMROAdj::backward(torch::autograd::AutogradContext *Ctx,
-                        torch::autograd::tensor_list GradOutputs) {
-    matrix_descr d;
-    d.type = SPARSE_MATRIX_TYPE_GENERAL;
-    auto saved = Ctx->get_saved_variables();
-    auto input = saved[1];
-    auto adj = saved[0];
-    auto weight = saved[2];
-    auto *levelPtr = saved[3].data_ptr<int>();
-    auto *mixPtr = saved[4].data_ptr<int>();
-    int threadNum = Ctx->saved_data["num_threads"].toInt();
-    int *adjPtr = adj.crow_indices().data_ptr<int>();
-    int *adjIndex = adj.col_indices().data_ptr<int>();
-    auto grad_output = GradOutputs[0];
-    float *grad_output_raw = grad_output.data_ptr<float>();
-    float *inputRaw = input.data_ptr<float>();
-
-//    mkl_sparse_s_create_csr(&MKLAdj, SPARSE_INDEX_BASE_ZERO, adj.size(0),
-//                            adj.size(1), adjPtr,
-//                            adjPtr + 1,
-//                            adjIndex,
-//                            adj.values().data_ptr<float>());
-    float *adjTGradRes = new float[adj.size(0) * grad_output.size(1)]{};
-    spMMTiled(adj.size(0), adjPtr, adjIndex, adj.values().data_ptr<float>(),
-              grad_output.size(1), grad_output_raw, adjTGradRes,
-              threadNum, levelPtr, mixPtr);
-    torch::Tensor grad_weight;
-    if (Ctx->needs_input_grad(2)){
-        float *grad_weight_raw = new float[grad_output.size(1) * input.size(1)]{};
-        //      swiftware::benchmark::Timer t1;
-        //      t1.start();
-//        mkl_sparse_s_mm(SPARSE_OPERATION_NON_TRANSPOSE, 1, MKLAdj, d,
-//                        SPARSE_LAYOUT_ROW_MAJOR, inputRaw,
-//                        input.size(1), input.size(1), 0,
-//                        grad_intermediate, input.size(1));
-//        mkl_sparse_s_mm(SPARSE_OPERATION_NON_TRANSPOSE, 1, MKLAdj, d,
-//                        SPARSE_LAYOUT_ROW_MAJOR, grad_output_raw,
-//                        grad_output.size(1), grad_output.size(1), 0,
-//                        adjTGradRes, grad_output.size(1));
-        cblas_sgemm(CblasRowMajor, CblasTrans, CblasNoTrans, grad_output.size(1),
-                    weight.size(1), adj.size(0), 1., adjTGradRes,
-                    grad_output.size(1), inputRaw, input.size(1), 0.,
-                    grad_weight_raw, input.size(1));
-        //      t1.stop();
-        //      std::cout <<  "GeMMSpMM_BWW_TiledFused" << "," << "mat_name" << "," << t1.printTimeCsv(0) << std::endl;
-//        mkl_free(MKLAdj);
-        grad_weight = torch::from_blob(
-                grad_weight_raw, {grad_output.size(1), input.size(1)},
-                [](void *ptr) { delete[] static_cast<float *>(ptr); }, torch::kFloat32);
-    }
-    torch::Tensor grad_input;
-    if (Ctx->needs_input_grad(1)) {
-        float *weight_raw = weight.data_ptr<float>();
-        float *grad_input_raw = new float[adj.size(0) * weight.size(1)]{};
-
-        //      swiftware::benchmark::Timer t1;
-        //      t1.start();
-        cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, adj.size(0),
-                    weight.size(1), grad_output.size(1), 1., adjTGradRes,
-                    grad_output.size(1), weight_raw, weight.size(1), 0.,
-                    grad_input_raw, weight.size(1));
-        //      t1.stop();
-        //      std::cout <<  "GeMMSpMM_BWI_TiledFused" << "," << "mat_name" << "," << t1.printTimeCsv(0) << std::endl;
-        grad_input = torch::from_blob(
-                grad_input_raw, {grad_output.size(0), weight.size(1)},
-                [](void *ptr) { delete[] static_cast<float *>(ptr); },
-                torch::kFloat32);
-    }
-    delete[] adjTGradRes;
-    at::Tensor undef;
-    return {undef, grad_input, grad_weight, undef, undef, undef, undef, undef};
-}
-
 //torch::autograd::tensor_list
 //FusedGeMMSpMMROAdj::backward(torch::autograd::AutogradContext *Ctx,
-//                             torch::autograd::tensor_list GradOutputs) {
+//                        torch::autograd::tensor_list GradOutputs) {
 //    matrix_descr d;
 //    d.type = SPARSE_MATRIX_TYPE_GENERAL;
 //    auto saved = Ctx->get_saved_variables();
@@ -947,38 +999,122 @@ FusedGeMMSpMMROAdj::backward(torch::autograd::AutogradContext *Ctx,
 //    auto weight = saved[2];
 //    auto *levelPtr = saved[3].data_ptr<int>();
 //    auto *mixPtr = saved[4].data_ptr<int>();
-//    int numThreads = Ctx->saved_data["num_threads"].toInt();
-//    int maxTileSize = Ctx->saved_data["max_tile_size"].toInt();
+//    int threadNum = Ctx->saved_data["num_threads"].toInt();
 //    int *adjPtr = adj.crow_indices().data_ptr<int>();
 //    int *adjIndex = adj.col_indices().data_ptr<int>();
 //    auto grad_output = GradOutputs[0];
 //    float *grad_output_raw = grad_output.data_ptr<float>();
 //    float *inputRaw = input.data_ptr<float>();
-//    float *weightRaw = input.data_ptr<float>();
+//
 ////    mkl_sparse_s_create_csr(&MKLAdj, SPARSE_INDEX_BASE_ZERO, adj.size(0),
 ////                            adj.size(1), adjPtr,
 ////                            adjPtr + 1,
 ////                            adjIndex,
 ////                            adj.values().data_ptr<float>());
-//    float *grad_weight_raw = new float[grad_output.size(1) * input.size(1)]{};
-//    float *grad_input_raw = new float[adj.size(0) * weight.size(1)]{};
-//    gcnBackwardFused(adj.size(0), adjPtr, adjIndex, adj.values().data_ptr<float>(),
-//                     grad_output.size(1), input.size(1), weight.size(1), grad_output_raw, inputRaw, weightRaw,
-//                     grad_input_raw, grad_weight_raw, maxTileSize,
-//                     numThreads, levelPtr, mixPtr);
+//    float *adjTGradRes = new float[adj.size(0) * grad_output.size(1)]{};
+//    spMMTiled(adj.size(0), adjPtr, adjIndex, adj.values().data_ptr<float>(),
+//              grad_output.size(1), grad_output_raw, adjTGradRes,
+//              threadNum, levelPtr, mixPtr);
 //    torch::Tensor grad_weight;
+//    if (Ctx->needs_input_grad(2)){
+//        float *grad_weight_raw = new float[grad_output.size(1) * input.size(1)]{};
+//        //      swiftware::benchmark::Timer t1;
+//        //      t1.start();
+////        mkl_sparse_s_mm(SPARSE_OPERATION_NON_TRANSPOSE, 1, MKLAdj, d,
+////                        SPARSE_LAYOUT_ROW_MAJOR, inputRaw,
+////                        input.size(1), input.size(1), 0,
+////                        grad_intermediate, input.size(1));
+////        mkl_sparse_s_mm(SPARSE_OPERATION_NON_TRANSPOSE, 1, MKLAdj, d,
+////                        SPARSE_LAYOUT_ROW_MAJOR, grad_output_raw,
+////                        grad_output.size(1), grad_output.size(1), 0,
+////                        adjTGradRes, grad_output.size(1));
+//        cblas_sgemm(CblasRowMajor, CblasTrans, CblasNoTrans, grad_output.size(1),
+//                    weight.size(1), adj.size(0), 1., adjTGradRes,
+//                    grad_output.size(1), inputRaw, input.size(1), 0.,
+//                    grad_weight_raw, input.size(1));
+//        //      t1.stop();
+//        //      std::cout <<  "GeMMSpMM_BWW_TiledFused" << "," << "mat_name" << "," << t1.printTimeCsv(0) << std::endl;
+////        mkl_free(MKLAdj);
 //        grad_weight = torch::from_blob(
 //                grad_weight_raw, {grad_output.size(1), input.size(1)},
 //                [](void *ptr) { delete[] static_cast<float *>(ptr); }, torch::kFloat32);
-////    }
+//    }
 //    torch::Tensor grad_input;
-//    grad_input = torch::from_blob(
+//    if (Ctx->needs_input_grad(1)) {
+//        float *weight_raw = weight.data_ptr<float>();
+//        float *grad_input_raw = new float[adj.size(0) * weight.size(1)]{};
+//
+//        //      swiftware::benchmark::Timer t1;
+//        //      t1.start();
+//        cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, adj.size(0),
+//                    weight.size(1), grad_output.size(1), 1., adjTGradRes,
+//                    grad_output.size(1), weight_raw, weight.size(1), 0.,
+//                    grad_input_raw, weight.size(1));
+//        //      t1.stop();
+//        //      std::cout <<  "GeMMSpMM_BWI_TiledFused" << "," << "mat_name" << "," << t1.printTimeCsv(0) << std::endl;
+//        grad_input = torch::from_blob(
 //                grad_input_raw, {grad_output.size(0), weight.size(1)},
 //                [](void *ptr) { delete[] static_cast<float *>(ptr); },
 //                torch::kFloat32);
+//    }
+//    delete[] adjTGradRes;
 //    at::Tensor undef;
 //    return {undef, grad_input, grad_weight, undef, undef, undef, undef, undef};
 //}
+
+torch::autograd::tensor_list
+FusedGeMMSpMMROAdj::backward(torch::autograd::AutogradContext *Ctx,
+                             torch::autograd::tensor_list GradOutputs) {
+    matrix_descr d;
+    d.type = SPARSE_MATRIX_TYPE_GENERAL;
+    auto saved = Ctx->get_saved_variables();
+    auto input = saved[1];
+    auto adj = saved[0];
+    auto weight = saved[2];
+    auto *levelPtr = saved[3].data_ptr<int>();
+    auto *mixPtr = saved[4].data_ptr<int>();
+    int numThreads = Ctx->saved_data["num_threads"].toInt();
+    int maxTileSize = Ctx->saved_data["max_tile_size"].toInt();
+    int *adjPtr = adj.crow_indices().data_ptr<int>();
+    int *adjIndex = adj.col_indices().data_ptr<int>();
+    auto grad_output = GradOutputs[0];
+    float *grad_output_raw = grad_output.data_ptr<float>();
+    float *inputRaw = input.data_ptr<float>();
+    float *weightRaw = input.data_ptr<float>();
+//    mkl_sparse_s_create_csr(&MKLAdj, SPARSE_INDEX_BASE_ZERO, adj.size(0),
+//                            adj.size(1), adjPtr,
+//                            adjPtr + 1,
+//                            adjIndex,
+//                            adj.values().data_ptr<float>());
+    float *grad_weight_raw = new float[grad_output.size(1) * input.size(1)]{};
+    torch::Tensor grad_input;
+    if (Ctx->needs_input_grad(1)) {
+    float *grad_input_raw = new float[adj.size(0) * weight.size(1)]{};
+        calculateWeightGradAndInputGradFused(adj.size(0), adjPtr, adjIndex, adj.values().data_ptr<float>(),
+                     grad_output.size(1), input.size(1), weight.size(1), grad_output_raw, inputRaw, weightRaw,
+                     grad_input_raw, grad_weight_raw, maxTileSize,
+                     numThreads, levelPtr, mixPtr);
+
+        grad_input = torch::from_blob(
+                grad_input_raw, {grad_output.size(0), weight.size(1)},
+                [](void *ptr) { delete[] static_cast<float *>(ptr); },
+                torch::kFloat32);
+    }
+    else{
+        calculateWGradFused(adj.size(0), adjPtr, adjIndex, adj.values().data_ptr<float>(),
+                                             grad_output.size(1), weight.size(1),
+                                             grad_output_raw, inputRaw, grad_weight_raw, maxTileSize,
+                                             numThreads, levelPtr, mixPtr);
+    }
+    torch::Tensor grad_weight;
+        grad_weight = torch::from_blob(
+                grad_weight_raw, {grad_output.size(1), input.size(1)},
+                [](void *ptr) { delete[] static_cast<float *>(ptr); }, torch::kFloat32);
+//    }
+
+    at::Tensor undef;
+    return {undef, grad_input, grad_weight, undef, undef, undef, undef, undef};
+}
 
 
 
