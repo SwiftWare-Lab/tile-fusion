@@ -5,12 +5,21 @@ import time
 import numpy as np
 import torch
 import torch.nn.functional as F
-
+import os
 import torch_geometric.transforms as T
-from torch_geometric.datasets import Planetoid
-import torch_geometric.datasets as datasets
 from torch_geometric.nn import GCNConv
-from torch_geometric.utils import to_torch_sparse_tensor, to_torch_csr_tensor
+from scipy.io import mmread
+
+def convert_scipy_coo_to_torch_csr(coo):
+    values = coo.data
+    adj_cs = coo.tocsr()
+    adj_cs.setdiag([1.] * adj_cs.shape[0])
+    crow_indices = torch.tensor(adj_cs.indptr, dtype=torch.int32)
+    col_indices = torch.tensor(adj_cs.indices, dtype=torch.int32)
+    values = torch.tensor(adj_cs.data, dtype=torch.float32)
+    adj = torch.sparse_csr_tensor(crow_indices, col_indices, values, size=(coo.shape[0], coo.shape[1]))
+    # print(adj)
+    return adj
 
 class GCN(torch.nn.Module):
     def __init__(self, in_channels, hidden_channels, out_channels):
@@ -42,8 +51,8 @@ class GCN(torch.nn.Module):
 def train(backward_time=[0]):
     model.train()
     optimizer.zero_grad()
-    out = model(data.x, adj)
-    loss = F.cross_entropy(out, data.y)
+    out = model(feature, adj)
+    loss = F.cross_entropy(out, labels)
     t1 = time.time()
     loss.backward()
     backward_time[0] += time.time() - t1
@@ -76,78 +85,72 @@ train_mask = range(200)
 #     hidden_channels=args.hidden_channels,
 #     device=device,
 # )
-raw_folder_name = osp.join(osp.dirname(osp.realpath(__file__)), '..', 'data')
-dataset_list = [
-    datasets.Coauthor(root=raw_folder_name + '/coauthor_cs/', name='CS', transform=None),
-    datasets.Coauthor(root=raw_folder_name + '/coauthor_physics/', name='Physics', transform=None),
-    datasets.CoraFull(root=raw_folder_name + '/cora_full/', transform=None),
-    datasets.Flickr(root=raw_folder_name + '/flickr/', transform=None),
-    datasets.Yelp(root=raw_folder_name + '/yelp/', transform=None),
-    # datasets.Planetoid(root=raw_folder_name + '/planetoid/pubmed/', name='Pubmed', transform=None),
-    # datasets.Planetoid(root=raw_folder_name + '/planetoid/cora/', name='Cora', transform=None),
-    datasets.GitHub(root=raw_folder_name + '/github/', transform=None),
-    datasets.FacebookPagePage(root=raw_folder_name + '/facebook_page_page/', transform=None),
-    datasets.DeezerEurope(root=raw_folder_name + '/deezer_europe/', transform=None),
-    datasets.Reddit(root=raw_folder_name + '/reddit2/', transform=None)
-]
-for dataset in dataset_list:
-    name = dataset.root.split('/')[-1]
-    data = dataset[0].to(device)
-    adj = to_torch_csr_tensor(data.edge_index)
-    crow_indices = adj.crow_indices().type(torch.int32)
-    col_indices = adj.col_indices().type(torch.int32)
-    adj = torch.sparse_csr_tensor(crow_indices, col_indices, adj.values())
+
+mat_file_path = args.dataset + '/mat_list.txt'
+torch.set_num_threads(args.threads)
+with open(mat_file_path) as mat_file:
+    matrices = mat_file.readlines()
+    for mat in matrices:
+        mat = mat.rstrip()
+        datafolder = args.dataset
+        mat_folder = mat.split('/')[0]
+        adj_path = os.path.join(args.dataset, mat)
+        adj = convert_scipy_coo_to_torch_csr(mmread(adj_path))
+        feature = torch.FloatTensor(adj.shape[0], args.hidden_channels).uniform_(-1, 1)
+        labels = torch.randint(0, args.hidden_channels, (adj.shape[0],), dtype=torch.long)
+        labels = torch.squeeze(labels)
+        name = mat_folder
     # edge_index_sparse = to_torch_sparse_tensor(data.edge_index)
-    if args.use_gdc:
-        transform = T.GDC(
-            self_loop_weight=1,
-            normalization_in='sym',
-            normalization_out='col',
-            diffusion_kwargs=dict(method='ppr', alpha=0.05),
-            sparsification_kwargs=dict(method='topk', k=128, dim=0),
-            exact=True,
-        )
-        data = transform(data)
+        if args.use_gdc:
+            transform = T.GDC(
+                self_loop_weight=1,
+                normalization_in='sym',
+                normalization_out='col',
+                diffusion_kwargs=dict(method='ppr', alpha=0.05),
+                sparsification_kwargs=dict(method='topk', k=128, dim=0),
+                exact=True,
+            )
+            data = transform(data)
 
 
 
 
-    model = GCN(
-        in_channels=dataset.num_features,
-        hidden_channels=args.hidden_channels,
-        out_channels=dataset.num_classes,
-    ).to(device)
+        model = GCN(
+            in_channels=feature.size(1),
+            hidden_channels=args.hidden_channels,
+            out_channels=args.hidden_channels
+        ).to(device)
 
-    optimizer = torch.optim.Adam([
-        dict(params=model.conv1.parameters(), weight_decay=5e-4),
-        dict(params=model.conv2.parameters(), weight_decay=0)
-    ], lr=args.lr)  # Only perform weight-decay on first convolution.
-
-
-
-    # @torch.no_grad()
-    # def test():
-    #     model.eval()
-    #     pred = model(data.x, data.edge_index, data.edge_attr).argmax(dim=-1)
-    #
-    #     accs = []
-    #     for mask in [data.train_mask, data.val_mask, data.test_mask]:
-    #         accs.append(int((pred[mask] == data.y[mask]).sum()) / int(mask.sum()))
-    #     return accs
+        optimizer = torch.optim.Adam([
+            dict(params=model.conv1.parameters(), weight_decay=5e-4),
+            dict(params=model.conv2.parameters(), weight_decay=0)
+        ], lr=args.lr)  # Only perform weight-decay on first convolution.
 
 
-    best_val_acc = test_acc = 0
-    times = []
-    backward_time = [0]
-    for epoch in range(0, 100):
-        start = time.time()
-        loss1 = train(backward_time)
-        times.append(time.time() - start)
-        # log(Epoch=epoch, Loss=loss1)
-    # print(f'Median time per epoch: {torch.tensor(times).median():.4f}s')
-    print(f'torch_geometric GCNConv,{name},{np.array(times).sum():.4f}')
-    # print("gemm-spmm in forward", model.get_op_time())
-    # print("backward time", backward_time[0])
 
-    # print('total conv1 time: ', model.conv1_time)
-    # print('total conv2 time: ', model.conv2_time)
+        # @torch.no_grad()
+        # def test():
+        #     model.eval()
+        #     pred = model(data.x, data.edge_index, data.edge_attr).argmax(dim=-1)
+        #
+        #     accs = []
+        #     for mask in [data.train_mask, data.val_mask, data.test_mask]:
+        #         accs.append(int((pred[mask] == data.y[mask]).sum()) / int(mask.sum()))
+        #     return accs
+
+
+        best_val_acc = test_acc = 0
+        times = []
+        backward_time = [0]
+        for epoch in range(0, 100):
+            start = time.time()
+            loss1 = train(backward_time)
+            times.append(time.time() - start)
+            # log(Epoch=epoch, Loss=loss1)
+        # print(f'Median time per epoch: {torch.tensor(times).median():.4f}s')
+        print(f'torch_geometric GCNConv,{name},{np.array(times).sum():.4f}')
+        # print("gemm-spmm in forward", model.get_op_time())
+        # print("backward time", backward_time[0])
+
+        # print('total conv1 time: ', model.conv1_time)
+        # print('total conv2 time: ', model.conv2_time)
