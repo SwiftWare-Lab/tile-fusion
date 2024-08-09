@@ -224,6 +224,72 @@ void fusedGeMMSpMMReorderedAdjVectorized(
     delete[] intermediateResult;
 }
 
+
+void fusedGCN(
+        const int M, const int *__restrict__ Ap, const int *__restrict__ Ai,
+        const float *__restrict__ Ax, const int InputChannelDim,
+        const int OutDim1, const int OutDim2, const float * Features,
+        const float * Weight1, const float * Weight2, float * Output,
+        const int NumThreads, const int LevelNo, const int *LevelPtr,
+        const int *MixPtr, const int *L2Ptr) {
+    int numKernels = 4;
+    int k1Counter = 0;
+    int residueStart1 = OutDim1 - OutDim1 % 32;
+    int residueStart2 = OutDim2 - OutDim2 % 32;
+    float *imRes1 = new float[M * OutDim1]{};
+    float *imRes2 = new float[M * OutDim2]{};
+    float *imOut = new float[M * OutDim1]{};
+    for (int i1 = 0; i1 < LevelNo; i1++) {
+#pragma omp parallel num_threads(NumThreads)
+        {
+#pragma omp for
+            for (int j1 = LevelPtr[i1]; j1 < LevelPtr[i1 + 1]; j1++) {
+                int kBeginL1 = MixPtr[j1 * numKernels];
+                int kEndL1 = MixPtr[(j1+1) * numKernels];
+                int tileSize = kEndL1 - kBeginL1;
+                k1Counter += tileSize;
+                cblas_sgemm(
+                        CblasRowMajor, CblasNoTrans, CblasTrans, tileSize, OutDim1,
+                        InputChannelDim, 1., Features + kBeginL1 * InputChannelDim,
+                        InputChannelDim, Weight1, InputChannelDim, 0.,
+                        imRes1 + kBeginL1 * OutDim1, OutDim1);
+                int kBeginL2 = MixPtr[j1 * numKernels + 1];
+                int kEndL2 = MixPtr[(j1+1) * numKernels + 1];
+
+#ifdef AVX512
+                PerfectSpatialLocalitySpMMAVX512OutDim32(Ap, Ai, Ax, OutDim1, imOut, L2Ptr, residueStart1,
+                                           imRes1, kBeginL2, kEndL2);
+#else
+                perfectSpatialLocalitySpMM(Ap, Ai, Ax, OutDim1, imOut, L2Ptr, residueStart1,
+                                           imRes1, kBeginL2, kEndL2);
+#endif
+                int kBeginL3 = MixPtr[j1 * numKernels + 2];
+                int kEndL3 = MixPtr[(j1+1) * numKernels + 2];
+                tileSize = kEndL3 - kBeginL3;
+                cblas_sgemm(
+                        CblasRowMajor, CblasNoTrans, CblasTrans, tileSize, OutDim2,
+                        OutDim1, 1., imRes1 + kBeginL3 * InputChannelDim,
+                        OutDim1, Weight2, OutDim1, 0.,
+                        imRes2 + kBeginL3 * OutDim2, OutDim2);
+                int kBeginL4 = MixPtr[j1 * numKernels + 3];
+                int kEndL4 = MixPtr[(j1+1) * numKernels + 3];
+
+#ifdef AVX512
+                PerfectSpatialLocalitySpMMAVX512OutDim32(Ap, Ai, Ax, OutDim2, Output, L2Ptr, residueStart2,
+                                           imRes2, kBeginL4, kEndL4);
+#else
+                perfectSpatialLocalitySpMM(Ap, Ai, Ax, OutDim2, Output, L2Ptr, residueStart2,
+                                           imRes2, kBeginL4, kEndL4);
+#endif
+            }
+        }
+    }
+    delete[] imRes1;
+    delete[] imRes2;
+    delete[] imOut;
+}
+
+
 inline void
 perfectSpatialLocalitySpMM(const int *Ap, const int *Ai, const float *Ax, const int OutputChannelDim, float *Output,
                             const int *L2Ptr, int residueStart, const float *intermediateResult, int kBeginL2,
@@ -792,8 +858,8 @@ void calculateWeightGradAndInputGradFused(int M, int *Ap, int *Ai, float *Ax, in
     }
 //    int rowPerThread = std::max(N / NumThreads, 1);
 int prevT;
-for (int t = NumThreads/2; t > 1; t = t/2){
-#pragma omp parallel num_threads(NumThreads)
+for (int t = NumThreads/2; t >= 1; t = t/2){
+#pragma omp parallel num_threads(t)
         {
             int tid = omp_get_thread_num();
             int tidCorr = tid+t;
@@ -831,6 +897,67 @@ for (int t = NumThreads/2; t > 1; t = t/2){
 
         }
     }
+    std::memcpy(OutW, outWTemp, sizeof(float) * Ow * N);
+    delete[] outWTemp;
+    delete[] intermediate;
+}
+
+void gcnBackwardFused(int M, int *Ap, int *Ai, float *Ax, int N, int Of, int Ow,
+                                          float *B, float* F, float* W, float* OutF, float* OutW, int MaxTileSize,
+                                          int NumThreads, const int *LevelPtr, const int *MixPtr) {
+    float* outWTemp = new float[N * Ow * NumThreads]{};
+    float* intermediate = new float[MaxTileSize * N * NumThreads]{};
+    int residueStart = N - N % 16;
+#pragma omp parallel num_threads(NumThreads)
+    {
+        int tid = omp_get_thread_num();
+#pragma omp for
+        for (int i1 = 0; i1 < LevelPtr[1]; i1++) {
+            int tBegin = MixPtr[i1 * 2];
+            int tEnd = MixPtr[(i1 + 1) * 2];
+            float* interMediateCache = intermediate + tid * MaxTileSize * N;
+            memset(interMediateCache, 0, sizeof (float) * MaxTileSize * N);
+            int tileSize = tEnd - tBegin;
+            for (int i = tBegin; i < tEnd; i++) {
+                int ip = i * N;
+                int row = i;
+//                std::cout << "1: " <<  k << std::endl;
+                spmmKernel(Ap, Ai, Ax, N, B, interMediateCache, residueStart, row);
+            }
+            cblas_sgemm(
+                    CblasRowMajor, CblasNoTrans, CblasNoTrans, tileSize, Ow,
+                    N, 1., interMediateCache,
+                    N, W, Ow, 0.,
+                    OutF + tBegin * N, Ow);
+            float* outWCache = outWTemp + tid * Ow * N;
+            memset(outWCache, 0, sizeof (float) * Ow * N);
+            cblas_sgemm(
+                    CblasRowMajor, CblasTrans, CblasNoTrans, N, Of,
+                    tileSize, 1., interMediateCache,
+                    N, F + tBegin * Of, Of, 1.,
+                    outWCache, Of);
+        }
+    }
+    int prevT;
+    for (int t = NumThreads/2; t >= 1; t = t/2){
+#pragma omp parallel num_threads(t)
+        {
+            int tid = omp_get_thread_num();
+            int tidCorr = tid+t;
+            float* outWCache1 = outWTemp + tid * Ow * N;
+            float* outWCache2 = outWTemp + tidCorr * Ow * N;
+            mkl_somatadd(MKL_ROW_MAJOR, CblasNoTrans, CblasNoTrans, N, Ow, 1.,
+                         outWCache1, Ow, 1., outWCache2, Ow, outWCache1, Ow);
+            if (tidCorr == prevT - 2){
+                int tidCorr2 = tidCorr + 1;
+                float* outWCache3 = outWTemp + tidCorr2 * Ow * N;
+                mkl_somatadd(MKL_ROW_MAJOR, CblasNoTrans, CblasNoTrans, N, Ow, 1.,
+                             outWCache1, Ow, 1., outWCache3, Ow, outWCache1, Ow);
+            }
+            prevT = t;
+        }
+    }
+    std::memcpy(OutW, outWTemp, sizeof(float) * Ow * N);
     delete[] outWTemp;
     delete[] intermediate;
 }
@@ -1350,4 +1477,85 @@ ForwardCachingAF::backward(torch::autograd::AutogradContext *Ctx,
     }
     at::Tensor undef;
     return {undef, grad_weight, undef};
+}
+
+
+torch::Tensor TotallyFusedGCN::forward(torch::autograd::AutogradContext *Ctx,
+                                          torch::Tensor Adj, torch::Tensor Feature,
+                                          torch::Tensor Weight1, torch::Tensor Weight2,
+                                          torch::Tensor LevelPtr, torch::Tensor MixPtr, torch::Tensor L2Ptr,
+                                          int64_t NumThreads, int64_t MaxTileSize) {
+    float *out = new float[Adj.size(0) * Weight2.size(0)]{};
+//    mkl_set_num_threads(1);
+    fusedGCN(Adj.size(0),
+             Adj.crow_indices().data_ptr<int32_t>(),
+             Adj.col_indices().data_ptr<int32_t>(),
+             Adj.values().data_ptr<float>(),
+             Feature.size(1),
+             Weight1.size(0), Weight2.size(0), Feature.data_ptr<float>(),
+             Weight1.data_ptr<float>(), Weight2.data_ptr<float>(),
+             out, NumThreads, 2, LevelPtr.data_ptr<int32_t>(),
+             MixPtr.data_ptr<int32_t>(),
+             L2Ptr.data_ptr<int32_t>());
+    Ctx->save_for_backward({Adj, Feature, Weight1, Weight2, LevelPtr, MixPtr});
+    Ctx->saved_data["num_threads"] = NumThreads;
+    Ctx->saved_data["max_tile_size"] = MaxTileSize;
+    return torch::from_blob(
+            out, {Adj.size(0), Weight2.size(0)},
+            [](void *ptr) { delete[] static_cast<float *>(ptr); }, torch::kFloat32);
+}
+
+
+torch::autograd::tensor_list
+TotallyFusedGCN::backward(torch::autograd::AutogradContext *Ctx,
+                             torch::autograd::tensor_list GradOutputs) {
+    matrix_descr d;
+    d.type = SPARSE_MATRIX_TYPE_GENERAL;
+    auto saved = Ctx->get_saved_variables();
+    auto input = saved[1];
+    auto adj = saved[0];
+    auto weight = saved[2];
+    auto *levelPtr = saved[3].data_ptr<int>();
+    auto *mixPtr = saved[4].data_ptr<int>();
+    int numThreads = Ctx->saved_data["num_threads"].toInt();
+    int maxTileSize = Ctx->saved_data["max_tile_size"].toInt();
+    int *adjPtr = adj.crow_indices().data_ptr<int>();
+    int *adjIndex = adj.col_indices().data_ptr<int>();
+    auto grad_output = GradOutputs[0];
+    float *grad_output_raw = grad_output.data_ptr<float>();
+    float *inputRaw = input.data_ptr<float>();
+    float *weightRaw = input.data_ptr<float>();
+//    mkl_sparse_s_create_csr(&MKLAdj, SPARSE_INDEX_BASE_ZERO, adj.size(0),
+//                            adj.size(1), adjPtr,
+//                            adjPtr + 1,
+//                            adjIndex,
+//                            adj.values().data_ptr<float>());
+    float *grad_weight_raw = new float[grad_output.size(1) * input.size(1)]{};
+    torch::Tensor grad_input;
+    if (Ctx->needs_input_grad(1)) {
+        float *grad_input_raw = new float[adj.size(0) * weight.size(1)]{};
+        calculateWeightGradAndInputGradFused(adj.size(0), adjPtr, adjIndex, adj.values().data_ptr<float>(),
+                                             grad_output.size(1), input.size(1), weight.size(1), grad_output_raw, inputRaw, weightRaw,
+                                             grad_input_raw, grad_weight_raw, maxTileSize,
+                                             numThreads, levelPtr, mixPtr);
+
+        grad_input = torch::from_blob(
+                grad_input_raw, {grad_output.size(0), weight.size(1)},
+                [](void *ptr) { delete[] static_cast<float *>(ptr); },
+                torch::kFloat32);
+    }
+    else{
+        calculateWGradFused(adj.size(0), adjPtr, adjIndex, adj.values().data_ptr<float>(),
+                            grad_output.size(1), weight.size(1),
+                            grad_output_raw, inputRaw, grad_weight_raw, maxTileSize,
+                            numThreads, levelPtr, mixPtr);
+    }
+    torch::Tensor grad_weight;
+    grad_weight = torch::from_blob(
+            grad_weight_raw, {grad_output.size(1), input.size(1)},
+            [](void *ptr) { delete[] static_cast<float *>(ptr); }, torch::kFloat32);
+//    }
+
+    at::Tensor undef;
+    return {undef, grad_input, grad_weight, undef, undef, undef, undef, undef};
 }

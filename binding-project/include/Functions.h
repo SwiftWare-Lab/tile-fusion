@@ -134,4 +134,18 @@ public:
     backward(torch::autograd::AutogradContext *Ctx,
              torch::autograd::tensor_list GradOutputs);
 };
+
+
+class TotallyFusedGCN: public torch::autograd::Function<FusedGeMMSpMMROAdj>{
+public:
+    static torch::Tensor forward(torch::autograd::AutogradContext *Ctx,
+                                 torch::Tensor Adj, torch::Tensor Feature,
+                                 torch::Tensor Weight1, torch::Tensor Weight2,
+                                 torch::Tensor LevelPtr, torch::Tensor MixPtr, torch::Tensor Partition,
+                                 int64_t NumThreads, int64_t MaxTileSize);
+
+    static torch::autograd::tensor_list
+    backward(torch::autograd::AutogradContext *Ctx,
+             torch::autograd::tensor_list GradOutputs);
+};
 #endif // SPARSE_FUSION_FUNCTIONS_H
