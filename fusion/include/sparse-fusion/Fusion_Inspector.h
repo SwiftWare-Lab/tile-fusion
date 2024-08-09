@@ -670,8 +670,7 @@ public:
     int CACHE_SIZE = Sp.TileM;
     int *ai = ACsr->i;
     int *ap = ACsr->p;
-    int minCacheSize = CACHE_SIZE*2 / 3;
-    int INITIAL_TILE_SIZE = findInitialTileSize(BCol, CCol, minCacheSize, DataSize);
+    int INITIAL_TILE_SIZE = findInitialTileSize(BCol, CCol, CACHE_SIZE, DataSize);
     int initialTileSize = std::min(INITIAL_TILE_SIZE,int(ACsr->m));
     int extraIters = ACsr->m % initialTileSize;
     int extraRemoved = 0;
@@ -708,37 +707,37 @@ public:
           unfusedIters.push_back(i);
       }
     }
-//    // shrinking tiles
-//    curr = head;
-//    while(curr->Next != NULLPNTR){
-//      auto *prev = curr;
-//      curr = curr->Next;
-//      int tileSize = curr->End - curr->Start;
-//      int fusedNnzNum = curr->getFusedNnzNum(ap);
-//      int workingSet = calculateWorkingSetSizeForGeMM(fusedNnzNum, BCol, CCol, tileSize, curr->FusedIters.size(), DataSize);
-//      if (workingSet > CACHE_SIZE && tileSize > 1){
-//        int separator = tileSize/2 + curr->Start;
-//        auto *vt1 = new VariableTile(curr->Start, separator);
-//        auto *vt2 = new VariableTile(separator, curr->End);
-//        for (auto fi: curr->FusedIters){
-//          if (ai[ap[fi+1]-1] < separator){
-//            vt1->FusedIters.push_back(fi);
-//          }
-//          else if(ai[ap[fi]] >= separator){
-//            vt2->FusedIters.push_back(fi);
-//          }
-//          else{
-//            unfusedIters.push_back(fi);
-//          }
-//        }
-//        vt1->Next = vt2;
-//        vt2->Next = curr->Next;
-//        prev->Next = vt1;
-//        numOfTiles += 1;
-//        delete curr;
-//        curr = prev;
-//      }
-//    }
+    // shrinking tiles
+    curr = head;
+    while(curr->Next != NULLPNTR){
+      auto *prev = curr;
+      curr = curr->Next;
+      int tileSize = curr->End - curr->Start;
+      int fusedNnzNum = curr->getFusedNnzNum(ap);
+      int workingSet = calculateWorkingSetSizeForGeMM(fusedNnzNum, BCol, CCol, tileSize, curr->FusedIters.size(), DataSize);
+      if (workingSet > CACHE_SIZE && tileSize > 1){
+        int separator = tileSize/2 + curr->Start;
+        auto *vt1 = new VariableTile(curr->Start, separator);
+        auto *vt2 = new VariableTile(separator, curr->End);
+        for (auto fi: curr->FusedIters){
+          if (ai[ap[fi+1]-1] < separator){
+            vt1->FusedIters.push_back(fi);
+          }
+          else if(ai[ap[fi]] >= separator){
+            vt2->FusedIters.push_back(fi);
+          }
+          else{
+            unfusedIters.push_back(fi);
+          }
+        }
+        vt1->Next = vt2;
+        vt2->Next = curr->Next;
+        prev->Next = vt1;
+        numOfTiles += 1;
+        delete curr;
+        curr = prev;
+      }
+    }
     std::sort(unfusedIters.begin(), unfusedIters.end());
     std::vector<int> ufPartPtr;
     int MIN_STRIDE = 16;
@@ -755,7 +754,7 @@ public:
         ufTileSize += 1;
       }
       int workingSet = calculateWorkingSetSize(nnzNum, uniqueColumns.size(), BCol, ufTileSize, 0, DataSize);
-      if((workingSet < CACHE_SIZE) || (ufTileSize == 1)){
+      if((workingSet < CACHE_SIZE) || (ufTileSize <= 16)){
         uft += MIN_STRIDE;
       }
       else{
