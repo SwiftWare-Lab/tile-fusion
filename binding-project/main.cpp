@@ -15,6 +15,8 @@ std::vector<torch::Tensor> executeFusedGeMMSpMM(torch::Tensor Adj, torch::Tensor
 torch::Tensor fusedGeMMSpMM(torch::Tensor Adj, torch::Tensor Feature,
                                     torch::Tensor Weight, std::vector<torch::Tensor> Schedule,
                                     int64_t NumThreads);
+torch::Tensor unfusedGeMMSpMM(torch::Tensor Adj, torch::Tensor Feature,
+                              torch::Tensor Weight, int64_t NumThreads);
 
 torch::Tensor fusedGeMMSpMM_vt_ro(torch::Tensor Adj, torch::Tensor Feature,
                                  torch::Tensor Weight, std::vector<torch::Tensor> Schedule,
@@ -106,6 +108,11 @@ torch::Tensor fusedGeMMSpMM(torch::Tensor Adj, torch::Tensor Feature,
     return FusedGeMMSpMM::apply(Adj, Feature, Weight, Schedule[0], Schedule[1], Schedule[2], NumThreads);
 }
 
+torch::Tensor unfusedGeMMSpMM(torch::Tensor Adj, torch::Tensor Feature,
+                            torch::Tensor Weight, int64_t NumThreads){
+    return UnFusedGeMMSpMM::apply(Adj, Feature, Weight, NumThreads);
+}
+
 torch::Tensor fusedGeMMSpMM_vt_ro(torch::Tensor Adj, torch::Tensor Feature,
                                  torch::Tensor Weight, std::vector<torch::Tensor> Schedule,
                                  int64_t NumThreads,int64_t MaxTileSize){
@@ -131,4 +138,5 @@ TORCH_LIBRARY(sw_gcn, m) {
     m.def("fusedGeMMSpMM_vt_ro", &fusedGeMMSpMM_vt_ro);
     m.def("geMMSpMM_f_bw", &geMMSpMMFusedBackward);
     m.def("cachedSpMMGeMM", &cachedSpMMGeMM);
+    m.def("unfused_gcn_forward", &unfusedGeMMSpMM);
 }

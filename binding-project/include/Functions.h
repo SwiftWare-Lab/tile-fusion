@@ -112,6 +112,17 @@ public:
              torch::autograd::tensor_list GradOutputs);
 };
 
+class UnFusedGeMMSpMM: public torch::autograd::Function<UnFusedGeMMSpMM>{
+public:
+    static torch::Tensor forward(torch::autograd::AutogradContext *Ctx,
+                                 torch::Tensor Adj, torch::Tensor Feature, torch::Tensor Weight,
+                                 int64_t NumThreads);
+
+    static torch::autograd::tensor_list
+    backward(torch::autograd::AutogradContext *Ctx,
+             torch::autograd::tensor_list GradOutputs);
+};
+
 class SGForwardFusedGSBackward: public torch::autograd::Function<SGForwardFusedGSBackward>{
 public:
     static torch::Tensor forward(torch::autograd::AutogradContext *Ctx,

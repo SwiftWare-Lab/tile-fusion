@@ -9,6 +9,7 @@ import os
 import torch_geometric.transforms as T
 from torch_geometric.nn import GCNConv
 from scipy.io import mmread
+import logging
 
 def convert_scipy_coo_to_torch_csr(coo):
     values = coo.data
@@ -100,6 +101,7 @@ with open(mat_file_path) as mat_file:
         labels = torch.randint(0, args.hidden_channels, (adj.shape[0],), dtype=torch.long)
         labels = torch.squeeze(labels)
         name = mat_folder
+        logging.info("torch training is running for %s", name)
     # edge_index_sparse = to_torch_sparse_tensor(data.edge_index)
         if args.use_gdc:
             transform = T.GDC(

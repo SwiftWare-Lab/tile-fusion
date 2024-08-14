@@ -12,6 +12,7 @@ import torch_geometric.datasets as datasets
 from torch_geometric.logging import init_wandb, log
 from torch_geometric import utils as pygUtils
 from torch_geometric.nn import GCNConv
+from FusedGCNModule import UnFusedGCN
 import numpy as np
 import os
 
@@ -129,7 +130,7 @@ with open(mat_file_path) as mat_file:
         # col_indices = adj.col_indices().type(torch.int32)
         # adj = torch.sparse_csr_tensor(crow_indices, col_indices, adj.values())
         num_classes = len(np.unique(labels))
-        model = FusedGCN(
+        model = UnFusedGCN(
             feat_dim=feature.size(1),
             embed_dim=args.hidden_channels,
             num_classes=num_classes,

@@ -60,3 +60,20 @@ class FirstLayerGCNCached(torch.nn.Module):
         x = self.forward_fn(self.af, self.weight, self.num_threads)
         # print(x)
         return x
+
+class UnFusedGCNLayer(torch.nn.Module):
+
+    def __init__(self, feat_dim, embed_dim, adj, num_threads):
+        super(UnFusedGCNLayer, self).__init__()
+        self.weight = torch.nn.Parameter(
+            torch.FloatTensor(embed_dim, feat_dim))
+        torch.nn.init.xavier_uniform_(self.weight)
+        self.adj = adj
+        # print(schedule)
+        self.num_threads = num_threads
+        self.forward_fn = torch.ops.sw_gcn.unfused_gcn_forward
+
+    def forward(self, x):
+        x = self.forward_fn(self.adj, x, self.weight, self.num_threads)
+        # print(x)
+        return x
