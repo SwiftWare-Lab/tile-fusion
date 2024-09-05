@@ -26,8 +26,8 @@ class GCN(torch.nn.Module):
     def __init__(self, in_channels, hidden_channels, out_channels):
         super().__init__()
         self.conv1 = GCNConv(in_channels, hidden_channels,
-                             bias=False)
-        self.conv2 = GCNConv(hidden_channels, out_channels, bias=False)
+                             bias=False, cached=True)
+        self.conv2 = GCNConv(hidden_channels, out_channels, bias=False, cached=True)
         self.conv1_time = 0
         self.conv2_time = 0
 
