@@ -277,6 +277,77 @@ public:
     delete Inspector;
   }
 };
+
+class SpMMSpMMFusedInterLayerRedundantSP: public SpMMSpMMFusedVariableTileSizeSP{
+protected:
+  sym_lib::SparsityProfileInfo SpInfo;
+  Timer analysis() override{
+      Timer t;
+      t.start();
+      // sym_lib::ScheduleParameters sp;
+      // sp._num_threads = InTensor->NumThreads;
+      //  create the fused set
+
+      Sp._num_w_partition = std::max<int>(InTensor->ACsr->m / Sp.IterPerPartition,
+                                          2 * Sp._num_threads);
+      auto *sf01 = new sym_lib::SparseFusionWithRedundancy(&Sp, 2);
+      auto *mvDAG = sym_lib::diagonal(InTensor->ACsr->m, 1.0);
+      auto *tmpCSCCSR = new sym_lib::CSC(InTensor->BCsr->m, InTensor->BCsr->n,
+                                         InTensor->BCsr->nnz, InTensor->BCsr->p,
+                                         InTensor->BCsr->i, InTensor->BCsr->x);
+      auto *Di = InTensor->BCsr;
+      // sym_lib::print_csc(1, "Di", 6, Di->p, Di->i, Di->x);
+      sf01->fuse(1, mvDAG, tmpCSCCSR);
+
+      // sf01->print_final_list();
+      sf01->fuse(0, mvDAG, tmpCSCCSR);
+      // sf01->print_final_list();
+      auto pt = St->OtherStats["PackingType"];
+      FusedCompSet = sf01->getFusedCompressed((int)pt[0]);
+      sf01->measureRedundancy(tmpCSCCSR, SpInfo);
+      // FusedCompSet->print_3d();
+      delete sf01;
+      delete mvDAG;
+      delete tmpCSCCSR;
+
+      t.stop();
+      return t;
+  }
+
+  Timer execute() override {
+    //    std::fill_n(OutTensor->Xx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
+    auto *ws = new float[InTensor->NumThreads * 2 * InTensor->M * Sp.TileN]{};
+    OutTensor->reset();
+    Timer t;
+    t.start();
+    swiftware::sparse::spmmCsrSpmmCsrTiledFusedRedundantGeneralSP(
+        InTensor->M, InTensor->N, InTensor->K, InTensor->L, InTensor->ACsr->p,
+        InTensor->ACsr->i, AValues, InTensor->ACsr->p,
+        InTensor->ACsr->i, AValues, InTensor->Bx, OutTensor->Xx,
+        OutTensor->ACx, FusedCompSet->n1_, FusedCompSet->ptr1_,
+        FusedCompSet->ptr2_, FusedCompSet->id_, FusedCompSet->type_,
+        FusedCompSet->ker_begin_, InTensor->NumThreads, Sp.TileM, Sp.TileN, ws);
+
+    t.stop();
+    delete[] ws;
+    return t;
+  }
+
+  SpMMSpMMFusedInterLayerRedundantSP(TensorInputs<float> *In1, Stats *Stat1,
+                                            sym_lib::ScheduleParameters SpIn,
+                                            InspectorForTileFusedCSRVariableTileSize *Inspector1)
+      : SpMMSpMMFusedVariableTileSizeSP(In1, Stat1, SpIn, Inspector1){
+  }
+public:
+  SpMMSpMMFusedInterLayerRedundantSP(TensorInputs<float> *In1, Stats *Stat1,
+                                            sym_lib::ScheduleParameters SpIn)
+      : SpMMSpMMFusedVariableTileSizeSP(In1, Stat1, SpIn){
+  }
+  sym_lib::SparsityProfileInfo getProfilingInfo() { return SpInfo; }
+};
+
+
 #ifdef __AVX2__
 
 class SpMMSpMMUnFusedParallelVectorizedAVX2SP : public SpMMSpMMUnFusedSP {
@@ -303,6 +374,30 @@ protected:
 public:
   SpMMSpMMUnFusedParallelVectorizedAVX2SP(TensorInputs<float> *In1, Stats *Stat1, sym_lib::ScheduleParameters SpIn)
       : SpMMSpMMUnFusedSP(In1, Stat1), Sp(SpIn) {}
+};
+
+
+class SpMMSpMMFusedCSCAtomic : public SpMMSpMMUnFusedSP {
+protected:
+  sym_lib::ScheduleParameters Sp;
+  Timer execute() override {
+    //    std::fill_n(OutTensor->Xx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
+    OutTensor->reset();
+    Timer t;
+    t.start();
+    swiftware::sparse::spmmCsrSpmmCscFusedAffineSP(
+        InTensor->M, InTensor->N, InTensor->K, InTensor->L, InTensor->ACsr->p,
+        InTensor->ACsr->i, AValues, InTensor->ACsr->p, InTensor->ACsr->i,
+        AValues, InTensor->Bx, OutTensor->Xx, OutTensor->ACx,
+        InTensor->NumThreads);
+    t.stop();
+    return t;
+  }
+
+public:
+  SpMMSpMMFusedCSCAtomic(TensorInputs<float> *In1, Stats *Stat1)
+      : SpMMSpMMUnFusedSP(In1, Stat1) {}
 };
 
 class SpMMSpMMFusedInterLayerVectorizedAvx256SP: public SpMMSpMMFusedVariableTileSizeSP{

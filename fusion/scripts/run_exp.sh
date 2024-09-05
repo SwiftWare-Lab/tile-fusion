@@ -68,16 +68,16 @@ if [ "$TUNED" ==  3 ]; then
 #    for w in {100,1000,5000,10000,500000}; do
       k=4
 #      for ntile in {15000,32000,100000,500000,1000000,2600000}; do
-        for ntile in {4,8,16,32,64,128,256,512,1024,2048,4096}; do
+        for ntile in {8,16,32,64,128,256,512,1024,2048,4096}; do
 #        if [ $ntile -gt $BCOL ]; then
 #          continue
 #        fi
       echo "for $line $BCOL $w $ntile"
       if [ $header -eq 1 ]; then
-        $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -ah -bc $BCOL -ip $ntile -tm $ntile -tn 32 > $OUTPUT_FILE
+        $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -ah -bc $BCOL -ip $ntile -tm 1000000 -tn 32 -ed $BCOL > $OUTPUT_FILE
         header=0
       else
-        $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -bc $BCOL -ip $ntile -tm $ntile -tn 32 >> $OUTPUT_FILE
+        $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -bc $BCOL -ip $ntile -tm 1000000 -tn 32 -ed $BCOL >> $OUTPUT_FILE
       fi
       done
 #    done
@@ -122,6 +122,34 @@ if [ "$TUNED" ==  6 ]; then
       else
         $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -bc $BCOL >> $OUTPUT_FILE
       fi
+#    done
+  done < ${MATLIST}
+fi
+
+# shellcheck disable=SC2039
+if [ "$TUNED" ==  6 ]; then
+  while read line; do
+    mat=$line
+    # shellcheck disable=SC2039
+#    for w in {100,1000,5000,10000,500000}; do
+      k=4
+#      for ntile in {15000,32000,100000,500000,1000000,2600000}; do
+        for ntile in {32,64,256,512,2048}; do
+#        if [ $ntile -gt $BCOL ]; then/
+#          continue
+#        fi
+      echo "for $line $BCOL $ntile "
+      if [ $header -eq 1 ]; then
+        $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -ah -bc $BCOL -ip $ntile -tm -1 -tn 32 -ed $BCOL > $OUTPUT_FILE
+        header=0
+      else
+        $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -bc $BCOL -ip $ntile -tm -1 -tn 32 -ed $BCOL >> $OUTPUT_FILE
+      fi
+      done
+      for csize in {500000,1280000,1500000}; do
+        echo "for $line $BCOL $csize"
+         $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -bc $BCOL -ip $ntile -tm $csize -tn 32 -ed $BCOL >> $OUTPUT_FILE
+        done
 #    done
   done < ${MATLIST}
 fi

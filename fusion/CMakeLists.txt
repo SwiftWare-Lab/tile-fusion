@@ -1,7 +1,7 @@
 cmake_minimum_required( VERSION 3.20)
 
 
-project(sparse_fusion CXX C )
+project(sparse_fusion CXX C)
 
 if(PROFILING_WITH_PAPI)
     message(STATUS "Profiling with PAPI")
@@ -20,7 +20,7 @@ endif()
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native")
-
+#set(OpenMP_CXX_LIB_NAMES "libiomp5")
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/lib/)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/lib/)
 
@@ -32,6 +32,8 @@ list(APPEND CMAKE_MODULE_PATH
         ${SYM_AGG}/cmake
         "${SYM_AGG}/cmake/third_party"
         )
+
+
 find_package( OpenMP REQUIRED)
 
 

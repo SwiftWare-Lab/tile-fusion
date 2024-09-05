@@ -8,7 +8,7 @@
 #SBATCH --mail-type=end    # email me when the job finishes
 #SBATCH --mail-user=msalehi20@gmail.com
 #SBATCH --nodes=1
-#SBATCH --output="fusion.%j.%N.out"
+#SBATCH --output="scalability.%j.%N.out"
 #SBATCH -t 11:59:00
 #SBATCH --constraint=cascade
 #SBATCH --array=0-29%6  # Allows no more than 6 of the jobs to run simultaneously
@@ -50,7 +50,7 @@ module load cmake
 #module load gcc
 
 if [ $TEST -eq 1 ]; then
-    bash run.sh -m $UFDB -c 8 -i $MAT_ID -e $EXP -t 8 -l $MATLIST_FOLDER -j $SLURM_ARRAY_JOB_ID
+    bash run.sh -m $UFDB -c 8 -i $MAT_ID -e $EXP -t 8 -l $MATLIST_FOLDER -j $SLURM_ARRAY_JOB_ID -z $MAT_ID
 else
-  bash run.sh -t 20 -m $UFDB -c $BCOL -i $MAT_ID  -e $EXP -l $MATLIST_FOLDER -j $SLURM_ARRAY_JOB_ID
+  bash run.sh -t 20 -m $UFDB -c $BCOL -i $MAT_ID  -e $EXP -l $MATLIST_FOLDER -j $SLURM_ARRAY_JOB_ID -z $MAT_ID
 fi

@@ -75,6 +75,17 @@ int main(const int argc, const char *argv[]) {
   delete unfusedParallel;
   delete stats;
 
+
+  stats = new swiftware::benchmark::Stats(
+      "SpMM_SpMM_Demo_FusedCSCAtomic", "SpMM", 7, tp._matrix_name, numThread);
+  stats->OtherStats["PackingType"] = {Interleaved};
+  stats->OtherStats["TilingMethod"] = {Fixed};
+  auto *fusedCSC = new SpMMSpMMFusedCSCAtomic(inSpMM, stats);
+  fusedCSC->run();
+  auto fusedCSCStat = fusedCSC->printStats();
+  delete fusedCSC;
+  delete stats;
+
   stats = new swiftware::benchmark::Stats("SpMM_SpMM_FusedParallel_VariableTileSize","SpMM",
                                           7,tp._matrix_name,numThread);
   stats->OtherStats["PackingType"] ={Separated};
@@ -86,9 +97,20 @@ int main(const int argc, const char *argv[]) {
   delete fusedParallelVT;
   delete stats;
 
+  stats = new swiftware::benchmark::Stats("SpMM_SpMM_FusedParallel_Redundant","SpMM",
+                                          7,tp._matrix_name,numThread);
+  stats->OtherStats["PackingType"] ={Separated};
+  stats->OtherStats["TilingMethod"] = {Fixed};
+  auto *fusedParallelR = new SpMMSpMMFusedInterLayerRedundantSP(inSpMM,stats, sp);
+  fusedParallelR->run();
+  //fusedParallel->OutTensor->printDx();
+  auto fusedParallelRStat = fusedParallelR->printStats();
+  auto profilingInfo = fusedParallelR->getProfilingInfo().printCSV(true);
+  delete fusedParallelR;
+  delete stats;
 
-  std::string profHeader = "";
-  std::string profStat = "";
+  std::string profHeader = std::get<0>(profilingInfo);
+  std::string profStat = std::get<1>(profilingInfo);
 
   auto csvInfo = sp.print_csv(true);
   std::string spHeader = std::get<0>(csvInfo);
@@ -102,6 +124,8 @@ int main(const int argc, const char *argv[]) {
     std::cout << headerStat + spHeader + tpHeader + profHeader << std::endl;
   std::cout << unfusedParallelStat << spStat + tpStat + profStat << std::endl;
   std::cout << fusedParallelVTStat << spStat + tpStat + profStat << std::endl;
+  std::cout << fusedParallelRStat << spStat + tpStat + profStat << std::endl;
+  std::cout << fusedCSCStat << spStat + tpStat + profStat << std::endl;
 
 #ifdef MKL
 

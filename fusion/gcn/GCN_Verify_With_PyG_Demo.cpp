@@ -51,8 +51,8 @@ int main(const int argc, const char *argv[]) {
   stats = new swiftware::benchmark::Stats("GCN_SingleLayerFused", "GCN", 7,
                                           tp._matrix_name, numThread);
   stats->OtherStats["PackingType"] = {Separated};
-  GCNSingleLayerFused *gcnSingleLayerFused =
-      new GCNSingleLayerFused(inputs, stats);
+  GCNSingleLayerSpMMGemVFused *gcnSingleLayerFused =
+      new GCNSingleLayerSpMMGemVFused(inputs, stats);
   gcnSingleLayerFused->run();
   auto headerStat = gcnSingleLayerFused->printStatsHeader();
   auto gcnSequentialFusedLayerStat = gcnSingleLayerFused->printStats();
