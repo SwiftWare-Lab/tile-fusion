@@ -10,7 +10,9 @@ USE_PAPI=0
 MATLIST_FOLDER=""
 OUTPUT_FOLDER=""
 INTERNAL_JOB_ID=0
+JOB_ID=""
 while getopts ":t:dc:m:i:e:l:j:z:" arg; do
+
 
   case "${arg}" in
     c)
@@ -68,6 +70,7 @@ elif [ $EXP == "gpu_spmm_spmm" ]; then
 elif [ $EXP == "spmm_spmm_sp" ]; then
   BINFILE="spmm_spmm_fusion_sp"
   BINPATH="./build/example/"
+  MODE=6
 elif [ $EXP == "gemm_spmm" ]; then
   BINFILE="gcn_layer_demo"
   BINPATH="./build/gcn/"
@@ -117,13 +120,13 @@ echo $MKL_DIR
 if [ $USE_PAPI -eq 1 ]; then
   cmake -DCMAKE_PREFIX_PATH="$MKL_DIR/lib/intel64;$MKL_DIR/include;$MKL_DIR/../compiler/lib/intel64;_deps/openblas-build/lib/;${SCRATCH}/programs/papi/include/;"  -DPROFILING_WITH_PAPI=ON -DCMAKE_BUILD_TYPE=Release -DPAPI_PREFIX=${SCRATCH}/programs/papi/  ..
 else
-  cmake -DCMAKE_C_COMPILER=icx -DCMAKE_CXX_COMPILER=icpx  -DCMAKE_PREFIX_PATH="$MKL_DIR/lib/intel64;$MKL_DIR/include;$MKL_DIR/../compiler/lib/intel64;_deps/openblas-build/lib/;"  -DCMAKE_BUILD_TYPE=Release ..
+  cmake -DCMAKE_C_COMPILER=icx -DCMAKE_CXX_COMPILER=icpx -DCMAKE_PREFIX_PATH="$MKL_DIR/lib/intel64;$MKL_DIR/include;$MKL_DIR/../compiler/lib/intel64;_deps/openblas-build/lib/;"  -DCMAKE_BUILD_TYPE=Release ..
 fi
 make -j 40
 
 
 cd ..
-
+echo $JOB_ID
 #BINPATH=./build/example/
 DATE=$(date -d "today" +"%Y%m%d%H%M")
 if [ -z $JOB_ID ]; then
@@ -131,6 +134,7 @@ if [ -z $JOB_ID ]; then
 else
   LOGS="./build/logs-$JOB_ID"
 fi
+echo $LOGS
 #LOGS="./build/logs-${DATE}/"
 SCRIPTPATH=./scripts/
 if [ -z "$MATLIST_FOLDER" ]; then

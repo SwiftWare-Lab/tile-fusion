@@ -526,13 +526,23 @@ protected:
       return nnzNum;
     }
   };
+
+  //not used for now but later can replace the above struct.
+  struct UFVariableTilePtr{
+    int Index;
+    UFVariableTilePtr* Next;
+    UFVariableTilePtr(int Index){
+      this->Index = Index;
+      this->Next = NULLPNTR;
+    }
+  };
 public:
   InspectorForTileFusedCSRVariableTileSize(sym_lib::ScheduleParameters Sp1, Stats *St1)
       : Sp(Sp1), St(St1) {}
   sym_lib::MultiDimensionalSet* generateVariableTileSizeSchedule(sym_lib::CSR *ACsr, int BCol, int DataSize=8){
     std::vector<VariableTile> pTiles;
     std::vector<int> unfusedIters;
-    int CACHE_SIZE = Sp.IterPerPartition;
+    int CACHE_SIZE = Sp.TileM;
     int *ai = ACsr->i;
     int *ap = ACsr->p;
     int initialTileSize = std::min(4096,int(ACsr->m));
@@ -835,7 +845,7 @@ public:
 
 
   virtual int calculateWorkingSetSize(int Nnz, int UniqueColsNum, int BCol, int TileSize, int FusedIters, int DataSize = 8){
-    return (Nnz + UniqueColsNum * BCol + TileSize* BCol + FusedIters* BCol) * DataSize + Nnz*4;
+    return (Nnz + UniqueColsNum * BCol + TileSize * BCol + FusedIters * BCol) * DataSize + Nnz * 4;
   }
 
 
