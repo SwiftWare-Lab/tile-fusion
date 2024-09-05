@@ -70,14 +70,14 @@ elif [ $EXP == "gpu_spmm_spmm" ]; then
 elif [ $EXP == "spmm_spmm_sp" ]; then
   BINFILE="spmm_spmm_fusion_sp"
   BINPATH="./build/example/"
-  MODE=6
+  MODE=7
 elif [ $EXP == "gemm_spmm" ]; then
   BINFILE="gcn_layer_demo"
   BINPATH="./build/gcn/"
 elif [ $EXP == "gemm_spmm_sp" ]; then
   BINFILE="gcn_layer_sp_demo"
   BINPATH="./build/gcn/"
-  MODE=6
+  MODE=7
 elif [ $EXP == "spmv_spmv" ]; then
   BINPATH="./build/spmv-spmv/"
   BINFILE="spmv_spmv_demo"

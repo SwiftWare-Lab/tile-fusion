@@ -68,11 +68,14 @@ target_link_libraries(fusion PRIVATE
         argparse
         )
 
-find_package(CUDA OPTIONAL_COMPONENTS)
-find_package(CUDAToolkit OPTIONAL_COMPONENTS)
 
 
 add_subdirectory(example)
 add_subdirectory(gcn)
 add_subdirectory(spmv-spmv)
-add_subdirectory(gpu)
+if (ENABLE_CUDA)
+    message(STATUS "CUDA is enabled")
+    find_package(CUDA OPTIONAL_COMPONENTS)
+    find_package(CUDAToolkit OPTIONAL_COMPONENTS)
+    add_subdirectory(gpu)
+endif()
