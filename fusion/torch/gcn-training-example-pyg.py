@@ -2,23 +2,22 @@ import argparse
 import os.path as osp
 import time
 
+import numpy as np
 import torch
 import torch.nn.functional as F
 
 import torch_geometric.transforms as T
-from scipy.io import mmwrite
 from torch_geometric.datasets import Planetoid
 import torch_geometric.datasets as datasets
-from torch_geometric.logging import init_wandb, log
 from torch_geometric.nn import GCNConv
-import numpy as np
+from torch_geometric.utils import to_torch_sparse_tensor
 
 class GCN(torch.nn.Module):
     def __init__(self, in_channels, hidden_channels, out_channels):
         super().__init__()
         self.conv1 = GCNConv(in_channels, hidden_channels,
-                             bias=False)
-        self.conv2 = GCNConv(hidden_channels, out_channels, bias=False)
+                             bias=False, cached=True)
+        self.conv2 = GCNConv(hidden_channels, out_channels, bias=False, cached=True)
         self.conv1_time = 0
         self.conv2_time = 0
 
@@ -37,12 +36,17 @@ class GCN(torch.nn.Module):
 
         return x
 
-def train():
+    def get_op_time(self):
+        return self.conv1.op_time + self.conv2.op_time
+
+def train(backward_time=[0]):
     model.train()
     optimizer.zero_grad()
-    out = model(data.x, data.edge_index)
-    loss = F.cross_entropy(out[train_mask], data.y[train_mask])
+    out = model(data.x, edge_index_sparse)
+    loss = F.cross_entropy(out, data.y)
+    t1 = time.time()
     loss.backward()
+    backward_time[0] += time.time() - t1
     optimizer.step()
     return float(loss)
 
@@ -79,16 +83,17 @@ dataset_list = [
     datasets.CoraFull(root=raw_folder_name + '/cora_full/', transform=None),
     # datasets.Flickr(root=raw_folder_name + '/flickr/', transform=None),
     # datasets.Yelp(root=raw_folder_name + '/yelp/', transform=None),
-    datasets.Planetoid(root=raw_folder_name + '/planetoid/pubmed/', name='Pubmed', transform=None),
-    datasets.Planetoid(root=raw_folder_name + '/planetoid/cora/', name='Cora', transform=None),
+    # datasets.Planetoid(root=raw_folder_name + '/planetoid/pubmed/', name='Pubmed', transform=None),
+    # datasets.Planetoid(root=raw_folder_name + '/planetoid/cora/', name='Cora', transform=None),
     datasets.GitHub(root=raw_folder_name + '/github/', transform=None),
     datasets.FacebookPagePage(root=raw_folder_name + '/facebook_page_page/', transform=None),
-    datasets.DeezerEurope(root=raw_folder_name + '/deezer_europe/', transform=None)
-    # datasets.Reddit2(root=raw_folder_name + '/reddit2/', transform=None)
+    datasets.DeezerEurope(root=raw_folder_name + '/deezer_europe/', transform=None),
+    datasets.Reddit(root=raw_folder_name + '/reddit2/', transform=None)
 ]
 for dataset in dataset_list:
     name = dataset.root.split('/')[-1]
     data = dataset[0].to(device)
+    edge_index_sparse = to_torch_sparse_tensor(data.edge_index)
     if args.use_gdc:
         transform = T.GDC(
             self_loop_weight=1,
@@ -129,13 +134,16 @@ for dataset in dataset_list:
 
     best_val_acc = test_acc = 0
     times = []
+    backward_time = [0]
     for epoch in range(0, 100):
         start = time.time()
-        loss1 = train()
+        loss1 = train(backward_time)
         times.append(time.time() - start)
         # log(Epoch=epoch, Loss=loss1)
     # print(f'Median time per epoch: {torch.tensor(times).median():.4f}s')
-    print(f'torch_geometric GCNConv,{name},{torch.tensor(times).sum():.4f}')
+    print(f'torch_geometric GCNConv,{name},{np.array(times).sum():.4f}')
+    print("gemm-spmm in forward", model.get_op_time())
+    print("backward time", backward_time[0])
 
     # print('total conv1 time: ', model.conv1_time)
     # print('total conv2 time: ', model.conv2_time)

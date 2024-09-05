@@ -108,8 +108,8 @@ torch::Tensor convertCSCToTorchTensor(sym_lib::CSC &matrix) {
       torch::from_blob(values, {long(matrix.nnz)}, torch::kFloat32),
       {long(matrix.m), long(matrix.n)}, torch::kFloat32);
 }
-torch::Tensor convertCSRToTorchTensor(sym_lib::CSR &matrix) {
-  float *values = new float[matrix.nnz];
+torch::Tensor convertCSRToTorchTensor(sym_lib::CSR &matrix, float* &values) {
+  values = new float[matrix.nnz];
   for (int i = 0; i < matrix.nnz; i++) {
     values[i] = (float)matrix.x[i];
   }
@@ -124,7 +124,7 @@ long *readMtxArrayInteger(std::ifstream &in_file, int m, int n) {
   int shape, arith, mtx_format;
   size_t nnz;
   sym_lib::read_header(in_file, m, n, nnz, arith, shape, mtx_format);
-  if (arith != sym_lib::INT)
+  if (arith != sym_lib::INT && arith != sym_lib::REAL)
     throw sym_lib::mtx_arith_error("INT", sym_lib::type_str(arith));
   if (mtx_format != sym_lib::ARRAY)
     throw sym_lib::mtx_format_error("ARRAY", sym_lib::format_str(mtx_format));

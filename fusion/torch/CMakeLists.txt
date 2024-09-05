@@ -20,7 +20,7 @@ if(NOT TARGET MKL::MKL)
     find_package(MKL CONFIG OPTIONAL_COMPONENTS)
 endif()
 
-if(TARGET MKL::MKL AND TARGET Python)
+if(TARGET MKL::MKL)
     add_definitions(-DMKL)
     message(STATUS "${MKL_IMPORTED_TARGETS}")
     add_executable(fused_gcn GCNIntegratedTraining.cpp)

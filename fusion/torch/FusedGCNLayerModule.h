@@ -8,8 +8,8 @@
 
 struct CSRFusedGCNLayer : torch::nn::Module {
   CSRFusedGCNLayer(int inputChannelDim, int outputChannelDim, int levelNum,
-                   int numThreads, torch::Tensor levelPtr, torch::Tensor parPtr,
-                   torch::Tensor partition, torch::Tensor mixPtr) {
+                   int numThreads, int spMMGeMMTileSize, torch::Tensor levelPtr,
+                   torch::Tensor parPtr, torch::Tensor partition, torch::Tensor mixPtr) {
     this->LevelNum = levelNum;
     this->NumThreads = numThreads;
     this->weight = register_parameter(
@@ -19,6 +19,12 @@ struct CSRFusedGCNLayer : torch::nn::Module {
     this->ParPtr = parPtr;
     this->Partition = partition;
     this->MixPtr = mixPtr;
+    auto numThreadsTensor = torch::tensor({numThreads});
+    auto levelNumTensor = torch::tensor({levelNum});
+    auto spMMGeMMTileSizeTensor = torch::tensor({spMMGeMMTileSize});
+    this->scheduleData =
+        {this->LevelPtr, this->ParPtr, this->Partition,
+         this->MixPtr, levelNumTensor, numThreadsTensor};
   }
   CSRFusedGCNLayer() {
     this->NumThreads = 0;
@@ -31,9 +37,7 @@ struct CSRFusedGCNLayer : torch::nn::Module {
   }
 
   torch::Tensor forward(torch::Tensor x, torch::Tensor adj) {
-    return CSRFusedGCNForwardFunction::apply(x, adj, weight, LevelPtr, ParPtr,
-                                             Partition, MixPtr, NumThreads,
-                                             LevelNum);
+    return CSRFusedGCNForwardFunctionWithFusedGSBackward::apply(x, adj, weight, scheduleData);
   }
 
   int NumThreads;
@@ -43,6 +47,72 @@ struct CSRFusedGCNLayer : torch::nn::Module {
   torch::Tensor ParPtr;
   torch::Tensor Partition;
   torch::Tensor MixPtr;
+  std::vector<torch::Tensor> scheduleData;
+};
+
+struct GCNFirstLayer : torch::nn::Module {
+  GCNFirstLayer(int inputChannelDim, int outputChannelDim, int levelNum,
+                   int numThreads, torch::Tensor levelPtr, torch::Tensor parPtr,
+                   torch::Tensor partition, torch::Tensor mixPtr) {
+    this->LevelNum = levelNum;
+    this->NumThreads = numThreads;
+    this->weight = register_parameter(
+        "weight",
+        torch::randn({outputChannelDim, inputChannelDim}).requires_grad_(true));
+    this->LevelPtr = levelPtr;
+    this->ParPtr = parPtr;
+    this->Partition = partition;
+    this->MixPtr = mixPtr;
+    auto numThreadsTensor = torch::tensor({numThreads});
+    auto levelNumTensor = torch::tensor({levelNum});
+    this->scheduleData =
+        {this->LevelPtr, this->ParPtr, this->Partition,
+         this->MixPtr, levelNumTensor, numThreadsTensor};
+  }
+  GCNFirstLayer() {
+    this->NumThreads = 0;
+    this->LevelNum = 0;
+    this->weight =
+        register_parameter("weight", torch::randn({0, 0}).requires_grad_(true));
+    this->LevelPtr = torch::zeros({0});
+    this->ParPtr = torch::zeros({0});
+    this->Partition = torch::zeros({0});
+  }
+
+  torch::Tensor forward(torch::Tensor x, torch::Tensor adj) {
+    return GCNForwardFirstLayer::apply(x, adj, weight, scheduleData);
+  }
+
+  int NumThreads;
+  int LevelNum;
+  torch::Tensor weight;
+  torch::Tensor LevelPtr;
+  torch::Tensor ParPtr;
+  torch::Tensor Partition;
+  torch::Tensor MixPtr;
+  std::vector<torch::Tensor> scheduleData;
+};
+
+
+struct MKLGCNLayer : torch::nn::Module {
+  MKLGCNLayer(int inputChannelDim, int outputChannelDim, int numThreads) {
+    this->NumThreads = numThreads;
+    this->weight = register_parameter(
+        "weight",
+        torch::randn({outputChannelDim, inputChannelDim}).requires_grad_(true));
+  }
+  MKLGCNLayer() {
+    this->NumThreads = 0;
+    this->weight =
+        register_parameter("weight", torch::randn({0, 0}).requires_grad_(true));
+  }
+
+  torch::Tensor forward(torch::Tensor x, torch::Tensor adj) {
+    return GCNForwardFunctionMKLGSBackward::apply(x, adj, weight, NumThreads);
+  }
+
+  int NumThreads;
+  torch::Tensor weight;
 };
 
 struct CSCFusedGCNLayer : torch::nn::Module {

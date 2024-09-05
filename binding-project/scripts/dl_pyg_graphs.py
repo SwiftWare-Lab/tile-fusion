@@ -5,12 +5,12 @@ from scipy.io import mmwrite
 from scipy.sparse.csgraph import reverse_cuthill_mckee
 from torch_sparse import coalesce
 import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.colors import ListedColormap
+#import matplotlib.pyplot as plt
+#from matplotlib.colors import ListedColormap
 import sys
 
-def get_coordinate_str(index, edge_index) -> str:
-    return '{} {}\n'.format(edge_index[0][index].item() + 1, edge_index[1][index].item() + 1)
+#def get_coordinate_str(index, edge_index) -> str:
+#    return '{} {}\n'.format(edge_index[0][index].item() + 1, edge_index[1][index].item() + 1)
 
 
 folder_name = sys.argv[1]
@@ -24,12 +24,12 @@ datasets = [
     datasets.CoraFull(root=raw_folder_name + '/cora_full/', transform=None),
     datasets.Flickr(root=raw_folder_name + '/flickr/', transform=None),
     datasets.Yelp(root=raw_folder_name + '/yelp/', transform=None),
-    datasets.Planetoid(root=raw_folder_name + '/planetoid/pubmed/', name='Pubmed', transform=None),
-    datasets.Planetoid(root=raw_folder_name + '/planetoid/cora/', name='Cora', transform=None),
+    #datasets.Planetoid(root=raw_folder_name + '/planetoid/pubmed/', name='Pubmed', transform=None),
+    #datasets.Planetoid(root=raw_folder_name + '/planetoid/cora/', name='Cora', transform=None),
     datasets.GitHub(root=raw_folder_name + '/github/', transform=None),
     datasets.FacebookPagePage(root=raw_folder_name + '/facebook_page_page/', transform=None),
     datasets.DeezerEurope(root=raw_folder_name + '/deezer_europe/', transform=None),
-    datasets.Reddit(root=raw_folder_name + '/reddit2/', transform=None)
+    datasets.Reddit2(root=raw_folder_name + '/reddit2/', transform=None)
 ]
 
 matrix_list_file_name = folder_name + '/mat_list.txt'
@@ -56,20 +56,23 @@ for dataset in datasets:
         if len(labels.shape) > 1:
             labels = labels[:, 0]
         print(features.shape)
-        print(labels.shape)
         labels = labels[np.newaxis, ...]
         print(labels.shape)
         mmwrite(mat_folder + '/features.mtx', features)
         mmwrite(mat_folder + '/labels.mtx', labels)
         mmwrite(mat_folder + '/{}.mtx'.format(name), adj)
-        # perm = reverse_cuthill_mckee(adj)
-        # adj = adj[perm, :][:, perm]
-        # features = features[perm, :]
-        # labels = labels[:, perm]
-        # name = name + '_ordered'
+        f.write(name + '/' + name + '.mtx' + '\n')
+        perm = reverse_cuthill_mckee(adj)
+        adj = adj[perm, :][:, perm]
+        features = features[perm, :]
+        labels = labels[:, perm]
+        name = name + '_ordered'
+        mat_folder = folder_name + '/' + name
+        if not os.path.exists(mat_folder):
+            os.mkdir(mat_folder)
         mmwrite(mat_folder + '/features.mtx', features)
         mmwrite(mat_folder + '/labels.mtx', labels)
         mmwrite(mat_folder + '/{}.mtx'.format(name), adj)
-        f.write(name + '\n')
+        f.write(name + '/' + name + '.mtx' + '\n')
         # mmwrite(mat_folder + '/{}_ordered.mtx'.format(name), adj)
         # f.write(mat_folder + '/{}_ordered.mtx\n'.format(name))
