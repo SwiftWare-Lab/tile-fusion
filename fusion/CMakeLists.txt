@@ -70,9 +70,9 @@ find_package(CUDA OPTIONAL_COMPONENTS)
 find_package(CUDAToolkit OPTIONAL_COMPONENTS)
 
 
+add_subdirectory(gpu)
 add_subdirectory(example)
 add_subdirectory(gcn)
 add_subdirectory(jacobi)
 add_subdirectory(spmv-spmv)
 #add_subdirectory(torch)
-add_subdirectory(gpu)
