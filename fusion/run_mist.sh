@@ -33,6 +33,7 @@ MODE=6
 MATLIST=$UFDB/mat_list.txt
 SCRIPTPATH="./scripts/"
 LOGS="./build/logs/"
+mkdir $LOGS
  BINPATH="./build/gpu/"
 BINFILE="spmm_spmm_demo_gpu"
 

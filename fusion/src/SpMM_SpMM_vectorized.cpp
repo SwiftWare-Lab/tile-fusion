@@ -8,9 +8,7 @@
 #define pw_start_instruments_loop(th)
 #define pw_stop_instruments_loop(th)
 #endif
-#if  defined(__AVX2__) || defined(__AVX512F__)
-#include <immintrin.h>
-#endif
+
 #include <omp.h>
 namespace swiftware {
 namespace sparse {

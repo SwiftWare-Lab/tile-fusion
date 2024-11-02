@@ -4,7 +4,9 @@
 
 #ifndef SPARSE_FUSION_SPMM_SPMM_VECTORIZED_H
 #define SPARSE_FUSION_SPMM_SPMM_VECTORIZED_H
+#if  defined(__AVX2__) || defined(__AVX512F__)
 #include <immintrin.h>
+#endif
 namespace swiftware {
 namespace sparse {
 
