@@ -10,8 +10,8 @@
 #endif
 #if  defined(__AVX2__) || defined(__AVX512F__)
 #include <immintrin.h>
-#include <omp.h>
 #endif
+#include <omp.h>
 namespace swiftware {
 namespace sparse {
 #ifdef __AVX512F__
