@@ -15,7 +15,8 @@ export OMP_NUM_THREADS=$THRDS
 export MKL_NUM_THREADS=$THRDS
 
 header=1
-
+PROFILING_DIR=$LOGS/profiling/
+mkdir $PROFILING_DIR
 if [ -z $ID ]; then
   OUTPUT_FILE=$LOGS/spmv_spmv_$BCOL.csv
 else
@@ -121,6 +122,22 @@ if [ "$TUNED" ==  6 ]; then
         header=0
       else
         $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -bc $BCOL >> $OUTPUT_FILE
+      fi
+#    done
+  done < ${MATLIST}
+fi
+
+#For CUDA code profiling
+if [ "$TUNED" ==  7 ]; then
+  while read line; do
+    mat=$line
+      k=4
+      echo "for $line"
+      if [ $header -eq 1 ]; then
+        ncu -o "$PROFILING_DIR/$mat" $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -ah -bc $BCOL
+        header=0
+      else
+        ncu -o "$PROFILING_DIR/$mat" $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -bc $BCOL >> $OUTPUT_FILE
       fi
 #    done
   done < ${MATLIST}

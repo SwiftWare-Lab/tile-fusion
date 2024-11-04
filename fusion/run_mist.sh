@@ -29,7 +29,7 @@ fi
 
 
 ID=$SLURM_JOB_ID
-MODE=6
+MODE=7
 MATLIST=$UFDB/mat_list.txt
 SCRIPTPATH="./scripts/"
 LOGS="./build/logs/"
