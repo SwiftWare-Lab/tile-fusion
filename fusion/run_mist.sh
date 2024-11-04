@@ -1,3 +1,4 @@
+#!/bin/bash
 #SBATCH --export=ALL
 #SBATCH --job-name="fusion"
 #SBATCH --mail-type=begin  # email me when the job starts
