@@ -287,8 +287,8 @@ int main (const int argc, const char *argv[]) {
   std::cout << unfusedSeqReduceRowBalanceStat << spStat + tpStat + profStat << std::endl;
 //  std::cout << unfusedCuSparseAlg2Stat << spStat + tpStat + profStat << std::endl;
 //  std::cout << unfusedCuSparseAlg3Stat << spStat + tpStat + profStat << std::endl;
-  std::cout << fusedSeqReduceRowBalanceStat << spStat + tpStat + profStat << std::endl;
-  std::cout << fusedSeqReduceRowBalanceReorderedStat << spStat + tpStat + profStat << std::endl;
+//  std::cout << fusedSeqReduceRowBalanceStat << spStat + tpStat + profStat << std::endl;
+//  std::cout << fusedSeqReduceRowBalanceReorderedStat << spStat + tpStat + profStat << std::endl;
   std::cout << fusedHighFusionRatio8Stat << spStat + tpStat + profStat << std::endl;
   std::cout << fusedHighFusionRatio16Stat << spStat + tpStat + profStat << std::endl;
   std::cout << fusedHighFusionRatio32Stat << spStat + tpStat + profStat << std::endl;
