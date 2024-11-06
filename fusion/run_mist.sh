@@ -12,6 +12,7 @@
 UFDB=$1
 BCOL=$2
 BUILD=$3
+PROFILING=$4
 
 module load MistEnv/2021a
 module load cuda/11.8.0
@@ -30,7 +31,11 @@ fi
 
 
 ID=$SLURM_JOB_ID
-MODE=7
+if [ $PROFILING -eq 1 ]; then
+  MODE=7
+else
+  MODE=6
+fi
 MATLIST=$UFDB/mat_list.txt
 SCRIPTPATH="./scripts/"
 LOGS="./build/logs/"
@@ -38,4 +43,7 @@ mkdir $LOGS
  BINPATH="./build/gpu/"
 BINFILE="spmm_spmm_demo_gpu"
 
-bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE 1 $MATLIST $BCOL $LOGS $ID
+bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE 1 $MATLIST 32 $LOGS $ID
+bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE 1 $MATLIST 64 $LOGS $ID
+bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE 1 $MATLIST 128 $LOGS $ID
+

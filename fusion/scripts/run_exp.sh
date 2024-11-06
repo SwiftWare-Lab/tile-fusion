@@ -14,11 +14,17 @@ ID=$8
 export OMP_NUM_THREADS=$THRDS
 export MKL_NUM_THREADS=$THRDS
 
+
 header=1
-PROFILING_DIR=$LOGS/profiling/
+PROFILING_DIR=$LOGS/profiling_${BCOL}/
+if [ -d "$PROFILING_DIR" ]; then
+  echo "Deleting existing $PROFILING_DIR."
+  rm -rf $PROFILING_DIR
+fi
 mkdir $PROFILING_DIR
+
 if [ -z $ID ]; then
-  OUTPUT_FILE=$LOGS/spmv_spmv_$BCOL.csv
+  OUTPUT_FILE=$LOGS/spmv_spmv_${BCOL}.csv
 else
   OUTPUT_FILE=$LOGS/spmv_spmv_${BCOL}_${ID}.csv
 fi
@@ -137,7 +143,7 @@ if [ "$TUNED" ==  7 ]; then
         ncu -o "$PROFILING_DIR/$mat" $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -ah -bc $BCOL
         header=0
       else
-        ncu -o "$PROFILING_DIR/$mat" $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -bc $BCOL >> $OUTPUT_FILE
+        ncu -o "$PROFILING_DIR/$mat" $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -bc $BCOL
       fi
 #    done
   done < ${MATLIST}

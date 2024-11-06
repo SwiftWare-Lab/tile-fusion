@@ -28,7 +28,8 @@ int main (const int argc, const char *argv[]) {
   tp._density = (double)tp._nnz / (double)(tp._dim1 * tp._dim2);
 
   int numThread = sp._num_threads, numTrial = 5;
-  int ThreadsPerBlock = 128;
+  int ufThreadsPerBlock = 128;
+  int fThreadsPerBlock=32;
   std::string expName = "SpMM_SpMM_Demo";
   auto *inSpMM =
       new CudaTensorInputs(aCSCFull->m, tp._b_cols, aCSCFull->m, aCSCFull->m,
@@ -69,7 +70,7 @@ int main (const int argc, const char *argv[]) {
   delete stats;
 
   stats = new swiftware::benchmark::Stats("GPU_Unfused_SeqReduceRowBalance","SpMMSpMM", numTrial,tp._matrix_name,numThread);
-  auto *unfusedSeqReduceRowBalance = new SpMMSpMMSeqReduceRowBalance(inSpMM,stats, ThreadsPerBlock);
+  auto *unfusedSeqReduceRowBalance = new SpMMSpMMSeqReduceRowBalance(inSpMM,stats, ufThreadsPerBlock);
   unfusedSeqReduceRowBalance->run();
   //  std::cout << "UNFUSED: " << std::endl;
   //  unfusedSeqReduceRowBalance->OutTensor->printDx();
@@ -96,7 +97,7 @@ int main (const int argc, const char *argv[]) {
 //  delete stats;
 
   stats = new swiftware::benchmark::Stats("GPU_Fused_Reordered_HighFusionRatio_8","SpMMSpMM", numTrial,tp._matrix_name,numThread);
-  auto *fusedHighFusionRatio8 = new FusedSpMMSpMMHighFusionRatio(inSpMM,stats, ThreadsPerBlock, 8);
+  auto *fusedHighFusionRatio8 = new FusedSpMMSpMMHighFusionRatio(inSpMM,stats, ufThreadsPerBlock, ufThreadsPerBlock, 8);
   fusedHighFusionRatio8->run();
   //  std::cout << "FUSED: " << std::endl;
   //  fusedHighFusionRatio8->OutTensor->printDx();
@@ -105,7 +106,7 @@ int main (const int argc, const char *argv[]) {
   delete stats;
 
   stats = new swiftware::benchmark::Stats("GPU_Fused_Reordered_HighFusionRatio_16","SpMMSpMM", numTrial,tp._matrix_name,numThread);
-  auto *fusedHighFusionRatio16 = new FusedSpMMSpMMHighFusionRatio(inSpMM,stats, ThreadsPerBlock, 16);
+  auto *fusedHighFusionRatio16 = new FusedSpMMSpMMHighFusionRatio(inSpMM,stats, ufThreadsPerBlock, ufThreadsPerBlock, 16);
   fusedHighFusionRatio16->run();
   //  std::cout << "FUSED: " << std::endl;
   //  fusedHighFusionRatio16->OutTensor->printDx();
@@ -114,7 +115,7 @@ int main (const int argc, const char *argv[]) {
   delete stats;
 
   stats = new swiftware::benchmark::Stats("GPU_Fused_Reordered_HighFusionRatio_32","SpMMSpMM", numTrial,tp._matrix_name,numThread);
-  auto *fusedHighFusionRatio32 = new FusedSpMMSpMMHighFusionRatio(inSpMM,stats, ThreadsPerBlock, 32);
+  auto *fusedHighFusionRatio32 = new FusedSpMMSpMMHighFusionRatio(inSpMM,stats, ufThreadsPerBlock, ufThreadsPerBlock, 32);
   fusedHighFusionRatio32->run();
   //  std::cout << "FUSED: " << std::endl;
   //  fusedHighFusionRatio32->OutTensor->printDx();
@@ -123,7 +124,7 @@ int main (const int argc, const char *argv[]) {
   delete stats;
 
   stats = new swiftware::benchmark::Stats("GPU_Fused_Reordered_HighFusionRatio_64","SpMMSpMM", numTrial,tp._matrix_name,numThread);
-  auto *fusedHighFusionRatio64 = new FusedSpMMSpMMHighFusionRatio(inSpMM,stats, ThreadsPerBlock, 64);
+  auto *fusedHighFusionRatio64 = new FusedSpMMSpMMHighFusionRatio(inSpMM,stats, ufThreadsPerBlock, ufThreadsPerBlock, 64);
   fusedHighFusionRatio64->run();
   //  std::cout << "FUSED: " << std::endl;
   //  fusedHighFusionRatio64->OutTensor->printDx();
@@ -133,7 +134,7 @@ int main (const int argc, const char *argv[]) {
 
 
   stats = new swiftware::benchmark::Stats("GPU_Fused_Reordered_32_HighFusionRatio_8","SpMMSpMM", numTrial,tp._matrix_name,numThread);
-  auto *fusedHighFusionRatio_32_8 = new FusedSpMMSpMMHighFusionRatio(inSpMM,stats, 32, 8);
+  auto *fusedHighFusionRatio_32_8 = new FusedSpMMSpMMHighFusionRatio(inSpMM,stats, 32, ufThreadsPerBlock, 8);
   fusedHighFusionRatio_32_8->run();
   //  std::cout << "FUSED: " << std::endl;
   //  fusedHighFusionRatio_32_8->OutTensor->printDx();
@@ -142,7 +143,7 @@ int main (const int argc, const char *argv[]) {
   delete stats;
 
   stats = new swiftware::benchmark::Stats("GPU_Fused_Reordered_32_HighFusionRatio_16","SpMMSpMM", numTrial,tp._matrix_name,numThread);
-  auto *fusedHighFusionRatio_32_16 = new FusedSpMMSpMMHighFusionRatio(inSpMM,stats, 32, 16);
+  auto *fusedHighFusionRatio_32_16 = new FusedSpMMSpMMHighFusionRatio(inSpMM,stats, 32, ufThreadsPerBlock, 16);
   fusedHighFusionRatio_32_16->run();
   //  std::cout << "FUSED: " << std::endl;
   //  fusedHighFusionRatio_32_16->OutTensor->printDx();
@@ -151,7 +152,7 @@ int main (const int argc, const char *argv[]) {
   delete stats;
 
   stats = new swiftware::benchmark::Stats("GPU_Fused_Reordered_32_HighFusionRatio_32","SpMMSpMM", numTrial,tp._matrix_name,numThread);
-  auto *fusedHighFusionRatio_32_32 = new FusedSpMMSpMMHighFusionRatio(inSpMM,stats, 32, 32);
+  auto *fusedHighFusionRatio_32_32 = new FusedSpMMSpMMHighFusionRatio(inSpMM,stats, 32, ufThreadsPerBlock, 32);
   fusedHighFusionRatio_32_32->run();
   //  std::cout << "FUSED: " << std::endl;
   //  fusedHighFusionRatio_32_32->OutTensor->printDx();
@@ -160,7 +161,7 @@ int main (const int argc, const char *argv[]) {
   delete stats;
 
   stats = new swiftware::benchmark::Stats("GPU_Fused_Reordered_32_HighFusionRatio_64","SpMMSpMM", numTrial,tp._matrix_name,numThread);
-  auto *fusedHighFusionRatio_32_64 = new FusedSpMMSpMMHighFusionRatio(inSpMM,stats, 32, 64);
+  auto *fusedHighFusionRatio_32_64 = new FusedSpMMSpMMHighFusionRatio(inSpMM,stats, 32, ufThreadsPerBlock, 64);
   fusedHighFusionRatio_32_64->run();
   //  std::cout << "FUSED: " << std::endl;
   //  fusedHighFusionRatio_32_64->OutTensor->printDx();

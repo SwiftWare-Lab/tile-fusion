@@ -436,7 +436,11 @@ class FusedSpMMSpMMHighFusionRatio
     : public FusedSpMMSpMMSeqReduceRowBalanceReordered
 {
   int RowPerThread;
+  int FusedThreadsPerBlock;
   int RowTile;
+  int UFMBlockDim;
+  int UFNBlockDim;
+  int UFNGridDim;
 protected:
   void setup() override {
     SeqSpMMSpMM::setup();
@@ -447,10 +451,13 @@ protected:
 //    } else if (InTensor ->N == 128){
 //      RowTile = 64;
 //    }
+    UFNGridDim = CEIL(InTensor->N, ThreadPerBlock);
+    UFNBlockDim = MIN(InTensor->N, ThreadPerBlock);
+    UFMBlockDim = CEIL(ThreadPerBlock, UFNBlockDim);
     //assert that bCols >= 32 and bCols is a product of 32.
-    NGridDim = CEIL(InTensor->N, ThreadPerBlock);
-    NBlockDim = MIN(InTensor->N, ThreadPerBlock);
-    MBlockDim = CEIL(ThreadPerBlock, NBlockDim);
+    NGridDim = CEIL(InTensor->N, FusedThreadsPerBlock);
+    NBlockDim = MIN(InTensor->N, FusedThreadsPerBlock);
+    MBlockDim = CEIL(FusedThreadsPerBlock, NBlockDim);
     MGridDim = CEIL(InTensor->M, RowTile);
     RowPerThread = CEIL(RowTile, MBlockDim);
   }
@@ -536,8 +543,8 @@ protected:
     Timer t1;
     dim3 fGridDim(MGridDim, NGridDim, 1);
     dim3 fBlockDim(NBlockDim, MBlockDim, 1);
-    dim3 ufGridDim(UFMGridDim, NGridDim, 1);
-    dim3 ufBlockDim(NBlockDim, MBlockDim, 1);
+    dim3 ufGridDim(UFMGridDim, UFNGridDim, 1);
+    dim3 ufBlockDim(UFNBlockDim, UFMBlockDim, 1);
     t1.startGPU();
     csr_fusedTile_multiplerow_seqreduce_rowbalance_kernel<<<fGridDim, fBlockDim>>>
         (InTensor->M, InTensor->N, InTensor->K, RowPerThread, InTensor->DACsrAp,
@@ -555,8 +562,10 @@ protected:
   }
 public:
   FusedSpMMSpMMHighFusionRatio(CudaTensorInputs *In1, Stats *Stat1,
-                                            int ThreadPerBlock, int RowTile)
-      : FusedSpMMSpMMSeqReduceRowBalanceReordered(In1, Stat1, ThreadPerBlock), RowTile(RowTile) {}
+                               int FusedThreadsPerBlock,
+                               int ThreadPerBlock, int RowTile)
+      : FusedSpMMSpMMSeqReduceRowBalanceReordered(In1, Stat1, ThreadPerBlock),
+        FusedThreadsPerBlock(FusedThreadsPerBlock), RowTile(RowTile) {}
 };
 
 
@@ -576,7 +585,8 @@ protected:
 public:
   FusedSpMMSpMMSeqReduceBColsBlocking(CudaTensorInputs *In1, Stats *Stat1,
                                       int ThreadPerBlock, int NTile)
-      : FusedSpMMSpMMSeqReduceRowBalance(In1, Stat1, ThreadPerBlock), NTile(NTile) {}
+      : FusedSpMMSpMMSeqReduceRowBalance(In1, Stat1, ThreadPerBlock),
+        NTile(NTile) {}
 };
 
 
