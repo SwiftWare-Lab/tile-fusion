@@ -38,12 +38,12 @@ else
 fi
 MATLIST=$UFDB/mat_list.txt
 SCRIPTPATH="./scripts/"
-LOGS="./build/logs/"
+LOGS="./build/logs-$ID/"
 mkdir $LOGS
  BINPATH="./build/gpu/"
 BINFILE="spmm_spmm_demo_gpu"
 
-bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE 1 $MATLIST 32 $LOGS $ID
-bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE 1 $MATLIST 64 $LOGS $ID
-bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE 1 $MATLIST 128 $LOGS $ID
+bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE 1 $MATLIST 32 $LOGS 0
+bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE 1 $MATLIST 64 $LOGS 0
+bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE 1 $MATLIST 128 $LOGS 0
 

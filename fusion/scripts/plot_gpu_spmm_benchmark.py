@@ -118,19 +118,23 @@ def plot_gpu_spmm_speedups_vs_cusparse(log_folder, config_file, log_file_name):
     impl_reprs = {impl['name']: impl['repr'] for impl in conf['impls']}
     # baseline_impls = ['GPU_cuSparse_SpMM_CSR_ALG2_Demo', 'GPU_cuSparse_SpMM_CSR_ALG3_Demo', 'GPU_cuSparse_SpMM_CSR_Default_Demo'] #TODO: Fix this
     baseline_impls = ['GPU_Unfused_SeqReduceRowBalance']
-    fig, axs = plt.subplots(6, 3, figsize=(16, 12))
-    fig.subplots_adjust(bottom=0.1, left=0.06, right=1, top=0.92, wspace=0.2, hspace=0.3)
+    fig, axs = plt.subplots(8, 3, figsize=(16, 12))
+    fig.subplots_adjust(bottom=0.2, left=0.06, right=1, top=0.92, wspace=0.2, hspace=0.3)
     baseline_impl = baseline_impls[0]
     impls = list(impls)
     target_impls = deepcopy(impls)
     # target_impls.remove('CPU_SpMM_Demo')
     for bi in baseline_impls:
         target_impls.remove(bi)
+    # print(target_impls)
 
     for i,bcol in enumerate(bcols):
         times = {}
         df_benchmark_bcol = df_benchmark[df_benchmark['bCols'] == bcol]
         mat_list = df_benchmark_bcol['Matrix Name'].unique()
+        print(mat_list)
+        mat_list = [m for m in mat_list if not m.endswith('10000.mtx')]
+        print(mat_list)
         for impl in impls:
             times[impl] = []
         mat_gflops = []
@@ -141,6 +145,7 @@ def plot_gpu_spmm_speedups_vs_cusparse(log_folder, config_file, log_file_name):
             for impl in impls:
                 cur_impl = cur_mat[cur_mat['Implementation Name'] == impl]
                 cur_impl = cur_impl[cur_impl['bCols'] == bcol]
+                # print(impl)
                 times[impl].append(take_median(cur_impl))
         gflops = {}
         for impl in impls:
@@ -198,4 +203,4 @@ def plot_gcn_from_logs_folder(logs_folder, config_file, should_merge="1"):
     # plot_gpu_spmm_benchmark(logs_folder, config_file, "merged.csv")
     plot_gpu_spmm_speedups_vs_cusparse(logs_folder, config_file, "merged.csv")
 
-plot_gcn_from_logs_folder(sys.argv[1], sys.argv[2])
+plot_gcn_from_logs_folder(sys.argv[1], sys.argv[2], sys.argv[3])
