@@ -27,7 +27,7 @@ int main (const int argc, const char *argv[]) {
   tp._nnz = aCSCFull->nnz;
   tp._density = (double)tp._nnz / (double)(tp._dim1 * tp._dim2);
 
-  int numThread = sp._num_threads, numTrial = 5;
+  int numThread = sp._num_threads, numTrial = 7;
   int ufThreadsPerBlock = 128;
   int fThreadsPerBlock=32;
   std::string expName = "SpMM_SpMM_Demo";
