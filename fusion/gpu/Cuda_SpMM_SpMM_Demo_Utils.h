@@ -244,13 +244,10 @@ protected:
     int ptr = 0;
     for (int i = 0; i < dependantL1Rows.size(); i++) {
       HL1Ptr[i + 1] = HL1Ptr[i] + dependantL1Rows[i].size();
-      std::cout << HL1Ptr[i + 1] << std::endl;
       for (int dr : dependantL1Rows[i]) {
         HL1Id[ptr] = dr;
-        std::cout << HL1Id[ptr] << " ";
         ptr++;
       }
-      std::cout << std::endl;
     }
     RowsPerThread = CEIL(maxL1TileSize,MBlockDim);
     //    this->St->OtherStats["Number of Fused Rows"] = {(double)fIdCount};
