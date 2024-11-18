@@ -1147,6 +1147,118 @@ __global__ void csr_fusedTile_multiplerow_seqreduce_rowbalance_kernel(
   }
 }
 
+__global__ void csr_2LfusedTile_multiplerow_seqreduce_rowbalance_kernel(
+    const int M, const int N, const int K, const int RowPerThread, const int Ap[], const int Ai[],
+    const float Ax[], const float Bx[], float ACx[], float Xx[],
+    const int FPtr[], const int FId[]) {
+  int row_tile = blockDim.y * RowPerThread;
+  int sub_row_id = threadIdx.y;
+  int row_start = blockIdx.x * row_tile + sub_row_id * RowPerThread;
+//  int warpId = (threadIdx.y * blockDim.x + threadIdx.x) / 32;
+  int row_end = min(row_start + RowPerThread, M);
+  int v_id = (blockIdx.y * blockDim.x) + threadIdx.x;
+  int l1TilesNum = blockDim.y;
+  if (v_id < N) {
+    Bx += v_id;
+    float *aCxTemp = ACx + v_id;
+    float *xxTemp = Xx + v_id;
+    float res, val;
+    int col;
+    for (int row = row_start; row < row_end; row += 1) {
+      res = 0;
+      int start = __ldg(Ap + row);
+      int end = __ldg(Ap + row + 1);
+      for (int p = start; p < end; p++) {
+        col = __ldg(Ai + p);
+        val = __guard_load_default_one<float>(Ax, p);
+        res += val * __ldg(Bx + col * N);
+      }
+      aCxTemp[row * N] = res;
+    }
+    int rowTileId = blockIdx.x;
+    int fOffset = rowTileId *  (l1TilesNum + 1) + sub_row_id;
+    int firstInd = __ldg(FPtr + fOffset);
+    int lastInd = __ldg(FPtr + fOffset + 1);
+    int rowInd = firstInd;
+    for (; rowInd < lastInd; rowInd+=1){
+      res = 0;
+      int row = __ldg(FId + rowInd);
+      int start = __ldg(Ap + row);
+      int end = __ldg(Ap + row + 1);
+      for (int p = start; p < end; p++) {
+        col = __ldg(Ai + p);
+        val = __guard_load_default_one<float>(Ax, p);
+        res += val * aCxTemp[col * N];
+      }
+      xxTemp[row * N] = res;
+    }
+  }
+  __syncthreads();
+  if (v_id < N) {
+    float* aCxTemp = ACx + v_id;
+    float *xxTemp = Xx + v_id;
+    float res = 0, val;
+    int col;
+    int rowTileId = blockIdx.x;
+    int fOffset = rowTileId * (l1TilesNum + 1) + l1TilesNum;
+    int firstInd = __ldg(FPtr + fOffset);
+    int lastInd = __ldg(FPtr + fOffset  + 1);
+    int fusedNum = lastInd - firstInd;
+    int stride = blockDim.y;
+    int rowInd = firstInd + threadIdx.y;
+    for (; rowInd < lastInd; rowInd+=stride) {
+      int row = __ldg(FId + rowInd);
+      res = 0;
+      int start = __ldg(Ap + row);
+      int end = __ldg(Ap + row + 1);
+      for (int p = start; p < end; p++) {
+        col = __ldg(Ai + p);
+        val = __guard_load_default_one<float>(Ax, p);
+        res += val * aCxTemp[col * N];
+      }
+      xxTemp[row * N] = res;
+    }
+  }
+}
+
+//TODO: Test this kernel.
+__global__ void csr_fusedTile_multiplerow_fusedParReduce_rowbalance_kernel(
+    const int M, const int N, const int K, const int RowPerThread, const int Ap[], const int Ai[],
+    const float Ax[], const float Bx[], float ACx[], float Xx[],
+    const int FAp[], const int FAi[], const float FAx[]) {
+  int row_tile = blockDim.y * RowPerThread;
+  int sub_row_id = threadIdx.y;
+  int row_start = blockIdx.x * row_tile + sub_row_id * RowPerThread;
+  int row_end = min(row_start + RowPerThread, M);
+  int v_id = (blockIdx.y * blockDim.x) + threadIdx.x;
+  if (v_id < N) {
+    Bx += v_id;
+    float *aCxTemp = ACx + v_id;
+    float *xxTemp = Xx + v_id;
+    float res, val;
+    int col;
+    for (int row = row_start; row < row_end; row += 1) {
+      res = 0;
+      int start = __ldg(Ap + row);
+      int end = __ldg(Ap + row + 1);
+      for (int p = start; p < end; p++) {
+        col = __ldg(Ai + p);
+        val = __guard_load_default_one<float>(Ax, p);
+        res += val * __ldg(Bx + col * N);
+      }
+      int startF = __ldg(FAp + row);
+      int endF = __ldg(FAp + row + 1);
+      for (int p = startF; p < endF; p++) {
+        int rowF = __ldg(FAi + p);
+        val = __guard_load_default_one<float>(FAx, p);
+        int resF = val * res;
+        atomicAdd_block(xxTemp + rowF * N, resF);
+      }
+      aCxTemp[row * N] = res;
+    }
+  }
+}
+
 
 //TODO: Assigning all rows to one warp
 

@@ -5,7 +5,14 @@ import sys
 import os
 import numpy as np
 
+
+
 folder = sys.argv[1]
+num_threads = sys.argv[2]
+os.environ["OPENBLAS_NUM_THREADS"] = num_threads  # Adjust the number of threads as needed
+os.environ["MKL_NUM_THREADS"] = num_threads
+os.environ["OMP_NUM_THREADS"] = num_threads
+
 mat_list_file_name = os.path.join(folder, 'mat_list.txt')
 with open(mat_list_file_name, 'r+') as mtf:
     mat_list = mtf.readlines()
