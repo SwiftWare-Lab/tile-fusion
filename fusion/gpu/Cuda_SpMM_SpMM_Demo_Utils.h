@@ -202,12 +202,8 @@ class FusedSpMMSpMMSeqReduceRowBalanceRedundant
 protected:
     int *HL1Ptr;
     int *DL1Ptr;
-//  int *HL2Ptr;
-//  int *DL2Ptr;
     int *HL1Id;
     int *DL1Id;
-//  int *HL2Id;
-//  int *DL2Id;
   int RowTile;
   int RowsPerThread;
 
@@ -314,15 +310,10 @@ protected:
       int t = i / rowTile;
       int end = MIN(i + rowTile, InTensor->M);
       for (int ii = i; ii < end; ii++) {
-        bool isUnfused = false;
-        for (int j = ap[ii]; j < ap[ii + 1]; j++) {
-          if (ai[j] < i || ai[j] >= end) {
-            ufRows.push_back(ii);
-            isUnfused = true;
-            break;
-          }
+        if (ai[ap[ii]] < i || ai[ap[ii+1]-1] >= end) {
+          ufRows.push_back(ii);
         }
-        if (!isUnfused) {
+        else {
           fRows[t].push_back(ii);
           NnzCount += ap[ii + 1] - ap[ii];
         }
@@ -419,15 +410,10 @@ protected:
       int t = i / rowTile;
       int end = MIN(i + rowTile, InTensor->M);
       for (int ii = i; ii < end; ii++) {
-        bool isUnfused = false;
-        for (int j = ap[ii]; j < ap[ii + 1]; j++) {
-          if (ai[j] < i || ai[j] >= end) {
-            ufRows.push_back(ii);
-            isUnfused = true;
-            break;
-          }
+        if (ai[ap[ii]] < i || ai[ap[ii+1]-1] >= end) {
+          ufRows.push_back(ii);
         }
-        if (!isUnfused) {
+        else {
           fRows[t].push_back(ii);
           NnzCount += ap[ii + 1] - ap[ii];
         }
@@ -569,15 +555,10 @@ protected:
       int t = i / rowTile;
       int end = MIN(i + rowTile, InTensor->M);
       for (int ii = i; ii < end; ii++) {
-        bool isUnfused = false;
-        for (int j = ap[ii]; j < ap[ii + 1]; j++) {
-          if (ai[j] < i || ai[j] >= end) {
-            ufRows.push_back(ii);
-            isUnfused = true;
-            break;
-          }
+        if (ai[ap[ii]] < i || ai[ap[ii+1]-1] >= end) {
+          ufRows.push_back(ii);
         }
-        if (!isUnfused) {
+        else {
           fRows[t].push_back(ii);
           NnzCount += ap[ii + 1] - ap[ii];
         }
@@ -719,16 +700,10 @@ protected:
       int t = i / rowTile;
       int end = MIN(i + rowTile, InTensor->M);
       for (int ii = i; ii < end; ii++) {
-        bool isUnfused = false;
-        //TODO: This can be optimized.
-        for (int j = ap[ii]; j < ap[ii + 1]; j++) {
-          if (ai[j] < i || ai[j] >= end) {
-            ufRows.push_back(ii);
-            isUnfused = true;
-            break;
-          }
+        if (ai[ap[ii]] < i || ai[ap[ii+1]-1] >= end) {
+          ufRows.push_back(ii);
         }
-        if (!isUnfused) {
+        else {
           fRows[t].push_back(ii);
           NnzCount += ap[ii + 1] - ap[ii];
         }

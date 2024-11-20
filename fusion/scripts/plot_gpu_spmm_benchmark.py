@@ -175,6 +175,169 @@ def plot_gpu_spmm_speedups_vs_cusparse(log_folder, config_file, log_file_name):
     plt.show()
     # plt.show()
 
+def plot_gpu_speedup_tuned(log_folder, config_file, log_file_name):
+    log_file = os.path.join(log_folder, log_file_name)
+    df_benchmark = pd.read_csv(log_file)
+    df_benchmark = df_benchmark.sort_values(by=['NNZ'])
+    mat_list = df_benchmark['Matrix Name'].unique()
+    bcols = df_benchmark['bCols'].unique()
+    bcols = np.sort(bcols)
+    with open(config_file) as f:
+        conf = yaml.load(f, Loader=yaml.FullLoader)
+    impls = [impl['name'] for impl in conf['impls']]
+    impl_reprs = {impl['name']: impl['repr'] for impl in conf['impls']}
+    impl_row_tiles = {impl['name']: [impl['name'] + '_' + str(row_tile) for row_tile in impl['row_tiles']] for impl in conf['impls'] if 'row_tiles' in impl}
+    # print(impls, impl_row_tiles)
+    baseline_impls = ['GPU_Unfused_SeqReduceRowBalance']
+    fig, axs = plt.subplots(1, 3, figsize=(15, 5))
+    fig.subplots_adjust(bottom=0.3, left=0.06, right=1, top=0.75, wspace=0.1, hspace=0.1)
+    baseline_impl = baseline_impls[0]
+    impls = list(impls)
+    target_impls = deepcopy(impls)
+    for bi in baseline_impls:
+        target_impls.remove(bi)
+    for i,bcol in enumerate(bcols):
+        times = {}
+        df_benchmark_bcol = df_benchmark[df_benchmark['bCols'] == bcol]
+        mat_list = df_benchmark_bcol['Matrix Name'].unique()
+        print(mat_list)
+        mat_list = [m for m in mat_list if not m.endswith('10000.mtx')]
+        print(mat_list)
+        for impl in impls:
+            times[impl] = []
+        mat_gflops = []
+        for mat in mat_list:
+            cur_mat = df_benchmark_bcol[df_benchmark_bcol['Matrix Name'] == mat]
+            cur_mat_nnz = cur_mat['NNZ'].unique()[0]
+            mat_gflops.append((cur_mat_nnz * bcol + cur_mat_nnz * bcol) / 1e9)
+            for impl in impls:
+                if impl in impl_row_tiles:
+                    all_times = []
+                    for row_tile in impl_row_tiles[impl]:
+                        cur_impl_row_tile = cur_mat[cur_mat['Implementation Name'] == row_tile]
+                        all_times.append(take_median(cur_impl_row_tile))
+                    best_time = min(all_times)
+                    times[impl].append(best_time)
+                else:
+                    cur_impl = cur_mat[cur_mat['Implementation Name'] == impl]
+                    cur_impl = cur_impl[cur_impl['bCols'] == bcol]
+                    # print(impl)
+
+                    times[impl].append(take_median(cur_impl))
+        gflops = {}
+        for impl in impls:
+            gflops[impl] = np.array(mat_gflops) / np.array(times[impl])
+
+        for bi in baseline_impls:
+            gflops[bi] = np.array(mat_gflops) / np.array(times[bi])
+        speed_ups = {}
+        ax = axs[i]
+        for ii, impl in enumerate(target_impls):
+            speed_ups[impl] = np.array(times[baseline_impl]) / np.array(times[impl])
+            impl_repr = impl_reprs[impl]
+            # ax.scatter(gflops[baseline_impl], speed_ups[impl], label=impl_repr, s=5)
+            ax.scatter(mat_list, speed_ups[impl], label=impl_repr, s=10)
+            ax.axhline(y=1, color='black', linestyle='--')
+            ax.spines[['right', 'top']].set_visible(False)
+            # if ii == len(target_impls) - 1:
+            #     ax.set_xticks(mat_list, mat_list, rotation=45)
+            # else:
+            #     ax.set_xticks([])
+            # if i == 1:
+            #     ax.set_title(impl_repr)
+            # else:
+            #     ax.set_title('bCol='+str(bcol))
+        ax.set_title('bCol='+str(bcol))
+        ax.set_xticks(mat_list, mat_list, rotation=45)
+    #legend with one row outside of the plot and in the upper part
+    axs[1].legend(loc='upper center', bbox_to_anchor=(0.5, 1.4), ncol=5)
+    # axs[1].legend()
+
+    fig.suptitle('speed-up over ' + baseline_impl)
+    plt.show()
+
+def plot_gpu_speedup_tuned_ordered(log_folder, config_file, log_file_name):
+    log_file = os.path.join(log_folder, log_file_name)
+    df_benchmark = pd.read_csv(log_file)
+    df_benchmark = df_benchmark.sort_values(by=['NNZ'])
+    mat_list = df_benchmark['Matrix Name'].unique()
+    bcols = df_benchmark['bCols'].unique()
+    bcols = np.sort(bcols)
+    with open(config_file) as f:
+        conf = yaml.load(f, Loader=yaml.FullLoader)
+    impls = [impl['name'] for impl in conf['impls']]
+    impl_reprs = {impl['name']: impl['repr'] for impl in conf['impls']}
+    impl_row_tiles = {impl['name']: [impl['name'] + '_' + str(row_tile) for row_tile in impl['row_tiles']] for impl in conf['impls'] if 'row_tiles' in impl}
+    # print(impls, impl_row_tiles)
+    baseline_impls = ['GPU_Unfused_SeqReduceRowBalance']
+    fig, axs = plt.subplots(1, 3, figsize=(15, 5))
+    fig.subplots_adjust(bottom=0.3, left=0.06, right=1, top=0.75, wspace=0.1, hspace=0.1)
+    baseline_impl = baseline_impls[0]
+    impls = list(impls)
+    target_impls = deepcopy(impls)
+    for bi in baseline_impls:
+        target_impls.remove(bi)
+    for i,bcol in enumerate(bcols):
+        times = {}
+        df_benchmark_bcol = df_benchmark[df_benchmark['bCols'] == bcol]
+        mat_list = df_benchmark_bcol['Matrix Name'].unique()
+        mat_list = [m for m in mat_list if not m.endswith('10000.mtx')]
+        ordered_mat_list = [m for m in mat_list if m[:-4] + '_ordered.mtx' in mat_list]
+        print(ordered_mat_list)
+        for impl in impls:
+            times[impl] = []
+        mat_gflops = []
+        for mat in mat_list:
+            cur_mat = df_benchmark_bcol[df_benchmark_bcol['Matrix Name'] == mat]
+            cur_mat_nnz = cur_mat['NNZ'].unique()[0]
+            mat_gflops.append((cur_mat_nnz * bcol + cur_mat_nnz * bcol) / 1e9)
+            for impl in impls:
+                if impl in impl_row_tiles:
+                    all_times = []
+                    for row_tile in impl_row_tiles[impl]:
+                        cur_impl_row_tile = cur_mat[cur_mat['Implementation Name'] == row_tile]
+                        all_times.append(take_median(cur_impl_row_tile))
+                    best_time = min(all_times)
+                    times[impl].append(best_time)
+                else:
+                    cur_impl = cur_mat[cur_mat['Implementation Name'] == impl]
+                    cur_impl = cur_impl[cur_impl['bCols'] == bcol]
+                    # print(impl)
+
+                    times[impl].append(take_median(cur_impl))
+        gflops = {}
+        for impl in impls:
+            gflops[impl] = np.array(mat_gflops) / np.array(times[impl])
+
+        for bi in baseline_impls:
+            gflops[bi] = np.array(mat_gflops) / np.array(times[bi])
+        speed_ups = {}
+        ax = axs[i]
+
+        for ii, impl in enumerate(target_impls):
+            speed_ups[impl] = np.array(times[baseline_impl]) / np.array(times[impl])
+            impl_repr = impl_reprs[impl]
+            # ax.scatter(gflops[baseline_impl], speed_ups[impl], label=impl_repr, s=5)
+            ax.scatter(mat_list, speed_ups[impl], label=impl_repr, s=10)
+            ax.axhline(y=1, color='black', linestyle='--')
+            ax.spines[['right', 'top']].set_visible(False)
+            # if ii == len(target_impls) - 1:
+            #     ax.set_xticks(mat_list, mat_list, rotation=45)
+            # else:
+            #     ax.set_xticks([])
+            # if i == 1:
+            #     ax.set_title(impl_repr)
+            # else:
+            #     ax.set_title('bCol='+str(bcol))
+        ax.set_title('bCol='+str(bcol))
+        ax.set_xticks(mat_list, mat_list, rotation=45)
+    #legend with one row outside of the plot and in the upper part
+    axs[1].legend(loc='upper center', bbox_to_anchor=(0.5, 1.4), ncol=5)
+    # axs[1].legend()
+
+    fig.suptitle('speed-up over ' + baseline_impl)
+    plt.show()
+
 
 def merge_logs(logs_folder):
     plt.close()
@@ -202,5 +365,6 @@ def plot_gcn_from_logs_folder(logs_folder, config_file, should_merge="1"):
     # plot_fused_ratio(logs_folder, "merged.csv", config_file)
     # plot_gpu_spmm_benchmark(logs_folder, config_file, "merged.csv")
     plot_gpu_spmm_speedups_vs_cusparse(logs_folder, config_file, "merged.csv")
-
+    # plot_gpu_speedup_tuned(logs_folder, config_file, "merged.csv")
+    # plot_gpu_speedup_tuned_ordered(logs_folder, config_file, "merged.csv")
 plot_gcn_from_logs_folder(sys.argv[1], sys.argv[2], sys.argv[3])
