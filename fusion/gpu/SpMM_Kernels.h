@@ -1221,7 +1221,6 @@ __global__ void csr_2LfusedTile_multiplerow_seqreduce_rowbalance_kernel(
   }
 }
 
-//TODO: Test this kernel.
 __global__ void csr_fusedTile_multiplerow_fusedParReduce_rowbalance_kernel(
     const int M, const int N, const int K, const int RowPerThread, const int Ap[], const int Ai[],
     const float Ax[], const float Bx[], float ACx[], float Xx[],
@@ -1252,9 +1251,61 @@ __global__ void csr_fusedTile_multiplerow_fusedParReduce_rowbalance_kernel(
         int rowF = __ldg(FAi + p);
         val = __guard_load_default_one<float>(FAx, p);
         int resF = val * res;
-        atomicAdd_block(xxTemp + rowF * N, resF);
+        xxTemp[rowF * N] += resF;
+//        atomicAdd_block(xxTemp + rowF * N, resF);
       }
       aCxTemp[row * N] = res;
+    }
+  }
+}
+
+
+//TODO: test this kernel.
+__global__ void csr_fusedTile_multiplecol_seqreduce_rowbalance_kernel(
+    const int M, const int N, const int K, const int ColPerThread, const int Ap[], const int Ai[],
+    const float Ax[], const float Bx[], float ACx[], float Xx[],
+    const int FPtr[], const int FId[]) {
+  int sub_row_id = threadIdx.y;
+  int row = blockIdx.x * blockDim.y + sub_row_id;
+  int v_id_s = (blockIdx.y * blockDim.x * ColPerThread) + threadIdx.x * ColPerThread;
+
+  if (v_id_s < N) {
+    int v_id_e = min(v_id_s + ColPerThread, N);
+    float val;
+    int col;
+    int start = __ldg(Ap + row);
+    int end = __ldg(Ap + row + 1);
+    for (int p = start; p < end; p++) {
+      for (int v_id = v_id_s; v_id < v_id_e; v_id++) {
+        col = __ldg(Ai + p);
+        val = __guard_load_default_one<float>(Ax, p);
+        ACx[row * N + v_id] += val * __ldg(Bx + v_id + col * N);
+      }
+    }
+  }
+  __syncthreads();
+  int rowTileId = blockIdx.x;
+  int firstInd = __ldg(FPtr + rowTileId);
+  int lastInd = __ldg(FPtr + rowTileId + 1);
+  int fusedNum = lastInd - firstInd;
+  int fusedColPerThread = ceil(float(N) / float(((blockDim.x * blockDim.y) / fusedNum)));
+  v_id_s = (blockIdx.y * blockDim.x * fusedColPerThread) + threadIdx.x * fusedColPerThread;
+  if (v_id_s < N) {
+    int v_id_e = min(v_id_s + ColPerThread, N);
+    float res = 0, val;
+    int col;
+    int stride = blockDim.y;
+    int rowInd = firstInd + threadIdx.y;
+    int row = __ldg(FId + rowInd);
+    res = 0;
+    int start = __ldg(Ap + row);
+    int end = __ldg(Ap + row + 1);
+    for (int p = start; p < end; p++) {
+    for (int v_id = v_id_s; v_id < v_id_e; v_id++) {
+        col = __ldg(Ai + p);
+        val = __guard_load_default_one<float>(Ax, p);
+        Xx[row * N + v_id] += val * ACx[col * N + v_id];
+      }
     }
   }
 }

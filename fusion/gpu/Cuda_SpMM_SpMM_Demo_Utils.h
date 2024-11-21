@@ -514,7 +514,7 @@ public:
 class FusedSpMMSpMMHighFusionRatio
     : public FusedSpMMSpMMSeqReduceRowBalanceReordered {
 protected:
-  int RowPerThread;
+  int ThreadWorkReps;
   int FusedThreadsPerBlock;
   int RowTile;
   int UFMBlockDim;
@@ -538,7 +538,7 @@ protected:
     NBlockDim = MIN(InTensor->N, FusedThreadsPerBlock);
     MBlockDim = CEIL(FusedThreadsPerBlock, NBlockDim);
     MGridDim = CEIL(InTensor->M, RowTile);
-    RowPerThread = CEIL(RowTile, MBlockDim);
+    ThreadWorkReps = CEIL(RowTile, MBlockDim);
   }
 
   Timer analysis() override {
@@ -622,7 +622,7 @@ protected:
     t1.startGPU();
     csr_fusedTile_multiplerow_seqreduce_rowbalance_kernel<<<fGridDim,
                                                             fBlockDim>>>(
-        InTensor->M, InTensor->N, InTensor->K, RowPerThread, InTensor->DACsrAp,
+        InTensor->M, InTensor->N, InTensor->K, ThreadWorkReps, InTensor->DACsrAp,
         InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx,
         OutTensor->DXx, DFPtr, DFId);
     cudaDeviceSynchronize();
@@ -645,6 +645,61 @@ public:
         FusedThreadsPerBlock(FusedThreadsPerBlock), RowTile(RowTile) {}
 };
 
+class FusedSpMMSpMMHighFusionRatioMultipleBCols
+    : public FusedSpMMSpMMHighFusionRatio{
+protected:
+  void setup() override {
+    SeqSpMMSpMM::setup();
+    //    if (InTensor->N == 32){
+    //      RowTile = 256;
+    //    } else if (InTensor ->N == 64){
+    //      RowTile = 128;
+    //    } else if (InTensor ->N == 128){
+    //      RowTile = 64;
+    //    }
+    UFNGridDim = CEIL(InTensor->N, ThreadPerBlock);
+    UFNBlockDim = MIN(InTensor->N, ThreadPerBlock);
+    UFMBlockDim = CEIL(ThreadPerBlock, UFNBlockDim);
+    // assert that bCols >= 32 and bCols is a product of 32.
+    MGridDim = CEIL(InTensor->M, RowTile);
+    NGridDim = CEIL(InTensor->N, FusedThreadsPerBlock);
+    MBlockDim = RowTile;
+    NBlockDim = MIN(FusedThreadsPerBlock, MBlockDim);
+    ThreadWorkReps = CEIL(InTensor->N, NBlockDim); //used as colPerThread
+  }
+
+  Timer execute() override {
+    Timer t1;
+    dim3 fGridDim(MGridDim, NGridDim, 1);
+    dim3 fBlockDim(NBlockDim, MBlockDim, 1);
+    dim3 ufGridDim(UFMGridDim, UFNGridDim, 1);
+    dim3 ufBlockDim(UFNBlockDim, UFMBlockDim, 1);
+    OutTensor->reset();
+    t1.startGPU();
+    csr_fusedTile_multiplecol_seqreduce_rowbalance_kernel<<<fGridDim,
+                                                            fBlockDim>>>(
+        InTensor->M, InTensor->N, InTensor->K, ThreadWorkReps, InTensor->DACsrAp,
+        InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx,
+        OutTensor->DXx, DFPtr, DFId);
+    cudaDeviceSynchronize();
+    csr_reordered_unfusedTile_spmmspmm_seqreduce_rowbalance_kernel<<<
+        ufGridDim, ufBlockDim>>>(UFDim, InTensor->N, InTensor->K, DROAp, DROAi,
+                                 DROAx, OutTensor->DACx, OutTensor->DXx,
+                                 DUFPtr);
+    cudaDeviceSynchronize();
+    t1.stopGPU("UnFusedTileSpMMSpMM");
+    OutTensor->copyDeviceToHost();
+    return t1;
+  }
+
+public:
+  FusedSpMMSpMMHighFusionRatioMultipleBCols(CudaTensorInputs *In1, Stats *Stat1,
+                                      int ThreadsPerBlock,
+                                      int RowTile)
+      : FusedSpMMSpMMHighFusionRatio(In1, Stat1, ThreadsPerBlock, ThreadsPerBlock, RowTile)
+  {}
+};
+
 class FusedSpMMSpMMHighFusionRatioNoSynch
     : public FusedSpMMSpMMHighFusionRatio{
 protected:
@@ -659,7 +714,7 @@ protected:
     t1.startGPU();
     csr_fusedSynchTile_multiplerow_seqreduce_rowbalance_kernel<<<fGridDim,
                                                             fBlockDim>>>(
-        InTensor->M, InTensor->N, InTensor->K, RowPerThread, InTensor->DACsrAp,
+        InTensor->M, InTensor->N, InTensor->K, ThreadWorkReps, InTensor->DACsrAp,
         InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx,
         OutTensor->DXx, DFPtr, DFId);
     cudaDeviceSynchronize();
@@ -694,7 +749,7 @@ protected:
     int *ai = InTensor->ACsr->i;
     float *ax = InTensor->HACsrVal;
     int l1TilesNum = MBlockDim;
-    int l1TileSize = RowPerThread;
+    int l1TileSize = ThreadWorkReps;
     int NnzCount = 0;
     for (int i = 0; i < InTensor->M; i += rowTile) {
       int t = i / rowTile;
@@ -736,8 +791,8 @@ protected:
         bool l1Fused = false;
         int row = fRows[i][k];
         for(int j = 0; j < l1TilesNum; j++){
-          int s = i * RowTile + j * RowPerThread;
-          int e = i * RowTile + (j+1) * (RowPerThread);
+          int s = i * RowTile + j * ThreadWorkReps;
+          int e = i * RowTile + (j+1) * (ThreadWorkReps);
 //          std::cout << s << " " << e << std::endl;
           if (ai[ap[row]] >= s && ai[ap[row+1]-1] < e){
               innerTiles[j].push_back(row);
@@ -787,7 +842,7 @@ protected:
     t1.startGPU();
     csr_2LfusedTile_multiplerow_seqreduce_rowbalance_kernel<<<fGridDim,
                                                             fBlockDim>>>(
-        InTensor->M, InTensor->N, InTensor->K, RowPerThread, InTensor->DACsrAp,
+        InTensor->M, InTensor->N, InTensor->K, ThreadWorkReps, InTensor->DACsrAp,
         InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx,
         OutTensor->DXx, DFPtr, DFId);
     cudaDeviceSynchronize();
@@ -940,7 +995,7 @@ protected:
     t1.startGPU();
     csr_fusedTile_multiplerow_fusedParReduce_rowbalance_kernel<<<fGridDim,
                                                             fBlockDim>>>(
-        InTensor->M, InTensor->N, InTensor->K, RowPerThread, InTensor->DACsrAp,
+        InTensor->M, InTensor->N, InTensor->K, ThreadWorkReps, InTensor->DACsrAp,
         InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx,
         OutTensor->DXx, DFAp, DFAi, DFAx);
     cudaDeviceSynchronize();
