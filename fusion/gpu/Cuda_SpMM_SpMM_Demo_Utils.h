@@ -211,8 +211,6 @@ protected:
   Timer execute() override {
     OutTensor->reset();
     int threadWorkReps = CEIL(RowTile, MBlockDim);
-    std::cout << "MGridDim: " << MGridDim << std::endl;
-    std::cout << "MBlockDim: " << MBlockDim << std::endl;
     Timer t1;
     dim3 gridDim(MGridDim, NGridDim, 1);
     dim3 blockDim(NBlockDim, MBlockDim, 1);
