@@ -197,6 +197,49 @@ public:
       : SeqSpMMSpMM(In1, Stat1), ThreadPerBlock(ThreadPerBlock) {}
 };
 
+class SpMMSpMMSeqReduceRowBalanceCoarsenedRow :
+    public SpMMSpMMSeqReduceRowBalance{
+protected:
+  int RowTile;
+  void setup() override {
+    SeqSpMMSpMM::setup();
+    NGridDim = CEIL(InTensor->N, ThreadPerBlock);
+    NBlockDim = MIN(InTensor->N, ThreadPerBlock);
+    MBlockDim = CEIL(ThreadPerBlock, NBlockDim);
+    MGridDim = CEIL(InTensor->M, RowTile);
+  }
+  Timer execute() override {
+    OutTensor->reset();
+    int threadWorkReps = CEIL(RowTile, MBlockDim);
+    std::cout << "MGridDim: " << MGridDim << std::endl;
+    std::cout << "MBlockDim: " << MBlockDim << std::endl;
+    Timer t1;
+    dim3 gridDim(MGridDim, NGridDim, 1);
+    dim3 blockDim(NBlockDim, MBlockDim, 1);
+    t1.startGPU();
+    csrspmm_seqreduce_rowcoarsened_kernel<<<gridDim, blockDim>>>(
+        InTensor->M, InTensor->N, InTensor->K, threadWorkReps, InTensor->DACsrAp,
+        InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx);
+    // TODO: Since I know kernel calls are nonBlocking I used this. Is this the
+    // right way?
+    //  I might need to test without synchronization to make sure nonBlocking
+    //  property of kernel calls is valid.
+    cudaDeviceSynchronize();
+    csrspmm_seqreduce_rowcoarsened_kernel<<<gridDim, blockDim>>>(
+        InTensor->M, InTensor->N, InTensor->K, threadWorkReps, InTensor->DACsrAp,
+        InTensor->DACsrI, InTensor->DACsrVal, OutTensor->DACx, OutTensor->DXx);
+    cudaDeviceSynchronize();
+    t1.stopGPU("UnfusedSpMMSpMM");
+    OutTensor->copyDeviceToHost();
+    return t1;
+  }
+
+public:
+  SpMMSpMMSeqReduceRowBalanceCoarsenedRow(CudaTensorInputs *In1, Stats *Stat1,
+                              int ThreadPerBlock, int RowTile1)
+      : SpMMSpMMSeqReduceRowBalance(In1, Stat1, ThreadPerBlock), RowTile(RowTile1)
+  {}
+};
 class FusedSpMMSpMMSeqReduceRowBalanceRedundant
     : public SpMMSpMMSeqReduceRowBalance {
 protected:
@@ -662,9 +705,9 @@ protected:
     UFMBlockDim = CEIL(ThreadPerBlock, UFNBlockDim);
     // assert that bCols >= 32 and bCols is a product of 32.
     MGridDim = CEIL(InTensor->M, RowTile);
-    NGridDim = CEIL(InTensor->N, FusedThreadsPerBlock);
+    NGridDim = MIN(InTensor->N, FusedThreadsPerBlock);
     MBlockDim = RowTile;
-    NBlockDim = MIN(FusedThreadsPerBlock, MBlockDim);
+    NBlockDim = CEIL(FusedThreadsPerBlock, MBlockDim);
     ThreadWorkReps = CEIL(InTensor->N, NBlockDim); //used as colPerThread
   }
 

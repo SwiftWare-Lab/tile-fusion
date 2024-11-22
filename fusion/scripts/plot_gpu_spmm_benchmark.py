@@ -222,7 +222,7 @@ def plot_gpu_speedup_tuned(log_folder, config_file, log_file_name):
                     cur_impl = cur_mat[cur_mat['Implementation Name'] == impl]
                     cur_impl = cur_impl[cur_impl['bCols'] == bcol]
                     # print(impl)
-
+                    # print(impl)
                     times[impl].append(take_median(cur_impl))
         gflops = {}
         for impl in impls:
@@ -364,7 +364,7 @@ def plot_gcn_from_logs_folder(logs_folder, config_file, should_merge="1"):
     # config = import_config(config_file)
     # plot_fused_ratio(logs_folder, "merged.csv", config_file)
     # plot_gpu_spmm_benchmark(logs_folder, config_file, "merged.csv")
-    plot_gpu_spmm_speedups_vs_cusparse(logs_folder, config_file, "merged.csv")
-    # plot_gpu_speedup_tuned(logs_folder, config_file, "merged.csv")
+    # plot_gpu_spmm_speedups_vs_cusparse(logs_folder, config_file, "merged.csv")
+    plot_gpu_speedup_tuned(logs_folder, config_file, "merged.csv")
     # plot_gpu_speedup_tuned_ordered(logs_folder, config_file, "merged.csv")
 plot_gcn_from_logs_folder(sys.argv[1], sys.argv[2], sys.argv[3])

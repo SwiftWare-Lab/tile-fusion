@@ -8,27 +8,27 @@ impls:
     - 16
     - 32
     - 64
-- name: "GPU_Fused_Redundant_HighFusionRatio"
-  repr: "Fused + Unfused Packing + Redundant"
-  row_tiles:
-    - 8
-    - 16
-    - 32
-    - 64
-- name: "GPU_FusedNoSynch_Reordered_HighFusionRatio"
-  repr: "FusedNoSynch + Unfused Packing"
-  row_tiles:
-    - 8
-    - 16
-    - 32
-    - 64
-- name: "GPU_2LFused_Reordered_HighFusionRatio"
-  repr: "Recursive Fused + Unfused Packing"
-  row_tiles:
-    - 8
-    - 16
-    - 32
-    - 64
+#- name: "GPU_Fused_Redundant_HighFusionRatio"
+#  repr: "Fused + Unfused Packing + Redundant"
+#  row_tiles:
+#    - 8
+#    - 16
+#    - 32
+#    - 64
+#- name: "GPU_FusedNoSynch_Reordered_HighFusionRatio"
+#  repr: "FusedNoSynch + Unfused Packing"
+#  row_tiles:
+#    - 8
+#    - 16
+#    - 32
+#    - 64
+#- name: "GPU_2LFused_Reordered_HighFusionRatio"
+#  repr: "Recursive Fused + Unfused Packing"
+#  row_tiles:
+#    - 8
+#    - 16
+#    - 32
+#    - 64
 - name: "GPU_AtomicFused_Reordered_HighFusionRatio"
   repr: "Atomic Fused + Unfused Packing"
   row_tiles:

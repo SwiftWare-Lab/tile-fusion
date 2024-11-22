@@ -989,6 +989,37 @@ csrspmm_seqreduce_rowbalance_kernel(const int nr, const int nv, const int nc,
   }
 }
 
+__global__ void csrspmm_seqreduce_rowcoarsened_kernel(
+    const int nr, const int nv, const int nc, const int RowPerThread,
+    const int rowPtr[], const int colIdx[], const float values[],
+    const float dnInput[], float dnOutput[]) {
+  int row_tile = blockDim.y * RowPerThread;
+  int subwarp_id = threadIdx.y;
+//  int stride = row_tile * gridDim.x;
+  int row_start = blockIdx.x * row_tile + subwarp_id * RowPerThread;
+  int row_end = min(row_start + RowPerThread, nr);
+//  printf("row: %d, row_end: %d\n", row, row_end);
+  int v_id = (blockIdx.y * blockDim.x) + threadIdx.x;
+  if (v_id < nv) {
+    dnInput += v_id;
+    dnOutput += v_id;
+
+    float res, val;
+    int col;
+    for (int row = row_start; row < row_end; row += 1) {
+      res=0;
+      int start = __ldg(rowPtr + row);
+      int end = __ldg(rowPtr + row + 1);
+      for (int p = start; p < end; p++) {
+        col = __ldg(colIdx + p);
+        val = __guard_load_default_one<float>(values, p);
+        res += val * __ldg(dnInput + col * nv);
+      }
+      dnOutput[row * nv] = res;
+    }
+  }
+}
+
 __global__ void csr_fusedTile_spmmspmm_seqreduce_rowbalance_kernel(
     const int M, const int N, const int K, const int Ap[], const int Ai[],
     const float Ax[], const float Bx[], float ACx[], float Xx[],
@@ -1288,10 +1319,10 @@ __global__ void csr_fusedTile_multiplecol_seqreduce_rowbalance_kernel(
   int firstInd = __ldg(FPtr + rowTileId);
   int lastInd = __ldg(FPtr + rowTileId + 1);
   int fusedNum = lastInd - firstInd;
-  int fusedColPerThread = ceil(float(N) / float(((blockDim.x * blockDim.y) / fusedNum)));
+  int fusedColPerThread = ceil(float(N) / ((float(blockDim.x * blockDim.y) / fusedNum)));
   v_id_s = (blockIdx.y * blockDim.x * fusedColPerThread) + threadIdx.x * fusedColPerThread;
   if (v_id_s < N) {
-    int v_id_e = min(v_id_s + ColPerThread, N);
+    int v_id_e = min(v_id_s + fusedColPerThread, N);
     float res = 0, val;
     int col;
     int stride = blockDim.y;

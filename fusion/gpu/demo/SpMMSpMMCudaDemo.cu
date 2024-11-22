@@ -78,6 +78,42 @@ int main (const int argc, const char *argv[]) {
   delete unfusedSeqReduceRowBalance;
   delete stats;
 
+  stats = new swiftware::benchmark::Stats("GPU_Unfused_SeqReduceRowCoarsened_8","SpMMSpMM", numTrial,tp._matrix_name,numThread);
+  auto *unfusedSeqReduceRowCoarsened8 = new SpMMSpMMSeqReduceRowBalanceCoarsenedRow(inSpMM,stats, ufThreadsPerBlock, 8);
+  unfusedSeqReduceRowCoarsened8->run();
+  //  std::cout << "UNFUSED: " << std::endl;
+//    unfusedSeqReduceRowCoarsened8->OutTensor->printDx();
+  auto unfusedSeqReduceRowCoarsened8Stat = unfusedSeqReduceRowCoarsened8->printStats();
+  delete unfusedSeqReduceRowCoarsened8;
+  delete stats;
+
+  stats = new swiftware::benchmark::Stats("GPU_Unfused_SeqReduceRowCoarsened_16","SpMMSpMM", numTrial,tp._matrix_name,numThread);
+  auto *unfusedSeqReduceRowCoarsened16 = new SpMMSpMMSeqReduceRowBalanceCoarsenedRow(inSpMM,stats, ufThreadsPerBlock, 16);
+  unfusedSeqReduceRowCoarsened16->run();
+  //  std::cout << "UNFUSED: " << std::endl;
+  //    unfusedSeqReduceRowCoarsened16->OutTensor->printDx();
+  auto unfusedSeqReduceRowCoarsened16Stat = unfusedSeqReduceRowCoarsened16->printStats();
+  delete unfusedSeqReduceRowCoarsened16;
+  delete stats;
+
+  stats = new swiftware::benchmark::Stats("GPU_Unfused_SeqReduceRowCoarsened_32","SpMMSpMM", numTrial,tp._matrix_name,numThread);
+  auto *unfusedSeqReduceRowCoarsened32 = new SpMMSpMMSeqReduceRowBalanceCoarsenedRow(inSpMM,stats, ufThreadsPerBlock, 32);
+  unfusedSeqReduceRowCoarsened32->run();
+  //  std::cout << "UNFUSED: " << std::endl;
+  //    unfusedSeqReduceRowCoarsened32->OutTensor->printDx();
+  auto unfusedSeqReduceRowCoarsened32Stat = unfusedSeqReduceRowCoarsened32->printStats();
+  delete unfusedSeqReduceRowCoarsened32;
+  delete stats;
+
+  stats = new swiftware::benchmark::Stats("GPU_Unfused_SeqReduceRowCoarsened_64","SpMMSpMM", numTrial,tp._matrix_name,numThread);
+  auto *unfusedSeqReduceRowCoarsened64 = new SpMMSpMMSeqReduceRowBalanceCoarsenedRow(inSpMM,stats, ufThreadsPerBlock, 64);
+  unfusedSeqReduceRowCoarsened64->run();
+  //  std::cout << "UNFUSED: " << std::endl;
+  //    unfusedSeqReduceRowCoarsened64->OutTensor->printDx();
+  auto unfusedSeqReduceRowCoarsened64Stat = unfusedSeqReduceRowCoarsened64->printStats();
+  delete unfusedSeqReduceRowCoarsened64;
+  delete stats;
+
 //  stats = new swiftware::benchmark::Stats("GPU_Fused_SeqReduceRowBalance","SpMMSpMM", numTrial,tp._matrix_name,numThread);
 //  auto *fusedSeqReduceRowBalance = new FusedSpMMSpMMSeqReduceRowBalance(inSpMM,stats, ThreadsPerBlock);
 //  fusedSeqReduceRowBalance->run();
@@ -127,16 +163,16 @@ int main (const int argc, const char *argv[]) {
   auto *fusedHighFusionRatio64 = new FusedSpMMSpMMHighFusionRatio(inSpMM,stats, ufThreadsPerBlock, ufThreadsPerBlock, 64);
   fusedHighFusionRatio64->run();
   //  std::cout << "FUSED: " << std::endl;
-  //  fusedHighFusionRatio64->OutTensor->printDx();
+//    fusedHighFusionRatio64->OutTensor->printDx();
   auto fusedHighFusionRatio64Stat = fusedHighFusionRatio64->printStats();
   delete fusedHighFusionRatio64;
   delete stats;
 
 //  stats = new swiftware::benchmark::Stats("GPU_Fused_Reordered_HighFusionRatio_MBC_32","SpMMSpMM", numTrial,tp._matrix_name,numThread);
-//  auto *fusedHighFusionRatioMBC32 = new FusedSpMMSpMMHighFusionRatioMultipleBCols(inSpMM,stats, ufThreadsPerBlock, 32);
+//  auto *fusedHighFusionRatioMBC32 = new FusedSpMMSpMMHighFusionRatioMultipleBCols(inSpMM,stats, ufThreadsPerBlock, 8);
 //  fusedHighFusionRatioMBC32->run();
 //  //  std::cout << "FUSED: " << std::endl;
-//  //  fusedHighFusionRatio32->OutTensor->printDx();
+//    fusedHighFusionRatioMBC32->OutTensor->printDx();
 //  auto fusedHighFusionRatioMBC32Stat = fusedHighFusionRatioMBC32->printStats();
 //  delete fusedHighFusionRatioMBC32;
 //  delete stats;
@@ -441,6 +477,10 @@ int main (const int argc, const char *argv[]) {
     std::cout << headerStat + spHeader + tpHeader + profHeader << std::endl;
   std::cout << cpuSpMMSpMMStat << spStat + tpStat + profStat << std::endl;
   std::cout << unfusedSeqReduceRowBalanceStat << spStat + tpStat + profStat << std::endl;
+  std::cout << unfusedSeqReduceRowCoarsened8Stat << spStat + tpStat + profStat << std::endl;
+  std::cout << unfusedSeqReduceRowCoarsened16Stat << spStat + tpStat + profStat << std::endl;
+  std::cout << unfusedSeqReduceRowCoarsened32Stat << spStat + tpStat + profStat << std::endl;
+  std::cout << unfusedSeqReduceRowCoarsened64Stat << spStat + tpStat + profStat << std::endl;
 //  std::cout << unfusedCuSparseAlg2Stat << spStat + tpStat + profStat << std::endl;
 //  std::cout << unfusedCuSparseAlg3Stat << spStat + tpStat + profStat << std::endl;
 //  std::cout << fusedSeqReduceRowBalanceStat << spStat + tpStat + profStat << std::endl;
