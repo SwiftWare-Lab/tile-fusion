@@ -1307,9 +1307,9 @@ __global__ void csr_fusedTile_multiplecol_seqreduce_rowbalance_kernel(
     int start = __ldg(Ap + row);
     int end = __ldg(Ap + row + 1);
     for (int p = start; p < end; p++) {
+      col = __ldg(Ai + p);
+      val = __guard_load_default_one<float>(Ax, p);
       for (int v_id = v_id_s; v_id < v_id_e; v_id++) {
-        col = __ldg(Ai + p);
-        val = __guard_load_default_one<float>(Ax, p);
         ACx[row * N + v_id] += val * __ldg(Bx + v_id + col * N);
       }
     }
@@ -1318,23 +1318,22 @@ __global__ void csr_fusedTile_multiplecol_seqreduce_rowbalance_kernel(
   int rowTileId = blockIdx.x;
   int firstInd = __ldg(FPtr + rowTileId);
   int lastInd = __ldg(FPtr + rowTileId + 1);
+  int rowInd = firstInd + threadIdx.y;
   int fusedNum = lastInd - firstInd;
   int fusedColPerThread = ceil(float(N) / ((float(blockDim.x * blockDim.y) / fusedNum)));
   v_id_s = (blockIdx.y * blockDim.x * fusedColPerThread) + threadIdx.x * fusedColPerThread;
-  if (v_id_s < N) {
+  if (v_id_s < N && rowInd < lastInd) {
+
     int v_id_e = min(v_id_s + fusedColPerThread, N);
-    float res = 0, val;
+    float val;
     int col;
-    int stride = blockDim.y;
-    int rowInd = firstInd + threadIdx.y;
     int row = __ldg(FId + rowInd);
-    res = 0;
     int start = __ldg(Ap + row);
     int end = __ldg(Ap + row + 1);
     for (int p = start; p < end; p++) {
-    for (int v_id = v_id_s; v_id < v_id_e; v_id++) {
-        col = __ldg(Ai + p);
-        val = __guard_load_default_one<float>(Ax, p);
+      val = __guard_load_default_one<float>(Ax, p);
+      col = __ldg(Ai + p);
+      for (int v_id = v_id_s; v_id < v_id_e; v_id++) {
         Xx[row * N + v_id] += val * ACx[col * N + v_id];
       }
     }

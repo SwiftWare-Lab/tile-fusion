@@ -635,7 +635,7 @@ protected:
     this->St->OtherStats["Number of Fused Rows"] = {(double)fIdCount};
     this->St->OtherStats["Number of Fused Nnz"] = {(double)NnzCount};
     UFDim = ufCount;
-    UFMGridDim = CEIL(UFDim, MBlockDim);
+    UFMGridDim = CEIL(UFDim, UFMBlockDim);
     cudaMalloc(&DUFPtr, ufCount * sizeof(int));
     cudaMalloc(&DROAp, (ufCount + 1) * sizeof(int));
     cudaMalloc(&DROAi, uFNnzCount * sizeof(int));
@@ -702,8 +702,9 @@ protected:
     UFNBlockDim = MIN(InTensor->N, ThreadPerBlock);
     UFMBlockDim = CEIL(ThreadPerBlock, UFNBlockDim);
     // assert that bCols >= 32 and bCols is a product of 32.
+    //TODO: this needs generalization and factorization of bcol per thread and row per thread.
     MGridDim = CEIL(InTensor->M, RowTile);
-    NGridDim = MIN(InTensor->N, FusedThreadsPerBlock);
+    NGridDim = CEIL(InTensor->N,FusedThreadsPerBlock);
     MBlockDim = RowTile;
     NBlockDim = CEIL(FusedThreadsPerBlock, MBlockDim);
     ThreadWorkReps = CEIL(InTensor->N, NBlockDim); //used as colPerThread
