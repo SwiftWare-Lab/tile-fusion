@@ -10,7 +10,7 @@
 #SBATCH -t 3:59:00
 
 UFDB=$1
-BCOL=$2
+EXP=$2
 BUILD=$3
 PROFILING=$4
 
@@ -41,7 +41,11 @@ SCRIPTPATH="./scripts/"
 LOGS="./build/logs-$ID/"
 mkdir $LOGS
  BINPATH="./build/gpu/"
-BINFILE="spmm_spmm_demo_gpu"
+if [ $EXP == "spmm_spmm" ]; then
+ BINFILE="spmm_spmm_demo_gpu"
+elif [ $EXP == "spmm" ]; then
+  BINFILE="spmm_demo_gpu"
+fi
 
 bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE 1 $MATLIST 32 $LOGS 0
 bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE 1 $MATLIST 64 $LOGS 0

@@ -248,7 +248,7 @@ def plot_gpu_speedup_tuned(log_folder, config_file, log_file_name):
             # else:
             #     ax.set_title('bCol='+str(bcol))
         ax.set_title('bCol='+str(bcol))
-        ax.set_xticks(mat_list, mat_list, rotation=45)
+        ax.set_xticks(mat_list, mat_list, rotation=90)
     #legend with one row outside of the plot and in the upper part
     axs[1].legend(loc='upper center', bbox_to_anchor=(0.5, 1.4), ncol=5)
     # axs[1].legend()

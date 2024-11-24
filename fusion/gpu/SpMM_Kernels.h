@@ -1282,8 +1282,8 @@ __global__ void csr_fusedTile_multiplerow_fusedParReduce_rowbalance_kernel(
         int rowF = __ldg(FAi + p);
         val = __guard_load_default_one<float>(FAx, p);
         int resF = val * res;
-        xxTemp[rowF * N] += resF;
-//        atomicAdd_block(xxTemp + rowF * N, resF);
+//        xxTemp[rowF * N] += resF;
+        atomicAdd_block(xxTemp + rowF * N, resF);
       }
       aCxTemp[row * N] = res;
     }

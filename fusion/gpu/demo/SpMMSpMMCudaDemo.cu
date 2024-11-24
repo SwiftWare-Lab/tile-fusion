@@ -163,19 +163,19 @@ int main (const int argc, const char *argv[]) {
   auto *fusedHighFusionRatio64 = new FusedSpMMSpMMHighFusionRatio(inSpMM,stats, ufThreadsPerBlock, ufThreadsPerBlock, 64);
   fusedHighFusionRatio64->run();
   //  std::cout << "FUSED: " << std::endl;
-//    fusedHighFusionRatio64->OutTensor->printDx();
+    fusedHighFusionRatio64->OutTensor->printDx();
   auto fusedHighFusionRatio64Stat = fusedHighFusionRatio64->printStats();
   delete fusedHighFusionRatio64;
   delete stats;
 
-//  stats = new swiftware::benchmark::Stats("GPU_Fused_Reordered_HighFusionRatio_MBC_32","SpMMSpMM", numTrial,tp._matrix_name,numThread);
-//  auto *fusedHighFusionRatioMBC32 = new FusedSpMMSpMMHighFusionRatioMultipleBCols(inSpMM,stats, ufThreadsPerBlock, 8);
-//  fusedHighFusionRatioMBC32->run();
-//  //  std::cout << "FUSED: " << std::endl;
-//    fusedHighFusionRatioMBC32->OutTensor->printDx();
-//  auto fusedHighFusionRatioMBC32Stat = fusedHighFusionRatioMBC32->printStats();
-//  delete fusedHighFusionRatioMBC32;
-//  delete stats;
+  stats = new swiftware::benchmark::Stats("GPU_Fused_Reordered_HighFusionRatio_MBC_32","SpMMSpMM", numTrial,tp._matrix_name,numThread);
+  auto *fusedHighFusionRatioMBC32 = new FusedSpMMSpMMHighFusionRatioMultipleBCols(inSpMM,stats, ufThreadsPerBlock, 8);
+  fusedHighFusionRatioMBC32->run();
+  //  std::cout << "FUSED: " << std::endl;
+    fusedHighFusionRatioMBC32->OutTensor->printDx();
+  auto fusedHighFusionRatioMBC32Stat = fusedHighFusionRatioMBC32->printStats();
+  delete fusedHighFusionRatioMBC32;
+  delete stats;
 
 //  stats = new swiftware::benchmark::Stats("GPU_2LFused_Reordered_HighFusionRatio_8","SpMMSpMM", numTrial,tp._matrix_name,numThread);
 //  auto *fusedHighFusionRatio2L8 = new FusedSpMMSpMMHighFusionRatio2Level(inSpMM,stats, ufThreadsPerBlock, 8);
@@ -489,7 +489,7 @@ int main (const int argc, const char *argv[]) {
   std::cout << fusedHighFusionRatio16Stat << spStat + tpStat + profStat << std::endl;
   std::cout << fusedHighFusionRatio32Stat << spStat + tpStat + profStat << std::endl;
   std::cout << fusedHighFusionRatio64Stat << spStat + tpStat + profStat << std::endl;
-//  std::cout << fusedHighFusionRatioMBC32Stat << spStat + tpStat + profStat << std::endl;
+  std::cout << fusedHighFusionRatioMBC32Stat << spStat + tpStat + profStat << std::endl;
 //  std::cout << fusedHighFusionRatio2L8Stat << spStat + tpStat + profStat << std::endl;
 //  std::cout << fusedHighFusionRatio2L16Stat << spStat + tpStat + profStat << std::endl;
 //  std::cout << fusedHighFusionRatio2L32Stat << spStat + tpStat + profStat << std::endl;

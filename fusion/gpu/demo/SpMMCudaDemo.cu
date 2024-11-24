@@ -1,7 +1,7 @@
 //
 // Created by mehdi on 6/16/24.
 //
-#include "../gpu/Cuda_SpMM_Demo_Utils.h"
+#include "../Cuda_SpMM_Demo_Utils.h"
 #include "Stats.h"
 #include "aggregation/def.h"
 #include "aggregation/sparse_utilities.h"

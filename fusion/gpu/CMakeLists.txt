@@ -15,14 +15,13 @@ set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -lineinfo")
 if (CUDA_FOUND AND CUDAToolkit_FOUND)
     message(STATUS "CUDA found: ${CUDA_VERSION}")
     enable_language(CUDA)
-
 else()
     message(STATUS "CUDA not found, proceeding without CUDA support")
     # Set the project languages to only CXX if CUDA is not found
 endif()
 
 add_executable(spmm_demo_gpu
-        ../demo/SpMMCudaDemo.cu
+        demo/SpMMCudaDemo.cu
         )
 
 set_target_properties(spmm_demo_gpu PROPERTIES CUDA_COMPILE_FLAGS "${CUDA_COMPILE_FLAGS}"
