@@ -188,7 +188,7 @@ def plot_gpu_speedup_tuned(log_folder, config_file, log_file_name):
     impl_reprs = {impl['name']: impl['repr'] for impl in conf['impls']}
     impl_row_tiles = {impl['name']: [impl['name'] + '_' + str(row_tile) for row_tile in impl['row_tiles']] for impl in conf['impls'] if 'row_tiles' in impl}
     # print(impls, impl_row_tiles)
-    baseline_impls = ['GPU_Unfused_SeqReduceRowBalance']
+    baseline_impls = ['GPU_SeqReduceRowBalance_CSR_Demo']
     fig, axs = plt.subplots(1, 3, figsize=(15, 5))
     fig.subplots_adjust(bottom=0.3, left=0.06, right=1, top=0.75, wspace=0.1, hspace=0.1)
     baseline_impl = baseline_impls[0]

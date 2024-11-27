@@ -1,0 +1,9 @@
+impls:
+- name: "GPU_SeqReduceRowBalance_CSR_Demo"
+  repr: "SeqReduceRowBalance"
+- name: "GPU_SeqReduceNNZBalance_CSR_Demo"
+  repr: "SeqReduceNNZBalance"
+- name: "GPU_RowCachingRowBalance_CSR_Demo"
+  repr: "RowCachingRowBalance"
+- name: "GPU_RowCachingNNZBalance_CSR_Demo"
+  repr: "RowCachingNNZBalance"

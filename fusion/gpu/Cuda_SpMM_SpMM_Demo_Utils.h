@@ -238,6 +238,38 @@ public:
       : SpMMSpMMSeqReduceRowBalance(In1, Stat1, ThreadPerBlock), RowTile(RowTile1)
   {}
 };
+
+class SpMMSpMMSeqReduceRowBalanceCoarsenedRowStride : public SpMMSpMMSeqReduceRowBalanceCoarsenedRow{
+protected:
+  Timer execute() override{
+    OutTensor->reset();
+    int threadWorkReps = CEIL(RowTile, MBlockDim);
+    Timer t1;
+    dim3 gridDim(MGridDim, NGridDim, 1);
+    dim3 blockDim(NBlockDim, MBlockDim, 1);
+    t1.startGPU();
+    csrspmm_seqreduce_striderowcoarsened_kernel<<<gridDim, blockDim>>>(
+        InTensor->M, InTensor->N, InTensor->K, threadWorkReps, InTensor->DACsrAp,
+        InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx);
+    // TODO: Since I know kernel calls are nonBlocking I used this. Is this the
+    // right way?
+    //  I might need to test without synchronization to make sure nonBlocking
+    //  property of kernel calls is valid.
+    cudaDeviceSynchronize();
+    csrspmm_seqreduce_striderowcoarsened_kernel<<<gridDim, blockDim>>>(
+        InTensor->M, InTensor->N, InTensor->K, threadWorkReps, InTensor->DACsrAp,
+        InTensor->DACsrI, InTensor->DACsrVal, OutTensor->DACx, OutTensor->DXx);
+    cudaDeviceSynchronize();
+    t1.stopGPU("UnfusedSpMMSpMM");
+    OutTensor->copyDeviceToHost();
+    return t1;
+  }
+public:
+  SpMMSpMMSeqReduceRowBalanceCoarsenedRowStride(CudaTensorInputs *In1, Stats *Stat1,
+                              int ThreadPerBlock, int RowTile1)
+      : SpMMSpMMSeqReduceRowBalanceCoarsenedRow(In1, Stat1, ThreadPerBlock, RowTile1)
+  {}
+};
 class FusedSpMMSpMMSeqReduceRowBalanceRedundant
     : public SpMMSpMMSeqReduceRowBalance {
 protected:
@@ -684,6 +716,42 @@ public:
                                int RowTile)
       : FusedSpMMSpMMSeqReduceRowBalanceReordered(In1, Stat1, ThreadPerBlock),
         FusedThreadsPerBlock(FusedThreadsPerBlock), RowTile(RowTile) {}
+};
+
+class FusedSpMMSpMMHighFusionRatioStride
+    : public FusedSpMMSpMMHighFusionRatio {
+protected:
+
+  Timer execute() override{
+    Timer t1;
+    dim3 fGridDim(MGridDim, NGridDim, 1);
+    dim3 fBlockDim(NBlockDim, MBlockDim, 1);
+    dim3 ufGridDim(UFMGridDim, UFNGridDim, 1);
+    dim3 ufBlockDim(UFNBlockDim, UFMBlockDim, 1);
+    t1.startGPU();
+    csr_fusedTile_multiplerow_seqreduce_striderowbalance_kernel<<<fGridDim,
+                                                                  fBlockDim>>>(
+        InTensor->M, InTensor->N, InTensor->K, ThreadWorkReps, InTensor->DACsrAp,
+        InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx,
+        OutTensor->DXx, DFPtr, DFId);
+    cudaDeviceSynchronize();
+    csr_reordered_unfusedTile_spmmspmm_seqreduce_rowbalance_kernel<<<
+        ufGridDim, ufBlockDim>>>(UFDim, InTensor->N, InTensor->K, DROAp, DROAi,
+                                 DROAx, OutTensor->DACx, OutTensor->DXx,
+                                 DUFPtr);
+    cudaDeviceSynchronize();
+    t1.stopGPU("UnFusedTileSpMMSpMM");
+    OutTensor->copyDeviceToHost();
+    return t1;
+  }
+
+public:
+  FusedSpMMSpMMHighFusionRatioStride(CudaTensorInputs *In1, Stats *Stat1,
+                               int FusedThreadsPerBlock, int ThreadPerBlock,
+                               int RowTile)
+      : FusedSpMMSpMMHighFusionRatio(In1, Stat1, FusedThreadsPerBlock, ThreadPerBlock, RowTile)
+  {}
+
 };
 
 class FusedSpMMSpMMHighFusionRatioMultipleBCols

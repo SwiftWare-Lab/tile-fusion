@@ -109,9 +109,45 @@ int main (const int argc, const char *argv[]) {
   auto *unfusedSeqReduceRowCoarsened64 = new SpMMSpMMSeqReduceRowBalanceCoarsenedRow(inSpMM,stats, ufThreadsPerBlock, 64);
   unfusedSeqReduceRowCoarsened64->run();
   //  std::cout << "UNFUSED: " << std::endl;
-  //    unfusedSeqReduceRowCoarsened64->OutTensor->printDx();
+//      unfusedSeqReduceRowCoarsened64->OutTensor->printDx();
   auto unfusedSeqReduceRowCoarsened64Stat = unfusedSeqReduceRowCoarsened64->printStats();
   delete unfusedSeqReduceRowCoarsened64;
+  delete stats;
+
+  stats = new swiftware::benchmark::Stats("GPU_Unfused_SeqReduceRowCoarsenedStride_8","SpMMSpMM", numTrial,tp._matrix_name,numThread);
+  auto *unfusedSeqReduceRowCoarsenedStride8 = new SpMMSpMMSeqReduceRowBalanceCoarsenedRowStride(inSpMM,stats, ufThreadsPerBlock, 8);
+  unfusedSeqReduceRowCoarsenedStride8->run();
+  //  std::cout << "UNFUSED: " << std::endl;
+//      unfusedSeqReduceRowCoarsenedStride8->OutTensor->printDx();
+  auto unfusedSeqReduceRowCoarsenedStride8Stat = unfusedSeqReduceRowCoarsenedStride8->printStats();
+  delete unfusedSeqReduceRowCoarsenedStride8;
+  delete stats;
+
+  stats = new swiftware::benchmark::Stats("GPU_Unfused_SeqReduceRowCoarsenedStride_16","SpMMSpMM", numTrial,tp._matrix_name,numThread);
+  auto *unfusedSeqReduceRowCoarsenedStride16 = new SpMMSpMMSeqReduceRowBalanceCoarsenedRowStride(inSpMM,stats, ufThreadsPerBlock, 16);
+  unfusedSeqReduceRowCoarsenedStride16->run();
+  //  std::cout << "UNFUSED: " << std::endl;
+  //      unfusedSeqReduceRowCoarsenedStride16->OutTensor->printDx();
+  auto unfusedSeqReduceRowCoarsenedStride16Stat = unfusedSeqReduceRowCoarsenedStride16->printStats();
+  delete unfusedSeqReduceRowCoarsenedStride16;
+  delete stats;
+
+  stats = new swiftware::benchmark::Stats("GPU_Unfused_SeqReduceRowCoarsenedStride_32","SpMMSpMM", numTrial,tp._matrix_name,numThread);
+  auto *unfusedSeqReduceRowCoarsenedStride32 = new SpMMSpMMSeqReduceRowBalanceCoarsenedRowStride(inSpMM,stats, ufThreadsPerBlock, 32);
+  unfusedSeqReduceRowCoarsenedStride32->run();
+  //  std::cout << "UNFUSED: " << std::endl;
+  //      unfusedSeqReduceRowCoarsenedStride32->OutTensor->printDx();
+  auto unfusedSeqReduceRowCoarsenedStride32Stat = unfusedSeqReduceRowCoarsenedStride32->printStats();
+  delete unfusedSeqReduceRowCoarsenedStride32;
+  delete stats;
+
+  stats = new swiftware::benchmark::Stats("GPU_Unfused_SeqReduceRowCoarsenedStride_64","SpMMSpMM", numTrial,tp._matrix_name,numThread);
+  auto *unfusedSeqReduceRowCoarsenedStride64 = new SpMMSpMMSeqReduceRowBalanceCoarsenedRowStride(inSpMM,stats, ufThreadsPerBlock, 64);
+  unfusedSeqReduceRowCoarsenedStride64->run();
+  //  std::cout << "UNFUSED: " << std::endl;
+  //      unfusedSeqReduceRowCoarsenedStride64->OutTensor->printDx();
+  auto unfusedSeqReduceRowCoarsenedStride64Stat = unfusedSeqReduceRowCoarsenedStride64->printStats();
+  delete unfusedSeqReduceRowCoarsenedStride64;
   delete stats;
 
 //  stats = new swiftware::benchmark::Stats("GPU_Fused_SeqReduceRowBalance","SpMMSpMM", numTrial,tp._matrix_name,numThread);
@@ -167,6 +203,44 @@ int main (const int argc, const char *argv[]) {
   auto fusedHighFusionRatio64Stat = fusedHighFusionRatio64->printStats();
   delete fusedHighFusionRatio64;
   delete stats;
+
+  stats = new swiftware::benchmark::Stats("GPU_Fused_Reordered_HighFusionRatioStride_8","SpMMSpMM", numTrial,tp._matrix_name,numThread);
+  auto *fusedHighFusionRatioStride8 = new FusedSpMMSpMMHighFusionRatioStride(inSpMM,stats, ufThreadsPerBlock, ufThreadsPerBlock, 8);
+  fusedHighFusionRatioStride8->run();
+  //  std::cout << "FUSED: " << std::endl;
+  //    fusedHighFusionRatioStride8->OutTensor->printDx();
+  auto fusedHighFusionRatioStride8Stat = fusedHighFusionRatioStride8->printStats();
+  delete fusedHighFusionRatioStride8;
+  delete stats;
+
+  stats = new swiftware::benchmark::Stats("GPU_Fused_Reordered_HighFusionRatioStride_16","SpMMSpMM", numTrial,tp._matrix_name,numThread);
+  auto *fusedHighFusionRatioStride16 = new FusedSpMMSpMMHighFusionRatioStride(inSpMM,stats, ufThreadsPerBlock, ufThreadsPerBlock, 16);
+  fusedHighFusionRatioStride16->run();
+  //  std::cout << "FUSED: " << std::endl;
+  //    fusedHighFusionRatioStride16->OutTensor->printDx();
+  auto fusedHighFusionRatioStride16Stat = fusedHighFusionRatioStride16->printStats();
+  delete fusedHighFusionRatioStride16;
+  delete stats;
+
+  stats = new swiftware::benchmark::Stats("GPU_Fused_Reordered_HighFusionRatioStride_32","SpMMSpMM", numTrial,tp._matrix_name,numThread);
+  auto *fusedHighFusionRatioStride32 = new FusedSpMMSpMMHighFusionRatioStride(inSpMM,stats, ufThreadsPerBlock, ufThreadsPerBlock, 32);
+  fusedHighFusionRatioStride32->run();
+  //  std::cout << "FUSED: " << std::endl;
+  //    fusedHighFusionRatioStride32->OutTensor->printDx();
+  auto fusedHighFusionRatioStride32Stat = fusedHighFusionRatioStride32->printStats();
+  delete fusedHighFusionRatioStride32;
+  delete stats;
+
+  stats = new swiftware::benchmark::Stats("GPU_Fused_Reordered_HighFusionRatioStride_64","SpMMSpMM", numTrial,tp._matrix_name,numThread);
+  auto *fusedHighFusionRatioStride64 = new FusedSpMMSpMMHighFusionRatioStride(inSpMM,stats, ufThreadsPerBlock, ufThreadsPerBlock, 64);
+  fusedHighFusionRatioStride64->run();
+  //  std::cout << "FUSED: " << std::endl;
+  //    fusedHighFusionRatioStride64->OutTensor->printDx();
+  auto fusedHighFusionRatioStride64Stat = fusedHighFusionRatioStride64->printStats();
+  delete fusedHighFusionRatioStride64;
+  delete stats;
+
+
 
   stats = new swiftware::benchmark::Stats("GPU_Fused_Reordered_HighFusionRatio_MBC_8","SpMMSpMM", numTrial,tp._matrix_name,numThread);
   auto *fusedHighFusionRatioMBC8 = new FusedSpMMSpMMHighFusionRatioMultipleBCols(inSpMM,stats, ufThreadsPerBlock, 8);
@@ -508,6 +582,10 @@ int main (const int argc, const char *argv[]) {
   std::cout << unfusedSeqReduceRowCoarsened16Stat << spStat + tpStat + profStat << std::endl;
   std::cout << unfusedSeqReduceRowCoarsened32Stat << spStat + tpStat + profStat << std::endl;
   std::cout << unfusedSeqReduceRowCoarsened64Stat << spStat + tpStat + profStat << std::endl;
+  std::cout << unfusedSeqReduceRowCoarsenedStride8Stat << spStat + tpStat + profStat << std::endl;
+  std::cout << unfusedSeqReduceRowCoarsenedStride16Stat << spStat + tpStat + profStat << std::endl;
+  std::cout << unfusedSeqReduceRowCoarsenedStride32Stat << spStat + tpStat + profStat << std::endl;
+  std::cout << unfusedSeqReduceRowCoarsenedStride64Stat << spStat + tpStat + profStat << std::endl;
 //  std::cout << unfusedCuSparseAlg2Stat << spStat + tpStat + profStat << std::endl;
 //  std::cout << unfusedCuSparseAlg3Stat << spStat + tpStat + profStat << std::endl;
 //  std::cout << fusedSeqReduceRowBalanceStat << spStat + tpStat + profStat << std::endl;
@@ -516,6 +594,10 @@ int main (const int argc, const char *argv[]) {
   std::cout << fusedHighFusionRatio16Stat << spStat + tpStat + profStat << std::endl;
   std::cout << fusedHighFusionRatio32Stat << spStat + tpStat + profStat << std::endl;
   std::cout << fusedHighFusionRatio64Stat << spStat + tpStat + profStat << std::endl;
+  std::cout << fusedHighFusionRatioStride8Stat << spStat + tpStat + profStat << std::endl;
+  std::cout << fusedHighFusionRatioStride16Stat << spStat + tpStat + profStat << std::endl;
+  std::cout << fusedHighFusionRatioStride32Stat << spStat + tpStat + profStat << std::endl;
+  std::cout << fusedHighFusionRatioStride64Stat << spStat + tpStat + profStat << std::endl;
   std::cout << fusedHighFusionRatioMBC8Stat << spStat + tpStat + profStat << std::endl;
   std::cout << fusedHighFusionRatioMBC16Stat << spStat + tpStat + profStat << std::endl;
   std::cout << fusedHighFusionRatioMBC32Stat << spStat + tpStat + profStat << std::endl;
