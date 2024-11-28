@@ -718,6 +718,99 @@ public:
         FusedThreadsPerBlock(FusedThreadsPerBlock), RowTile(RowTile) {}
 };
 
+class FusedSpMMSpMMHighFusionRatioProductOf4Fused
+    : public FusedSpMMSpMMHighFusionRatio {
+protected:
+
+  Timer analysis() override{
+    Timer t1;
+    t1.start();
+    std::vector<int> ufRows;
+    std::vector<std::vector<int>> fRows(MGridDim);
+    int rowTile = RowTile;
+    int *ap = InTensor->ACsr->p;
+    int *ai = InTensor->ACsr->i;
+    float *ax = InTensor->HACsrVal;
+    int nnzCount = 0;
+    for (int i = 0; i < InTensor->M; i += rowTile) {
+      std::vector<int> tufRows;
+      int t = i / rowTile;
+      int end = MIN(i + rowTile, InTensor->M);
+      for (int ii = i; ii < end; ii++) {
+        if (ai[ap[ii]] < i || ai[ap[ii+1]-1] >= end) {
+          tufRows.push_back(ii);
+        }
+        else {
+          fRows[t].push_back(ii);
+          nnzCount += ap[ii + 1] - ap[ii];
+        }
+      }
+      while(fRows[t].size() % 4 != 0){
+        int fr = *(fRows[t].rbegin());
+        tufRows.push_back(fr);
+        fRows[t].pop_back();
+        nnzCount -= ap[fr + 1] - ap[fr];
+      }
+      std::sort(tufRows.begin(), tufRows.end());
+      std::copy(tufRows.begin(), tufRows.end(), std::back_inserter(ufRows));
+    }
+    int ufCount = ufRows.size();
+    int uFNnzCount = InTensor->ACsr->nnz - nnzCount;
+    int fIdCount = InTensor->M - ufCount;
+    int fPtrCount = MGridDim + 1;
+    HUFPtr = new int[ufCount];
+    HROAp = new int[ufCount + 1];
+    HROAi = new int[uFNnzCount];
+    HROAx = new float[uFNnzCount];
+    HFPtr = new int[fPtrCount];
+    HFId = new int[fIdCount];
+    HROAp[0] = 0;
+    for (int i = 0; i < ufRows.size(); i++) {
+      HUFPtr[i] = ufRows[i];
+      int rowNnzCount = ap[ufRows[i] + 1] - ap[ufRows[i]];
+      HROAp[i + 1] = rowNnzCount + HROAp[i];
+      for (int j = 0; j < rowNnzCount; j++) {
+        HROAi[HROAp[i] + j] = ai[ap[ufRows[i]] + j];
+        HROAx[HROAp[i] + j] = ax[ap[ufRows[i]] + j];
+      }
+    }
+    HFPtr[0] = 0;
+    for (int i = 0; i < fRows.size(); i++) {
+      HFPtr[i + 1] = HFPtr[i] + fRows[i].size();
+      for (int j = HFPtr[i]; j < HFPtr[i + 1]; j++) {
+        HFId[j] = fRows[i][j - HFPtr[i]];
+      }
+    }
+    this->St->OtherStats["Number of Fused Rows"] = {(double)fIdCount};
+    this->St->OtherStats["Number of Fused Nnz"] = {(double)nnzCount};
+    UFDim = ufCount;
+    UFMGridDim = CEIL(UFDim, UFMBlockDim);
+    cudaMalloc(&DUFPtr, ufCount * sizeof(int));
+    cudaMalloc(&DROAp, (ufCount + 1) * sizeof(int));
+    cudaMalloc(&DROAi, uFNnzCount * sizeof(int));
+    cudaMalloc(&DROAx, uFNnzCount * sizeof(float));
+    cudaMalloc(&DFPtr, fPtrCount * sizeof(int));
+    cudaMalloc(&DFId, fIdCount * sizeof(int));
+    cudaMemcpy(DUFPtr, HUFPtr, ufCount * sizeof(int), cudaMemcpyHostToDevice);
+    cudaMemcpy(DROAp, HROAp, (ufCount + 1) * sizeof(int),
+               cudaMemcpyHostToDevice);
+    cudaMemcpy(DROAi, HROAi, uFNnzCount * sizeof(int), cudaMemcpyHostToDevice);
+    cudaMemcpy(DROAx, HROAx, uFNnzCount * sizeof(float),
+               cudaMemcpyHostToDevice);
+    cudaMemcpy(DFPtr, HFPtr, fPtrCount * sizeof(int), cudaMemcpyHostToDevice);
+    cudaMemcpy(DFId, HFId, fIdCount * sizeof(int), cudaMemcpyHostToDevice);
+    t1.stop();
+    return t1;
+  }
+public:
+  FusedSpMMSpMMHighFusionRatioProductOf4Fused(CudaTensorInputs *In1, Stats *Stat1,
+                                     int FusedThreadsPerBlock, int ThreadPerBlock,
+                                     int RowTile)
+      : FusedSpMMSpMMHighFusionRatio(In1, Stat1, FusedThreadsPerBlock, ThreadPerBlock, RowTile)
+  {}
+
+};
+
 class FusedSpMMSpMMHighFusionRatioStride
     : public FusedSpMMSpMMHighFusionRatio {
 protected:
