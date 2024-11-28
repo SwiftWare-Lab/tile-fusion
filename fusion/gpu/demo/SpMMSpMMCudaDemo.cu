@@ -204,77 +204,77 @@ int main (const int argc, const char *argv[]) {
   delete fusedHighFusionRatio64;
   delete stats;
 
-  stats = new swiftware::benchmark::Stats("GPU_Fused_Reordered_HighFusionRatio_P4_8","SpMMSpMM", numTrial,tp._matrix_name,numThread);
-  auto *fusedHighFusionRatioP48 = new FusedSpMMSpMMHighFusionRatioProductOf4Fused(inSpMM,stats, ufThreadsPerBlock, ufThreadsPerBlock, 8);
-  fusedHighFusionRatioP48->run();
-  //  std::cout << "FUSED: " << std::endl;
-  //    fusedHighFusionRatio64->OutTensor->printDx();
-  auto fusedHighFusionRatioP48Stat = fusedHighFusionRatioP48->printStats();
-  delete fusedHighFusionRatioP48;
-  delete stats;
-
-  stats = new swiftware::benchmark::Stats("GPU_Fused_Reordered_HighFusionRatio_P4_16","SpMMSpMM", numTrial,tp._matrix_name,numThread);
-  auto *fusedHighFusionRatioP416 = new FusedSpMMSpMMHighFusionRatioProductOf4Fused(inSpMM,stats, ufThreadsPerBlock, ufThreadsPerBlock, 16);
-  fusedHighFusionRatioP416->run();
-  //  std::cout << "FUSED: " << std::endl;
-  //    fusedHighFusionRatio64->OutTensor->printDx();
-  auto fusedHighFusionRatioP416Stat = fusedHighFusionRatioP416->printStats();
-  delete fusedHighFusionRatioP416;
-  delete stats;
-
-  stats = new swiftware::benchmark::Stats("GPU_Fused_Reordered_HighFusionRatio_P4_32","SpMMSpMM", numTrial,tp._matrix_name,numThread);
-  auto *fusedHighFusionRatioP432 = new FusedSpMMSpMMHighFusionRatioProductOf4Fused(inSpMM,stats, ufThreadsPerBlock, ufThreadsPerBlock, 32);
-  fusedHighFusionRatioP432->run();
-  //  std::cout << "FUSED: " << std::endl;
-  //    fusedHighFusionRatio64->OutTensor->printDx();
-  auto fusedHighFusionRatioP432Stat = fusedHighFusionRatioP432->printStats();
-  delete fusedHighFusionRatioP432;
-  delete stats;
-
-  stats = new swiftware::benchmark::Stats("GPU_Fused_Reordered_HighFusionRatio_P4_64","SpMMSpMM", numTrial,tp._matrix_name,numThread);
-  auto *fusedHighFusionRatioP464 = new FusedSpMMSpMMHighFusionRatioProductOf4Fused(inSpMM,stats, ufThreadsPerBlock, ufThreadsPerBlock, 64);
-  fusedHighFusionRatioP464->run();
-  //  std::cout << "FUSED: " << std::endl;
-  //    fusedHighFusionRatio64->OutTensor->printDx();
-  auto fusedHighFusionRatioP464Stat = fusedHighFusionRatioP464->printStats();
-  delete fusedHighFusionRatioP464;
-  delete stats;
-
-//  stats = new swiftware::benchmark::Stats("GPU_Fused_Reordered_HighFusionRatioStride_8","SpMMSpMM", numTrial,tp._matrix_name,numThread);
-//  auto *fusedHighFusionRatioStride8 = new FusedSpMMSpMMHighFusionRatioStride(inSpMM,stats, ufThreadsPerBlock, ufThreadsPerBlock, 8);
-//  fusedHighFusionRatioStride8->run();
+//  stats = new swiftware::benchmark::Stats("GPU_Fused_Reordered_HighFusionRatio_P4_8","SpMMSpMM", numTrial,tp._matrix_name,numThread);
+//  auto *fusedHighFusionRatioP48 = new FusedSpMMSpMMHighFusionRatioProductOf4Fused(inSpMM,stats, ufThreadsPerBlock, ufThreadsPerBlock, 8);
+//  fusedHighFusionRatioP48->run();
 //  //  std::cout << "FUSED: " << std::endl;
-//  //    fusedHighFusionRatioStride8->OutTensor->printDx();
-//  auto fusedHighFusionRatioStride8Stat = fusedHighFusionRatioStride8->printStats();
-//  delete fusedHighFusionRatioStride8;
+//  //    fusedHighFusionRatio64->OutTensor->printDx();
+//  auto fusedHighFusionRatioP48Stat = fusedHighFusionRatioP48->printStats();
+//  delete fusedHighFusionRatioP48;
 //  delete stats;
 
-//  stats = new swiftware::benchmark::Stats("GPU_Fused_Reordered_HighFusionRatioStride_16","SpMMSpMM", numTrial,tp._matrix_name,numThread);
-//  auto *fusedHighFusionRatioStride16 = new FusedSpMMSpMMHighFusionRatioStride(inSpMM,stats, ufThreadsPerBlock, ufThreadsPerBlock, 16);
-//  fusedHighFusionRatioStride16->run();
+//  stats = new swiftware::benchmark::Stats("GPU_Fused_Reordered_HighFusionRatio_P4_16","SpMMSpMM", numTrial,tp._matrix_name,numThread);
+//  auto *fusedHighFusionRatioP416 = new FusedSpMMSpMMHighFusionRatioProductOf4Fused(inSpMM,stats, ufThreadsPerBlock, ufThreadsPerBlock, 16);
+//  fusedHighFusionRatioP416->run();
 //  //  std::cout << "FUSED: " << std::endl;
-//  //    fusedHighFusionRatioStride16->OutTensor->printDx();
-//  auto fusedHighFusionRatioStride16Stat = fusedHighFusionRatioStride16->printStats();
-//  delete fusedHighFusionRatioStride16;
+//  //    fusedHighFusionRatio64->OutTensor->printDx();
+//  auto fusedHighFusionRatioP416Stat = fusedHighFusionRatioP416->printStats();
+//  delete fusedHighFusionRatioP416;
 //  delete stats;
 //
-//  stats = new swiftware::benchmark::Stats("GPU_Fused_Reordered_HighFusionRatioStride_32","SpMMSpMM", numTrial,tp._matrix_name,numThread);
-//  auto *fusedHighFusionRatioStride32 = new FusedSpMMSpMMHighFusionRatioStride(inSpMM,stats, ufThreadsPerBlock, ufThreadsPerBlock, 32);
-//  fusedHighFusionRatioStride32->run();
+//  stats = new swiftware::benchmark::Stats("GPU_Fused_Reordered_HighFusionRatio_P4_32","SpMMSpMM", numTrial,tp._matrix_name,numThread);
+//  auto *fusedHighFusionRatioP432 = new FusedSpMMSpMMHighFusionRatioProductOf4Fused(inSpMM,stats, ufThreadsPerBlock, ufThreadsPerBlock, 32);
+//  fusedHighFusionRatioP432->run();
 //  //  std::cout << "FUSED: " << std::endl;
-//  //    fusedHighFusionRatioStride32->OutTensor->printDx();
-//  auto fusedHighFusionRatioStride32Stat = fusedHighFusionRatioStride32->printStats();
-//  delete fusedHighFusionRatioStride32;
+//  //    fusedHighFusionRatio64->OutTensor->printDx();
+//  auto fusedHighFusionRatioP432Stat = fusedHighFusionRatioP432->printStats();
+//  delete fusedHighFusionRatioP432;
 //  delete stats;
 //
-//  stats = new swiftware::benchmark::Stats("GPU_Fused_Reordered_HighFusionRatioStride_64","SpMMSpMM", numTrial,tp._matrix_name,numThread);
-//  auto *fusedHighFusionRatioStride64 = new FusedSpMMSpMMHighFusionRatioStride(inSpMM,stats, ufThreadsPerBlock, ufThreadsPerBlock, 64);
-//  fusedHighFusionRatioStride64->run();
+//  stats = new swiftware::benchmark::Stats("GPU_Fused_Reordered_HighFusionRatio_P4_64","SpMMSpMM", numTrial,tp._matrix_name,numThread);
+//  auto *fusedHighFusionRatioP464 = new FusedSpMMSpMMHighFusionRatioProductOf4Fused(inSpMM,stats, ufThreadsPerBlock, ufThreadsPerBlock, 64);
+//  fusedHighFusionRatioP464->run();
 //  //  std::cout << "FUSED: " << std::endl;
-//  //    fusedHighFusionRatioStride64->OutTensor->printDx();
-//  auto fusedHighFusionRatioStride64Stat = fusedHighFusionRatioStride64->printStats();
-//  delete fusedHighFusionRatioStride64;
+//  //    fusedHighFusionRatio64->OutTensor->printDx();
+//  auto fusedHighFusionRatioP464Stat = fusedHighFusionRatioP464->printStats();
+//  delete fusedHighFusionRatioP464;
 //  delete stats;
+
+  stats = new swiftware::benchmark::Stats("GPU_Fused_Reordered_HighFusionRatioStride_8","SpMMSpMM", numTrial,tp._matrix_name,numThread);
+  auto *fusedHighFusionRatioStride8 = new FusedSpMMSpMMHighFusionRatioStride(inSpMM,stats, ufThreadsPerBlock, ufThreadsPerBlock, 8);
+  fusedHighFusionRatioStride8->run();
+  //  std::cout << "FUSED: " << std::endl;
+  //    fusedHighFusionRatioStride8->OutTensor->printDx();
+  auto fusedHighFusionRatioStride8Stat = fusedHighFusionRatioStride8->printStats();
+  delete fusedHighFusionRatioStride8;
+  delete stats;
+
+  stats = new swiftware::benchmark::Stats("GPU_Fused_Reordered_HighFusionRatioStride_16","SpMMSpMM", numTrial,tp._matrix_name,numThread);
+  auto *fusedHighFusionRatioStride16 = new FusedSpMMSpMMHighFusionRatioStride(inSpMM,stats, ufThreadsPerBlock, ufThreadsPerBlock, 16);
+  fusedHighFusionRatioStride16->run();
+  //  std::cout << "FUSED: " << std::endl;
+  //    fusedHighFusionRatioStride16->OutTensor->printDx();
+  auto fusedHighFusionRatioStride16Stat = fusedHighFusionRatioStride16->printStats();
+  delete fusedHighFusionRatioStride16;
+  delete stats;
+
+  stats = new swiftware::benchmark::Stats("GPU_Fused_Reordered_HighFusionRatioStride_32","SpMMSpMM", numTrial,tp._matrix_name,numThread);
+  auto *fusedHighFusionRatioStride32 = new FusedSpMMSpMMHighFusionRatioStride(inSpMM,stats, ufThreadsPerBlock, ufThreadsPerBlock, 32);
+  fusedHighFusionRatioStride32->run();
+  //  std::cout << "FUSED: " << std::endl;
+  //    fusedHighFusionRatioStride32->OutTensor->printDx();
+  auto fusedHighFusionRatioStride32Stat = fusedHighFusionRatioStride32->printStats();
+  delete fusedHighFusionRatioStride32;
+  delete stats;
+
+  stats = new swiftware::benchmark::Stats("GPU_Fused_Reordered_HighFusionRatioStride_64","SpMMSpMM", numTrial,tp._matrix_name,numThread);
+  auto *fusedHighFusionRatioStride64 = new FusedSpMMSpMMHighFusionRatioStride(inSpMM,stats, ufThreadsPerBlock, ufThreadsPerBlock, 64);
+  fusedHighFusionRatioStride64->run();
+  //  std::cout << "FUSED: " << std::endl;
+  //    fusedHighFusionRatioStride64->OutTensor->printDx();
+  auto fusedHighFusionRatioStride64Stat = fusedHighFusionRatioStride64->printStats();
+  delete fusedHighFusionRatioStride64;
+  delete stats;
 
 
 
@@ -630,14 +630,14 @@ int main (const int argc, const char *argv[]) {
   std::cout << fusedHighFusionRatio16Stat << spStat + tpStat + profStat << std::endl;
   std::cout << fusedHighFusionRatio32Stat << spStat + tpStat + profStat << std::endl;
   std::cout << fusedHighFusionRatio64Stat << spStat + tpStat + profStat << std::endl;
-  std::cout << fusedHighFusionRatioP48Stat << spStat + tpStat + profStat << std::endl;
-  std::cout << fusedHighFusionRatioP416Stat << spStat + tpStat + profStat << std::endl;
-  std::cout << fusedHighFusionRatioP432Stat << spStat + tpStat + profStat << std::endl;
-  std::cout << fusedHighFusionRatioP464Stat << spStat + tpStat + profStat << std::endl;
-//  std::cout << fusedHighFusionRatioStride8Stat << spStat + tpStat + profStat << std::endl;
-//  std::cout << fusedHighFusionRatioStride16Stat << spStat + tpStat + profStat << std::endl;
-//  std::cout << fusedHighFusionRatioStride32Stat << spStat + tpStat + profStat << std::endl;
-//  std::cout << fusedHighFusionRatioStride64Stat << spStat + tpStat + profStat << std::endl;
+//  std::cout << fusedHighFusionRatioP48Stat << spStat + tpStat + profStat << std::endl;
+//  std::cout << fusedHighFusionRatioP416Stat << spStat + tpStat + profStat << std::endl;
+//  std::cout << fusedHighFusionRatioP432Stat << spStat + tpStat + profStat << std::endl;
+//  std::cout << fusedHighFusionRatioP464Stat << spStat + tpStat + profStat << std::endl;
+  std::cout << fusedHighFusionRatioStride8Stat << spStat + tpStat + profStat << std::endl;
+  std::cout << fusedHighFusionRatioStride16Stat << spStat + tpStat + profStat << std::endl;
+  std::cout << fusedHighFusionRatioStride32Stat << spStat + tpStat + profStat << std::endl;
+  std::cout << fusedHighFusionRatioStride64Stat << spStat + tpStat + profStat << std::endl;
 //  std::cout << fusedHighFusionRatioMBC8Stat << spStat + tpStat + profStat << std::endl;
 //  std::cout << fusedHighFusionRatioMBC16Stat << spStat + tpStat + profStat << std::endl;
 //  std::cout << fusedHighFusionRatioMBC32Stat << spStat + tpStat + profStat << std::endl;
