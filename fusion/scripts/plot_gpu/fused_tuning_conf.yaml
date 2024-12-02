@@ -8,6 +8,13 @@ impls:
     - 16
     - 32
     - 64
+#- name: "GPU_Unfused_SeqReduceRowCoarsenedStride"
+#  repr: "Unfused Coarsened + Strided Mapping"
+#  row_tiles:
+#    - 8
+#    - 16
+#    - 32
+#    - 64
 - name: "GPU_Fused_Reordered_HighFusionRatio"
   repr: "Fused + Unfused Packing"
   row_tiles:
@@ -15,14 +22,28 @@ impls:
     - 16
     - 32
     - 64
-- name: "GPU_Fused_Reordered_HighFusionRatio_P4"
-  repr: "Fused P4 + Unfused Packing"
+- name: "GPU_Fused_ReorderedResultPacked_HighFusionRatio"
+  repr: "Fused + Unfused/Result Packing"
   row_tiles:
     - 8
     - 16
     - 32
     - 64
+#- name: "GPU_Fused_Reordered_HighFusionRatio_P4"
+#  repr: "Fused P4 + Unfused Packing"
+#  row_tiles:
+#    - 8
+#    - 16
+#    - 32
+#    - 64
 
+#- name: "GPU_Fused_Reordered_HighFusionRatioStride"
+#  repr: "Fused + Unfused Packing + Strided Mapping"
+#  row_tiles:
+#    - 8
+#    - 16
+#    - 32
+#    - 64
 #- name: "GPU_Fused_Reordered_HighFusionRatio_MBC"
 #  repr: "Fused + Unfused Packing + BCol Coarsened"
 #  row_tiles:

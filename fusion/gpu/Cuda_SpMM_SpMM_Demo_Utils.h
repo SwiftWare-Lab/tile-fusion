@@ -1268,6 +1268,41 @@ public:
   }
 };
 
+//TODO: Wrong
+class FusedSpMMSpMMFusedParReduceNoAtomic: public FusedSpMMSpMMFusedParReduce{
+protected:
+  Timer execute() override {
+    Timer t1;
+    dim3 fGridDim(MGridDim, NGridDim, 1);
+    dim3 fBlockDim(NBlockDim, MBlockDim, 1);
+    dim3 ufGridDim(UFMGridDim, UFNGridDim, 1);
+    dim3 ufBlockDim(UFNBlockDim, UFMBlockDim, 1);
+    OutTensor->reset();
+    t1.startGPU();
+    csr_fusedTile_multiplerow_fusedParReduceNoAtomic_rowbalance_kernel<<<fGridDim,
+                                                                 fBlockDim>>>(
+        InTensor->M, InTensor->N, InTensor->K, ThreadWorkReps, InTensor->DACsrAp,
+        InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx,
+        OutTensor->DXx, DFAp, DFAi, DFAx);
+    cudaDeviceSynchronize();
+    csr_reordered_unfusedTile_spmmspmm_seqreduce_rowbalance_kernel<<<
+        ufGridDim, ufBlockDim>>>(UFDim, InTensor->N, InTensor->K, DROAp, DROAi,
+                                 DROAx, OutTensor->DACx, OutTensor->DXx,
+                                 DUFPtr);
+    cudaDeviceSynchronize();
+    t1.stopGPU("UnFusedTileSpMMSpMM");
+    OutTensor->copyDeviceToHost();
+    return t1;
+  }
+
+public:
+
+  FusedSpMMSpMMFusedParReduceNoAtomic(CudaTensorInputs *In1, Stats *Stat1,
+                              int ThreadsPerBlock,
+                              int RowTile)
+      : FusedSpMMSpMMFusedParReduce(In1, Stat1, ThreadsPerBlock, RowTile){}
+};
+
 class FusedSpMMSpMMSeqReduceBColsBlocking
     : public FusedSpMMSpMMSeqReduceRowBalance {
 protected:
