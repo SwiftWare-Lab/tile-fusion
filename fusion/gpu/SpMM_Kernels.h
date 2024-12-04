@@ -1467,6 +1467,45 @@ __global__ void csr_fusedTile_multiplerow_fusedParReduceNoAtomic_rowbalance_kern
   }
 }
 
+//TODO: for testing complete atomic
+__global__ void csr_fusedTile_multiplerow_1v1fusedParReduceNoAtomic_rowbalance_kernel(
+    const int M, const int N, const int K, const int Ap[], const int Ai[],
+    const float Ax[], const float Bx[], float ACx[], float Xx[],
+    const int FAp[], const int FAi[], const float FAx[]) {
+  int row_tile = blockDim.y;
+  int subwarp_id = threadIdx.y;
+  int stride = row_tile * gridDim.x;
+  int row = blockIdx.x * row_tile + subwarp_id;
+  int v_id = (blockIdx.y * blockDim.x) + threadIdx.x;
+  if (v_id < N) {
+    Bx += v_id;
+    float *aCxTemp = ACx + v_id;
+    float *xxTemp = Xx + v_id;
+    float res, val;
+    int col;
+    for (; row < M; row += stride) {
+      res = 0;
+      int start = __ldg(Ap + row);
+      int end = __ldg(Ap + row + 1);
+      for (int p = start; p < end; p++) {
+        col = __ldg(Ai + p);
+        val = __guard_load_default_one<float>(Ax, p);
+        res += val * __ldg(Bx + col * N);
+      }
+      int startF = __ldg(FAp + row);
+      int endF = __ldg(FAp + row + 1);
+      for (int p = startF; p < endF; p++) {
+        int rowF = __ldg(FAi + p);
+        val = __guard_load_default_one<float>(FAx, p);
+        int resF = val * res;
+//        xxTemp[rowF * N] += resF;
+        atomicAdd_block(xxTemp + rowF * N, resF);
+      }
+      aCxTemp[row * N] = res;
+    }
+  }
+}
+
 
 //TODO: test this kernel.
 __global__ void csr_fusedTile_multiplecol_seqreduce_rowbalance_kernel(
