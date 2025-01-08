@@ -281,7 +281,7 @@ protected:
     dim3 gridDim(MGridDim, NGridDim, 1);
     dim3 blockDim(NBlockDim, MBlockDim, 1);
     t1.startGPU();
-    csr_fusedTile_multiplerow_1v1fusedParReduceNoAtomic_rowbalance_kernel<<<gridDim, blockDim>>>(
+    csr_fusedTile_multiplerow_1v1fusedParReduceAtomic_rowbalance_kernel<<<gridDim, blockDim>>>(
         InTensor->M, InTensor->N, InTensor->K, InTensor->DACsrAp,
         InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx,
         OutTensor->DXx, InTensor->DACsrAp,
@@ -294,6 +294,31 @@ protected:
 public:
   FusedSpMMSpMMCSRCSC(CudaTensorInputs *In1, Stats *Stat1,
                               int ThreadPerBlock = 256)
+      : SpMMSpMMSeqReduceRowBalance(In1, Stat1, ThreadPerBlock) {}
+};
+
+class FusedSpMMSpMMCSRCSCNoAtomic: public SpMMSpMMSeqReduceRowBalance{
+protected:
+
+  Timer execute() override {
+    OutTensor->reset();
+    Timer t1;
+    dim3 gridDim(MGridDim, NGridDim, 1);
+    dim3 blockDim(NBlockDim, MBlockDim, 1);
+    t1.startGPU();
+    csr_fusedTile_multiplerow_1v1fusedParReduceNoAtomic_rowbalance_kernel<<<gridDim, blockDim>>>(
+        InTensor->M, InTensor->N, InTensor->K, InTensor->DACsrAp,
+        InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx,
+        OutTensor->DXx, InTensor->DACsrAp,
+        InTensor->DACsrI, InTensor->DACsrVal);
+    t1.stopGPU("UnfusedSpMMSpMM");
+    OutTensor->copyDeviceToHost();
+    return t1;
+  }
+
+public:
+  FusedSpMMSpMMCSRCSCNoAtomic(CudaTensorInputs *In1, Stats *Stat1,
+                      int ThreadPerBlock = 256)
       : SpMMSpMMSeqReduceRowBalance(In1, Stat1, ThreadPerBlock) {}
 };
 

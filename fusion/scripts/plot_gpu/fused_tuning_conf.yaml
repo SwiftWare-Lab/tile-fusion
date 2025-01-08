@@ -86,3 +86,10 @@ impls:
     - 16
     - 32
     - 64
+- name: "GPU_CSRCSCNoAtomicFused_Reordered_HighFusionRatio"
+  repr: "1v1 atomic Fused"
+  row_tiles:
+    - 8
+    - 16
+    - 32
+    - 64

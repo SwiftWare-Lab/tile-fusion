@@ -181,9 +181,17 @@ int main (const int argc, const char *argv[]) {
 
     std::string fusedHighFusionRatioCSRCSCNoAtmoicFusedName = "GPU_CSRCSCNoAtomicFused_Reordered_HighFusionRatio_" + std::to_string(ts);
     stats = new swiftware::benchmark::Stats(fusedHighFusionRatioCSRCSCNoAtmoicFusedName,"SpMMSpMM", numTrial,tp._matrix_name,numThread);
-    auto *fusedHighFusionRatioCSRCSCNoAtmoicFused = new FusedSpMMSpMMCSRCSC(inSpMM,stats, ufThreadsPerBlock);
+    auto *fusedHighFusionRatioCSRCSCNoAtmoicFused = new FusedSpMMSpMMCSRCSCNoAtomic(inSpMM,stats, ufThreadsPerBlock);
     fusedHighFusionRatioCSRCSCNoAtmoicFused->run();
     statList.push_back(fusedHighFusionRatioCSRCSCNoAtmoicFused->printStats());
+    delete fusedHighFusionRatioCSRCSCNoAtmoicFused;
+    delete stats;
+
+    std::string fusedHighFusionRatioCSRCSCAtmoicFusedName = "GPU_CSRCSCAtomicFused_Reordered_HighFusionRatio_" + std::to_string(ts);
+    stats = new swiftware::benchmark::Stats(fusedHighFusionRatioCSRCSCAtmoicFusedName,"SpMMSpMM", numTrial,tp._matrix_name,numThread);
+    auto *fusedHighFusionRatioCSRCSCAtmoicFused = new FusedSpMMSpMMCSRCSC(inSpMM,stats, ufThreadsPerBlock);
+    fusedHighFusionRatioCSRCSCAtmoicFused->run();
+    statList.push_back(fusedHighFusionRatioCSRCSCAtmoicFused->printStats());
     delete fusedHighFusionRatioCSRCSCNoAtmoicFused;
     delete stats;
 
