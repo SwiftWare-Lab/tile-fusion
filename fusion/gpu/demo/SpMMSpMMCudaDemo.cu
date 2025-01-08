@@ -192,7 +192,7 @@ int main (const int argc, const char *argv[]) {
     auto *fusedHighFusionRatioCSRCSCAtmoicFused = new FusedSpMMSpMMCSRCSC(inSpMM,stats, ufThreadsPerBlock);
     fusedHighFusionRatioCSRCSCAtmoicFused->run();
     statList.push_back(fusedHighFusionRatioCSRCSCAtmoicFused->printStats());
-    delete fusedHighFusionRatioCSRCSCNoAtmoicFused;
+    delete fusedHighFusionRatioCSRCSCAtmoicFused;
     delete stats;
 
 //    std::string fusedHighFusionRatioNoSynchName = "GPU_NoSynch_Reordered_HighFusionRatio_" + std::to_string(ts);
