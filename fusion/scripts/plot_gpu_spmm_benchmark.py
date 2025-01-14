@@ -187,6 +187,7 @@ def plot_gpu_speedup_tuned(log_folder, config_file, log_file_name):
     impls = [impl['name'] for impl in conf['impls']]
     impl_reprs = {impl['name']: impl['repr'] for impl in conf['impls']}
     impl_row_tiles = {impl['name']: [impl['name'] + '_' + str(row_tile) for row_tile in impl['row_tiles']] for impl in conf['impls'] if 'row_tiles' in impl}
+    imitators = {impl['imitator']: impl['name'] for impl in conf['impls'] if 'imitator' in impl}
     # print(impls, impl_row_tiles)
     baseline_impls = ['GPU_Unfused_SeqReduceRowBalance']
     fig, axs = plt.subplots(1, 3, figsize=(15, 5))
@@ -219,6 +220,94 @@ def plot_gpu_speedup_tuned(log_folder, config_file, log_file_name):
                     best_time = min(all_times)
                     times[impl].append(best_time)
                 else:
+                    cur_impl = cur_mat[cur_mat['Implementation Name'] == impl]
+                    cur_impl = cur_impl[cur_impl['bCols'] == bcol]
+                    # print(impl)
+                    # print(impl)
+                    times[impl].append(take_median(cur_impl))
+        gflops = {}
+        for impl in impls:
+            gflops[impl] = np.array(mat_gflops) / np.array(times[impl])
+
+        for bi in baseline_impls:
+            gflops[bi] = np.array(mat_gflops) / np.array(times[bi])
+        speed_ups = {}
+        ax = axs[i]
+        for ii, impl in enumerate(target_impls):
+            speed_ups[impl] = np.array(times[baseline_impl]) / np.array(times[impl])
+            impl_repr = impl_reprs[impl]
+            # ax.scatter(gflops[baseline_impl], speed_ups[impl], label=impl_repr, s=5)
+            ax.scatter(mat_list, speed_ups[impl], label=impl_repr, s=10)
+            ax.axhline(y=1, color='black', linestyle='--')
+            ax.spines[['right', 'top']].set_visible(False)
+            # if ii == len(target_impls) - 1:
+            #     ax.set_xticks(mat_list, mat_list, rotation=45)
+            # else:
+            #     ax.set_xticks([])
+            # if i == 1:
+            #     ax.set_title(impl_repr)
+            # else:
+            #     ax.set_title('bCol='+str(bcol))
+        ax.set_title('bCol='+str(bcol))
+        ax.set_xticks(mat_list, mat_list, rotation=90)
+    #legend with one row outside of the plot and in the upper part
+    axs[1].legend(loc='upper center', bbox_to_anchor=(0.5, 1.4), ncol=5)
+    # axs[1].legend()
+
+    fig.suptitle('speed-up over ' + baseline_impl)
+    plt.show()
+
+def plot_gpu_speedup_tuned_with_imitators(log_folder, config_file, log_file_name):
+    log_file = os.path.join(log_folder, log_file_name)
+    df_benchmark = pd.read_csv(log_file)
+    df_benchmark = df_benchmark.sort_values(by=['NNZ'])
+    mat_list = df_benchmark['Matrix Name'].unique()
+    bcols = df_benchmark['bCols'].unique()
+    bcols = np.sort(bcols)
+    with open(config_file) as f:
+        conf = yaml.load(f, Loader=yaml.FullLoader)
+    impls = [impl['name'] for impl in conf['impls']]
+    impl_reprs = {impl['name']: impl['repr'] for impl in conf['impls']}
+    impl_row_tiles = {impl['name']: [impl['name'] + '_' + str(row_tile) for row_tile in impl['row_tiles']] for impl in conf['impls'] if 'row_tiles' in impl}
+    imitators = {impl['imitator']: impl['name'] for impl in conf['impls'] if 'imitator' in impl}
+    # print(impls, impl_row_tiles)
+    baseline_impls = ['GPU_Unfused_SeqReduceRowBalance']
+    fig, axs = plt.subplots(1, 3, figsize=(15, 5))
+    fig.subplots_adjust(bottom=0.3, left=0.06, right=1, top=0.75, wspace=0.1, hspace=0.1)
+    baseline_impl = baseline_impls[0]
+    impls = list(impls)
+    target_impls = deepcopy(impls)
+    for bi in baseline_impls:
+        target_impls.remove(bi)
+    for i,bcol in enumerate(bcols):
+        times = {}
+        df_benchmark_bcol = df_benchmark[df_benchmark['bCols'] == bcol]
+        mat_list = df_benchmark_bcol['Matrix Name'].unique()
+        print(mat_list)
+        mat_list = [m for m in mat_list if not m.endswith('10000.mtx')]
+        print(mat_list)
+        for impl in impls:
+            times[impl] = []
+        mat_gflops = []
+        for mat in mat_list:
+            cur_mat = df_benchmark_bcol[df_benchmark_bcol['Matrix Name'] == mat]
+            cur_mat_nnz = cur_mat['NNZ'].unique()[0]
+            mat_gflops.append((cur_mat_nnz * bcol + cur_mat_nnz * bcol) / 1e9)
+            for impl in impls:
+                if impl in impl_row_tiles:
+                    all_times = []
+                    min_row_tile = None
+                    min_timing = float('inf')
+                    for row_tile in impl_row_tiles[impl]:
+                        cur_impl_row_tile = cur_mat[cur_mat['Implementation Name'] == row_tile]
+                        all_times.append(take_median(cur_impl_row_tile))
+                        if take_median(cur_impl_row_tile) < min_timing:
+                            min_timing = take_median(cur_impl_row_tile)
+                            min_row_tile = row_tile
+                    best_time = min(all_times)
+                    times[impl].append(best_time)
+                    times[imitators[impl]] = times[min_row_tile] #TODO: Fix this. (Change min_row_tile to imitator template)
+                elif impl not in imitators:
                     cur_impl = cur_mat[cur_mat['Implementation Name'] == impl]
                     cur_impl = cur_impl[cur_impl['bCols'] == bcol]
                     # print(impl)

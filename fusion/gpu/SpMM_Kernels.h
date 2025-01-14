@@ -1419,7 +1419,7 @@ __global__ void csr_fusedTile_multiplerow_fusedParReduce_rowbalance_kernel(
       for (int p = startF; p < endF; p++) {
         int rowF = __ldg(FAi + p);
         val = __guard_load_default_one<float>(FAx, p);
-        int resF = val * res;
+        float resF = val * res;
 //        xxTemp[rowF * N] += resF;
         atomicAdd_block(xxTemp + rowF * N, resF);
       }
@@ -1458,7 +1458,7 @@ __global__ void csr_fusedTile_multiplerow_fusedParReduceNoAtomic_rowbalance_kern
       for (int p = startF; p < endF; p++) {
         int rowF = __ldg(FAi + p);
         val = __guard_load_default_one<float>(FAx, p);
-        int resF = val * res;
+        float resF = val * res;
         xxTemp[rowF * N] += resF;
 //        atomicAdd_block(xxTemp + rowF * N, resF);
       }
@@ -1497,7 +1497,7 @@ __global__ void csr_fusedTile_multiplerow_1v1fusedParReduceAtomic_rowbalance_ker
       for (int p = startF; p < endF; p++) {
         int rowF = __ldg(FAi + p);
         val = __guard_load_default_one<float>(FAx, p);
-        int resF = val * res;
+        float resF = val * res;
 //        xxTemp[rowF * N] += resF;
         atomicAdd_block(xxTemp + rowF * N, resF);
       }
@@ -1535,7 +1535,7 @@ __global__ void csr_fusedTile_multiplerow_1v1fusedParReduceNoAtomic_rowbalance_k
       for (int p = startF; p < endF; p++) {
         int rowF = __ldg(FAi + p);
         val = __guard_load_default_one<float>(FAx, p);
-        int resF = val * res;
+        float resF = val * res;
         xxTemp[rowF * N] += resF;
 //        atomicAdd_block(xxTemp + rowF * N, resF);
       }

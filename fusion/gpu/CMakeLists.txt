@@ -105,6 +105,27 @@ target_link_libraries(cluster_group_demo
         swbench::swbench
 )
 
+add_executable(dummy_benchmarks
+ demo/DummyBenchmark.cu
+)
+
+set_target_properties(dummy_benchmarks PROPERTIES CUDA_COMPILE_FLAGS "${CUDA_COMPILE_FLAGS}")
+
+target_include_directories(dummy_benchmarks
+        PRIVATE
+        ${SYM_AGG}/include
+        ${SYM_FUS}/include
+)
+
+target_link_libraries(dummy_benchmarks
+        cusparse
+        cublas
+        CUDA::cusparse
+        fusion
+        aggregation
+        swbench::swbench
+)
+
 
 #if(OpenMP_CXX_FOUND)
 #    target_link_libraries(spmv_demo_gpu OpenMP::OpenMP_CXX)

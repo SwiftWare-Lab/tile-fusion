@@ -106,6 +106,7 @@ int main (const int argc, const char *argv[]) {
     auto *unfusedSeqReduceRowCoarsened = new SpMMSpMMSeqReduceRowBalanceCoarsenedRow(inSpMM,stats, ufThreadsPerBlock, ts);
     unfusedSeqReduceRowCoarsened->run();
     statList.push_back(unfusedSeqReduceRowCoarsened->printStats());
+    delete unfusedSeqReduceRowCoarsened;
     delete stats;
 
 //    std::string unfusedSeqReduceRowCoarsenedStrideName = "GPU_Unfused_SeqReduceRowCoarsenedStride_" + std::to_string(ts);
