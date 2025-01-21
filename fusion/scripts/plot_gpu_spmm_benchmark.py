@@ -237,7 +237,7 @@ def plot_gpu_speedup_tuned(log_folder, config_file, log_file_name):
             speed_ups[impl] = np.array(times[baseline_impl]) / np.array(times[impl])
             impl_repr = impl_reprs[impl]
             # ax.scatter(gflops[baseline_impl], speed_ups[impl], label=impl_repr, s=5)
-            ax.scatter(mat_list, speed_ups[impl], label=impl_repr, s=10)
+            ax.scatter(mat_list, speed_ups[impl], label=impl_repr, s=20)
             ax.axhline(y=1, color='black', linestyle='--')
             ax.spines[['right', 'top']].set_visible(False)
             # if ii == len(target_impls) - 1:

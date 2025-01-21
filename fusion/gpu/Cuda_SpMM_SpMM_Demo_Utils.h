@@ -1182,12 +1182,12 @@ protected:
     int NnzCount = 0;
     std::vector<int> fusedPtr;
     std::vector<int> fusedRowInd;
-    std::vector<int> fusedRowVal;
+    std::vector<float> fusedRowVal;
     fusedPtr.push_back(0);
     int cntr = 0;
     for (int i = 0; i < InTensor->M; i += rowTile) {
       std::vector<std::vector<int>> colNnzRow(rowTile);
-      std::vector<std::vector<int>> colNnzVal(rowTile);
+      std::vector<std::vector<float>> colNnzVal(rowTile);
       int t = i / rowTile;
       int end = MIN(i + rowTile, InTensor->M);
       for (int ii = i; ii < end; ii++) {
