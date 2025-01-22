@@ -6,7 +6,7 @@
 #SBATCH --mail-user=msalehi20@gmail.com
 #SBATCH --nodes=1
 #SBATCH --gpus-per-node=1
-#SBATCH --mem=15000M
+#SBATCH --mem=100000M
 #SBATCH --output="fusion.%j.%N.out"
 #SBATCH -t 3:59:00
 
