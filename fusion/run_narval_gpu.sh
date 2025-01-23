@@ -46,6 +46,8 @@ if [ $EXP == "spmm_spmm" ]; then
  BINFILE="spmm_spmm_demo_gpu"
 elif [ $EXP == "spmm" ]; then
   BINFILE="spmm_demo_gpu"
+elif [ $EXP == "spmm_spmm_hp" ]; then
+  BINFILE="spmm_spmm_fp16_demo_gpu"
 fi
 
 bash $SCRIPTPATH/run_exp.sh $BINPATH/$BINFILE $UFDB $MODE 1 $MATLIST 32 $LOGS 0
