@@ -134,7 +134,7 @@ protected:
     dim3 blockDim(NBlockDim, MBlockDim, 1);
     t1.startGPU();
     csrspmm_seqreduce_rowbalance_kernel<<<gridDim, blockDim>>>(
-        InTensor->M, InTensor->N, InTensor->K, InTensor->DACsrAp,
+        InTensor->M, InTensor->N/2, InTensor->K, InTensor->DACsrAp,
         InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx);
     // TODO: Since I know kernel calls are nonBlocking I used this. Is this the
     // right way?
@@ -142,7 +142,7 @@ protected:
     //  property of kernel calls is valid.
     cudaDeviceSynchronize();
     csrspmm_seqreduce_rowbalance_kernel<<<gridDim, blockDim>>>(
-        InTensor->M, InTensor->N, InTensor->K, InTensor->DACsrAp,
+        InTensor->M, InTensor->N/2, InTensor->K, InTensor->DACsrAp,
         InTensor->DACsrI, InTensor->DACsrVal, OutTensor->DACx, OutTensor->DXx);
     cudaDeviceSynchronize();
     t1.stopGPU("UnfusedSpMMSpMM");
@@ -257,13 +257,13 @@ protected:
     dim3 ufBlockDim(NBlockDim, MBlockDim, 1);
     t1.startGPU();
     csr_fusedTile_spmmspmm_seqreduce_rowbalance_kernel<<<fGridDim, fBlockDim>>>(
-        InTensor->M, InTensor->N, InTensor->K, InTensor->DACsrAp,
+        InTensor->M, InTensor->N/2, InTensor->K, InTensor->DACsrAp,
         InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx,
         OutTensor->DXx, DFPtr, DFId);
     cudaDeviceSynchronize();
     csr_unfusedTile_spmmspmm_seqreduce_rowbalance_kernel<<<ufGridDim,
                                                            ufBlockDim>>>(
-        UFDim, InTensor->N, InTensor->K, InTensor->DACsrAp, InTensor->DACsrI,
+        UFDim, InTensor->N/2, InTensor->K, InTensor->DACsrAp, InTensor->DACsrI,
         InTensor->DACsrVal, OutTensor->DACx, OutTensor->DXx, DUFPtr);
     cudaDeviceSynchronize();
     t1.stopGPU("FusedSpMMSpMM");
@@ -376,7 +376,7 @@ protected:
     dim3 ufBlockDim(NBlockDim, MBlockDim, 1);
     t1.startGPU();
     csr_fusedTile_spmmspmm_seqreduce_rowbalance_kernel<<<fGridDim, fBlockDim>>>(
-        InTensor->M, InTensor->N, InTensor->K, InTensor->DACsrAp,
+        InTensor->M, InTensor->N/2, InTensor->K, InTensor->DACsrAp,
         InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx,
         OutTensor->DXx, DFPtr, DFId);
     cudaDeviceSynchronize();
@@ -384,7 +384,7 @@ protected:
     //    std::cout << "ROFusedTileSpMMSpMM: " << t1.printTimeCsv(0) <<
     //    std::endl; t2.startGPU();
     csr_reordered_unfusedTile_spmmspmm_seqreduce_rowbalance_kernel<<<
-        ufGridDim, ufBlockDim>>>(UFDim, InTensor->N, InTensor->K, DROAp, DROAi,
+        ufGridDim, ufBlockDim>>>(UFDim, InTensor->N/2, InTensor->K, DROAp, DROAi,
                                  DROAx, OutTensor->DACx, OutTensor->DXx,
                                  DUFPtr);
     cudaDeviceSynchronize();
@@ -520,12 +520,12 @@ protected:
     t1.startGPU();
     csr_fusedTile_multiplerow_seqreduce_rowbalance_kernel<<<fGridDim,
                                                             fBlockDim>>>(
-        InTensor->M, InTensor->N, InTensor->K, ThreadWorkReps, InTensor->DACsrAp,
+        InTensor->M, InTensor->N/2, InTensor->K, ThreadWorkReps, InTensor->DACsrAp,
         InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx,
         OutTensor->DXx, DFPtr, DFId);
     cudaDeviceSynchronize();
     csr_reordered_unfusedTile_spmmspmm_seqreduce_rowbalance_kernel<<<
-        ufGridDim, ufBlockDim>>>(UFDim, InTensor->N, InTensor->K, DROAp, DROAi,
+        ufGridDim, ufBlockDim>>>(UFDim, InTensor->N/2, InTensor->K, DROAp, DROAi,
                                  DROAx, OutTensor->DACx, OutTensor->DXx,
                                  DUFPtr);
     cudaDeviceSynchronize();
@@ -549,8 +549,8 @@ protected:
   int RowTile;
   void setup() override {
     SpMMSpMMSeqReduceRowBalanceFP16::setup();
-    NGridDim = CEIL(InTensor->N, ThreadPerBlock);
-    NBlockDim = MIN(InTensor->N, ThreadPerBlock);
+    NGridDim = CEIL(InTensor->N/2, ThreadPerBlock);
+    NBlockDim = MIN(InTensor->N/2, ThreadPerBlock);
     MBlockDim = CEIL(ThreadPerBlock, NBlockDim);
     MGridDim = CEIL(InTensor->M, RowTile);
   }
@@ -562,7 +562,7 @@ protected:
     dim3 blockDim(NBlockDim, MBlockDim, 1);
     t1.startGPU();
     csrspmm_seqreduce_rowcoarsened_kernel<<<gridDim, blockDim>>>(
-        InTensor->M, InTensor->N, InTensor->K, threadWorkReps, InTensor->DACsrAp,
+        InTensor->M, InTensor->N/2, InTensor->K, threadWorkReps, InTensor->DACsrAp,
         InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx);
     // TODO: Since I know kernel calls are nonBlocking I used this. Is this the
     // right way?
@@ -570,7 +570,7 @@ protected:
     //  property of kernel calls is valid.
     cudaDeviceSynchronize();
     csrspmm_seqreduce_rowcoarsened_kernel<<<gridDim, blockDim>>>(
-        InTensor->M, InTensor->N, InTensor->K, threadWorkReps, InTensor->DACsrAp,
+        InTensor->M, InTensor->N/2, InTensor->K, threadWorkReps, InTensor->DACsrAp,
         InTensor->DACsrI, InTensor->DACsrVal, OutTensor->DACx, OutTensor->DXx);
     cudaDeviceSynchronize();
     t1.stopGPU("UnfusedSpMMSpMM");

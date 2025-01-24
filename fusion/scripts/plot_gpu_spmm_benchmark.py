@@ -438,6 +438,7 @@ def merge_logs(logs_folder):
                 entry_names.append(entry.name)
 
         # entry_names = entry_names.sort(key=lambda x: int(x.split("_")[0]))
+        print(entry_names[0])
         df = pd.read_csv(os.path.join(logs_folder, entry_names[0]))
         for i in range(1, len(entry_names)):
             print(entry_names[i])
