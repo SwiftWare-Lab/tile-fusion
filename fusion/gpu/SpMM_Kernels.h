@@ -1727,7 +1727,7 @@ __global__ void csr_fusedTile_multiplerow_1v1fusedParReduceAtomic_rowbalance_ker
         val = __guard_load_default_one<float>(FAx, p);
         float resF = val * res;
 //        xxTemp[rowF * N] += resF;
-        atomicAdd_block(xxTemp + rowF * N, resF);
+        atomicAdd(xxTemp + rowF * N, resF);
       }
       aCxTemp[row * N] = res;
     }
