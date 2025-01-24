@@ -352,14 +352,14 @@ protected:
     cudaMalloc(&DUFPtr, ufCount * sizeof(int));
     cudaMalloc(&DROAp, (ufCount + 1) * sizeof(int));
     cudaMalloc(&DROAi, uFNnzCount * sizeof(int));
-    cudaMalloc(&DROAx, uFNnzCount * sizeof(float));
+    cudaMalloc(&DROAx, uFNnzCount * sizeof(__half));
     cudaMalloc(&DFPtr, fPtrCount * sizeof(int));
     cudaMalloc(&DFId, fIdCount * sizeof(int));
     cudaMemcpy(DUFPtr, HUFPtr, ufCount * sizeof(int), cudaMemcpyHostToDevice);
     cudaMemcpy(DROAp, HROAp, (ufCount + 1) * sizeof(int),
                cudaMemcpyHostToDevice);
     cudaMemcpy(DROAi, HROAi, uFNnzCount * sizeof(int), cudaMemcpyHostToDevice);
-    cudaMemcpy(DROAx, HROAx, uFNnzCount * sizeof(float),
+    cudaMemcpy(DROAx, HROAx, uFNnzCount * sizeof(__half),
                cudaMemcpyHostToDevice);
     cudaMemcpy(DFPtr, HFPtr, fPtrCount * sizeof(int), cudaMemcpyHostToDevice);
     cudaMemcpy(DFId, HFId, fIdCount * sizeof(int), cudaMemcpyHostToDevice);
@@ -496,14 +496,14 @@ protected:
     cudaMalloc(&DUFPtr, ufCount * sizeof(int));
     cudaMalloc(&DROAp, (ufCount + 1) * sizeof(int));
     cudaMalloc(&DROAi, uFNnzCount * sizeof(int));
-    cudaMalloc(&DROAx, uFNnzCount * sizeof(float));
+    cudaMalloc(&DROAx, uFNnzCount * sizeof(__half));
     cudaMalloc(&DFPtr, fPtrCount * sizeof(int));
     cudaMalloc(&DFId, fIdCount * sizeof(int));
     cudaMemcpy(DUFPtr, HUFPtr, ufCount * sizeof(int), cudaMemcpyHostToDevice);
     cudaMemcpy(DROAp, HROAp, (ufCount + 1) * sizeof(int),
                cudaMemcpyHostToDevice);
     cudaMemcpy(DROAi, HROAi, uFNnzCount * sizeof(int), cudaMemcpyHostToDevice);
-    cudaMemcpy(DROAx, HROAx, uFNnzCount * sizeof(float),
+    cudaMemcpy(DROAx, HROAx, uFNnzCount * sizeof(__half),
                cudaMemcpyHostToDevice);
     cudaMemcpy(DFPtr, HFPtr, fPtrCount * sizeof(int), cudaMemcpyHostToDevice);
     cudaMemcpy(DFId, HFId, fIdCount * sizeof(int), cudaMemcpyHostToDevice);
