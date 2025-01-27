@@ -161,11 +161,11 @@ protected:
     // TODO: Later on I need to have separate classes for SpMM and SpMM-SpMM or
     // think of an other way.
     for (int i = 0; i < InTensor->M * InTensor->N; i+=2) {
-      if (std::abs(__low2float(OutTensor->HXx[i]) - InTensor->CorrectSol[i]) > infNorm) {
-        infNorm = std::abs(__low2float(OutTensor->HXx[i]) - InTensor->CorrectSol[i]);
+      if (std::abs(__low2float(OutTensor->HXx[i/2]) - InTensor->CorrectSol[i]) > infNorm) {
+        infNorm = std::abs(__low2float(OutTensor->HXx[i/2]) - InTensor->CorrectSol[i]);
       }
-      if (std::abs(__high2float(OutTensor->HXx[i+1]) - InTensor->CorrectSol[i]) > infNorm) {
-        infNorm = std::abs(__high2float(OutTensor->HXx[i+1]) - InTensor->CorrectSol[i]);
+      if (std::abs(__high2float(OutTensor->HXx[i/2]) - InTensor->CorrectSol[i+1]) > infNorm) {
+        infNorm = std::abs(__high2float(OutTensor->HXx[i/2]) - InTensor->CorrectSol[i+1]);
       }
     }
     Error = (double)infNorm;

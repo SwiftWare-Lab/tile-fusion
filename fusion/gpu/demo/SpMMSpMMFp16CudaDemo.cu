@@ -43,7 +43,7 @@ int main (const int argc, const char *argv[]) {
   //  std::cout << "CPU: " << std::endl;
   //  cpuSpMMSpMM->OutTensor->printDx();
 
-  inSpMMTemp->IsSolProvided = true;
+
   auto headerStat = cpuSpMMSpMM->printStatsHeader();
   auto cpuSpMMSpMMStat = cpuSpMMSpMM->printStats();
   delete inSpMMTemp;
@@ -54,7 +54,7 @@ int main (const int argc, const char *argv[]) {
             cpuSpMMSpMM->OutTensor->Xx +
                 cpuSpMMSpMM->OutTensor->M * cpuSpMMSpMM->OutTensor->N,
             inSpMM->CorrectSol);
-
+  inSpMM->IsSolProvided = true;
 
   delete cpuSpMMSpMM;
   delete stats;

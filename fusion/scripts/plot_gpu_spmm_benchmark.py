@@ -428,6 +428,97 @@ def plot_gpu_speedup_tuned_ordered(log_folder, config_file, log_file_name):
     plt.show()
 
 
+def plot_spmm_spmm_based_on_tile_size(log_folder, config_file, log_file_name):
+    log_file = os.path.join(log_folder, log_file_name)
+    df_benchmark = pd.read_csv(log_file)
+    df_benchmark = df_benchmark.sort_values(by=['NNZ'])
+    mat_list = df_benchmark['Matrix Name'].unique()
+    bcols = df_benchmark['bCols'].unique()
+    bcols = np.sort(bcols)
+    with open(config_file) as f:
+        conf = yaml.load(f, Loader=yaml.FullLoader)
+    impls = [impl['name'] for impl in conf['impls']]
+    impl_reprs = {impl['name']: impl['repr'] for impl in conf['impls']}
+    tile_sizes = [ts for ts in conf['tile_sizes']]
+    # baseline_impls = ['GPU_cuSparse_SpMM_CSR_ALG2_Demo', 'GPU_cuSparse_SpMM_CSR_ALG3_Demo', 'GPU_cuSparse_SpMM_CSR_Default_Demo'] #TODO: Fix this
+    baseline_impls = ['GPU_Unfused_SeqReduceRowBalance']
+    fig, axs = plt.subplots(len(tile_sizes), 3, figsize=(16, 12))
+    fig.subplots_adjust(bottom=0.2, left=0.06, right=1, top=0.92, wspace=0.2, hspace=0.3)
+    baseline_impl = baseline_impls[0]
+    impls = list(impls)
+    target_impls = deepcopy(impls)
+    # target_impls.remove('CPU_SpMM_Demo')
+    for bi in baseline_impls:
+        target_impls.remove(bi)
+    all_impls = [impl+'_'+str(ts) for ts in tile_sizes for impl in impls if impl not in baseline_impls]
+    all_impls.append(baseline_impl)
+    # print(all_impls)
+    # print(target_impls)
+
+    for i,bcol in enumerate(bcols):
+        times = {}
+        df_benchmark_bcol = df_benchmark[df_benchmark['bCols'] == bcol]
+        mat_list = df_benchmark_bcol['Matrix Name'].unique()
+        print(mat_list)
+        mat_list = [m for m in mat_list if not m.endswith('10000.mtx')]
+        print(mat_list)
+        for impl in all_impls:
+            times[impl] = []
+        mat_gflops = []
+        for mat in mat_list:
+            cur_mat = df_benchmark_bcol[df_benchmark_bcol['Matrix Name'] == mat]
+            cur_mat_nnz = cur_mat['NNZ'].unique()[0]
+            mat_gflops.append((cur_mat_nnz * bcol + cur_mat_nnz * bcol) / 1e9)
+            for impl in all_impls:
+                cur_impl = cur_mat[cur_mat['Implementation Name'] == impl]
+                cur_impl = cur_impl[cur_impl['bCols'] == bcol]
+                # print(impl)
+                times[impl].append(take_median(cur_impl))
+        gflops = {}
+        for impl in all_impls:
+            gflops[impl] = np.array(mat_gflops) / np.array(times[impl])
+
+        for bi in baseline_impls:
+            gflops[bi] = np.array(mat_gflops) / np.array(times[bi])
+        speed_ups = {}
+        # for ii, impl in enumerate(target_impls):
+        #     speed_ups[impl] = np.array(times[baseline_impl]) / np.array(times[impl])
+        #     ax = axs[ii, i]
+        #     impl_repr = impl_reprs[impl]
+        #     # ax.scatter(gflops[baseline_impl], speed_ups[impl], label=impl_repr, s=5)
+        #     ax.scatter(mat_list, speed_ups[impl], label=impl_repr, s=5)
+        #     ax.axhline(y=1, color='black', linestyle='--')
+        #     ax.spines[['right', 'top']].set_visible(False)
+        #     if ii == len(target_impls) - 1:
+        #         ax.set_xticks(mat_list, mat_list, rotation=45)
+        #     else:
+        #         ax.set_xticks([])
+        #     if i == 1:
+        #         ax.set_title(impl_repr)
+        #     else:
+        #         ax.set_title('bCol='+str(bcol))
+        for ii, ts in enumerate(tile_sizes):
+            ax = axs[ii, i]
+            ax.set_title('Tile Size='+str(ts))
+            for impl in target_impls:
+                impl_name = impl + '_' + str(ts)
+                speed_ups[impl_name] = np.array(times[baseline_impl]) / np.array(times[impl_name])
+                impl_repr = impl_reprs[impl]
+                ax.scatter(mat_list, speed_ups[impl_name], label=impl_repr, s=5)
+            ax.axhline(y=1, color='black', linestyle='--')
+            ax.spines[['right', 'top']].set_visible(False)
+            if ii == len(tile_sizes) - 1:
+                ax.set_xticks(mat_list, mat_list, rotation=45)
+                # ax.legend(loc='upper center', bbox_to_anchor=(0.5, 1.1))
+            else:
+                ax.set_xticks([])
+            if ii == len(tile_sizes) - 1 and i == 1:
+                ax.legend(loc='lower center', bbox_to_anchor=(0.5, 1.1), ncol=5)
+
+    fig.suptitle('speed-up over ' + baseline_impl)
+    plt.show()
+    # plt.show()
+
 def merge_logs(logs_folder):
     plt.close()
     with os.scandir(logs_folder) as entries:
@@ -455,6 +546,9 @@ def plot_gcn_from_logs_folder(logs_folder, config_file, should_merge="1"):
     # plot_fused_ratio(logs_folder, "merged.csv", config_file)
     # plot_gpu_spmm_benchmark(logs_folder, config_file, "merged.csv")
     # plot_gpu_spmm_speedups_vs_cusparse(logs_folder, config_file, "merged.csv")
-    plot_gpu_speedup_tuned(logs_folder, config_file, "merged.csv")
+    # plot_gpu_speedup_tuned(logs_folder, config_file, "merged.csv")
+    plot_spmm_spmm_based_on_tile_size(logs_folder, config_file, "merged.csv")
     # plot_gpu_speedup_tuned_ordered(logs_folder, config_file, "merged.csv")
+
+
 plot_gcn_from_logs_folder(sys.argv[1], sys.argv[2], sys.argv[3])
