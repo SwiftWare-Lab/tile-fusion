@@ -81,6 +81,24 @@ struct CudaTensorOutputsFP16{
     //    cudaMemcpy(DACx, ACx, aCxSize, cudaMemcpyHostToDevice);
   }
 
+  void printDense(int M, int N, __half2 *X) {
+    for (int i = 0; i < M; ++i) {
+      for (int j = 0; j < N/2; ++j) {
+        std::cout << __low2float(X[i * N/2 + j]) << " ";
+        std::cout << __high2float(X[i * N/2 + j]) << " ";
+      }
+      std::cout << std::endl;
+    }
+  }
+
+  void printDx() {
+    std::cout << "\n ACx:\n";
+    printDense(M, N, HACx);
+    std::cout << "\n Xx:\n";
+    printDense(L, N, HXx);
+    std::cout << "\n";
+  }
+
   void copyDeviceToHost(){
     size_t aCxSize = M * N * sizeof(__half);
     size_t xxSize = L * N * sizeof(__half);
@@ -119,6 +137,7 @@ protected:
     NBlockDim = MIN(InTensor->N/2, ThreadPerBlock);
     MBlockDim = CEIL(ThreadPerBlock, NBlockDim);
     MGridDim = CEIL(InTensor->M, MBlockDim);
+    std::cout << NGridDim << " " << NBlockDim << " " << MBlockDim << " " << MGridDim << std::endl;
   }
 
   void preExecute() override {}

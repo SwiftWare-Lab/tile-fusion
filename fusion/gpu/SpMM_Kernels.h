@@ -1003,6 +1003,7 @@ csrspmm_seqreduce_rowbalance_kernel(const int nr, const int nv, const int nc,
   int subwarp_id = threadIdx.y;
   int stride = row_tile * gridDim.x;
   int row = blockIdx.x * row_tile + subwarp_id;
+//  printf("row: %d\n", row);
   int v_id = (blockIdx.y * blockDim.x) + threadIdx.x;
   if (v_id < nv) {
     dnInput += v_id;
@@ -1017,7 +1018,7 @@ csrspmm_seqreduce_rowbalance_kernel(const int nr, const int nv, const int nc,
       for (int p = start; p < end; p++) {
         col = __ldg(colIdx + p);
         val = __guard_load_default_one<__half>(values, p);
-        __hfma2(__halves2half2(val,val), __ldg(dnInput + col * nv), res);
+        res = __hfma2(__halves2half2(val,val), __ldg(dnInput + col * nv), res);
       }
       dnOutput[row * nv] = res;
     }
@@ -1080,7 +1081,7 @@ __global__ void csrspmm_seqreduce_rowcoarsened_kernel(
       for (int p = start; p < end; p++) {
         col = __ldg(colIdx + p);
         val = __guard_load_default_one<__half>(values, p);
-        __hfma2(__halves2half2(val,val), __ldg(dnInput + col * nv), res);
+        res = __hfma2(__halves2half2(val,val), __ldg(dnInput + col * nv), res);
       }
       dnOutput[row * nv] = res;
     }
@@ -1351,7 +1352,7 @@ __global__ void csr_fusedTile_multiplerow_seqreduce_rowbalance_kernel(
       for (int p = start; p < end; p++) {
         col = __ldg(Ai + p);
         val = __guard_load_default_one<__half>(Ax, p);
-        __hfma2(__halves2half2(val, val), __ldg(Bx + col * N), res);
+        res = __hfma2(__halves2half2(val, val), __ldg(Bx + col * N), res);
       }
       aCxTemp[row * N] = res;
     }
@@ -1377,7 +1378,7 @@ __global__ void csr_fusedTile_multiplerow_seqreduce_rowbalance_kernel(
       for (int p = start; p < end; p++) {
         col = __ldg(Ai + p);
         val = __guard_load_default_one<__half>(Ax, p);
-        __hfma2(__halves2half2(val, val), aCxTemp[col * N], res);
+        res = __hfma2(__halves2half2(val, val), aCxTemp[col * N], res);
       }
       Xx[row * N] = res;
     }
@@ -1590,7 +1591,7 @@ __global__ void csr_2LfusedTile_multiplerow_seqreduce_rowbalance_kernel(
       for (int p = start; p < end; p++) {
         col = __ldg(Ai + p);
         val = __guard_load_default_one<__half>(Ax, p);
-        __hfma2(__halves2half2(val, val), __ldg(Bx + col * N), res);
+        res = __hfma2(__halves2half2(val, val), __ldg(Bx + col * N), res);
       }
       aCxTemp[row * N] = res;
     }
@@ -1607,7 +1608,7 @@ __global__ void csr_2LfusedTile_multiplerow_seqreduce_rowbalance_kernel(
       for (int p = start; p < end; p++) {
         col = __ldg(Ai + p);
         val = __guard_load_default_one<__half>(Ax, p);
-        __hfma2(__halves2half2(val, val), aCxTemp[col * N], res);
+        res = __hfma2(__halves2half2(val, val), aCxTemp[col * N], res);
       }
       xxTemp[row * N] = res;
     }
@@ -1634,7 +1635,7 @@ __global__ void csr_2LfusedTile_multiplerow_seqreduce_rowbalance_kernel(
       for (int p = start; p < end; p++) {
         col = __ldg(Ai + p);
         val = __guard_load_default_one<__half>(Ax, p);
-        __hfma2(__halves2half2(val, val), aCxTemp[col * N], res);
+        res = __hfma2(__halves2half2(val, val), aCxTemp[col * N], res);
       }
       xxTemp[row * N] = res;
     }
@@ -1702,7 +1703,7 @@ __global__ void csr_fusedTile_multiplerow_fusedParReduce_rowbalance_kernel(
       for (int p = start; p < end; p++) {
         col = __ldg(Ai + p);
         val = __guard_load_default_one<__half>(Ax, p);
-        __hfma2(__halves2half2(val, val), __ldg(Bx + col * N), res);
+        res = __hfma2(__halves2half2(val, val), __ldg(Bx + col * N), res);
       }
       int startF = __ldg(FAp + row);
       int endF = __ldg(FAp + row + 1);
@@ -1710,7 +1711,7 @@ __global__ void csr_fusedTile_multiplerow_fusedParReduce_rowbalance_kernel(
         int rowF = __ldg(FAi + p);
         val = __guard_load_default_one<__half>(FAx, p);
         __half2 resF;
-        __hmul2(__halves2half2(val, val), resF);
+        resF = __hmul2(__halves2half2(val, val), resF);
         //        xxTemp[rowF * N] += resF;
         atomicAdd(xxTemp + rowF * N, resF);
       }
@@ -1820,7 +1821,7 @@ __global__ void csr_fusedTile_multiplerow_1v1fusedParReduceAtomic_rowbalance_ker
       for (int p = start; p < end; p++) {
         col = __ldg(Ai + p);
         val = __guard_load_default_one<__half>(Ax, p);
-        __hfma2(__halves2half2(val, val), __ldg(Bx + col * N), res);
+        res = __hfma2(__halves2half2(val, val), __ldg(Bx + col * N), res);
       }
       int startF = __ldg(FAp + row);
       int endF = __ldg(FAp + row + 1);
@@ -1828,7 +1829,7 @@ __global__ void csr_fusedTile_multiplerow_1v1fusedParReduceAtomic_rowbalance_ker
         int rowF = __ldg(FAi + p);
         val = __guard_load_default_one<__half>(FAx, p);
         __half2 resF;
-        __hmul2(__halves2half2(val, val), resF);
+        resF = __hmul2(__halves2half2(val, val), resF);
         //        xxTemp[rowF * N] += resF;
         atomicAdd(xxTemp + rowF * N, resF);
       }
@@ -2082,7 +2083,7 @@ __global__ void csr_reordered_unfusedTile_spmmspmm_seqreduce_rowbalance_kernel(
       for (int p = start; p < end; p++) {
         col = __ldg(Ai + p);
         val = __guard_load_default_one<__half>(Ax, p);
-        __hfma2(__halves2half2(val, val), __ldg(ACx + col * N), res);
+        res = __hfma2(__halves2half2(val, val), __ldg(ACx + col * N), res);
       }
       Xx[row * N] = res;
     }

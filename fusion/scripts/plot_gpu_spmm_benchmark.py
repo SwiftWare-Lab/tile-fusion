@@ -201,9 +201,9 @@ def plot_gpu_speedup_tuned(log_folder, config_file, log_file_name):
         times = {}
         df_benchmark_bcol = df_benchmark[df_benchmark['bCols'] == bcol]
         mat_list = df_benchmark_bcol['Matrix Name'].unique()
-        print(mat_list)
+        # print(mat_list)
         mat_list = [m for m in mat_list if not m.endswith('10000.mtx')]
-        print(mat_list)
+        # print(mat_list)
         for impl in impls:
             times[impl] = []
         mat_gflops = []
@@ -250,6 +250,10 @@ def plot_gpu_speedup_tuned(log_folder, config_file, log_file_name):
             #     ax.set_title('bCol='+str(bcol))
         ax.set_title('bCol='+str(bcol))
         ax.set_xticks(mat_list, mat_list, rotation=90)
+        print(bcol)
+        for i,su in enumerate(speed_ups['GPU_CSRCSCAtomicFused_Reordered_HighFusionRatio']):
+            if (su < 0.95):
+                print(mat_list[i], su)
     #legend with one row outside of the plot and in the upper part
     axs[1].legend(loc='upper center', bbox_to_anchor=(0.5, 1.4), ncol=5)
     # axs[1].legend()
@@ -546,8 +550,8 @@ def plot_gcn_from_logs_folder(logs_folder, config_file, should_merge="1"):
     # plot_fused_ratio(logs_folder, "merged.csv", config_file)
     # plot_gpu_spmm_benchmark(logs_folder, config_file, "merged.csv")
     # plot_gpu_spmm_speedups_vs_cusparse(logs_folder, config_file, "merged.csv")
-    # plot_gpu_speedup_tuned(logs_folder, config_file, "merged.csv")
-    plot_spmm_spmm_based_on_tile_size(logs_folder, config_file, "merged.csv")
+    plot_gpu_speedup_tuned(logs_folder, config_file, "merged.csv")
+    # plot_spmm_spmm_based_on_tile_size(logs_folder, config_file, "merged.csv")
     # plot_gpu_speedup_tuned_ordered(logs_folder, config_file, "merged.csv")
 
 

@@ -41,7 +41,7 @@ int main (const int argc, const char *argv[]) {
   auto *cpuSpMMSpMM = new SeqSpMMSpMM(inSpMMTemp, stats);
   cpuSpMMSpMM->run();
   //  std::cout << "CPU: " << std::endl;
-  //  cpuSpMMSpMM->OutTensor->printDx();
+    cpuSpMMSpMM->OutTensor->printDx();
 
 
   auto headerStat = cpuSpMMSpMM->printStatsHeader();
@@ -83,7 +83,7 @@ int main (const int argc, const char *argv[]) {
   auto *unfusedSeqReduceRowBalance = new SpMMSpMMSeqReduceRowBalanceFP16(inSpMM,stats);
   unfusedSeqReduceRowBalance->run();
   //  std::cout << "UNFUSED: " << std::endl;
-  //  unfusedSeqReduceRowBalance->OutTensor->printDx();
+    unfusedSeqReduceRowBalance->OutTensor->printDx();
   auto unfusedSeqReduceRowBalanceStat = unfusedSeqReduceRowBalance->printStats();
   delete unfusedSeqReduceRowBalance;
   delete stats;
