@@ -137,7 +137,6 @@ protected:
     NBlockDim = MIN(InTensor->N/2, ThreadPerBlock);
     MBlockDim = CEIL(ThreadPerBlock, NBlockDim);
     MGridDim = CEIL(InTensor->M, MBlockDim);
-    std::cout << NGridDim << " " << NBlockDim << " " << MBlockDim << " " << MGridDim << std::endl;
   }
 
   void preExecute() override {}
