@@ -147,6 +147,48 @@ target_link_libraries(dummy_benchmarks
         swbench::swbench
 )
 
+add_executable(gemm_demo_gpu
+        demo/GeMMCudaDemo.cu
+)
+
+set_target_properties(gemm_demo_gpu PROPERTIES CUDA_COMPILE_FLAGS "${CUDA_COMPILE_FLAGS}"
+)
+
+target_include_directories(gemm_demo_gpu
+        PRIVATE
+        ${SYM_AGG}/include
+        ${SYM_FUS}/include
+)
+target_link_libraries(gemm_demo_gpu
+        cusparse
+        cublas
+        CUDA::cusparse
+        fusion
+        aggregation
+        swbench::swbench
+)
+
+add_executable(gemm_spmm_demo_gpu
+        demo/GeMMSpMMCudaDemo.cu
+)
+
+set_target_properties(gemm_spmm_demo_gpu PROPERTIES CUDA_COMPILE_FLAGS "${CUDA_COMPILE_FLAGS}"
+)
+
+target_include_directories(gemm_spmm_demo_gpu
+        PRIVATE
+        ${SYM_AGG}/include
+        ${SYM_FUS}/include
+)
+
+target_link_libraries(gemm_spmm_demo_gpu
+        cusparse
+        cublas
+        CUDA::cusparse
+        fusion
+        aggregation
+        swbench::swbench
+)
 
 #if(OpenMP_CXX_FOUND)
 #    target_link_libraries(spmv_demo_gpu OpenMP::OpenMP_CXX)
