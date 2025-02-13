@@ -287,7 +287,7 @@ __global__ void gemm2DBlockingSpMMSeqRedFused(size_t m, size_t n, size_t k,
         val = __ldg(&Ax[i]);
         res += val * BCx[col * ldc + C_col_idx];
       }
-      Xx[rowInd * n + C_col_idx] = res;
+      Xx[row * ldc + C_col_idx] = res;
     }
   }
 }

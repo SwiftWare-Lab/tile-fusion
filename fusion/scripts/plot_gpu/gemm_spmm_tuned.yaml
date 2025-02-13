@@ -1,0 +1,7 @@
+impls:
+  - name: "GPU_Unfused_GeMMSpMM_Demo"
+    repr: "Unfused Baseline"
+  - name: "GPU_Fused_GeMMSpMM_Demo"
+    repr: "GeMM SpMM Fused"
+  - name: "GPU_Fused_SpMMGeMM_Demo"
+    repr: "SpMM GeMM Fused"

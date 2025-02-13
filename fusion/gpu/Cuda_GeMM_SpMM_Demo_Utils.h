@@ -257,10 +257,7 @@ protected:
         for (; p < HROAp[j+1]; p++){
           HROAi[p] = ai[p - HROAp[j] + ap[HROId[j]]];
           HROAx[p] = ax[p - HROAp[j] + ap[HROId[j]]];
-//          std::cout << "p: " << p << " HROAi[p]: " << HROAi[p] << " HROAx[p]: " << HROAx[p] << std::endl;
         }
-//        std::cout << std::endl;
-//        std::cout << HROId[j] << std::endl;
       }
     }
     for (int i = 0; i < ufRows.size(); i++) {
@@ -272,7 +269,6 @@ protected:
         HROAx[HROAp[i + j] + k] = ax[ap[ufRows[i]] + k];
       }
     }
-    HFPtr[0] = 0;
 
     this->St->OtherStats["Number of Fused Rows"] = {(double)fIdCount};
     this->St->OtherStats["Number of Fused Nnz"] = {(double)fNnzCount};
