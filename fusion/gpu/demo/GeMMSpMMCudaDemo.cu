@@ -49,7 +49,6 @@ int main (const int argc, const char *argv[]) {
             geMMSpMMCPU->OutTensor->Xx +
                 geMMSpMMCPU->OutTensor->M * geMMSpMMCPU->OutTensor->N,
             inSpMM->CorrectSol);
-  inSpMM->IsSolProvided = true;
   auto headerStat = geMMSpMMCPU->printStatsHeader();
   auto cpuGeMMSpMMStat = geMMSpMMCPU->printStats();
   delete geMMSpMMCPU;
@@ -58,6 +57,11 @@ int main (const int argc, const char *argv[]) {
   stats = new swiftware::benchmark::Stats("GPU_Unfused_GeMMSpMM_Demo","SpMM", numTrial,tp._matrix_name,numThread);
   auto *unfusedGeMMSpMM = new UnfusedGeMMSpMMGPU(inSpMM,stats);
   unfusedGeMMSpMM->run();
+  std::copy(unfusedGeMMSpMM->OutTensor->Xx,
+            unfusedGeMMSpMM->OutTensor->Xx +
+                unfusedGeMMSpMM->OutTensor->M * unfusedGeMMSpMM->OutTensor->N,
+            inSpMM->CorrectSol);
+  inSpMM->IsSolProvided = true;
 //      unfusedGeMMSpMM->OutTensor->printDx();
   auto unfusedGeMMSpMMStat = unfusedGeMMSpMM->printStats();
   delete unfusedGeMMSpMM;
