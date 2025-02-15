@@ -219,10 +219,6 @@ __global__ void gemm2DBlockingSpMMSeqRedFused(size_t m, size_t n, size_t k,
                                               T const* Cx, size_t ldc, T beta,
                                               T* BCx,T* Xx)
 {
-  // Avoid using blockDim.x * blockDim.y as the number of threads per block.
-  // Because it is a runtime constant and the compiler cannot optimize the
-  // loop unrolling based on that.
-  // Use a compile time constant instead.
   constexpr size_t NUM_THREADS{BLOCK_TILE_SIZE_X * BLOCK_TILE_SIZE_Y};
   size_t const thread_linear_idx{threadIdx.y * blockDim.x + threadIdx.x};
 
@@ -249,16 +245,6 @@ __global__ void gemm2DBlockingSpMMSeqRedFused(size_t m, size_t n, size_t k,
 #pragma unroll
     for (size_t k_i{0U}; k_i < BLOCK_TILE_SIZE_K; ++k_i)
     {
-      // Doing this results in 2 TOPS.
-      // Suppose blockDim.x = blockDim.y = 32.
-      // Effectively, for a warp, in one iteration, we read the value from
-      // A_thread_block_tile at the same location on the shared memory
-      // resulting in a broadcast, we also read 32 values that have no
-      // bank conflicts from B_thread_block_tile. Even with that, all the
-      // values have to be read from the shared memory and consequence is
-      // the shared memory instruction runs very intensively just to
-      // compute a small number of values using simple arithmetic
-      // instructions, which is not efficient.
       sum += B_thread_block_tile[threadIdx.y][k_i] *
              C_thread_block_tile[k_i][threadIdx.x];
     }
@@ -280,12 +266,14 @@ __global__ void gemm2DBlockingSpMMSeqRedFused(size_t m, size_t n, size_t k,
     if (rowInd < lastInd){
       int row = __ldg(&FId[rowInd]);
       res = 0;
-      int start = __ldg(&Ap[row]);
-      int end = __ldg(&Ap[row + 1]);
+      int start = __ldg(&Ap[rowInd]);
+      int end = __ldg(&Ap[rowInd + 1]);
       for (int i = start; i < end; ++i){
         col = __ldg(&Ai[i]);
-        val = __ldg(&Ax[i]);
+        val = Ax[i];
         res += val * BCx[col * ldc + C_col_idx];
+      }
+      if (C_col_idx == 0){
       }
       Xx[row * ldc + C_col_idx] = res;
     }

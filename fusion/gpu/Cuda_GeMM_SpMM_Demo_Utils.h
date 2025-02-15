@@ -32,7 +32,6 @@ struct CudaGeMMSpMMTensorInputs : public TensorInputs<float> {
                            std::string ExpN)
       : TensorInputs<float>(M1, N1, K1, L1, A1, B1, NumThreads1, NumTrial1,
                             ExpN) {
-
     size_t rPtrSize = (ACsr->m + 1) * sizeof(int);
     size_t cIndexSize = ACsr->nnz * sizeof(int);
     size_t valSize = ACsr->nnz * sizeof(float);
@@ -269,7 +268,6 @@ protected:
         HROAx[HROAp[i + j] + k] = ax[ap[ufRows[i]] + k];
       }
     }
-
     this->St->OtherStats["Number of Fused Rows"] = {(double)fIdCount};
     this->St->OtherStats["Number of Fused Nnz"] = {(double)fNnzCount};
     UFDim = ufCount;
