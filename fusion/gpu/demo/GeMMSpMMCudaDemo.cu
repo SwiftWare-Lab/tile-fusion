@@ -70,7 +70,7 @@ int main (const int argc, const char *argv[]) {
   stats = new swiftware::benchmark::Stats("GPU_Fused_GeMMSpMM_Demo","SpMM", numTrial,tp._matrix_name,numThread);
   auto *fusedGeMMSpMM = new FusedGeMMSpMMGPU(inSpMM,stats);
   fusedGeMMSpMM->run();
-//      fusedGeMMSpMM->OutTensor->printDx();
+//  fusedGeMMSpMM->OutTensor->printDx();
   auto fusedGeMMSpMMStat = fusedGeMMSpMM->printStats();
   delete fusedGeMMSpMM;
   delete stats;
