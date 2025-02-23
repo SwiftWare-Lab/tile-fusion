@@ -173,11 +173,11 @@ class GCNIntraFusedSequential : public SWTensorBench<double> {
 protected:
   GnnTensorInputs *InTensor;
   void setup() override {
-    this->St->OtherStats["Number of Sampled Nodes"] = {
-        double(InTensor->LayerMasks[1].size())};
-    this->St->OtherStats["Number of First Layer Nodes"] = {
-        double(InTensor->LayerMasks[0].size())};
-    this->St->OtherStats["Number of Fused Nodes"] = {0.};
+//    this->St->OtherStats["Number of Sampled Nodes"] = {
+//        double(InTensor->LayerMasks[1].size())};
+//    this->St->OtherStats["Number of First Layer Nodes"] = {
+//        double(InTensor->LayerMasks[0].size())};
+    this->St->OtherStats["FusedIterations"] = {0.};
     this->St->OtherStats["Min Workload Size"] = {10.};
   }
 
@@ -226,7 +226,7 @@ public:
   GnnTensorOutputs *OutTensor;
   GCNIntraFusedSequential(GnnTensorInputs *In1, Stats *Stat1)
       : SWTensorBench<double>(In1, Stat1) {
-    OutTensor = new GnnTensorOutputs(In1->Weight2->row, In1->NumOfNodes);
+    OutTensor = new GnnTensorOutputs(In1->Weight1->row, In1->NumOfNodes);
     InTensor = In1;
   }
 
@@ -264,7 +264,7 @@ public:
 class GCNAllFusedParallel : public GCNIntraFusedSequential {
 protected:
   sym_lib::MultiDimensionalSet *FusedCompSet;
-  InspectorForAllFused *Inspector;
+  SparseFusionInspector *Inspector;
 
   Timer analysis() override {
     Timer t;
@@ -297,7 +297,7 @@ public:
   GCNAllFusedParallel(GnnTensorInputs *In1, Stats *Stat1,
                       sym_lib::ScheduleParameters SpIn)
       : GCNIntraFusedSequential(In1, Stat1) {
-    Inspector = new InspectorForAllFused(SpIn, Stat1);
+    Inspector = new SparseFusionInspector(SpIn, Stat1);
   }
   ~GCNAllFusedParallel() {
     delete FusedCompSet;
@@ -313,17 +313,19 @@ protected:
   Timer execute() override {
     OutTensor->reset();
     mkl_set_num_threads(InTensor->NumThreads);
+    double *intermediateResult = new double[InTensor->NumOfNodes * InTensor->Weight1->row]{};
     Timer t;
     t.start();
-    forwardForOneLayerWithGeMMAndSpMM(
+    forwardForOneLayerWithMKLGeMMAndMKLSpMM(
         InTensor->NumOfNodes, MKLFirstLayerAdj, InTensor->FeatureMatrix->a,
-        InTensor->FeatureMatrix->col, InTensor->Weight1->a, InTensor->Weight1->col,
-        OutTensor->FirstLayerOutput);
-    forwardForOneLayerWithGeMMAndSpMM(
+        InTensor->FeatureMatrix->col, InTensor->Weight1->a,
+        InTensor->Weight1->col, OutTensor->FirstLayerOutput, intermediateResult);
+    forwardForOneLayerWithMKLGeMMAndMKLSpMM(
         InTensor->NumOfNodes, MKLSecondLayerAdj, OutTensor->FirstLayerOutput,
         InTensor->Weight2->col, InTensor->Weight2->a, InTensor->Weight2->row,
-        OutTensor->SecondLayerOutput);
+        OutTensor->SecondLayerOutput, intermediateResult);
     t.stop();
+    delete[] intermediateResult;
     return t;
   }
 

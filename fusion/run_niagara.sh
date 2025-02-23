@@ -17,8 +17,9 @@ UFDB=$SCRATCH/data/graphs/
 EXP=spmv_spmv
 BCOL=32
 ID=""
+THREADS=8
 USE_PAPI=0
-while getopts ":lm:c:i:e:" arg; do
+while getopts ":lm:c:i:e:t:" arg; do
   case "${arg}" in
     l)
       TEST=1
@@ -34,6 +35,9 @@ while getopts ":lm:c:i:e:" arg; do
       ;;
     i)
       ID=$OPTARG
+      ;;
+    t)
+      THREADS=$OPTARG
       ;;
     *) echo "Usage:
     -l TEST=FALSE                                     Set if you want to run the script for one b_col
@@ -56,7 +60,7 @@ if [ -z "$ID" ]; then
   ID_OPT=""
 fi
 if [ $TEST -eq 1 ]; then
-    bash run.sh -m $UFDB -c 8 -e $EXP -t 8 "$ID_OPT" -j $SLURM_JOB_ID
+    bash run.sh -m $UFDB -c $BCOL -e $EXP -t $THREADS -j $SLURM_JOB_ID "$ID_OPT"
 else
-  bash run.sh -t 4 -m $UFDB -c $BCOL -e $EXP "$ID_OPT" -j $SLURM_JOB_ID
+  bash run.sh -t $THREADS -m $UFDB -c $BCOL -e $EXP -j $SLURM_JOB_ID "$ID_OPT"
 fi

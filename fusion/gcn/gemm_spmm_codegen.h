@@ -17,16 +17,16 @@ namespace swiftware{
 // D is dense KxL
 template <class mytype>
 int compute_LNR(int Am, int An, mytype *A,
-            CSRType<mytype> *B,
+            int *Bp, int *Bi, mytype* Bx,
             int Cm, int Cn, mytype *C,
-            int Dm, int Dn, mytype *D) {
+            int Dm, int Dn, mytype *D,int NumThreads) {
   int A1_dimension = (int)(Am);
   int A2_dimension = (int)(An);
   mytype* A_vals = A;
-  int B1_dimension = (int)(B->m);
-  int* B2_pos = (int*)(B->p);
-  int*  B2_crd = (int*)(B->i);
-  mytype* B_vals = (B->x);
+  int B1_dimension = (int)(Am);
+  int* B2_pos = (int*)(Bp);
+  int*  B2_crd = (int*)(Bi);
+  mytype* B_vals = (Bx);
   int C1_dimension = Cm;
   int C2_dimension = Cn;
   mytype* C_vals = C;
@@ -34,16 +34,16 @@ int compute_LNR(int Am, int An, mytype *A,
   int D2_dimension = Dn;
   mytype*  D_vals = D;
 
-#pragma omp parallel for schedule(static)
+#pragma omp parallel for schedule(static) num_threads(NumThreads)
   for (int32_t pA = 0; pA < (A1_dimension * A2_dimension); pA++) {
     A_vals[pA] = 0.0;
   }
 
   mytype* tA_all = 0;
-  tA_all = (double*)malloc(sizeof(double) * (D1_dimension *
-                                              omp_get_max_threads()));
+  tA_all = (mytype*)malloc(sizeof(float) * (D1_dimension *
+                                              NumThreads));
 
-#pragma omp parallel for schedule(runtime)
+#pragma omp parallel for schedule(runtime) num_threads(NumThreads)
   for (int32_t i = 0; i < B1_dimension; i++) {
     mytype* tA = tA_all + D1_dimension * omp_get_thread_num();
     for (int32_t ptA = 0; ptA < D1_dimension; ptA++) {
@@ -72,16 +72,16 @@ int compute_LNR(int Am, int An, mytype *A,
 
 template <class mytype>
 int compute_TACO(int Am, int An, mytype *A,
-                CSRType<mytype> *B,
+                 int *Bp, int *Bi, mytype* Bx,
                 int Cm, int Cn, mytype *C,
-                int Dm, int Dn, mytype *D) {
+                int Dm, int Dn, mytype *D, int NumThreads) {
   int A1_dimension = (int)(Am);
   int A2_dimension = (int)(An);
   mytype* A_vals = A;
-  int B1_dimension = (int)(B->m);
-  int* B2_pos = (int*)(B->p);
-  int*  B2_crd = (int*)(B->i);
-  mytype* B_vals = (B->x);
+  int B1_dimension = (int)(Am);
+  int* B2_pos = (int*)(Bp);
+  int*  B2_crd = (int*)(Bi);
+  mytype* B_vals = (Bx);
   int C1_dimension = Cm;
   int C2_dimension = Cn;
   mytype* C_vals = C;
@@ -89,12 +89,12 @@ int compute_TACO(int Am, int An, mytype *A,
   int D2_dimension = Dn;
   mytype*  D_vals = D;
 
-#pragma omp parallel for schedule(static)
+#pragma omp parallel for schedule(static) num_threads(NumThreads)
   for (int32_t pA = 0; pA < (A1_dimension * A2_dimension); pA++) {
     A_vals[pA] = 0.0;
   }
 
-#pragma omp parallel for schedule(runtime)
+#pragma omp parallel for schedule(runtime) num_threads(NumThreads)
   for (int32_t i = 0; i < B1_dimension; i++) {
     for (int32_t jB = B2_pos[i]; jB < B2_pos[(i + 1)]; jB++) {
       int32_t j = B2_crd[jB];

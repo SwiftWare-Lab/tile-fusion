@@ -45,6 +45,21 @@ if(TARGET MKL::MKL)
             $<LINK_ONLY:MKL::MKL>
     )
 
+    add_executable(gcn_layer_sp_demo
+            SingleLayer/GCN_Layer_SP_Demo.cpp
+    )
+
+    target_include_directories(gcn_layer_sp_demo PRIVATE
+            $<TARGET_PROPERTY:MKL::MKL,INTERFACE_INCLUDE_DIRECTORIES>
+    )
+
+    target_link_libraries(gcn_layer_sp_demo
+            fusion
+            swbench::swbench
+            OpenMP::OpenMP_CXX
+            $<LINK_ONLY:MKL::MKL>
+    )
+
     add_executable(gcn_verify_demo
             GCN_Verify_With_PyG_Demo.cpp
     )
