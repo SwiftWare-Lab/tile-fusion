@@ -31,6 +31,18 @@ def generate_banded_matrix_efficient(n, bandwidth):
                             shape=(n, n))
 
 
+def generate_banded_matrix_sparse_rows(n, bandwidth):
+    triplet_list = []
+    for i in range(n):
+        stride = n % 4 + 1
+        half = ((bandwidth-1) / 2)*stride
+        min_idx = int(max(0, i-half))
+        max_idx = int(min(n, i+half+1))
+        for j in range(min_idx, max_idx, stride):
+            triplet_list.append((i, j, 1))
+    return sp.coo_matrix((np.ones(len(triplet_list)), (np.array(triplet_list)[:, 0], np.array(triplet_list)[:, 1])),
+                         shape=(n, n))
+
 
 
 

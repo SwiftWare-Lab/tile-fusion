@@ -75,12 +75,28 @@ int main (const int argc, const char *argv[]) {
   delete fusedGeMMSpMM;
   delete stats;
 
-  stats = new swiftware::benchmark::Stats("GPU_Fused_SpMMGeMM_Demo","SpMM", numTrial,tp._matrix_name,numThread);
-  auto *fusedSpMMGeMM = new FusedSpMMGeMMGPU(inSpMM,stats);
-  fusedSpMMGeMM->run();
-//  fusedSpMMGeMM->OutTensor->printDx();
-  auto fusedSpMMGeMMStat = fusedSpMMGeMM->printStats();
-  delete fusedSpMMGeMM;
+  stats = new swiftware::benchmark::Stats("GPU_Fused_SpMM1DGeMM_Demo","SpMM", numTrial,tp._matrix_name,numThread);
+  auto *fusedSpMM1DGeMM = new FusedSpMM1DGeMM2DGPU(inSpMM,stats);
+  fusedSpMM1DGeMM->run();
+  //  fusedSpMM1DGeMM->OutTensor->printDx();
+  auto fusedSpMM1DGeMMStat = fusedSpMM1DGeMM->printStats();
+  delete fusedSpMM1DGeMM;
+  delete stats;
+
+  stats = new swiftware::benchmark::Stats("GPU_Fused_SpMM1DSMGeMM_Demo","SpMM", numTrial,tp._matrix_name,numThread);
+  auto *fusedSpMM1DSMGeMM = new FusedSpMM1DSMGeMM2DGPU(inSpMM,stats);
+  fusedSpMM1DSMGeMM->run();
+  //  fusedSpMM1DSMGeMM->OutTensor->printDx();
+  auto fusedSpMM1DSMGeMMStat = fusedSpMM1DSMGeMM->printStats();
+  delete fusedSpMM1DSMGeMM;
+  delete stats;
+
+  stats = new swiftware::benchmark::Stats("GPU_Fused_SpMM2DGeMM_Demo","SpMM", numTrial,tp._matrix_name,numThread);
+  auto *fusedSpMM2DGeMM = new FusedSpMM2DGeMM2DGPU(inSpMM,stats);
+  fusedSpMM2DGeMM->run();
+//  fusedSpMM2DGeMM->OutTensor->printDx();
+  auto fusedSpMM2DGeMMStat = fusedSpMM2DGeMM->printStats();
+  delete fusedSpMM2DGeMM;
   delete stats;
 
   std::string profHeader = "";
@@ -99,7 +115,9 @@ int main (const int argc, const char *argv[]) {
   std::cout << cpuGeMMSpMMStat + spStat + tpStat + profStat << std::endl;
   std::cout << unfusedGeMMSpMMStat + spStat + tpStat + profStat << std::endl;
   std::cout << fusedGeMMSpMMStat + spStat + tpStat + profStat << std::endl;
-  std::cout << fusedSpMMGeMMStat + spStat + tpStat + profStat << std::endl;
+  std::cout << fusedSpMM2DGeMMStat + spStat + tpStat + profStat << std::endl;
+  std::cout << fusedSpMM1DGeMMStat + spStat + tpStat + profStat << std::endl;
+  std::cout << fusedSpMM1DSMGeMMStat + spStat + tpStat + profStat << std::endl;
 
   delete inSpMM;
   delete aCSCFull;

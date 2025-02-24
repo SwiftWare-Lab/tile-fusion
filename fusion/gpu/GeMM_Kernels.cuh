@@ -281,20 +281,16 @@ __global__ void gemm2DBlockingSpMMSeqRedFused(size_t m, size_t n, size_t k,
 }
 
 
-//TODO: No Shared Memory for ABx currently.
+
 template <typename T, size_t BLOCK_TILE_SIZE_X, size_t BLOCK_TILE_SIZE_Y,
           size_t BLOCK_TILE_SIZE_K>
-__global__ void fusedSpMMGeMM1DBlocking(size_t m, size_t n, size_t k,
+__global__ void fusedSpMM1DGeMM2DBlocking(size_t m, size_t n, size_t k,
                                    const int *Ap, const int *Ai, const T* Ax,
                                    T alpha, T const*Bx, size_t ldb,
                                    T const* Cx, size_t ldc, T beta,T* ABx,
                                    T* Xx)
 {
 
-  // Avoid using blockDim.x * blockDim.y as the number of threads per block.
-  // Because it is a runtime constant and the compiler cannot optimize the
-  // loop unrolling based on that.
-  // Use a compile time constant instead.
   constexpr size_t NUM_THREADS{BLOCK_TILE_SIZE_X * BLOCK_TILE_SIZE_Y};
   size_t const thread_linear_idx{threadIdx.y * blockDim.x + threadIdx.x};
 
@@ -345,16 +341,6 @@ __global__ void fusedSpMMGeMM1DBlocking(size_t m, size_t n, size_t k,
 #pragma unroll
     for (size_t k_i{0U}; k_i < BLOCK_TILE_SIZE_K; ++k_i)
     {
-      // Doing this results in 2 TOPS.
-      // Suppose blockDim.x = blockDim.y = 32.
-      // Effectively, for a warp, in one iteration, we read the value from
-      // A_thread_block_tile at the same location on the shared memory
-      // resulting in a broadcast, we also read 32 values that have no
-      // bank conflicts from B_thread_block_tile. Even with that, all the
-      // values have to be read from the shared memory and consequence is
-      // the shared memory instruction runs very intensively just to
-      // compute a small number of values using simple arithmetic
-      // instructions, which is not efficient.
       aBxCol = thread_block_tile_idx * BLOCK_TILE_SIZE_K + k_i;
       int aBxRow = blockIdx.y * BLOCK_TILE_SIZE_Y + threadIdx.y;
       sum += ABx[aBxRow * ldb + aBxCol] *
@@ -369,20 +355,16 @@ __global__ void fusedSpMMGeMM1DBlocking(size_t m, size_t n, size_t k,
   }
 }
 
-//TODO: No Shared Memory for ABx currently.
+
 template <typename T, size_t BLOCK_TILE_SIZE_X, size_t BLOCK_TILE_SIZE_Y,
           size_t BLOCK_TILE_SIZE_K>
-__global__ void fusedSpMMGeMM2DBlocking(size_t m, size_t n, size_t k,
+__global__ void fusedSpMM2DGeMM2DBlocking(size_t m, size_t n, size_t k,
                                         const int *Ap, const int *Ai, const T* Ax,
                                         T alpha, T const*Bx, size_t ldb,
                                         T const* Cx, size_t ldc, T beta,T* ABx,
                                         T* Xx)
 {
 
-  // Avoid using blockDim.x * blockDim.y as the number of threads per block.
-  // Because it is a runtime constant and the compiler cannot optimize the
-  // loop unrolling based on that.
-  // Use a compile time constant instead.
   constexpr size_t NUM_THREADS{BLOCK_TILE_SIZE_X * BLOCK_TILE_SIZE_Y};
   size_t const thread_linear_idx{threadIdx.y * blockDim.x + threadIdx.x};
 
@@ -390,7 +372,6 @@ __global__ void fusedSpMMGeMM2DBlocking(size_t m, size_t n, size_t k,
   size_t const C_col_idx{blockIdx.x * blockDim.x + threadIdx.x};
   size_t const C_row_idx{blockIdx.y * blockDim.y + threadIdx.y};
   // Cache a tile of A and B in shared memory for data reuse.
-  //  __shared__ T ABx_thread_block_tile[BLOCK_TILE_SIZE_Y][BLOCK_TILE_SIZE_K];
   __shared__ T AB_thread_block_tile[BLOCK_TILE_SIZE_Y][BLOCK_TILE_SIZE_K];
   __shared__ T C_thread_block_tile[BLOCK_TILE_SIZE_K][BLOCK_TILE_SIZE_X];
 
@@ -430,6 +411,87 @@ __global__ void fusedSpMMGeMM2DBlocking(size_t m, size_t n, size_t k,
     {
 
       sum += AB_thread_block_tile[threadIdx.y][k_i] *
+             C_thread_block_tile[k_i][threadIdx.x];
+    }
+    __syncthreads();
+  }
+  if (C_row_idx < m && C_col_idx < n)
+  {
+    Xx[C_row_idx * ldc + C_col_idx] =
+        alpha * sum + beta * Xx[C_row_idx * ldc + C_col_idx];
+  }
+}
+
+
+template <typename T, size_t BLOCK_TILE_SIZE_X, size_t BLOCK_TILE_SIZE_Y,
+          size_t BLOCK_TILE_SIZE_K>
+__global__ void fusedSpMM1DSMGeMM2DBlocking(size_t m, size_t n, size_t k,
+                                          const int *Ap, const int *Ai, const T* Ax,
+                                          T alpha, T const*Bx, size_t ldb,
+                                          T const* Cx, size_t ldc, T beta,T* ABx,
+                                          T* Xx)
+{
+
+  // Avoid using blockDim.x * blockDim.y as the number of threads per block.
+  // Because it is a runtime constant and the compiler cannot optimize the
+  // loop unrolling based on that.
+  // Use a compile time constant instead.
+  constexpr size_t NUM_THREADS{BLOCK_TILE_SIZE_X * BLOCK_TILE_SIZE_Y};
+  constexpr size_t AB_BLOCK_SIZE{BLOCK_TILE_SIZE_Y*128};
+  size_t const thread_linear_idx{threadIdx.y * blockDim.x + threadIdx.x};
+
+  // Compute the row and column of C that this thread is responsible for.
+  size_t const C_col_idx{blockIdx.x * blockDim.x + threadIdx.x};
+  size_t const C_row_idx{blockIdx.y * blockDim.y + threadIdx.y};
+  // Cache a tile of A and B in shared memory for data reuse.
+  //  __shared__ T ABx_thread_block_tile[BLOCK_TILE_SIZE_Y][BLOCK_TILE_SIZE_K];
+
+  __shared__ T AB_thread_block_tile[AB_BLOCK_SIZE];
+  __shared__ T C_thread_block_tile[BLOCK_TILE_SIZE_K][BLOCK_TILE_SIZE_X];
+
+  size_t const num_thread_block_tiles{(k + BLOCK_TILE_SIZE_K - 1) /
+                                      BLOCK_TILE_SIZE_K};
+
+  /// SPMM
+  int stride = NUM_THREADS / ldb;
+  int threadId = threadIdx.y * blockDim.x + threadIdx.x;
+  int subwarpId = threadId / ldb;
+  int rowStart = blockIdx.y * BLOCK_TILE_SIZE_Y + subwarpId;
+  int rowEnd = min(rowStart + BLOCK_TILE_SIZE_Y, m);
+  int aBxCol = threadId % ldb;
+  if (aBxCol < n){
+    for (int row=rowStart; row < rowEnd; row+=stride) {
+      int start = Ap[row];
+      int end = Ap[row + 1];
+      T res = 0;
+      for (int i = start; i < end; ++i) {
+        int col = Ai[i];
+        T val = Ax[i];
+        res += val * Bx[col * ldb + aBxCol];
+      }
+      int blockRow = row % BLOCK_TILE_SIZE_Y;
+      AB_thread_block_tile[blockRow * ldb + aBxCol] = res;
+    }
+  }
+
+  /// SPMM
+
+  T sum{static_cast<T>(0)};
+  for (size_t thread_block_tile_idx{0U};
+       thread_block_tile_idx < num_thread_block_tiles;
+       ++thread_block_tile_idx)
+  {
+    //TODO: change this to only load one tile.
+    load_single_tile_data_from_global_memory_to_shared_memory<
+        T, BLOCK_TILE_SIZE_X, BLOCK_TILE_SIZE_Y, BLOCK_TILE_SIZE_K,
+        NUM_THREADS>( Cx, ldc,
+                     C_thread_block_tile, thread_block_tile_idx,
+                     thread_linear_idx, m, n, k);
+#pragma unroll
+    for (size_t k_i{0U}; k_i < BLOCK_TILE_SIZE_K; ++k_i)
+    {
+      aBxCol = thread_block_tile_idx * BLOCK_TILE_SIZE_K + k_i;
+      sum += AB_thread_block_tile[threadIdx.y * ldb + aBxCol] *
              C_thread_block_tile[k_i][threadIdx.x];
     }
     __syncthreads();
