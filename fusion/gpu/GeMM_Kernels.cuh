@@ -151,6 +151,58 @@ __device__ void load_single_tile_data_from_global_memory_to_shared_memory(
   }
 }
 
+template <typename T, size_t BLOCK_TILE_SIZE_Y,
+          size_t BLOCK_TILE_SIZE_K, size_t NUM_THREADS,
+          size_t BLOCK_TILE_SKEW_SIZE_K = 0U>
+__device__ void load_columnwise_single_tile_data_from_global_memory_to_shared_memory(
+    T const* A, size_t lda,
+    T A_thread_block_tile[BLOCK_TILE_SIZE_Y]
+                         [BLOCK_TILE_SIZE_K + BLOCK_TILE_SKEW_SIZE_K],
+    size_t thread_block_tile_idx, size_t thread_linear_idx, size_t m,
+    size_t k)
+{
+  // Load data from A on DRAM to A_thread_block_tile on shared memory.
+#pragma unroll
+  for (size_t load_idx{0U};
+       load_idx < (BLOCK_TILE_SIZE_Y * BLOCK_TILE_SIZE_K + NUM_THREADS - 1U) /
+                      NUM_THREADS;
+       ++load_idx)
+  {
+    size_t const A_thread_block_tile_row_idx{
+        (thread_linear_idx + load_idx * NUM_THREADS) / BLOCK_TILE_SIZE_K};
+    size_t const A_thread_block_tile_col_idx{
+        (thread_linear_idx + load_idx * NUM_THREADS) % BLOCK_TILE_SIZE_K};
+    size_t const A_row_idx{blockIdx.y * BLOCK_TILE_SIZE_Y +
+                           A_thread_block_tile_row_idx};
+    size_t const A_col_idx{thread_block_tile_idx * BLOCK_TILE_SIZE_K +
+                           A_thread_block_tile_col_idx};
+
+    // These boundary checks might slow down the kernel to some extent.
+    // But they guarantee the correctness of the kernel for all
+    // different GEMM configurations.
+    T val{static_cast<T>(0)};
+    if (A_row_idx < m && A_col_idx < k)
+    {
+      val = A[A_row_idx * lda + A_col_idx];
+    }
+    // This if will slow down the kernel.
+    // Add static asserts from the host code to guarantee this if is
+    // always true.
+    static_assert(BLOCK_TILE_SIZE_K * BLOCK_TILE_SIZE_Y % NUM_THREADS ==
+                  0U);
+    // if (A_thread_block_tile_row_idx < BLOCK_TILE_SIZE_Y &&
+    //     A_thread_block_tile_col_idx < BLOCK_TILE_SIZE_K)
+    // {
+    //     A_thread_block_tile[A_thread_block_tile_row_idx]
+    //                        [A_thread_block_tile_col_idx] = val;
+    // }
+    A_thread_block_tile[A_thread_block_tile_row_idx]
+                       [A_thread_block_tile_col_idx] = val;
+  }
+}
+
+
+
 template <typename T, size_t BLOCK_TILE_SIZE_X, size_t BLOCK_TILE_SIZE_Y,
           size_t BLOCK_TILE_SIZE_K>
 __global__ void gemm2DBlocking(size_t m, size_t n, size_t k, T alpha, T const* A,
@@ -503,5 +555,70 @@ __global__ void fusedSpMM1DSMGeMM2DBlocking(size_t m, size_t n, size_t k,
   }
 }
 
+template <typename T, size_t BLOCK_TILE_SIZE_X, size_t BLOCK_TILE_SIZE_Y,
+          size_t BLOCK_TILE_SIZE_K>
+__global__ void fusedSpMM2DGeMMAStationary(size_t m, size_t n, size_t k,
+                                           const int *Ap, const int *Ai, const T* Ax,
+                                           T alpha, T const*Bx, size_t ldb,
+                                           T const* Cx, size_t ldc, T beta,T* ABx,
+                                           T* Xx){
+  constexpr size_t NUM_THREADS{BLOCK_TILE_SIZE_X * BLOCK_TILE_SIZE_Y};
+  size_t const thread_linear_idx{threadIdx.y * blockDim.x + threadIdx.x};
+
+  // Compute the row and column of C that this thread is responsible for.
+  size_t const AB_col_idx{blockIdx.x * blockDim.x + threadIdx.x};
+  size_t const AB_row_idx{blockIdx.y * blockDim.y + threadIdx.y};
+  // Cache a tile of A and B in shared memory for data reuse.
+  __shared__ T AB_thread_block_tile[BLOCK_TILE_SIZE_Y][BLOCK_TILE_SIZE_K];
+  __shared__ T C_thread_block_tile[BLOCK_TILE_SIZE_K][BLOCK_TILE_SIZE_X];
+
+  size_t const num_thread_block_tiles{(n + BLOCK_TILE_SIZE_X - 1) /
+                                      BLOCK_TILE_SIZE_X};
+
+  //TODO: SpMM outside of the for loop.
+  /// SPMM
+
+  if (AB_col_idx < n && AB_row_idx < m){
+    int start = Ap[AB_row_idx];
+    int end = Ap[AB_row_idx + 1];
+    T res = 0;
+    for (int i = start; i < end; ++i) {
+      int col = Ai[i];
+      T val = Ax[i];
+      res += val * Bx[col * ldb + AB_col_idx];
+    }
+    AB_thread_block_tile[threadIdx.y][threadIdx.x] = res;
+  }
+
+  /// SPMM
+
+
+  for (size_t thread_block_tile_idx{0U};
+       thread_block_tile_idx < num_thread_block_tiles;
+       ++thread_block_tile_idx)
+  {
+
+    T sum{static_cast<T>(0)};
+    //TODO: This part needs change to iterate over columns of C and Xx
+    load_columnwise_single_tile_data_from_global_memory_to_shared_memory<
+        T, BLOCK_TILE_SIZE_K, BLOCK_TILE_SIZE_X,
+        NUM_THREADS>( Cx, ldc,
+                     C_thread_block_tile, thread_block_tile_idx,
+                     thread_linear_idx, k, n);
+#pragma unroll
+    for (size_t k_i{0U}; k_i < BLOCK_TILE_SIZE_K; ++k_i)
+    {
+
+      sum += AB_thread_block_tile[threadIdx.y][k_i] *
+             C_thread_block_tile[k_i][threadIdx.x];
+    }
+    __syncthreads();
+    int C_row_idx = blockIdx.y * BLOCK_TILE_SIZE_Y + threadIdx.y;
+    int C_col_idx = thread_block_tile_idx * BLOCK_TILE_SIZE_X + threadIdx.x;
+    if (C_row_idx < m && C_col_idx < n){
+      atomicAdd(&Xx[C_row_idx * ldc + C_col_idx], alpha * sum);
+    }
+  }
+}
 
 #endif // SPARSE_FUSION_GEMM_KERNELS_CUH

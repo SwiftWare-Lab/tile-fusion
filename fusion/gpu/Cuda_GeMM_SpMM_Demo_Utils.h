@@ -472,4 +472,49 @@ public:
       : GeMMSpMMCPU(In1, Stat1) {}
 };
 
+class FusedSpMM2DGeMM2DAStationaryGPU : public GeMMSpMMCPU {
+protected:
+  int GeMM_MGridDim;
+  int GeMM_NGridDim;
+  int GeMM_MBlockDim;
+  int GeMM_NBlockDim;
+
+  static constexpr unsigned int BLOCK_TILE_SIZE_X{32U};
+  static constexpr unsigned int BLOCK_TILE_SIZE_Y{32U};
+  static constexpr unsigned int BLOCK_TILE_SIZE_K{32U};
+  static constexpr unsigned int NUM_THREADS{BLOCK_TILE_SIZE_X *
+                                            BLOCK_TILE_SIZE_Y};
+
+  void setup() override {
+    GeMMSpMMCPU::setup();
+    GeMM_NGridDim = CEIL(InTensor->N, BLOCK_TILE_SIZE_X);
+    GeMM_MGridDim = CEIL(InTensor->M, BLOCK_TILE_SIZE_Y);
+    GeMM_NBlockDim = BLOCK_TILE_SIZE_X;
+    GeMM_MBlockDim = BLOCK_TILE_SIZE_Y;
+  }
+
+  Timer execute() override {
+    OutTensor->reset();
+    Timer t1;
+    dim3 geMMGridDim(GeMM_NGridDim, GeMM_MGridDim, 1);
+    dim3 geMMBlockDim(GeMM_NBlockDim, GeMM_MBlockDim, 1);
+    t1.startGPU();
+    fusedSpMM2DGeMMAStationary<float, BLOCK_TILE_SIZE_X, BLOCK_TILE_SIZE_Y,
+                                BLOCK_TILE_SIZE_K><<<geMMGridDim,
+                                                     geMMBlockDim>>>(
+        InTensor->M, InTensor->N, InTensor->K,
+        InTensor->DACsrAp, InTensor->DACsrI, InTensor->DACsrVal,(float)1., InTensor->DCx,
+        InTensor->K, InTensor->DBx, InTensor->N, (float)0.,
+        OutTensor->DACx, OutTensor->DXx);
+    cudaDeviceSynchronize();
+    t1.stopGPU("UnfusedGeMMSpMM");
+    OutTensor->copyDeviceToHost();
+    return t1;
+  }
+
+public:
+  FusedSpMM2DGeMM2DAStationaryGPU(CudaGeMMSpMMTensorInputs *In1, Stats *Stat1)
+      : GeMMSpMMCPU(In1, Stat1) {}
+};
+
 #endif // SPARSE_FUSION_CUDA_GEMM_SPMM_DEMO_UTILS_H

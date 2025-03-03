@@ -99,6 +99,14 @@ int main (const int argc, const char *argv[]) {
   delete fusedSpMM2DGeMM;
   delete stats;
 
+  stats = new swiftware::benchmark::Stats("GPU_Fused_SpMM2DGeMM_AStationary_Demo","SpMM", numTrial,tp._matrix_name,numThread);
+  auto *fusedSpMM2DGeMMAStationary = new FusedSpMM2DGeMM2DGPU(inSpMM,stats);
+  fusedSpMM2DGeMMAStationary->run();
+  //  fusedSpMM2DGeMMAStationary->OutTensor->printDx();
+  auto fusedSpMM2DGeMMAStationaryStat = fusedSpMM2DGeMMAStationary->printStats();
+  delete fusedSpMM2DGeMMAStationary;
+  delete stats;
+
   std::string profHeader = "";
   std::string profStat = "";
 
@@ -116,6 +124,7 @@ int main (const int argc, const char *argv[]) {
   std::cout << unfusedGeMMSpMMStat + spStat + tpStat + profStat << std::endl;
   std::cout << fusedGeMMSpMMStat + spStat + tpStat + profStat << std::endl;
   std::cout << fusedSpMM2DGeMMStat + spStat + tpStat + profStat << std::endl;
+  std::cout << fusedSpMM2DGeMMAStationaryStat + spStat + tpStat + profStat << std::endl;
   std::cout << fusedSpMM1DGeMMStat + spStat + tpStat + profStat << std::endl;
   std::cout << fusedSpMM1DSMGeMMStat + spStat + tpStat + profStat << std::endl;
 
