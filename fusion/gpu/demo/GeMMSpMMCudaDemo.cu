@@ -67,6 +67,15 @@ int main (const int argc, const char *argv[]) {
   delete unfusedGeMMSpMM;
   delete stats;
 
+
+  stats = new swiftware::benchmark::Stats("GPU_Unfused_GeMMAStationarySpMM_Demo","SpMM", numTrial,tp._matrix_name,numThread);
+  auto *unfusedGeMMSpMMAS = new UnfusedGeMMAStationarySpMMGPU(inSpMM,stats);
+  unfusedGeMMSpMMAS->run();
+        unfusedGeMMSpMMAS->OutTensor->printDx();
+  auto unfusedGeMMSpMMASStat = unfusedGeMMSpMMAS->printStats();
+  delete unfusedGeMMSpMMAS;
+  delete stats;
+
   stats = new swiftware::benchmark::Stats("GPU_Fused_GeMMSpMM_Demo","SpMM", numTrial,tp._matrix_name,numThread);
   auto *fusedGeMMSpMM = new FusedGeMMSpMMGPU(inSpMM,stats);
   fusedGeMMSpMM->run();
@@ -100,7 +109,7 @@ int main (const int argc, const char *argv[]) {
   delete stats;
 
   stats = new swiftware::benchmark::Stats("GPU_Fused_SpMM2DGeMM_AStationary_Demo","SpMM", numTrial,tp._matrix_name,numThread);
-  auto *fusedSpMM2DGeMMAStationary = new FusedSpMM2DGeMM2DGPU(inSpMM,stats);
+  auto *fusedSpMM2DGeMMAStationary = new FusedSpMM2DGeMM2DAStationaryGPU(inSpMM,stats);
   fusedSpMM2DGeMMAStationary->run();
   //  fusedSpMM2DGeMMAStationary->OutTensor->printDx();
   auto fusedSpMM2DGeMMAStationaryStat = fusedSpMM2DGeMMAStationary->printStats();
@@ -122,6 +131,7 @@ int main (const int argc, const char *argv[]) {
     std::cout << headerStat + spHeader + tpHeader + profHeader << std::endl;
   std::cout << cpuGeMMSpMMStat + spStat + tpStat + profStat << std::endl;
   std::cout << unfusedGeMMSpMMStat + spStat + tpStat + profStat << std::endl;
+  std::cout << unfusedGeMMSpMMASStat + spStat + tpStat + profStat << std::endl;
   std::cout << fusedGeMMSpMMStat + spStat + tpStat + profStat << std::endl;
   std::cout << fusedSpMM2DGeMMStat + spStat + tpStat + profStat << std::endl;
   std::cout << fusedSpMM2DGeMMAStationaryStat + spStat + tpStat + profStat << std::endl;

@@ -193,6 +193,70 @@ public:
   }
 };
 
+class UnfusedGeMMAStationarySpMMGPU : public GeMMSpMMCPU {
+protected:
+  int SpMM_MGridDim;
+  int SpMM_NGridDim;
+  int SpMM_MBlockDim;
+  int SpMM_NBlockDim;
+  int SpMM_ThreadPerBlock;
+  int GeMM_MGridDim;
+  int GeMM_NGridDim;
+  int GeMM_MBlockDim;
+  int GeMM_NBlockDim;
+
+  static constexpr unsigned int BLOCK_TILE_SIZE_X{32U};
+  static constexpr unsigned int BLOCK_TILE_SIZE_Y{32U};
+  static constexpr unsigned int BLOCK_TILE_SIZE_K{32U};
+  static constexpr unsigned int NUM_THREADS{BLOCK_TILE_SIZE_X *
+                                            BLOCK_TILE_SIZE_Y};
+
+  void setup() override {
+    GeMMSpMMCPU::setup();
+    SpMM_NGridDim = CEIL(InTensor->N, SpMM_ThreadPerBlock);
+    SpMM_NBlockDim = MIN(InTensor->N, SpMM_ThreadPerBlock);
+    SpMM_MBlockDim = CEIL(SpMM_ThreadPerBlock, SpMM_NBlockDim);
+    SpMM_MGridDim = CEIL(InTensor->M, SpMM_MBlockDim);
+    GeMM_NGridDim = CEIL(InTensor->N, BLOCK_TILE_SIZE_X);
+    GeMM_MGridDim = CEIL(InTensor->M, BLOCK_TILE_SIZE_Y);
+    GeMM_NBlockDim = BLOCK_TILE_SIZE_X;
+    GeMM_MBlockDim = BLOCK_TILE_SIZE_Y;
+  }
+
+  Timer execute() override {
+    OutTensor->reset();
+    Timer t1;
+    dim3 spMMGridDim(SpMM_MGridDim, SpMM_NGridDim, 1);
+    dim3 spMMBlockDim(SpMM_NBlockDim, SpMM_MBlockDim, 1);
+    dim3 geMMGridDim(GeMM_NGridDim, GeMM_MGridDim, 1);
+    dim3 geMMBlockDim(GeMM_NBlockDim, GeMM_MBlockDim, 1);
+    t1.startGPU();
+    gemmAStationary2DBlocking<float, BLOCK_TILE_SIZE_X, BLOCK_TILE_SIZE_Y,
+                   BLOCK_TILE_SIZE_K><<<geMMGridDim, geMMBlockDim>>>(
+        InTensor->L, InTensor->N, InTensor->K, (float)1., InTensor->DCx,
+        InTensor->K, InTensor->DBx, InTensor->N, (float)0., OutTensor->DACx,
+        InTensor->N);
+    // TODO: Since I know kernel calls are nonBlocking I used this. Is this the
+    // right way?
+    //  I might need to test without synchronization to make sure nonBlocking
+    //  property of kernel calls is valid.
+    cudaDeviceSynchronize();
+    csrspmm_seqreduce_rowbalance_kernel<<<spMMGridDim, spMMBlockDim>>>(
+        InTensor->M, InTensor->N, InTensor->L, InTensor->DACsrAp,
+        InTensor->DACsrI, InTensor->DACsrVal, OutTensor->DACx, OutTensor->DXx);
+    cudaDeviceSynchronize();
+    t1.stopGPU("UnfusedGeMMSpMM");
+    OutTensor->copyDeviceToHost();
+    return t1;
+  }
+
+public:
+  UnfusedGeMMAStationarySpMMGPU(CudaGeMMSpMMTensorInputs *In1, Stats *Stat1)
+      : GeMMSpMMCPU(In1, Stat1) {
+    SpMM_ThreadPerBlock = 128;
+  }
+};
+
 
 class FusedGeMMSpMMGPU : public UnfusedGeMMSpMMGPU {
 protected:

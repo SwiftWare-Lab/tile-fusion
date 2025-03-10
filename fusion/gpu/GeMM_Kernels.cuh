@@ -201,7 +201,43 @@ __device__ void load_columnwise_single_tile_data_from_global_memory_to_shared_me
   }
 }
 
+template <typename T, size_t BLOCK_TILE_SIZE_Y,
+          size_t BLOCK_TILE_SIZE_K, size_t NUM_THREADS,
+          size_t BLOCK_TILE_SKEW_SIZE_K = 0U>
+__device__ void load_thread_block_tile_from_global_memory_to_shared_memory(
+    T const* A, size_t lda,
+    T A_thread_block_tile[BLOCK_TILE_SIZE_Y]
+                         [BLOCK_TILE_SIZE_K + BLOCK_TILE_SKEW_SIZE_K],
+    size_t m, size_t k)
+{
+  // Load data from A on DRAM to A_thread_block_tile on shared memory.
+    size_t const A_row_idx{blockIdx.y * BLOCK_TILE_SIZE_Y +
+                           threadIdx.y};
+    size_t const A_col_idx{blockIdx.x * BLOCK_TILE_SIZE_K +
+                           threadIdx.x};
 
+    // These boundary checks might slow down the kernel to some extent.
+    // But they guarantee the correctness of the kernel for all
+    // different GEMM configurations.
+    T val{static_cast<T>(0)};
+    if (A_row_idx < m && A_col_idx < k)
+    {
+      val = A[A_row_idx * lda + A_col_idx];
+    }
+    // This if will slow down the kernel.
+    // Add static asserts from the host code to guarantee this if is
+    // always true.
+    static_assert(BLOCK_TILE_SIZE_K * BLOCK_TILE_SIZE_Y % NUM_THREADS ==
+                  0U);
+    // if (A_thread_block_tile_row_idx < BLOCK_TILE_SIZE_Y &&
+    //     A_thread_block_tile_col_idx < BLOCK_TILE_SIZE_K)
+    // {
+    //     A_thread_block_tile[A_thread_block_tile_row_idx]
+    //                        [A_thread_block_tile_col_idx] = val;
+    // }
+    A_thread_block_tile[threadIdx.y]
+                       [threadIdx.x] = val;
+}
 
 template <typename T, size_t BLOCK_TILE_SIZE_X, size_t BLOCK_TILE_SIZE_Y,
           size_t BLOCK_TILE_SIZE_K>
@@ -259,6 +295,71 @@ __global__ void gemm2DBlocking(size_t m, size_t n, size_t k, T alpha, T const* A
     C[C_row_idx * ldc + C_col_idx] =
         alpha * sum + beta * C[C_row_idx * ldc + C_col_idx];
   }
+}
+
+template <typename T, size_t BLOCK_TILE_SIZE_X, size_t BLOCK_TILE_SIZE_Y,
+          size_t BLOCK_TILE_SIZE_K>
+__global__ void gemmAStationary2DBlocking(size_t m, size_t n, size_t k, T alpha, T const* A,
+                               size_t lda, T const* B, size_t ldb, T beta, T* C,
+                               size_t ldc)
+{
+  // Avoid using blockDim.x * blockDim.y as the number of threads per block.
+  // Because it is a runtime constant and the compiler cannot optimize the
+  // loop unrolling based on that.
+  // Use a compile time constant instead.
+  constexpr size_t NUM_THREADS{BLOCK_TILE_SIZE_X * BLOCK_TILE_SIZE_Y};
+  size_t const thread_linear_idx{threadIdx.y * blockDim.x + threadIdx.x};
+  
+  // Cache a tile of A and B in shared memory for data reuse.
+  __shared__ T A_thread_block_tile[BLOCK_TILE_SIZE_Y][BLOCK_TILE_SIZE_K];
+  __shared__ T B_thread_block_tile[BLOCK_TILE_SIZE_K][BLOCK_TILE_SIZE_X];
+
+  size_t const num_thread_block_tiles{(n + BLOCK_TILE_SIZE_X - 1) /
+                                      BLOCK_TILE_SIZE_X};
+
+  load_thread_block_tile_from_global_memory_to_shared_memory<float,
+                                                             BLOCK_TILE_SIZE_Y,
+                                                             BLOCK_TILE_SIZE_K,
+                                                             NUM_THREADS>(
+      A, lda, A_thread_block_tile, m, k);
+
+
+  for (size_t thread_block_tile_idx{0U};
+       thread_block_tile_idx < num_thread_block_tiles;
+       ++thread_block_tile_idx)
+  {
+    load_columnwise_single_tile_data_from_global_memory_to_shared_memory<
+        T, BLOCK_TILE_SIZE_K, BLOCK_TILE_SIZE_X,
+        NUM_THREADS>( B, ldc,
+                     B_thread_block_tile, thread_block_tile_idx,
+                     thread_linear_idx, k, n);
+    T sum{static_cast<T>(0)};
+#pragma unroll
+    for (size_t k_i{0U}; k_i < BLOCK_TILE_SIZE_K; ++k_i)
+    {
+      // Doing this results in 2 TOPS.
+      // Suppose blockDim.x = blockDim.y = 32.
+      // Effectively, for a warp, in one iteration, we read the value from
+      // A_thread_block_tile at the same location on the shared memory
+      // resulting in a broadcast, we also read 32 values that have no
+      // bank conflicts from B_thread_block_tile. Even with that, all the
+      // values have to be read from the shared memory and consequence is
+      // the shared memory instruction runs very intensively just to
+      // compute a small number of values using simple arithmetic
+      // instructions, which is not efficient.
+      sum += A_thread_block_tile[threadIdx.y][k_i] *
+             B_thread_block_tile[k_i][threadIdx.x];
+    }
+    int C_row_idx = blockIdx.y * BLOCK_TILE_SIZE_Y + threadIdx.y;
+    int C_col_idx = thread_block_tile_idx * BLOCK_TILE_SIZE_X + threadIdx.x;
+
+    if (C_row_idx < m && C_col_idx < n)
+    {
+      atomicAdd(&C[C_row_idx * ldc + C_col_idx], alpha * sum);
+    }
+    __syncthreads();
+  }
+
 }
 
 
