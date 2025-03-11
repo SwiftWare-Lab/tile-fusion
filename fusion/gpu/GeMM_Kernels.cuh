@@ -172,7 +172,7 @@ __device__ void load_columnwise_single_tile_data_from_global_memory_to_shared_me
         (thread_linear_idx + load_idx * NUM_THREADS) / BLOCK_TILE_SIZE_K};
     size_t const A_thread_block_tile_col_idx{
         (thread_linear_idx + load_idx * NUM_THREADS) % BLOCK_TILE_SIZE_K};
-    size_t const A_row_idx{blockIdx.y * BLOCK_TILE_SIZE_Y +
+    size_t const A_row_idx{blockIdx.x * BLOCK_TILE_SIZE_Y +
                            A_thread_block_tile_row_idx};
     size_t const A_col_idx{thread_block_tile_idx * BLOCK_TILE_SIZE_K +
                            A_thread_block_tile_col_idx};
@@ -352,7 +352,6 @@ __global__ void gemmAStationary2DBlocking(size_t m, size_t n, size_t k, T alpha,
     }
     int C_row_idx = blockIdx.y * BLOCK_TILE_SIZE_Y + threadIdx.y;
     int C_col_idx = thread_block_tile_idx * BLOCK_TILE_SIZE_X + threadIdx.x;
-
     if (C_row_idx < m && C_col_idx < n)
     {
       atomicAdd(&C[C_row_idx * ldc + C_col_idx], alpha * sum);
