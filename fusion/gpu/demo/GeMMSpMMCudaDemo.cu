@@ -71,7 +71,7 @@ int main (const int argc, const char *argv[]) {
   stats = new swiftware::benchmark::Stats("GPU_Unfused_GeMMAStationarySpMM_Demo","SpMM", numTrial,tp._matrix_name,numThread);
   auto *unfusedGeMMSpMMAS = new UnfusedGeMMAStationarySpMMGPU(inSpMM,stats);
   unfusedGeMMSpMMAS->run();
-        unfusedGeMMSpMMAS->OutTensor->printDx();
+//        unfusedGeMMSpMMAS->OutTensor->printDx();
   auto unfusedGeMMSpMMASStat = unfusedGeMMSpMMAS->printStats();
   delete unfusedGeMMSpMMAS;
   delete stats;

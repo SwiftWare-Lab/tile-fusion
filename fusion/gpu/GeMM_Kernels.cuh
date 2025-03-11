@@ -309,7 +309,7 @@ __global__ void gemmAStationary2DBlocking(size_t m, size_t n, size_t k, T alpha,
   // Use a compile time constant instead.
   constexpr size_t NUM_THREADS{BLOCK_TILE_SIZE_X * BLOCK_TILE_SIZE_Y};
   size_t const thread_linear_idx{threadIdx.y * blockDim.x + threadIdx.x};
-  
+
   // Cache a tile of A and B in shared memory for data reuse.
   __shared__ T A_thread_block_tile[BLOCK_TILE_SIZE_Y][BLOCK_TILE_SIZE_K];
   __shared__ T B_thread_block_tile[BLOCK_TILE_SIZE_K][BLOCK_TILE_SIZE_X];
