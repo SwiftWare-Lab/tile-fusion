@@ -360,7 +360,7 @@ def plot_gcn(log_folder, log_file_name, config,ex_mat_list):
     df_fusion_sorted.sort_values(by=['NNZ'], key=lambda nnz: nnz / (df_fusion_sorted['nRows'] ** 2), inplace=True)
     mat_list = list(df_fusion['MatrixName'].unique())
     # mat_list = [mat for mat in mat_list if mat in ex_mat_list]
-    # mat_list.remove('Queen_4147.mtx')
+    mat_list.remove('Queen_4147.mtx')
     # mat_list.remove('sx-stackoverflow.mtx')
     # mat_list.remove('Bump_2911.mtx')
     # mat_list.remove('pa2010.mtx')
@@ -463,8 +463,8 @@ def plot_gcn(log_folder, log_file_name, config,ex_mat_list):
         # ax = axs[i]
         new_gflops = {}
         new_speed_ups = {}
-        for m, mat in enumerate(mat_list):
-            print(mat, ":", target_speed_up['GCN_SingleLayer_UnFused'][m])
+        # for m, mat in enumerate(mat_list):
+            # print(mat, ":", target_speed_up['GCN_SingleLayer_UnFused'][m])
         for impl in impls:
             color = colors.pop()
             # ax.scatter(plt_x, gflops[impl], color='white', edgecolor=impl_colors[impl], label=impl_representations[impl],
@@ -475,15 +475,16 @@ def plot_gcn(log_folder, log_file_name, config,ex_mat_list):
                 gflops[impl] = gflops[impl]*2
                 target_speed_up[impl] = target_speed_up[impl]/2
                 print(impl, ":", geo_mean_overflow(target_speed_up[impl]))
-            ax.plot(plt_x, gflops[impl], color=impl_colors[impl], label=impl_representations[impl], linewidth='1')
+            ax.plot(nnz_list, gflops[impl], color=impl_colors[impl], label=impl_representations[impl], linewidth='1')
+            ax.set_xscale('log')
         # for impl, bar in bars.items():
-        # ax.set_xlabel('NNZ', fontsize=15)
-        ax.set_title('bCol=cCol='+str(bcol)+',sp', fontsize=15)
+        ax.set_xlabel('NNZ', fontsize=15)
+        # ax.set_title('bCol=cCol='+str(bcol)+',sp', fontsize=15)
         # ax.set_xticks([])
-        ax.legend(loc='upper center', bbox_to_anchor=(0.46,1.5),fontsize=15, ncol=2,handletextpad=0.2)
+        ax.legend(loc='upper center', bbox_to_anchor=(0.8,1),fontsize=15, ncol=1,handletextpad=0.1,frameon=False)
         ax.spines[['right', 'top']].set_visible(False)
         mat_representations = [mat[:-4].split("_")[0] for mat in mat_list]
-        ax.set_xticks(plt_x, mat_representations, rotation='vertical')
+        # ax.set_xticks(plt_x, mat_representations, rotation='vertical')
         # ax.legend()
     file_name = log_folder.split('/')[-1] + ".eps"
     plot_path = os.path.join(log_folder, file_name)
@@ -503,7 +504,7 @@ def plot_gcn_from_logs_folder(logs_folder, config_file, mat_list_file,should_mer
         mat_list = f.readlines()
     mat_list = [x.strip() for x in mat_list]
     config = import_config(config_file)
-    plot_gcn(logs_folder, "spmv_spmv_64_0.csv", config, mat_list)
+    plot_gcn(logs_folder, "merged.csv", config, mat_list)
     # plot_stack_bar(logs_folder, "merged.csv", config)
     # plot_performance_vs_fused_ratio(logs_folder, entry.name, config)
     # print_fusion_ratios(logs_folder, entry.name)

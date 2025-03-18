@@ -90,12 +90,18 @@ implementations:
 #    tuned: True
 #    tune_parameters:
 #      - "Iter Per Partition"
-#  - name: "SpMM_SpMM_FusedParallel_VariableTileSize"
-#    representation: "Tile Fused"
-#    color: "maroon"
+#  - name: "SpMM_SpMM_VT_FusedParallelAvx256"
+#    representation: "Tile Fused VT"
+#    color: "seagreen"
+#    tuned: False
+#    tune_parameters:
+#      - "MTile"
+#  - name: "SpMM_SpMM_VT_RO_FusedParallelAvx256"
+#    representation: "Tile Fusion"
+#    color: "goldenrod"
 #    tuned: True
 #    tune_parameters:
-#      - "Iter Per Partition"
+#      - "MTile"
 #  - name: "SpMM_SpMM_FusedParallel_BFS"
 #    representation: "Tile Fused BFS"
 #    color: "red"
@@ -107,26 +113,26 @@ implementations:
 #    color: "deepskyblue"
 #    tuned: False
 #####
-  - name: "SpMM_SpMM_FusedParallelAvx512"
-    representation: "Tile Fusion"
-    color: "maroon"
-    tuned: True
-    tune_parameters:
-      - "Iter Per Partition"
-#  - name: "SpMM_SpMM_UnFusedParallel_VectorizedAvx256"
-#    representation: "UnFused Baseline"
-#    color: "deepskyblue"
-#    tuned: False
-#  - name: "SpMM_SpMM_UnFusedParallelAvx256"
-#    representation: "UnFused Baseline"
-#    color: "deepskyblue"
-#    tuned: False
-#  - name: "SpMM_SpMM_FusedParallelAvx256"
+#  - name: "SpMM_SpMM_FusedParallelAvx512"
 #    representation: "Tile Fusion"
 #    color: "maroon"
 #    tuned: True
 #    tune_parameters:
 #      - "Iter Per Partition"
+#  - name: "SpMM_SpMM_UnFusedParallel_VectorizedAvx256"
+#    representation: "UnFused Baseline"
+#    color: "deepskyblue"
+#    tuned: False
+  - name: "SpMM_SpMM_UnFusedParallelAvx256"
+    representation: "UnFused Baseline"
+    color: "deepskyblue"
+    tuned: False
+  - name: "SpMM_SpMM_FusedParallelAvx256"
+    representation: "Tile Fusion"
+    color: "maroon"
+    tuned: True
+    tune_parameters:
+      - "Iter Per Partition"
 #  - name: "SpMM_SpMM_FusedParallel_Conditional_Interleaved_Avx512"
 #    representation: "Fused Conditional Interleaved"
 #    color: "goldenrod"
@@ -139,8 +145,27 @@ implementations:
 #    tuned: True
 #    tune_parameters:
 #      - "Iter Per Partition"
-#  - name: "SpMM_SpMM_Mixed_FusedParallel"
-#    color: "red"
+#  - name: "SpMM_SpMM_SMatReuse_RO_FusedParallelAvx256"
+#    representation: "Tile Fusion RO"
+#    color: "goldenrod"
+#    tuned: True
+#    tune_parameters:
+#      - "Iter Per Partition"
+#  - name: "SpMM_SpMM_SMatReuse_FusedParallelAvx256"
+#    representation: "Tile Fusion"
+#    color: "black"
+#    tuned: True
+#    tune_parameters:
+#      - "Iter Per Partition"
+#  - name: "SpMM_SpMM_SMatReuseVT_RO_FusedParallelAvx256"
+#    representation: "Tile Fusion"
+#    color: "black"
+#    tuned: True
+#    tune_parameters:
+#      - "Iter Per Partition"
+#  - name: "SpMM_SpMM_SMatReuse_P2P_FusedParallelAvx256"
+#    representation: "Tile Fusion P2P"
+#    color: "black"
 #    tuned: True
 #    tune_parameters:
 #      - "Iter Per Partition"
@@ -168,4 +193,7 @@ matrices:
   - "tri-banded-10000.mtx"
   - "tri-banded.mtx"
 baseline: "SpMM_SpMM_MKL"
-target: "SpMM_SpMM_FusedParallelAvx512"
+target: "SpMM_SpMM_FusedParallelAvx256"
+ordered_impls:
+  - "SpMM_SpMM_VT_FusedParallelAvx256"
+  - "SpMM_SpMM_VT_RO_FusedParallelAvx256"

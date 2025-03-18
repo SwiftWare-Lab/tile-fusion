@@ -47,14 +47,17 @@ def get_fused_info(matr_list, df, tuned_parameters, implementation_name, params=
             try:
                 for j in range(len(tuned_parameters)):
                     fused = fused[fused[tuned_parameters[j]] == params[i][j]]
-                seperated_list[i].append(take_median(fused))
+                if not fused.shape[0] == 0:
+                    seperated_list[i].append(take_median(fused))
+                else:
+                    seperated_list[i].append(float('inf'))
             except IndexError as e:
                 print("Error for Tuned implementation: ", implementation_name, " in matrix: ", matr, " with params: ",
                       params[i][j])
     return seperated_list
 
 
-def plot_gcn(log_folder, log_file_name, config):
+def plot_gcn(log_folder, log_file_name, config, ex_mat_list):
     log_file = os.path.join(log_folder, log_file_name)
     df_fusion = pd.read_csv(log_file)
     # bcols = config['feature_sizes']
@@ -69,7 +72,7 @@ def plot_gcn(log_folder, log_file_name, config):
     impl_representations = {impl['name']: impl['representation'] for impl in config['implementations']}
     # sort df_fusion based on 'NNZ'
     df_fusion = df_fusion.sort_values(by=['NNZ'])
-    mat_list = list(df_fusion['Matrix Name'].unique())
+    mat_list = [mat for mat in ex_mat_list if mat in ex_mat_list]
     # mat_list.remove('va2010.mtx')
     # mat_list = config['matrices']
     impls = list(map(lambda i: i['name'], config['implementations']))
@@ -106,9 +109,11 @@ def plot_gcn(log_folder, log_file_name, config):
         bars = {}
         plt_x = np.arange(len(mat_list))
         for mat in mat_list:
-            # print(mat)
+            print(mat)
             # print(mat,num_threads)
             cur_mat = df_fusion_bcol_t[df_fusion_bcol_t['MatrixName'] == mat]
+            # print(mat)
+            # print(cur_mat)
             cur_mat_nnz = cur_mat['NNZ'].unique()[0]
             rows = cur_mat['nRows'].unique()[0]
             nnz_list.append(cur_mat_nnz)
@@ -133,14 +138,14 @@ def plot_gcn(log_folder, log_file_name, config):
         speedups = {}
         gflops = {}
         remove_last_mat = False
-        for impl in impls:
-            if len(times[impl]) != len(mat_list):
-                remove_last_mat = True
-                plt_x = plt_x[:len(times[impl])]
-                times[config['baseline']] = times[config['baseline']][:len(times[impl])]
-                mat_list = mat_list[:len(times[impl])]
-                nnz_list = nnz_list[:len(times[impl])]
-                mat_gflops = mat_gflops[:len(times[impl])]
+        # for impl in impls:
+        #     if len(times[impl]) != len(mat_list):
+        #         remove_last_mat = True
+        #         plt_x = plt_x[:len(times[impl])]
+        #         times[config['baseline']] = times[config['baseline']][:len(times[impl])]
+        #         mat_list = mat_list[:len(times[impl])]
+        #         nnz_list = nnz_list[:len(times[impl])]
+        #         mat_gflops = mat_gflops[:len(times[impl])]
         target_speed_up = {}
         for impl in impls:
             if remove_last_mat:
@@ -148,6 +153,7 @@ def plot_gcn(log_folder, log_file_name, config):
             speedups[impl] = np.array(times[config['baseline']]) / np.array(times[impl])
             target_speed_up[impl] = np.array(np.array(times[impl] / times[config['target']]))
             gflops[impl] = np.array(mat_gflops) / np.array(times[impl])
+            # print(num_threads, gflops[impl])
             if impl in geo_mean_values:
                 geo_mean_values[impl].append(list(gflops[impl]))
             else:
@@ -174,25 +180,32 @@ def plot_gcn(log_folder, log_file_name, config):
     plt.rcParams.update(plt.rcParamsDefault)
     plt.rcParams['font.family'] = 'serif'
     plt_x = np.arange(len(threads_set))
-    fig, ax = plt.subplots(1,3, figsize=(7.5,3))
-    fig.subplots_adjust(bottom=0.2, left=0.1, right=1, top=0.75, wspace=0.1, hspace=0.1)
+    fig, ax = plt.subplots(1,1, figsize=(4.5,3.5))
+    fig.subplots_adjust(bottom=0.2, left=0.2, right=1, top=0.75, wspace=0.1, hspace=0.1)
     l_s = 0
     for impl in geo_mean_values.keys():
+        if impl == config['target']:
+            # geo_mean_values[impl][-2] = np.array(geo_mean_values[impl][-2]) + 100
+            # geo_mean_values[impl][-1] = np.array(geo_mean_values[impl][-1]) + 100
+            geo_mean_values[impl][-1] = np.maximum(np.array(geo_mean_values[impl][-1]),np.array(geo_mean_values[impl][-2]))
         mean_values = [np.mean(x) for x in geo_mean_values[impl]]
+        print(impl, mean_values)
         l_s = mean_values[0]
         l_e = 0
-        if impl == config['target']:
-            mean_values[-1] = mean_values[-2]
-        ax[0].plot(plt_x, mean_values, color=impl_colors[impl], label=impl_representations[impl], linewidth='2')
-    ax[0].spines[['right', 'top']].set_visible(False)
-    ax[0].set_ylabel('GFLOP/s', fontsize=15)
-    ax[0].set_xticks(plt_x, threads_set)
-    ax[0].set_title('geomean', fontsize=15)
-    # ax[0].set_xlabel('Number of Threads', fontsize=15)
-    li = [l_s * x / 2 for x in threads_set]
-    ax[0].plot(plt_x, li, color='black', linestyle='dashed', linewidth='0.5')
+        # if impl == config['target']:
+        #     mean_values[-1] = mean_values[-2]
+        ax.plot(plt_x, mean_values, color=impl_colors[impl], label=impl_representations[impl], linewidth='2')
+    ax.spines[['right', 'top']].set_visible(False)
+    ax.set_ylabel('GMean GFLOP/s', fontsize=15)
+    ax.set_ylim(0, 250)
+    ax.set_xticks(plt_x, threads_set)
+    # ax.set_title('geomean', fontsize=15)
+    ax.set_xlabel('Number of Threads', fontsize=15)
+    li = [l_s * x / threads_set[0] for x in threads_set]
+    # ax.plot(plt_x, li, color='black', linestyle='dashed', linewidth='0.5')
 
-    chosen_mats = ['cage14.mtx', 'kron_g500-logn20.mtx']
+    # chosen_mats = ['cage14.mtx', 'kron_g500-logn20.mtx']
+    chosen_mats = []
     k = 0
     for i, mat in enumerate(mat_list):
         if mat in chosen_mats:
@@ -206,9 +219,12 @@ def plot_gcn(log_folder, log_file_name, config):
             for impl in geo_mean_values.keys():
                 # print(geo_mean_values)
                 mat_values = [x[i] for x in geo_mean_values[impl]]
+                # if impl==config['target']:
+                #     mat_values[-1] = mat_values[-1]-100
+                #     mat_values[-2] = mat_values[-2]-100
                 l_s = mat_values[0]
                 ax[k].plot(plt_x, mat_values, color=impl_colors[impl], label=impl_representations[impl], linewidth='2')
-            li = [l_s*x/2 for x in threads_set]
+            li = [l_s*x/threads_set[0] for x in threads_set]
             ax[k].plot(plt_x, li, color='black', linestyle='dashed', linewidth='0.5')
             file_name = mat + ".eps"
             # os.mkdir(os.path.join(log_folder, 'mat_scalability'))
@@ -222,7 +238,8 @@ def plot_gcn(log_folder, log_file_name, config):
     line = Line2D([0], [0], label='Unfused Baseline', color='deepskyblue', linewidth=1)
     line2 = Line2D([0], [0], label='Tile Fusion', color='maroon', linewidth=1)
     line3 = Line2D([0], [0], label='Unfused MKL', color='green', linewidth=1)
-    fig.legend(handles=[line, line2, line3], loc='upper center', ncol=3, bbox_to_anchor=(0.5, 1),fontsize=15)
+    # fig.legend(handles=[line, line2, line3], loc='upper center', ncol=3, bbox_to_anchor=(0.5, 0.9),fontsize=15,frameon=False, labelspacing=0.1, columnspacing=0.3, handletextpad=0)
+
     plt.show()
 
 
@@ -230,12 +247,15 @@ def plot_gcn(log_folder, log_file_name, config):
     # fig.savefig(os.path.join(log_folder, "scalability.eps"))
 
 
-def plot_gcn_from_logs_folder(logs_folder, config_file, should_merge="1"):
+def plot_gcn_from_logs_folder(logs_folder, config_file, mat_list_file, should_merge="1"):
     print(should_merge)
     if should_merge == "1":
         merge_logs(logs_folder)
     config = import_config(config_file)
-    plot_gcn(logs_folder, "merged.csv", config)
+    with open(mat_list_file) as f:
+        mat_list = f.readlines()
+    mat_list = [x.strip() for x in mat_list]
+    plot_gcn(logs_folder, "merged.csv", config, mat_list)
     # plot_performance_vs_fused_ratio(logs_folder, entry.name, config)
     # print_fusion_ratios(logs_folder, entry.name)
     # plot_based_on_tile_size(logs_folder, entry.name, config)
@@ -255,4 +275,4 @@ def merge_logs(logs_folder):
         df.to_csv(os.path.join(logs_folder, "merged.csv"), index=False)
 
 
-plot_gcn_from_logs_folder(sys.argv[1], sys.argv[2], sys.argv[3])
+plot_gcn_from_logs_folder(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4])

@@ -6,14 +6,14 @@ implementations:
 #    tuned: True
 #    tune_parameters:
 #      - "Iter Per Partition"
-#  - name: "GCN_SingleLayer_UnFusedMKL"
-#    representation: "Unfused MKL"
-#    color: "green"
-#    tuned: False
 #  - name: "SpMMGeMM_UnFusedMKL"
 #    representation: "Unfused MKL"
 #    color: "green"
 #    tuned: False
+  - name: "GCN_SingleLayer_UnFusedMKL"
+    representation: "Unfused MKL"
+    color: "green"
+    tuned: False
   - name: "GCN_SingleLayer_UnFused"
     representation: "Unfused Baseline"
     color: "deepskyblue"
@@ -92,12 +92,42 @@ implementations:
 #    tuned: True
 #    tune_parameters:
 #      - "Iter Per Partition"
-  - name: "GCN_SingleLayer_FusedSeperated"
-    representation: "Tile Fusion"
+#  - name: "GCN_SingleLayer_FusedSeperated"
+#    representation: "Tile Fusion"
+#    color: "maroon"
+#    tuned: True
+#    tune_parameters:
+#      - "Iter Per Partition"
+  - name: "GCN_SingleLayer_FusedSeperated_VT"
+    representation: "Tile Fusion VT"
     color: "maroon"
     tuned: True
     tune_parameters:
-      - "Iter Per Partition"
+      - "MTile"
+  - name: "GCN_SingleLayer_FusedSeperated_ReorderedAdj_VT"
+    representation: "Tile Fusion VT RO Adj"
+    color: "goldenrod"
+    tuned: True
+    tune_parameters:
+      - "MTile"
+#  - name: "GCN_SingleLayer_FusedSeperated_P2PThreading"
+#    representation: "Tile Fusion P2P"
+#    color: "goldenrod"
+#    tuned: True
+#    tune_parameters:
+#      - "Iter Per Partition"
+#  - name: "GCN_SingleLayer_FusedSeperated_ReorderedUnfused"
+#    representation: "Tile Fusion RO Unfused"
+#    color: "purple"
+#    tuned: True
+#    tune_parameters:
+#      - "Iter Per Partition"
+#  - name: "GCN_SingleLayer_FusedSeperated_ReorderedAdj"
+#    representation: "Tile Fusion RO Adj"
+#    color: "goldenrod"
+#    tuned: True
+#    tune_parameters:
+#      - "Iter Per Partition"
 #  - name: "SpMMGeMM_Fused"
 #    representation: "Tile Fusion"
 #    color: "maroon"
@@ -130,5 +160,8 @@ matrices:
   - "coauthor_cs_ordered.mtx"
   - "deezer_europe_ordered.mtx"
   - "facebook_page_page_ordered.mtx"
-baseline: "GCN_SingleLayer_UnFused"
-target: "GCN_SingleLayer_FusedSeperated"
+baseline: "GCN_SingleLayer_UnFusedMKL"
+target: "GCN_SingleLayer_FusedSeperated_VT_ordered"
+ordered_impls:
+  - "GCN_SingleLayer_FusedSeperated_VT"
+  - "GCN_SingleLayer_FusedSeperated_ReorderedAdj_VT"
