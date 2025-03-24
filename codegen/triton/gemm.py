@@ -136,7 +136,6 @@ def matmul_a_stationary_kernel(
     a_ptrs = a_ptr + (offs_am[:, None]*stride_am + offs_ak [None, :]*stride_ak)
     a_block = tl.load(a_ptrs, mask=offs_ak[None, :] < K, other=0.0)
     #print("a block", a_block)
-
     b_ptrs = b_ptr + (offs_bk[:, None]*stride_bk + offs_bn[None, :]*stride_bn)
     c_ptrs = c_ptr + (offs_am[:, None]*stride_cm + offs_bn[None, :]*stride_cn)
     for j in range(0, tl.cdiv(N, BLOCK_SIZE_N)):
