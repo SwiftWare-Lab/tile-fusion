@@ -2,8 +2,29 @@
 import triton
 import torch
 import triton.language as tl
+from numba import cuda
+from utils import get_matrix_list
 
 DEVICE = torch.device("cuda:0")
+
+@cuda.jit()
+def spmm_numba_seqreduce_kernel(
+        data, indices, ind_ptr,
+        b, c,
+        M, N, K
+):
+    row = cuda.threadIdx.y + cuda.blockIdx.x * cuda.blockDim.y
+    bcol = cuda.threadIdx.x + cuda.blockIdx.y * cuda.blockDim.x
+    if bcol < N:
+        start = ind_ptr[row]
+        end = ind_ptr[row+1]
+        res = 0
+        for p in range(start,end):
+            col = indices[p]
+            val = data[p]
+            res += val * b[col][bcol]
+        c[row][bcol] = res
+
 
 
 @triton.jit
@@ -87,6 +108,19 @@ def spmm_kernel_naive(
     #tl.store(c_ptr, 10)
 
 
+def spmm_numba_seqreduce(data, indices, indptr, b, M, N, K):
+    c = torch.zeros(M, N, dtype=torch.float32, device=DEVICE)
+    tpb = 128
+    n_block_size = min(N, tpb)
+    m_block_size = (tpb + n_block_size - 1) // n_block_size
+    grid_dim_x = (M + m_block_size - 1) // m_block_size
+    grid_dim_y = (N + n_block_size - 1) // n_block_size
+    block_dim_x = n_block_size
+    block_dim_y = m_block_size
+
+    spmm_numba_seqreduce_kernel[(grid_dim_x, grid_dim_y), (block_dim_x, block_dim_y)](data, indices, indptr, b, c, M, N, K)
+    return c
+
 def spmm_triton(data, indices, indptr, b, M, N, K):
     assert b.dtype == torch.float32, "b must be float32"
     assert data.dtype == torch.float32, "data must be float32"
@@ -164,38 +198,56 @@ if __name__ == "__main__":
     block_size_m, block_size_n = 32, 32
     # generate sparse matrix
     A = sp.random(M, K, density=density, format='csr', dtype=np.float32)
-    matrix = scio.mmread("/home/kazem/Downloads/LFAT5/LFAT5.mtx")
-    # hack
-    A = matrix.tocsr()
-    M, K = A.shape
+    mtx_list = get_matrix_list("/home/salehm32/projects/fused-gnn/fusion/data/SPD/spd_list.txt", "/home/salehm32/projects/fused-gnn/fusion/data/SPD/")
 
-    B = np.random.rand(K, N).astype(np.float32)
-    C = np.zeros((M, N), dtype=np.float32)
+    for mat_path in mtx_list:
+        print(f"------------ matrix: {mat_path}")
+        matrix = scio.mmread(mat_path)
+        A = matrix.tocsr()
+        M, K = A.shape
 
-    c1 = spmm_csr_cpu(M, A.data, A.indices, A.indptr, B, C.copy())
-    c2 = spmm_csr_blocked_cpu(M, A.data, A.indices, A.indptr, B, C.copy(), block_size_m, block_size_n)
+        B = np.random.rand(K, N).astype(np.float32)
+        C = np.zeros((M, N), dtype=np.float32)
 
-    if np.allclose(c1, c2, atol=1e-6):
-        print("Passed blocked")
-    else:
-        print("Failed blocked")
+        c1 = spmm_csr_cpu(M, A.data, A.indices, A.indptr, B, C.copy())
+        # c2 = spmm_csr_blocked_cpu(M, A.data, A.indices, A.indptr, B, C.copy(), block_size_m, block_size_n)
+
+        # if np.allclose(c1, c2, atol=1e-6):
+        #     print("Passed blocked")
+        # else:
+        #     print("Failed blocked")
 
 
-    # convert to cupy
-    A_data = torch.tensor(A.data, dtype=torch.float32, device=DEVICE)
-    A_indices = torch.tensor(A.indices, dtype=torch.int32, device=DEVICE)
-    A_indptr = torch.tensor(A.indptr, dtype=torch.int32, device=DEVICE)
-    d_B = torch.tensor(B, dtype=torch.float32, device=DEVICE)
+        # convert to cupy
+        A_data = torch.tensor(A.data, dtype=torch.float32, device=DEVICE)
+        A_indices = torch.tensor(A.indices, dtype=torch.int32, device=DEVICE)
+        A_indptr = torch.tensor(A.indptr, dtype=torch.int32, device=DEVICE)
+        d_B = torch.tensor(B, dtype=torch.float32, device=DEVICE)
 
-    # run triton kernel
-    c3 = spmm_triton(A_data, A_indices, A_indptr, d_B, M, N, K)
-    c3 = c3.cpu().numpy()
-    # print(c3[:1, :1])
-    # print(c1[:1, :1])
-    if cp.allclose(c1, c3, atol=1e-6):
-        print("Passed Triton")
-    else:
-        print("FailedTriton")
-        # print where it fails
-        print(np.where(c1 != c3))
+        # run triton kernel
+        c3 = spmm_triton(A_data, A_indices, A_indptr, d_B, M, N, K)
+        c3 = c3.cpu().numpy()
+        # print(c3[:1, :1])
+        # print(c1[:1, :1])
+        if cp.allclose(c1, c3, atol=1e-6):
+            print("Passed Triton")
+        else:
+            print("FailedTriton")
+            # print where it fails
+            print(np.where(c1 != c3))
+
+
+        data_d = cuda.to_device(A.data)
+        indices_d = cuda.to_device(A.indices)
+        indptr_d = cuda.to_device(A.indptr)
+        B_d = cuda.to_device(B)
+
+        c4 = spmm_numba_seqreduce(data_d, indices_d, indptr_d, B_d, M, N, K)
+        if cp.allclose(c1, c4, atol=1e-6):
+            print("Passed Numba")
+        else:
+            print("Failed Numba")
+            # print where it fails
+            print(np.where(c1 != c3))
+
 
