@@ -20,7 +20,6 @@ BCOL=32
 def sddmm_spmm_fused_kernel_atomic(
         row_ptr, col_ind, data_ptr,
         u_data, v_data,
-        b_data,
         M, N, K,
         c_data
 ):
@@ -46,7 +45,7 @@ def sddmm_spmm_fused_kernel_atomic(
                     res += data_ptr[i] * SA[row - start_row][j] * v_data[col][j]
 
                 for j in range(K):
-                    cuda.atomic.add(c_data, (row, j), res * b_data[col][j])
+                    cuda.atomic.add(c_data, (row, j), res * v_data[col][j])
 
 
 
@@ -55,12 +54,11 @@ def sddmm_spmm_fused_kernel_atomic(
 def sddmm_spmm_fused_kernel_intermediate_SA(
         row_ptr, col_ind, data_ptr,
         u_data, v_data,
-        b_data,
         M, N, K,
         c_data
 ):
-    SA = cuda.shared.array(shape=(S_STATIONARY_BLOCK_SIZE, KBLOCK_SIZE), dtype=numba.float32)
-    SA_intermediate = cuda.shared.array(shape=N, dtype=numba.float32)
+    SA = cuda.shared.array(shape=(S_STATIONARY_BLOCK_SIZE, KBLOCK_SIZE), dtype=np.float32)
+    SA_intermediate = cuda.shared.array(0, dtype=np.float32)
     rows_per_block = S_STATIONARY_BLOCK_SIZE
     start_row = cuda.blockIdx.y * rows_per_block
     end_row = min(M, start_row + rows_per_block)
@@ -77,17 +75,18 @@ def sddmm_spmm_fused_kernel_intermediate_SA(
         if nnz_start < nnz_end:
             for i in range(nnz_start, nnz_end, step):
                 col = col_ind[i]
-                SA_intermediate[col] = 0
+                temp_ind = i - nnz_start
+                SA_intermediate[temp_ind] = 0
                 for j in range(K):
-                    SA_intermediate[col] += data_ptr[i] * SA[row - start_row][j] * v_data[col][j]
+                    SA_intermediate[temp_ind] += data_ptr[i] * SA[row - start_row][j] * v_data[col][j]
         cuda.syncthreads()
         res = 0
         nnz_start = row_ptr[row]
-        print(nnz_start)
         for i in range(nnz_start, nnz_end):
             col = col_ind[i]
-            val = SA_intermediate[col]
-            res += val * b_data[col][u_x]
+            temp_ind = i - nnz_start
+            val = SA_intermediate[temp_ind]
+            res += val * v_data[col][u_x]
         c_data[row][u_x] = res
 
 
@@ -95,7 +94,6 @@ def sddmm_spmm_fused_kernel_intermediate_SA(
 def sddmm_spmm_fused_kernel_intermediate_res(
         row_ptr, col_ind, data_ptr,
         u_data, v_data,
-        b_data,
         M, N, K,
         res_data,
         c_data
@@ -125,10 +123,10 @@ def sddmm_spmm_fused_kernel_intermediate_res(
         for i in range(nnz_start, nnz_end):
             col = col_ind[i]
             val = res_data[i]
-            res += val * b_data[col][u_x]
+            res += val * v_data[col][u_x]
         c_data[row][u_x] = res
 
-def sddmm_spmm_unfused(indptr, indices, data, u, v, res_data, b, c, M, N, K):
+def sddmm_spmm_unfused(indptr, indices, data, u, v, res_data, c, M, N, K):
     sddmm_grid_dim_y = (M + S_STATIONARY_BLOCK_SIZE - 1) // S_STATIONARY_BLOCK_SIZE
     sddmm_grid_dim_x = (K + KBLOCK_SIZE - 1) // KBLOCK_SIZE
     sddmm_block_dim_x = KBLOCK_SIZE
@@ -138,32 +136,40 @@ def sddmm_spmm_unfused(indptr, indices, data, u, v, res_data, b, c, M, N, K):
     spmm_grid_dim_x = (M + spmm_block_dim_y - 1) // spmm_block_dim_y
     spmm_grid_dim_y = (K + spmm_block_dim_x - 1) // spmm_block_dim_x
     sddmm_kernel_s_stationary[(sddmm_grid_dim_x, sddmm_grid_dim_y), sddmm_block_dim_x](indptr, indices, data, u, v, M, N, K, res_data)
-    spmm_numba_seqreduce_kernel[(spmm_grid_dim_x, spmm_grid_dim_y), (spmm_block_dim_x, spmm_block_dim_y)](res_data, indices, indptr, b, c, M, K, N)
+    spmm_numba_seqreduce_kernel[(spmm_grid_dim_x, spmm_grid_dim_y), (spmm_block_dim_x, spmm_block_dim_y)](res_data, indices, indptr, v, c, M, K, N)
     return c.copy_to_host()
 
 
-def sddmm_spmm_fused_atomic(indptr, indices, data, u, v, b, c, M, N, K):
+def sddmm_spmm_fused_atomic(indptr, indices, data, u, v, c, M, N, K):
     gridDimY = (M + S_STATIONARY_BLOCK_SIZE - 1) // S_STATIONARY_BLOCK_SIZE
     gridDimX = (K + KBLOCK_SIZE - 1) // KBLOCK_SIZE
     blockDimX = KBLOCK_SIZE
-    sddmm_spmm_fused_kernel_atomic[(gridDimX, gridDimY), blockDimX](indptr, indices, data, u, v, b, M, N, K, c)
+    sddmm_spmm_fused_kernel_atomic[(gridDimX, gridDimY), blockDimX](indptr, indices, data, u, v, M, N, K, c)
     return c.copy_to_host()
 
-def sddmm_spmm_fused_intermediate_SA(indptr, indices, data, u, v, b, c, M, N, K):
+def sddmm_spmm_fused_intermediate_SA(indptr, indices, data, u, v, c, M, N, K, max_nnz_per_row):
     gridDimY = (M + S_STATIONARY_BLOCK_SIZE - 1) // S_STATIONARY_BLOCK_SIZE
     gridDimX = (K + KBLOCK_SIZE - 1) // KBLOCK_SIZE
     blockDimX = KBLOCK_SIZE
-    sddmm_spmm_fused_kernel_intermediate_SA[(gridDimX, gridDimY), blockDimX](indptr, indices, data, u, v, b, M, N, K, c)
+    shared_mem_size = max_nnz_per_row * 4
+    sddmm_spmm_fused_kernel_intermediate_SA[(gridDimX, gridDimY), blockDimX, 0, shared_mem_size](indptr, indices, data, u, v, M, N, K, c)
     return c.copy_to_host()
 
 
-def sddmm_spmm_fused_intermediate_res(indptr, indices, data, u, v, res_data, b, c, M, N, K):
+def sddmm_spmm_fused_intermediate_res(indptr, indices, data, u, v, res_data, c, M, N, K):
     gridDimY = (M + S_STATIONARY_BLOCK_SIZE - 1) // S_STATIONARY_BLOCK_SIZE
     gridDimX = (K + KBLOCK_SIZE - 1) // KBLOCK_SIZE
     blockDimX = KBLOCK_SIZE
-    sddmm_spmm_fused_kernel_intermediate_res[(gridDimX, gridDimY), blockDimX](indptr, indices, data, u, v, b, M, N, K, res_data, c)
+    sddmm_spmm_fused_kernel_intermediate_res[(gridDimX, gridDimY), blockDimX](indptr, indices, data, u, v, M, N, K, res_data, c)
     return c.copy_to_host()
 
+def find_max_nnz_per_row(indptr):
+    max_nnz_per_row = 0
+    for i in range(len(indptr) - 1):
+        nnz = indptr[i + 1] - indptr[i]
+        if nnz > max_nnz_per_row:
+            max_nnz_per_row = nnz
+    return max_nnz_per_row
 
 def correctness_test():
     matrix_signtures = []
@@ -196,22 +202,23 @@ def correctness_test():
         c_d = cuda.to_device(c)
         res_data_d = cuda.to_device(res_data)
 
-        c1 = sddmm_spmm_unfused(indptr_d, indices_d, data_d, u_d, v_d, res_data_d, b_d, c_d, M, N, K)
+        c1 = sddmm_spmm_unfused(indptr_d, indices_d, data_d, u_d, v_d, res_data_d, c_d, M, N, K)
 
         c = np.zeros((M, K), dtype=np.float32)
         c_d = cuda.to_device(c)
-        c2 = sddmm_spmm_fused_atomic(indptr_d, indices_d, data_d, u_d, v_d, b_d, c_d, M, N, K)
+        c2 = sddmm_spmm_fused_atomic(indptr_d, indices_d, data_d, u_d, v_d, c_d, M, N, K)
 
         res_data = np.zeros(data.size, dtype=np.float32)
         c = np.zeros((M, K), dtype=np.float32)
         c_d = cuda.to_device(c)
         res_data_d = cuda.to_device(res_data)
 
-        c3 = sddmm_spmm_fused_intermediate_res(indptr_d, indices_d, data_d, u_d, v_d, res_data_d, b_d, c_d, M, N, K)
+        c3 = sddmm_spmm_fused_intermediate_res(indptr_d, indices_d, data_d, u_d, v_d, res_data_d, c_d, M, N, K)
 
-        # c = np.zeros((M, K), dtype=np.float32)
-        # c_d = cuda.to_device(c)
-        # c4 = sddmm_spmm_fused_intermediate_SA(indptr_d, indices_d, data_d, u_d, v_d, b_d, c_d, M, N, K)
+        max_nnz_per_row = find_max_nnz_per_row(indptr)
+        c = np.zeros((M, K), dtype=np.float32)
+        c_d = cuda.to_device(c)
+        c4 = sddmm_spmm_fused_intermediate_SA(indptr_d, indices_d, data_d, u_d, v_d, c_d, M, N, K, max_nnz_per_row)
 
         print("Fused Atomic vs Unfused Correctness Test")
         if np.allclose(c1, c2, atol=1e-6):
@@ -225,15 +232,18 @@ def correctness_test():
         else:
             print("FAIL")
         print("----------------------------------")
-        # print("Fused Intermediate SA vs Unfused Correctness Test")
-        # if np.allclose(c1, c4, atol=1e-6):
-        #     print("PASS")
-        # else:
-        #     print("FAIL")
+        print("Fused Intermediate SA vs Unfused Correctness Test")
+        if np.allclose(c1, c4, atol=1e-6):
+            print("PASS")
+        else:
+            print("FAIL")
+            print(c1)
+            print(c4)
 
 
 mtx_list = get_matrix_list("/home/salehm32/projects/fused-gnn/fusion/data/SPD/spd_list.txt", "/home/salehm32/projects/fused-gnn/fusion/data/SPD/")
-method_list = ["unfused-sddmm-spmm", "fused-sddmm-spmm-atomic", "fused-sddmm-spmm-intermediate-res"] #TODO: Add numba gpu version and dgl implementation
+# method_list = ["unfused-sddmm-spmm", "fused-sddmm-spmm-atomic", "fused-sddmm-spmm-intermediate-res", "fused-sddmm-spmm-intermediate-SA"] #TODO: Add numba gpu version and dgl implementation
+method_list = ["unfused-sddmm-spmm", "fused-sddmm-spmm-intermediate-SA"]
 configs = []
 configs.append(
     triton.testing.Benchmark(
@@ -241,7 +251,7 @@ configs.append(
         x_vals=[mtx_list[i] for i in range(0, len(mtx_list))],  # Different possible values for `x_name`
         line_arg="provider",  # Argument name whose value corresponds to a different line in the plot
         line_vals=method_list,  # Label name for the lines
-        line_names=["unfused-sddmm-spmm", "fused-sddmm-spmm-atomic", "fused-sddmm-spmm-intermediate-res"],  # Name of the lines
+        line_names=["unfused-sddmm-spmm", "fused-sddmm-spmm-intermediate-SA"],  # Name of the lines
         styles=[("green", "-"), ("blue", "-"), ("red", "-"), ("gold", "-"), ("purple", "-")],  # Visual styles for the lines
         ylabel="GFLOP/S",  # Label name for the y-axis
         plot_name="gemm-spmm-performance",  # Name for the plot, used also as a file name for saving the plot.
@@ -276,7 +286,7 @@ def benchmark(matrices, provider):
         M = A.shape[0]
         N = A.shape[1]
         K = u.shape[1]
-        ms, min_ms, max_ms = triton.testing.do_bench(lambda: sddmm_spmm_unfused(indptr_d, indices_d, data_d, u_d, v_d, res_data_d, b_d, c_d, M, N, K), quantiles=quantiles, warmup=warmpup, rep=rep)
+        ms, min_ms, max_ms = triton.testing.do_bench(lambda: sddmm_spmm_unfused(indptr_d, indices_d, data_d, u_d, v_d, res_data_d, c_d, M, N, K), quantiles=quantiles, warmup=warmpup, rep=rep)
     if provider == 'fused-sddmm-spmm-atomic':
         indptr_d = cuda.to_device(A.indptr.astype(np.int32))
         indices_d = cuda.to_device(A.indices.astype(np.int32))
@@ -289,7 +299,7 @@ def benchmark(matrices, provider):
         M = A.shape[0]
         N = A.shape[1]
         K = u.shape[1]
-        ms, min_ms, max_ms = triton.testing.do_bench(lambda: sddmm_spmm_fused_atomic(indptr_d, indices_d, data_d, u_d, v_d, b_d, c_d, M, N, K), quantiles=quantiles, warmup=warmpup, rep=rep)
+        ms, min_ms, max_ms = triton.testing.do_bench(lambda: sddmm_spmm_fused_atomic(indptr_d, indices_d, data_d, u_d, v_d, c_d, M, N, K), quantiles=quantiles, warmup=warmpup, rep=rep)
     if provider == 'fused-sddmm-spmm-intermediate-res':
         indptr_d = cuda.to_device(A.indptr.astype(np.int32))
         indices_d = cuda.to_device(A.indices.astype(np.int32))
@@ -304,10 +314,25 @@ def benchmark(matrices, provider):
         M = A.shape[0]
         N = A.shape[1]
         K = u.shape[1]
-        ms, min_ms, max_ms = triton.testing.do_bench(lambda: sddmm_spmm_fused_intermediate_res(indptr_d, indices_d, data_d, u_d, v_d, res_data_d, b_d, c_d, M, N, K), quantiles=quantiles, warmup=warmpup, rep=rep)
+        ms, min_ms, max_ms = triton.testing.do_bench(lambda: sddmm_spmm_fused_intermediate_res(indptr_d, indices_d, data_d, u_d, v_d, res_data_d, c_d, M, N, K), quantiles=quantiles, warmup=warmpup, rep=rep)
+    if provider == 'fused-sddmm-spmm-intermediate-SA':
+        indptr_d = cuda.to_device(A.indptr.astype(np.int32))
+        indices_d = cuda.to_device(A.indices.astype(np.int32))
+        data_d = cuda.to_device(A.data.astype(np.float32))
+        u_d = cuda.to_device(u)
+        v_d = cuda.to_device(v)
+        b_d = cuda.to_device(b)
+        c = np.zeros((m, feat_dim), dtype=np.float32)
+        c_d = cuda.to_device(c)
+        M = A.shape[0]
+        N = A.shape[1]
+        K = u.shape[1]
+        max_nnz_per_row = find_max_nnz_per_row(A.indptr)
+        print(max_nnz_per_row)
+        ms, min_ms, max_ms = triton.testing.do_bench(lambda: sddmm_spmm_fused_intermediate_SA(indptr_d, indices_d, data_d, u_d, v_d, c_d, M, N, K, max_nnz_per_row), quantiles=quantiles, warmup=warmpup, rep=rep)
     return ms, min_ms, max_ms
 
 
 if __name__ == "__main__":
     # correctness_test()
-    benchmark.run(print_data=True, save_path=".", show_plots=False)
+    benchmark.run(print_data=True, save_path=".", show_plots=True)

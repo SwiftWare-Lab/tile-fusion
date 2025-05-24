@@ -548,6 +548,64 @@ public:
   ~SpMMSpMMFusedInterLayerKTiled() { delete FusedCompSet; }
 };
 
+class SpMMCSRSpMMCSCFusedAtomic : public SpMMSpMMUnFused {
+protected:
+  sym_lib::MultiDimensionalSet *FusedCompSet;
+  sym_lib::ScheduleParameters Sp;
+  sym_lib::SparsityProfileInfo SpInfo;
+  Timer analysis() override {
+    Timer t;
+    t.start();
+
+    Sp._num_w_partition = std::max<int>(InTensor->ACsr->m / Sp.IterPerPartition,
+                                        2 * Sp._num_threads);
+    auto *sf01 = new sym_lib::SparseFusion(&Sp, 2);
+    auto *mvDAG = sym_lib::diagonal(InTensor->ACsr->m, 1.0);
+    auto *tmpCSCCSR = sym_lib::diagonal(InTensor->ACsr->m, 1.0);
+    auto *Di = InTensor->BCsr;
+    // sym_lib::print_csc(1, "Di", 6, Di->p, Di->i, Di->x);
+    sf01->fuse(0, mvDAG, tmpCSCCSR);
+
+    // sf01->print_final_list();
+    sf01->fuse(1, mvDAG, tmpCSCCSR);
+    // sf01->print_final_list();
+    auto pt = St->OtherStats["PackingType"];
+    FusedCompSet = sf01->getFusedCompressed((int)pt[0]);
+    // FusedCompSet->print_3d();
+    delete sf01;
+    delete mvDAG;
+    delete tmpCSCCSR;
+
+    t.stop();
+    return t;
+  }
+
+  Timer execute() override {
+    //    std::fill_n(OutTensor->Xx, InTensor->L * InTensor->N, 0.0);
+    //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
+    OutTensor->reset();
+    Timer t;
+    t.start();
+    swiftware::sparse::spmmCsrSpmmCscFused(
+        InTensor->M, InTensor->N, InTensor->K, InTensor->L, InTensor->ACsr->p,
+        InTensor->ACsr->i, InTensor->ACsr->x, InTensor->B->p, InTensor->B->i,
+        InTensor->B->x, InTensor->Bx, OutTensor->Xx, OutTensor->ACx,
+        FusedCompSet->n1_, FusedCompSet->ptr1_, FusedCompSet->ptr2_,
+        FusedCompSet->id_, FusedCompSet->type_, InTensor->NumThreads);
+
+    t.stop();
+    return t;
+  }
+
+public:
+  SpMMCSRSpMMCSCFusedAtomic(TensorInputs<double> *In1, Stats *Stat1,
+                            sym_lib::ScheduleParameters SpIn)
+      : SpMMSpMMUnFused(In1, Stat1), Sp(SpIn) {}
+
+  ~SpMMCSRSpMMCSCFusedAtomic() { delete FusedCompSet; }
+  sym_lib::SparsityProfileInfo getSpInfo() { return SpInfo; }
+};
+
 class SpMMSpMMFusedInterLayerRedundant : public SpMMSpMMUnFused {
 protected:
   sym_lib::MultiDimensionalSet *FusedCompSet;
@@ -991,64 +1049,6 @@ public:
 };
 
 /// Testing SpMM CSR - SpMM CSC
-
-class SpMMCSRSpMMCSCFusedAtomic : public SpMMSpMMUnFused {
-protected:
-  sym_lib::MultiDimensionalSet *FusedCompSet;
-  sym_lib::ScheduleParameters Sp;
-  sym_lib::SparsityProfileInfo SpInfo;
-  Timer analysis() override {
-    Timer t;
-    t.start();
-
-    Sp._num_w_partition = std::max<int>(InTensor->ACsr->m / Sp.IterPerPartition,
-                                        2 * Sp._num_threads);
-    auto *sf01 = new sym_lib::SparseFusion(&Sp, 2);
-    auto *mvDAG = sym_lib::diagonal(InTensor->ACsr->m, 1.0);
-    auto *tmpCSCCSR = sym_lib::diagonal(InTensor->ACsr->m, 1.0);
-    auto *Di = InTensor->BCsr;
-    // sym_lib::print_csc(1, "Di", 6, Di->p, Di->i, Di->x);
-    sf01->fuse(0, mvDAG, tmpCSCCSR);
-
-    // sf01->print_final_list();
-    sf01->fuse(1, mvDAG, tmpCSCCSR);
-    // sf01->print_final_list();
-    auto pt = St->OtherStats["PackingType"];
-    FusedCompSet = sf01->getFusedCompressed((int)pt[0]);
-    // FusedCompSet->print_3d();
-    delete sf01;
-    delete mvDAG;
-    delete tmpCSCCSR;
-
-    t.stop();
-    return t;
-  }
-
-  Timer execute() override {
-    //    std::fill_n(OutTensor->Xx, InTensor->L * InTensor->N, 0.0);
-    //    std::fill_n(OutTensor->ACx, InTensor->M * InTensor->N, 0.0);
-    OutTensor->reset();
-    Timer t;
-    t.start();
-    swiftware::sparse::spmmCsrSpmmCscFused(
-        InTensor->M, InTensor->N, InTensor->K, InTensor->L, InTensor->ACsr->p,
-        InTensor->ACsr->i, InTensor->ACsr->x, InTensor->B->p, InTensor->B->i,
-        InTensor->B->x, InTensor->Bx, OutTensor->Xx, OutTensor->ACx,
-        FusedCompSet->n1_, FusedCompSet->ptr1_, FusedCompSet->ptr2_,
-        FusedCompSet->id_, FusedCompSet->type_, InTensor->NumThreads);
-
-    t.stop();
-    return t;
-  }
-
-public:
-  SpMMCSRSpMMCSCFusedAtomic(TensorInputs<double> *In1, Stats *Stat1,
-                            sym_lib::ScheduleParameters SpIn)
-      : SpMMSpMMUnFused(In1, Stat1), Sp(SpIn) {}
-
-  ~SpMMCSRSpMMCSCFusedAtomic() { delete FusedCompSet; }
-  sym_lib::SparsityProfileInfo getSpInfo() { return SpInfo; }
-};
 
 class SpMMCSRSpMMCSCFusedAtomicInterleaved : public SpMMSpMMUnFused {
 protected:

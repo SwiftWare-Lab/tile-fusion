@@ -73,6 +73,7 @@ target_link_libraries(fusion PRIVATE
 add_subdirectory(example)
 add_subdirectory(gcn)
 add_subdirectory(spmv-spmv)
+
 if (ENABLE_CUDA)
     message(STATUS "CUDA is enabled")
     find_package(CUDA OPTIONAL_COMPONENTS)

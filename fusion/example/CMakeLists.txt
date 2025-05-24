@@ -9,6 +9,7 @@ project(examples)
 
 if(NOT TARGET MKL::MKL)
     set(MKL_INTERFACE "lp64")
+    set(MKL_THREADING "gnu_thread")
     find_package(MKL CONFIG OPTIONAL_COMPONENTS)
 endif()
 
