@@ -30,6 +30,13 @@ executor function for spmm-spmm and gemm-spmm when D = A * B * C:
 swiftware::fusion::spMMSpMMExecutor(swiftware::def::CSRMatrix A, swiftware::def::CSRMatrix B, swiftware::def::Matrix C, swiftware::def::Matrix D, swiftware::def::FusedSchedule schedule, int NumThreads);
 swiftware::fusion::geMMSpMMExecutor(swiftware::def::CSRMatrix A, swiftware::def::Matrix B, swiftware::def::Matrix C, swiftware::def::Matrix D, swiftware::def::FusedSchedule schedule, int NumThreads);
 ```
+
+Data type apis:
+
+```C++
+swiftware::CSRMatrix(int M, int N, int* Ap, int* Ai, float* Ax);
+swiftware::Matrix(int M, int N, float* Data);
+```
 ## Running experiments
 
 ### Download dataset
