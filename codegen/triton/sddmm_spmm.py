@@ -191,7 +191,6 @@ def correctness_test():
     data_path = sys.argv[2]
     mtx_list = get_matrix_list(file_path, data_path)
 
-    "/home/salehm32/projects/fused-gnn/fusion/data/SPD/spd_list.txt"
 
     for mtx_matrix_path in mtx_list:
         print(f"------------ matrix: {mtx_matrix_path}")
