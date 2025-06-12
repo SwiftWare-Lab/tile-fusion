@@ -101,6 +101,62 @@ def sddmm_kernel_COO_packed_s_stationary(
                 res_data_ptr[i] += data_ptr[i] * SA[row - start_row][j] * v_data[col][j]
 
 
+@cuda.jit()
+def sddmm_kernel_s_stationary(
+        row_ptr, col_ind, data_ptr,
+        u_data, v_data,
+        M, N, K,
+        res_data_ptr
+):
+    SA = cuda.shared.array(shape=(S_STATIONARY_BLOCK_SIZE, KBLOCK_SIZE), dtype=numba.float32)
+    rows_per_block = S_STATIONARY_BLOCK_SIZE
+    start_row = cuda.blockIdx.y * rows_per_block
+    end_row = min(M, start_row + rows_per_block)
+    for i in range(start_row, end_row):
+        u_x = cuda.blockIdx.x * cuda.blockDim.x + cuda.threadIdx.x
+        SA_x = cuda.threadIdx.x
+        SA_y = i - start_row
+        SA[SA_y][SA_x] = u_data[i][u_x]
+    cuda.syncthreads()
+    step = cuda.blockDim.x
+    for row in range(start_row, end_row):
+        nnz_start = row_ptr[row] + cuda.threadIdx.x
+        nnz_end = row_ptr[row + 1]
+        if nnz_start < nnz_end:
+            for i in range(nnz_start, nnz_end, step):
+                col = col_ind[i]
+                for j in range(K):
+                    res_data_ptr[i] += data_ptr[i] * SA[row - start_row][j] * v_data[col][j]
+
+@cuda.jit()
+def sddmm_kernel_COO_packed_s_stationary(
+        row_ptr, col_ind, row_ind, data_ptr,
+        u_data, v_data,
+        M, N, K,
+        res_data_ptr
+):
+    SA = cuda.shared.array(shape=(S_STATIONARY_BLOCK_SIZE, KBLOCK_SIZE), dtype=numba.float32)
+    rows_per_block = S_STATIONARY_BLOCK_SIZE
+    step = MBLOCK_SIZE
+    start_row = cuda.blockIdx.y * rows_per_block + cuda.threadIdx.y
+    end_row = min(M, start_row + rows_per_block)
+
+    for i in range(start_row, end_row, step):
+        u_x = cuda.blockIdx.x * cuda.blockDim.x + cuda.threadIdx.x
+        SA_x = cuda.threadIdx.x
+        SA_y = i - start_row
+        SA[SA_y][SA_x] = u_data[i][u_x]
+    cuda.syncthreads()
+    thread_linear_index = cuda.threadIdx.y * cuda.blockDim.x + cuda.threadIdx.x
+    nnz_start = row_ptr[start_row] + thread_linear_index
+    nnz_end = row_ptr[end_row + 1]
+    step = cuda.blockDim.x * cuda.blockDim.y
+    if nnz_start < nnz_end:
+        for i in range(nnz_start, nnz_end, step):
+            row = row_ind[i]
+            col = col_ind[i]
+            for j in range(K):
+                res_data_ptr[i] += data_ptr[i] * SA[row - start_row][j] * v_data[col][j]
 
 ## each thread corresponds to one nonzero
 # @cuda.jit()
@@ -248,6 +304,25 @@ def sddmm_numba_correctness(matrix, u, v):
     res_data = res_data_d.copy_to_host()
     return res_data
 
+def sddmm_numba_s_stationary_correctness(matrix, u, v):
+    indptr_d = cuda.to_device(matrix.indptr.astype(np.int32))
+    indices_d = cuda.to_device(matrix.indices.astype(np.int32))
+    data_d = cuda.to_device(matrix.data.astype(np.float32))
+    u_d = cuda.to_device(u)
+    v_d = cuda.to_device(v)
+    res_data = np.zeros(matrix.data.size, dtype=np.float32)
+    res_data_d = cuda.to_device(res_data)
+    M = matrix.shape[0]
+    N = matrix.shape[1]
+    K = u.shape[1]
+    gridDimY = (M + S_STATIONARY_BLOCK_SIZE - 1) // S_STATIONARY_BLOCK_SIZE
+    gridDimX = (K + KBLOCK_SIZE - 1) // KBLOCK_SIZE
+    blockDimX = KBLOCK_SIZE
+    # print((gridDimX, gridDimY), (blockDimX, blockDimY))
+    sddmm_kernel_s_stationary[(gridDimX, gridDimY), blockDimX](indptr_d, indices_d, data_d, u_d, v_d, M, N, K, res_data_d)
+    res_data = res_data_d.copy_to_host()
+    return res_data
+
 def sddmm_numba_a_stationary(indptr, indices, data, res_data, u, v, M, N, K):
     gridDimY = (M + MBLOCK_SIZE - 1) // MBLOCK_SIZE
     gridDimX = (K + KBLOCK_SIZE - 1) // KBLOCK_SIZE
@@ -255,12 +330,20 @@ def sddmm_numba_a_stationary(indptr, indices, data, res_data, u, v, M, N, K):
     blockDimX = KBLOCK_SIZE
     sddmm_kernel_CSR_u_stationary_par_reduce[(gridDimX, gridDimY), (blockDimX, blockDimY)](indptr, indices, data, u, v, M, N, K, res_data)
 
-def sddmm_numba_s_stationary(indptr, indices, row_ind, data, res_data, u, v, M, N, K):
+def sddmm_numba_s_stationary_coo_packed(indptr, indices, row_ind, data, res_data, u, v, M, N, K):
     gridDimY = (M + S_STATIONARY_BLOCK_SIZE - 1) // S_STATIONARY_BLOCK_SIZE
     gridDimX = (K + KBLOCK_SIZE - 1) // KBLOCK_SIZE
     blockDimY = MBLOCK_SIZE
     blockDimX = KBLOCK_SIZE
     sddmm_kernel_COO_packed_s_stationary[(gridDimX, gridDimY), (blockDimX, blockDimY)](indptr, indices, row_ind, data, u, v, M, N, K, res_data)
+
+
+def sddmm_numba_s_stationary(indptr, indices, data, res_data, u, v, M, N, K):
+    gridDimY = (M + S_STATIONARY_BLOCK_SIZE - 1) // S_STATIONARY_BLOCK_SIZE
+    gridDimX = (K + KBLOCK_SIZE - 1) // KBLOCK_SIZE
+    blockDimX = KBLOCK_SIZE
+    sddmm_kernel_s_stationary[(gridDimX, gridDimY), blockDimX](indptr, indices, data, u, v, M, N, K, res_data)
+
 
 def correctness_test():
     matrix_signtures = []
@@ -279,6 +362,7 @@ def correctness_test():
         res_data_torch = torch_sddmm_correctness(A, u, v)
         res_data_gpu = gpu_sddmm_correctness(A, u, v)
         res_data_numba = sddmm_numba_correctness(A, u, v)
+        res_data_numba_s_stationary = sddmm_numba_s_stationary_correctness(A, u, v)
 
 
         print("Triton correctness test:")
@@ -304,11 +388,19 @@ def correctness_test():
             print("Failed")
             print(res_data_cpu)
             print(res_data_numba)
+        print("-----------------")
+        print("Numba s-stationary correctness test:")
+        if np.allclose(res_data_cpu, res_data_numba_s_stationary, atol=1e-6):
+            print("Passed")
+        else:
+            print("Failed")
+            print(res_data_cpu)
+            print(res_data_numba_s_stationary)
 
 
 
 mtx_list = get_matrix_list("/home/salehm32/projects/fused-gnn/fusion/data/SPD/spd_list.txt", "/home/salehm32/projects/fused-gnn/fusion/data/SPD/")
-method_list = ["triton", "torch", 'numba-a-stationary', 'numba-s-stationary'] #TODO: Add numba gpu version and dgl implementation
+method_list = ["triton", "torch", 'numba-u-stationary', 'numba-s-stationary-coo-packed', 'numba-s-stationary'] #TODO: Add numba gpu version and dgl implementation
 
 configs = []
 configs.append(
@@ -317,9 +409,9 @@ configs.append(
         x_vals=[mtx_list[i] for i in range(0, len(mtx_list))],  # Different possible values for `x_name`
         line_arg="provider",  # Argument name whose value corresponds to a different line in the plot
         line_vals=method_list,  # Label name for the lines
-        line_names=["triton", "torch", 'numba-a-stationary', 'numba-s-stationary'],  # Name of the lines
-        styles=[("green", "-"), ("blue", "-"), ("red", "-"), ("gold", "-")],  # Visual styles for the lines
-        ylabel="GFLOP/S",  # Label name for the y-axis
+        line_names=["triton", "torch", 'numba-u-stationary', 'numba-s-stationary-coo-packed', 'numba-s-stationary'],  # Name of the lines
+        styles=[("green", "-"), ("blue", "-"), ("red", "-"), ("gold", "-"), ("purple", "-")],  # Visual styles for the lines
+        ylabel="mili-seconds",  # Label name for the y-axis
         plot_name="gemm-spmm-performance",  # Name for the plot, used also as a file name for saving the plot.
         args={}
     ))
@@ -353,7 +445,7 @@ def benchmark(matrices, provider):
         v_torch = torch.tensor(v, dtype=torch.float32, device=DEVICE)
         csr_mat = torch.sparse_csr_tensor(indptr, indices, data)
         ms, min_ms, max_ms = triton.testing.do_bench(lambda: torch.sparse.sampled_addmm(csr_mat, u_torch, v_torch.T), quantiles=quantiles, warmup=warmpup, rep=rep)
-    if provider == 'numba-a-stationary':
+    if provider == 'numba-u-stationary':
         indptr_d = cuda.to_device(A.indptr.astype(np.int32))
         indices_d = cuda.to_device(A.indices.astype(np.int32))
         data_d = cuda.to_device(A.data.astype(np.float32))
@@ -366,7 +458,7 @@ def benchmark(matrices, provider):
         K = u.shape[1]
         ms, min_ms, max_ms = triton.testing.do_bench(lambda: sddmm_numba_a_stationary(indptr_d, indices_d, data_d, res_data_d, u_d, v_d, M, N, K), quantiles=quantiles, warmup=warmpup, rep=rep)
         #TODO: calculate GFLOPS as perf
-    if provider == 'numba-s-stationary':
+    if provider == 'numba-s-stationary-coo-packed':
         indptr_d = cuda.to_device(A.indptr.astype(np.int32))
         indices_d = cuda.to_device(A.indices.astype(np.int32))
         data_d = cuda.to_device(A.data.astype(np.float32))
@@ -379,7 +471,19 @@ def benchmark(matrices, provider):
         M = A.shape[0]
         N = A.shape[1]
         K = u.shape[1]
-        ms, min_ms, max_ms = triton.testing.do_bench(lambda: sddmm_numba_s_stationary(indptr_d, indices_d, row_ind_d, data_d, res_data_d, u_d, v_d, M, N, K), quantiles=quantiles, warmup=warmpup, rep=rep)
+        ms, min_ms, max_ms = triton.testing.do_bench(lambda: sddmm_numba_s_stationary_coo_packed(indptr_d, indices_d, row_ind_d, data_d, res_data_d, u_d, v_d, M, N, K), quantiles=quantiles, warmup=warmpup, rep=rep)
+    if provider == 'numba-s-stationary':
+        indptr_d = cuda.to_device(A.indptr.astype(np.int32))
+        indices_d = cuda.to_device(A.indices.astype(np.int32))
+        data_d = cuda.to_device(A.data.astype(np.float32))
+        u_d = cuda.to_device(u)
+        v_d = cuda.to_device(v)
+        res_data = np.zeros(A.data.size, dtype=np.float32)
+        res_data_d = cuda.to_device(res_data)
+        M = A.shape[0]
+        N = A.shape[1]
+        K = u.shape[1]
+        ms, min_ms, max_ms = triton.testing.do_bench(lambda: sddmm_numba_s_stationary(indptr_d, indices_d, data_d, res_data_d, u_d, v_d, M, N, K), quantiles=quantiles, warmup=warmpup, rep=rep)
     return ms, min_ms, max_ms
 
 def extract_row_indices(matrix):
@@ -392,11 +496,11 @@ def extract_row_indices(matrix):
         row_indices[start:end] = i
     return row_indices
 
-benchmark.run(print_data=True, save_path=".", show_plots=True)
 
-# correctness_test()
+if __name__ == "__main__":
+    benchmark.run(print_data=True, save_path=".", show_plots=True)
+
+    # correctness_test()
 
 
-
-    
 

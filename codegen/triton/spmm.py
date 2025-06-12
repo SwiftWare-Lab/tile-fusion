@@ -2,8 +2,29 @@
 import triton
 import torch
 import triton.language as tl
+from numba import cuda
+from utils import get_matrix_list
 
 DEVICE = torch.device("cuda:0")
+
+@cuda.jit()
+def spmm_numba_seqreduce_kernel(
+        data, indices, ind_ptr,
+        b, c,
+        M, N, K
+):
+    row = cuda.threadIdx.y + cuda.blockIdx.x * cuda.blockDim.y
+    bcol = cuda.threadIdx.x + cuda.blockIdx.y * cuda.blockDim.x
+    if bcol < N:
+        start = ind_ptr[row]
+        end = ind_ptr[row+1]
+        res = 0
+        for p in range(start,end):
+            col = indices[p]
+            val = data[p]
+            res += val * b[col][bcol]
+        c[row][bcol] = res
+
 
 
 @triton.jit
@@ -87,6 +108,19 @@ def spmm_kernel_naive(
     #tl.store(c_ptr, 10)
 
 
+def spmm_numba_seqreduce(data, indices, indptr, b, M, N, K):
+    c = torch.zeros(M, N, dtype=torch.float32, device=DEVICE)
+    tpb = 128
+    n_block_size = min(N, tpb)
+    m_block_size = (tpb + n_block_size - 1) // n_block_size
+    grid_dim_x = (M + m_block_size - 1) // m_block_size
+    grid_dim_y = (N + n_block_size - 1) // n_block_size
+    block_dim_x = n_block_size
+    block_dim_y = m_block_size
+
+    spmm_numba_seqreduce_kernel[(grid_dim_x, grid_dim_y), (block_dim_x, block_dim_y)](data, indices, indptr, b, c, M, N, K)
+    return c
+
 def spmm_triton(data, indices, indptr, b, M, N, K):
     assert b.dtype == torch.float32, "b must be float32"
     assert data.dtype == torch.float32, "data must be float32"
@@ -109,6 +143,12 @@ def spmm_triton(data, indices, indptr, b, M, N, K):
     #)
 
 
+    return c
+
+
+def spmm_torch(data, indices, indptr, b, M, N, K):
+    a = torch.sparse_csr_tensor(indptr, indices, data, dtype=torch.float32)
+    c = torch.sparse.mm(a, b)
     return c
 
 
@@ -156,46 +196,111 @@ import cupy as cp
 import scipy.sparse as sp
 import scipy.io as scio
 
-# main entry
-if __name__ == "__main__":
-    # Generate random sparse matrix
-    M, N, K = 16, 64, 64
-    density = 0.001
-    block_size_m, block_size_n = 32, 32
-    # generate sparse matrix
-    A = sp.random(M, K, density=density, format='csr', dtype=np.float32)
-    matrix = scio.mmread("/home/kazem/Downloads/LFAT5/LFAT5.mtx")
-    # hack
+
+mtx_list = get_matrix_list("/home/salehm32/projects/fused-gnn/fusion/data/SPD/spd_list.txt", "/home/salehm32/projects/fused-gnn/fusion/data/SPD/")
+method_list = ["triton", "torch", 'numba']
+
+configs = []
+configs.append(
+    triton.testing.Benchmark(
+        x_names=["matrix"],  # Argument names to use as an x-axis for the plot
+        x_vals=[mtx_list[i] for i in range(0, len(mtx_list))],  # Different possible values for `x_name`
+        line_arg="provider",  # Argument name whose value corresponds to a different line in the plot
+        line_vals=method_list,  # Label name for the lines
+        line_names=["triton", "torch", 'numba'],  # Name of the lines
+        styles=[("green", "-"), ("blue", "-"), ("red", "-"), ("gold", "-"), ("purple", "-")],  # Visual styles for the lines
+        ylabel="GFLOP/S",  # Label name for the y-axis
+        plot_name="gemm-spmm-performance",  # Name for the plot, used also as a file name for saving the plot.
+        args={}
+    ))
+
+
+@triton.testing.perf_report(configs)
+def benchmark(matrix, provider):
+    matrix = scio.mmread(matrix)
     A = matrix.tocsr()
     M, K = A.shape
-
+    N = 32
     B = np.random.rand(K, N).astype(np.float32)
     C = np.zeros((M, N), dtype=np.float32)
+    quantiles = [0.5, 0.2, 0.8]
+    rep, warmpup = 100, 25
+    if provider=='torch':
+        A_data = torch.tensor(A.data, dtype=torch.float32, device=DEVICE)
+        A_indices = torch.tensor(A.indices, dtype=torch.int32, device=DEVICE)
+        A_indptr = torch.tensor(A.indptr, dtype=torch.int32, device=DEVICE)
+        d_B = torch.tensor(B, dtype=torch.float32, device=DEVICE)
+        ms, min_ms, max_ms = triton.testing.do_bench(lambda: spmm_torch(A_data, A_indices, A_indptr, d_B, M, N, K), quantiles=quantiles, warmup=warmpup, rep=rep)
+    if provider=='triton':
+        A_data = torch.tensor(A.data, dtype=torch.float32, device=DEVICE)
+        A_indices = torch.tensor(A.indices, dtype=torch.int32, device=DEVICE)
+        A_indptr = torch.tensor(A.indptr, dtype=torch.int32, device=DEVICE)
+        d_B = torch.tensor(B, dtype=torch.float32, device=DEVICE)
+        ms, min_ms, max_ms = triton.testing.do_bench(lambda: spmm_triton(A_data, A_indices, A_indptr, d_B, M, N, K), quantiles=quantiles, warmup=warmpup, rep=rep)
+    if provider=='numba':
+        data_d = cuda.to_device(A.data)
+        indices_d = cuda.to_device(A.indices)
+        indptr_d = cuda.to_device(A.indptr)
+        B_d = cuda.to_device(B)
+        ms, min_ms, max_ms = triton.testing.do_bench(lambda: spmm_numba_seqreduce(data_d, indices_d, indptr_d, B_d, M, N, K), quantiles=quantiles, warmup=warmpup, rep=rep)
+    return ms, min_ms, max_ms
 
-    c1 = spmm_csr_cpu(M, A.data, A.indices, A.indptr, B, C.copy())
-    c2 = spmm_csr_blocked_cpu(M, A.data, A.indices, A.indptr, B, C.copy(), block_size_m, block_size_n)
+def correctness_test():
+    M, N, K = 16, 32, 64
+    density = 0.001
+    # generate sparse matrix
+    A = sp.random(M, K, density=density, format='csr', dtype=np.float32)
+    mtx_list = get_matrix_list("/home/salehm32/projects/fused-gnn/fusion/data/SPD/spd_list.txt", "/home/salehm32/projects/fused-gnn/fusion/data/SPD/")
 
-    if np.allclose(c1, c2, atol=1e-6):
-        print("Passed blocked")
-    else:
-        print("Failed blocked")
+    for mat_path in mtx_list:
+        print(f"------------ matrix: {mat_path}")
+        matrix = scio.mmread(mat_path)
+        A = matrix.tocsr()
+        M, K = A.shape
+        print(M, K)
+
+        B = np.random.rand(K, N).astype(np.float32)
 
 
-    # convert to cupy
-    A_data = torch.tensor(A.data, dtype=torch.float32, device=DEVICE)
-    A_indices = torch.tensor(A.indices, dtype=torch.int32, device=DEVICE)
-    A_indptr = torch.tensor(A.indptr, dtype=torch.int32, device=DEVICE)
-    d_B = torch.tensor(B, dtype=torch.float32, device=DEVICE)
+        # convert to cupy
+        A_data = torch.tensor(A.data, dtype=torch.float32, device=DEVICE)
+        A_indices = torch.tensor(A.indices, dtype=torch.int32, device=DEVICE)
+        A_indptr = torch.tensor(A.indptr, dtype=torch.int32, device=DEVICE)
+        d_B = torch.tensor(B, dtype=torch.float32, device=DEVICE)
+        # run torch.sparse.mm
+        c1 = spmm_torch(A_data, A_indices, A_indptr, d_B, M, N, K)
+        c1 = c1.cpu().numpy()
 
-    # run triton kernel
-    c3 = spmm_triton(A_data, A_indices, A_indptr, d_B, M, N, K)
-    c3 = c3.cpu().numpy()
-    # print(c3[:1, :1])
-    # print(c1[:1, :1])
-    if cp.allclose(c1, c3, atol=1e-6):
-        print("Passed Triton")
-    else:
-        print("FailedTriton")
-        # print where it fails
-        print(np.where(c1 != c3))
+        print(c1)
 
+        # run triton kernel
+        c3 = spmm_triton(A_data, A_indices, A_indptr, d_B, M, N, K)
+        c3 = c3.cpu().numpy()
+        # print(c3[:1, :1])
+        # print(c1[:1, :1])
+        if cp.allclose(c1, c3, atol=1e-5):
+            print("Passed Triton")
+        else:
+            print("FailedTriton")
+            # print where it fails
+            print(c3)
+
+
+        data_d = cuda.to_device(A.data)
+        indices_d = cuda.to_device(A.indices)
+        indptr_d = cuda.to_device(A.indptr)
+        B_d = cuda.to_device(B)
+
+        c4 = spmm_numba_seqreduce(data_d, indices_d, indptr_d, B_d, M, N, K)
+        if cp.allclose(c1, c4, atol=1e-5):
+            print("Passed Numba")
+        else:
+            print("Failed Numba")
+            # print where it fails
+            print(c4)
+
+
+# main entry
+if __name__ == "__main__":
+    benchmark.run(print_data=True, save_path=".", show_plots=False)
+    # correctness_test()

@@ -1,7 +1,8 @@
-matrices,triton,torch,numba-a-stationary,numba-s-stationary
-/home/salehm32/projects/fused-gnn/fusion/data/SPD/bmw7st_1/bmw7st_1.mtx,11.058592,1.187680,11.290240,5.284864
-/home/salehm32/projects/fused-gnn/fusion/data/SPD/crankseg_1/crankseg_1.mtx,14.596608,1.701888,17.557505,7.682208
-/home/salehm32/projects/fused-gnn/fusion/data/SPD/bmwcra_1/bmwcra_1.mtx,14.710592,1.604608,17.137665,7.714816
-/home/salehm32/projects/fused-gnn/fusion/data/SPD/hood/hood.mtx,14.831713,1.822720,17.875040,7.898112
-/home/salehm32/projects/fused-gnn/fusion/data/SPD/crankseg_2/crankseg_2.mtx,19.418592,2.242560,23.317951,10.386433
-/home/salehm32/projects/fused-gnn/fusion/data/SPD/audikw_1/audikw_1.mtx,108.497917,12.176384,130.448410,58.908672
+matrices,unfused-sddmm-spmm,fused-sddmm-spmm-intermediate-SA,torch-unfused-sddmm-spmm
+/home/salehm32/projects/fused-gnn/fusion/data/SPD/tmt_sym/tmt_sym.mtx,134.157028,123.085983,127.829277
+/home/salehm32/projects/fused-gnn/fusion/data/SPD/bmw7st_1/bmw7st_1.mtx,72.928192,44.237923,28.034817
+/home/salehm32/projects/fused-gnn/fusion/data/SPD/crankseg_1/crankseg_1.mtx,132.584549,54.878464,11.531104
+/home/salehm32/projects/fused-gnn/fusion/data/SPD/bmwcra_1/bmwcra_1.mtx,110.399612,56.102913,30.293728
+/home/salehm32/projects/fused-gnn/fusion/data/SPD/hood/hood.mtx,110.015106,70.087006,43.754509
+/home/salehm32/projects/fused-gnn/fusion/data/SPD/crankseg_2/crankseg_2.mtx,179.217026,73.780930,15.067072
+/home/salehm32/projects/fused-gnn/fusion/data/SPD/audikw_1/audikw_1.mtx,894.450134,435.887665,218.320251
