@@ -7,6 +7,7 @@ import numpy as np
 import scipy.io as scio
 import time
 from numba import cuda
+import sys
 
 
 DEVICE = torch.device("cuda:0")
@@ -397,9 +398,10 @@ def correctness_test():
             print(res_data_cpu)
             print(res_data_numba_s_stationary)
 
+file_path = sys.argv[1]
+data_path = sys.argv[2]
 
-
-mtx_list = get_matrix_list("/home/salehm32/projects/fused-gnn/fusion/data/SPD/spd_list.txt", "/home/salehm32/projects/fused-gnn/fusion/data/SPD/")
+mtx_list = get_matrix_list(file_path, data_path)
 method_list = ["triton", "torch", 'numba-u-stationary', 'numba-s-stationary-coo-packed', 'numba-s-stationary'] #TODO: Add numba gpu version and dgl implementation
 
 configs = []
