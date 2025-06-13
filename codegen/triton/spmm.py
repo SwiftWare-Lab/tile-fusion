@@ -193,7 +193,7 @@ def spmm_csr_blocked1_cpu(m, data, indices, indptr, b, c, block_size_m=32, block
 # test spmm_csr_cpu and spmm_csr_blocked_cpu
 
 import numpy as np
-import cupy as cp
+# import cupy as cp
 import scipy.sparse as sp
 import scipy.io as scio
 
