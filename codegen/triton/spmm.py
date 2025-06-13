@@ -4,6 +4,7 @@ import torch
 import triton.language as tl
 from numba import cuda
 from utils import get_matrix_list
+import sys
 
 DEVICE = torch.device("cuda:0")
 
@@ -197,7 +198,12 @@ import scipy.sparse as sp
 import scipy.io as scio
 
 
-mtx_list = get_matrix_list("/home/salehm32/projects/fused-gnn/fusion/data/SPD/spd_list.txt", "/home/salehm32/projects/fused-gnn/fusion/data/SPD/")
+if len(sys.argv) != 3:
+    print("Usage: python sddmm_spmm.py <file_path> <data_path>")
+    sys.exit(1)
+file_path = sys.argv[1]
+data_path = sys.argv[2]
+mtx_list = get_matrix_list(file_path, data_path)
 method_list = ["triton", "torch", 'numba']
 
 configs = []
@@ -250,7 +256,12 @@ def correctness_test():
     density = 0.001
     # generate sparse matrix
     A = sp.random(M, K, density=density, format='csr', dtype=np.float32)
-    mtx_list = get_matrix_list("/home/salehm32/projects/fused-gnn/fusion/data/SPD/spd_list.txt", "/home/salehm32/projects/fused-gnn/fusion/data/SPD/")
+    if len(sys.argv) != 3:
+        print("Usage: python sddmm_spmm.py <file_path> <data_path>")
+        sys.exit(1)
+    file_path = sys.argv[1]
+    data_path = sys.argv[2]
+    mtx_list = get_matrix_list(file_path, data_path)
 
     for mat_path in mtx_list:
         print(f"------------ matrix: {mat_path}")

@@ -15,8 +15,8 @@
 MAT_FILE=$1
 MAT_DIR=$2
 
-module load python/3.13.0
-module load cuda/12.6.0
+module load python/3.13
+module load cuda/12.6
 
 virtualenv --no-download $SLURM_TMPDIR/env
 source $SLURM_TMPDIR/env/bin/activate

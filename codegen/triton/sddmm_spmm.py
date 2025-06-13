@@ -266,7 +266,12 @@ def correctness_test():
             print(c4)
 
 
-mtx_list = get_matrix_list("/home/salehm32/projects/fused-gnn/fusion/data/SPD/spd_list.txt", "/home/salehm32/projects/fused-gnn/fusion/data/SPD/")
+if len(sys.argv) != 3:
+    print("Usage: python sddmm_spmm.py <file_path> <data_path>")
+    sys.exit(1)
+file_path = sys.argv[1]
+data_path = sys.argv[2]
+mtx_list = get_matrix_list(file_path, data_path)
 # method_list = ["unfused-sddmm-spmm", "fused-sddmm-spmm-atomic", "fused-sddmm-spmm-intermediate-res", "fused-sddmm-spmm-intermediate-SA"] #TODO: Add numba gpu version and dgl implementation
 method_list = ["unfused-sddmm-spmm", "fused-sddmm-spmm-intermediate-SA", "torch-unfused-sddmm-spmm"]
 configs = []
