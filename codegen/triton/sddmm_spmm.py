@@ -379,4 +379,4 @@ def benchmark(matrices, provider):
 
 if __name__ == "__main__":
     # correctness_test()
-    benchmark.run(print_data=True, save_path=".", show_plots=True)
+    benchmark.run(print_data=True, save_path=".", show_plots=False)

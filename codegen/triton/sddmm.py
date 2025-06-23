@@ -187,6 +187,27 @@ def sddmm_kernel_COO_packed_s_stationary(
 # def sum_reduce(a,b):
 #     return a+b
 
+def sddm_numba(
+        row_ptr, col_ind, data_ptr,
+        u_data,v_data,
+        M, N, K,
+        res_data_ptr,
+        BLOCK_SIZE_M,
+        BLOCK_SIZE_K,
+):
+    for i1 in range(0, M, BLOCK_SIZE_M):
+        for k1 in range(0, K, BLOCK_SIZE_K):
+            for i2 in range(M):
+                u_vec = u_data[i2][k1, k1+K]
+                start = row_ptr[i2]
+                end = row_ptr[i2+1]
+                for j in range(start, end):
+                    col_idx = col_ind[j]
+                    v_vec = v_data[col_idx][k1:k1+K]
+                    val = data_ptr[j]
+                    uv = np.sum(u_vec * v_vec)
+                    res_data_ptr[j] = uv * val
+
 @triton.jit
 def sddmm_kernel_CSR(
         row_ptr, col_ind, data_ptr,
@@ -196,20 +217,23 @@ def sddmm_kernel_CSR(
         BLOCK_SIZE_M: tl.constexpr, BLOCK_SIZE_K: tl.constexpr
 ):
     pid = tl.program_id(axis=0)
-    m_block_start = pid * BLOCK_SIZE_M
+    pid_m = pid / BLOCK_SIZE_K
+    pid_k = pid % BLOCK_SIZE_K
+    m_block_start = pid_m * BLOCK_SIZE_M
+
     block_size_m = min(M - m_block_start, BLOCK_SIZE_M)
-    for row in range(m_block_start, m_block_start + block_size_m):
-        offs_u = row * K + tl.arange(0, BLOCK_SIZE_K)
+    for i2 in range(m_block_start, m_block_start + block_size_m):
+        offs_u = i2 * K + pid_k * BLOCK_SIZE_K + tl.arange(0, BLOCK_SIZE_K)
         u_vec = tl.load(u_data + offs_u)
-        start = tl.load(row_ptr + row)
-        end = tl.load(row_ptr + row + 1)
-        for i in range(start, end):
-            col_idx = tl.load(col_ind + i)
-            offs_v = col_idx * K + tl.arange(0, BLOCK_SIZE_K)
+        start = tl.load(row_ptr + i2)
+        end = tl.load(row_ptr + i2 + 1)
+        for j in range(start, end):
+            col_idx = tl.load(col_ind + j)
+            offs_v = col_idx * K + pid_k * BLOCK_SIZE_K + tl.arange(0, BLOCK_SIZE_K)
             v_vec = tl.load(v_data + offs_v)
-            val = tl.load(data_ptr + i)
+            val = tl.load(data_ptr + j)
             uv = tl.sum(u_vec * v_vec)
-            tl.store(res_data_ptr + i, uv * val)
+            tl.store(res_data_ptr + j, uv * val)
 
 def sddmm_triton(indptr, indices, data, u, v, M, N, K):
     assert indptr.dtype == torch.int32, "Matrix indptr should be int32"

@@ -14,6 +14,8 @@
 
 MAT_FILE=$1
 MAT_DIR=$2
+EXP=$3
+
 
 module load python/3.13
 module load cuda/12.6
@@ -22,6 +24,18 @@ virtualenv --no-download $SLURM_TMPDIR/env
 source $SLURM_TMPDIR/env/bin/activate
 pip install --no-index --upgrade pip
 
-pip install --no-index -r requirements.txt
+pip install --no-index -r requirements_slurm.txt
 
-python sddmm_spmm.py $MAT_FILE $MAT_DIR
+
+if [ $EXP == "sddmm_spmm" ]; then
+  python sddmm_spmm.py $MAT_FILE $MAT_DIR
+elif [ $EXP == "sddmm" ]; then
+  python sddmm.py $MAT_FILE $MAT_DIR
+elif [ $EXP == "spmm_gemm"]; then
+  python spmm_gemm.py $MAT_FILE $MAT_DIR
+elif [ $EXP == "spmm" ]; then
+  python spmm.py $MAT_FILE $MAT_DIR
+else
+  echo "Wrong experiment name"
+  exit 0
+fi
