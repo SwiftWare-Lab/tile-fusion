@@ -316,7 +316,11 @@ def benchmark(matrices, provider):
         M = A.shape[0]
         N = A.shape[1]
         K = u.shape[1]
-        ms, min_ms, max_ms = triton.testing.do_bench(lambda: sddmm_spmm_unfused(indptr_d, indices_d, data_d, u_d, v_d, res_data_d, c_d, M, N, K), quantiles=quantiles, warmup=warmpup, rep=rep)
+        try:
+            ms, min_ms, max_ms = triton.testing.do_bench(lambda: sddmm_spmm_unfused(indptr_d, indices_d, data_d, u_d, v_d, res_data_d, c_d, M, N, K), quantiles=quantiles, warmup=warmpup, rep=rep)
+        except Exception as e:
+            print(f"Error in unfused sddmm spmm: {e}")
+            ms, min_ms, max_ms = float("+inf"), float("+inf"), float("+inf")
     if provider == 'fused-sddmm-spmm-atomic':
         indptr_d = cuda.to_device(A.indptr.astype(np.int32))
         indices_d = cuda.to_device(A.indices.astype(np.int32))
@@ -329,7 +333,11 @@ def benchmark(matrices, provider):
         M = A.shape[0]
         N = A.shape[1]
         K = u.shape[1]
-        ms, min_ms, max_ms = triton.testing.do_bench(lambda: sddmm_spmm_fused_atomic(indptr_d, indices_d, data_d, u_d, v_d, c_d, M, N, K), quantiles=quantiles, warmup=warmpup, rep=rep)
+        try:
+            ms, min_ms, max_ms = triton.testing.do_bench(lambda: sddmm_spmm_fused_atomic(indptr_d, indices_d, data_d, u_d, v_d, c_d, M, N, K), quantiles=quantiles, warmup=warmpup, rep=rep)
+        except Exception as e:
+            print(f"Error in fused sddmm spmm atomic: {e}")
+            ms, min_ms, max_ms = float("+inf"), float("+inf"), float("+inf")
     if provider == 'fused-sddmm-spmm-intermediate-res':
         indptr_d = cuda.to_device(A.indptr.astype(np.int32))
         indices_d = cuda.to_device(A.indices.astype(np.int32))
@@ -344,7 +352,11 @@ def benchmark(matrices, provider):
         M = A.shape[0]
         N = A.shape[1]
         K = u.shape[1]
-        ms, min_ms, max_ms = triton.testing.do_bench(lambda: sddmm_spmm_fused_intermediate_res(indptr_d, indices_d, data_d, u_d, v_d, res_data_d, c_d, M, N, K), quantiles=quantiles, warmup=warmpup, rep=rep)
+        try:
+            ms, min_ms, max_ms = triton.testing.do_bench(lambda: sddmm_spmm_fused_intermediate_res(indptr_d, indices_d, data_d, u_d, v_d, res_data_d, c_d, M, N, K), quantiles=quantiles, warmup=warmpup, rep=rep)
+        except Exception as e:
+            print(f"Error in fused sddmm spmm intermediate res: {e}")
+            ms, min_ms, max_ms = float("+inf"), float("+inf"), float("+inf")
     if provider == 'fused-sddmm-spmm-intermediate-SA':
         indptr_d = cuda.to_device(A.indptr.astype(np.int32))
         indices_d = cuda.to_device(A.indices.astype(np.int32))
@@ -358,8 +370,11 @@ def benchmark(matrices, provider):
         N = A.shape[1]
         K = u.shape[1]
         max_nnz_per_row = find_max_nnz_per_row(A.indptr)
-        print(max_nnz_per_row)
-        ms, min_ms, max_ms = triton.testing.do_bench(lambda: sddmm_spmm_fused_intermediate_SA(indptr_d, indices_d, data_d, u_d, v_d, c_d, M, N, K, max_nnz_per_row), quantiles=quantiles, warmup=warmpup, rep=rep)
+        try:
+            ms, min_ms, max_ms = triton.testing.do_bench(lambda: sddmm_spmm_fused_intermediate_SA(indptr_d, indices_d, data_d, u_d, v_d, c_d, M, N, K, max_nnz_per_row), quantiles=quantiles, warmup=warmpup, rep=rep)
+        except Exception as e:
+            print(f"Error in fused sddmm spmm intermediate SA: {e}")
+            ms, min_ms, max_ms = float("+inf"), float("+inf"), float("+inf")
     if provider == 'torch-unfused-sddmm-spmm':
         indptr_t = torch.tensor(A.indptr, dtype=torch.int32, device='cuda')
         indices_t = torch.tensor(A.indices, dtype=torch.int32, device='cuda')
@@ -370,10 +385,14 @@ def benchmark(matrices, provider):
         M = A.shape[0]
         N = A.shape[1]
         K = u.shape[1]
-        ms, min_ms, max_ms = triton.testing.do_bench(
-            lambda: sdmm_spmm_unfused_torch(indptr_t, indices_t, data_t, u_t, v_t, M, N, K),
-            quantiles=quantiles, warmup=warmpup, rep=rep
-        )
+        try:
+            ms, min_ms, max_ms = triton.testing.do_bench(
+                lambda: sdmm_spmm_unfused_torch(indptr_t, indices_t, data_t, u_t, v_t, M, N, K),
+                quantiles=quantiles, warmup=warmpup, rep=rep
+            )
+        except:
+            print("Error in torch unfused sddmm spmm")
+            ms, min_ms, max_ms = float("+inf"), float("+inf"), float("+inf")
     return ms, min_ms, max_ms
 
 
