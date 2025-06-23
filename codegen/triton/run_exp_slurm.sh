@@ -31,7 +31,7 @@ if [ $EXP == "sddmm_spmm" ]; then
   python sddmm_spmm.py $MAT_FILE $MAT_DIR
 elif [ $EXP == "sddmm" ]; then
   python sddmm.py $MAT_FILE $MAT_DIR
-elif [ $EXP == "spmm_gemm"]; then
+elif [ $EXP == "spmm_gemm" ]; then
   python spmm_gemm.py $MAT_FILE $MAT_DIR
 elif [ $EXP == "spmm" ]; then
   python spmm.py $MAT_FILE $MAT_DIR
