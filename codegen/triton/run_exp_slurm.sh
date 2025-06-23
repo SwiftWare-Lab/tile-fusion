@@ -24,7 +24,7 @@ virtualenv --no-download $SLURM_TMPDIR/env
 source $SLURM_TMPDIR/env/bin/activate
 pip install --no-index --upgrade pip
 
-pip install --no-index -r requirements_slurm.txt
+pip install --no-index -r requirements_narval.txt
 
 
 if [ $EXP == "sddmm_spmm" ]; then
