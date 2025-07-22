@@ -273,7 +273,7 @@ file_path = sys.argv[1]
 data_path = sys.argv[2]
 mtx_list = get_matrix_list(file_path, data_path)
 # method_list = ["unfused-sddmm-spmm", "fused-sddmm-spmm-atomic", "fused-sddmm-spmm-intermediate-res", "fused-sddmm-spmm-intermediate-SA"] #TODO: Add numba gpu version and dgl implementation
-method_list = ["unfused-sddmm-spmm", "fused-sddmm-spmm-intermediate-SA", "torch-unfused-sddmm-spmm"]
+method_list = ["unfused-sddmm-spmm", "fused-sddmm-spmm-intermediate-SA"]
 configs = []
 configs.append(
     triton.testing.Benchmark(
@@ -281,7 +281,7 @@ configs.append(
         x_vals=[mtx_list[i] for i in range(0, len(mtx_list))],  # Different possible values for `x_name`
         line_arg="provider",  # Argument name whose value corresponds to a different line in the plot
         line_vals=method_list,  # Label name for the lines
-        line_names=["unfused-sddmm-spmm", "fused-sddmm-spmm-intermediate-SA", "torch-unfused-sddmm-spmm"],  # Name of the lines
+        line_names=["unfused-sddmm-spmm", "fused-sddmm-spmm-intermediate-SA"],  # Name of the lines
         styles=[("green", "-"), ("blue", "-"), ("red", "-"), ("gold", "-"), ("purple", "-")],  # Visual styles for the lines
         ylabel="GFLOP/S",  # Label name for the y-axis
         plot_name="gemm-spmm-performance",  # Name for the plot, used also as a file name for saving the plot.
@@ -393,7 +393,8 @@ def benchmark(matrices, provider):
         except:
             print("Error in torch unfused sddmm spmm")
             ms, min_ms, max_ms = float("+inf"), float("+inf"), float("+inf")
-    return ms, min_ms, max_ms
+    perf = lambda ms: (2 * A.nnz * feat_dim) / (ms * 1e-3) / 1e9
+    return perf(ms), perf(min_ms), perf(max_ms)
 
 
 if __name__ == "__main__":
