@@ -6,6 +6,7 @@
 #define SPARSE_FUSION_SPMM_SPMM_SP_DEMO_H
 
 #include "SpMM_SpMM_Demo_Utils.h"
+#include "sparse-fusion/GraphColoring.h"
 
 class SpMMSpMMUnFusedSP : public SWTensorBench<float> {
 protected:
@@ -18,6 +19,9 @@ protected:
     this->St->OtherStats["Number of Fused nnz"] = {0.};
     this->St->OtherStats["Tile Size Mean"] = {0.};
     this->St->OtherStats["Tile Size STD"] = {0.};
+    this->St->OtherStats["Color Count"] = {0.};
+    this->St->OtherStats["Min Tiles Per Color"] = {0.};
+    this->St->OtherStats["Max Tiles Per Color"] = {0.};
     for (int i = 0; i < InTensor->ACsr->nnz; ++i) {
       AValues[i] = (float)InTensor->ACsr->x[i];
     }
@@ -99,6 +103,116 @@ public:
   SpMMSpMMUnFusedParallelSP(TensorInputs<float> *In1, Stats *Stat1)
       : SpMMSpMMUnFusedSP(In1, Stat1) {}
 };
+
+class SpMMCSRSpMMCSCFusedColoringSP : public SpMMSpMMUnFusedSP {
+protected:
+  sym_lib::CSC *ConsumerCSC = nullptr;
+  sym_lib::MultiDimensionalSet *FusedCompSet = nullptr;
+  float *ConsumerValues = nullptr;
+  int TileSize;
+  bool BalanceColorClasses;
+
+protected:
+  Timer analysis() override {
+    Timer t;
+    t.start();
+
+    ConsumerCSC = sym_lib::csr_to_csc(InTensor->BCsr);
+    ConsumerValues = new float[ConsumerCSC->nnz];
+    for (int p = 0; p < ConsumerCSC->nnz; ++p) {
+      ConsumerValues[p] = static_cast<float>(ConsumerCSC->x[p]);
+    }
+
+    // Each row of the consumer CSR lists producers that update that output
+    // row. Color those producer tiles so same-color tiles have no conflicts.
+    sym_lib::CSC conflictView(InTensor->BCsr->n, InTensor->BCsr->m,
+                              InTensor->BCsr->nnz, InTensor->BCsr->p,
+                              InTensor->BCsr->i, InTensor->BCsr->x);
+    DsaturColoringForConflictGraph coloring;
+    auto colorToTiles =
+        BalanceColorClasses
+            ? coloring.generateBalancedGraphColoringForConflictGraphOf(
+                  &conflictView, TileSize, true)
+            : coloring.generateGraphColoringForConflictGraphOf(
+                  &conflictView, TileSize, true);
+    this->St->OtherStats["Color Count"] = {
+        static_cast<double>(colorToTiles.size())};
+    if (!colorToTiles.empty()) {
+      int minTiles = static_cast<int>(colorToTiles.begin()->second.size());
+      int maxTiles = minTiles;
+      for (const auto &color : colorToTiles) {
+        const int size = static_cast<int>(color.second.size());
+        minTiles = std::min(minTiles, size);
+        maxTiles = std::max(maxTiles, size);
+      }
+      this->St->OtherStats["Min Tiles Per Color"] = {
+          static_cast<double>(minTiles)};
+      this->St->OtherStats["Max Tiles Per Color"] = {
+          static_cast<double>(maxTiles)};
+    }
+    InspectorForSingleLayerTiledFusedCSCParallel inspector;
+    FusedCompSet =
+        inspector.generateFusedScheduleForSingleLayerTiledFusedCSCParallel(
+            colorToTiles, InTensor->M, TileSize);
+    t.stop();
+    return t;
+  }
+
+  Timer execute() override {
+    OutTensor->reset();
+    Timer t;
+    t.start();
+    swiftware::sparse::spmmCsrSpmmCscFusedColoredSP(
+        InTensor->M, InTensor->N, InTensor->K, InTensor->L,
+        InTensor->ACsr->p, InTensor->ACsr->i, AValues, ConsumerCSC->p,
+        ConsumerCSC->i, ConsumerValues, InTensor->Bx, OutTensor->Xx,
+        OutTensor->ACx, FusedCompSet->n1_, FusedCompSet->ptr1_,
+        FusedCompSet->id_, TileSize, InTensor->NumThreads);
+    t.stop();
+    return t;
+  }
+
+public:
+  SpMMCSRSpMMCSCFusedColoringSP(TensorInputs<float> *In1, Stats *Stat1,
+                                sym_lib::ScheduleParameters SpIn,
+                                bool BalanceColorClassesIn = false)
+      : SpMMSpMMUnFusedSP(In1, Stat1),
+        TileSize(std::max(1, std::min(SpIn.IterPerPartition, In1->M))),
+        BalanceColorClasses(BalanceColorClassesIn) {}
+
+  ~SpMMCSRSpMMCSCFusedColoringSP() {
+    delete FusedCompSet;
+    delete ConsumerCSC;
+    delete[] ConsumerValues;
+  }
+};
+
+#ifdef __AVX2__
+class SpMMCSRSpMMCSCFusedColoringAvx256SP
+    : public SpMMCSRSpMMCSCFusedColoringSP {
+protected:
+  Timer execute() override {
+    OutTensor->reset();
+    Timer t;
+    t.start();
+    swiftware::sparse::spmmCsrSpmmCscFusedColoredAvx256SP(
+        InTensor->M, InTensor->N, InTensor->K, InTensor->L,
+        InTensor->ACsr->p, InTensor->ACsr->i, AValues, ConsumerCSC->p,
+        ConsumerCSC->i, ConsumerValues, InTensor->Bx, OutTensor->Xx,
+        OutTensor->ACx, FusedCompSet->n1_, FusedCompSet->ptr1_,
+        FusedCompSet->id_, TileSize, InTensor->NumThreads);
+    t.stop();
+    return t;
+  }
+
+public:
+  SpMMCSRSpMMCSCFusedColoringAvx256SP(
+      TensorInputs<float> *In1, Stats *Stat1, sym_lib::ScheduleParameters SpIn,
+      bool BalanceColorClassesIn = false)
+      : SpMMCSRSpMMCSCFusedColoringSP(In1, Stat1, SpIn,
+                                      BalanceColorClassesIn) {}
+};
+#endif
 
 #ifdef MKL
 class SpMMSpMMMKL_SP : public SpMMSpMMUnFusedSP {

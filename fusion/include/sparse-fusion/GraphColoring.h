@@ -13,8 +13,6 @@
 #ifndef SPARSE_FUSION_GRAPHCOLORING_H
 #define SPARSE_FUSION_GRAPHCOLORING_H
 
-#endif // SPARSE_FUSION_GRAPHCOLORING_H
-
 // this class creates conflict graph of computations from column-wise tiled CSC
 // matrix. Then it uses greedy algorithm for graph coloring with DSatur
 // heuristic.
@@ -30,9 +28,19 @@ public:
     return colorToTiles;
   }
 
+  std::map<int, std::vector<int>>
+  generateBalancedGraphColoringForConflictGraphOf(
+      sym_lib::CSC *AdjMtx, int TileSize, bool DeleteLastTile) {
+    auto conflictGraph =
+        createTilesConflictGraph(AdjMtx, TileSize, DeleteLastTile);
+    auto coloring = dsaturColoring(conflictGraph, true);
+    return getColorToTilesMap(coloring);
+  }
+
 protected:
   std::map<std::string, int>
-  dsaturColoring(std::map<std::string, std::vector<std::string>> Graph) {
+  dsaturColoring(std::map<std::string, std::vector<std::string>> Graph,
+                 bool BalanceColorClasses = false) {
     std::map<std::string, int> graphColors;
     if (Graph.size() == 0) {
       return std::map<std::string, int>();
@@ -56,6 +64,7 @@ protected:
       return std::map<std::string, int>();
     }
     graphColors[maxDegree] = 0;
+    std::vector<int> colorSizes(1, 1);
 
     // Create saturation_level so that we can see which graph nodes have the
     // highest saturation without having to scan through the entire graph
@@ -131,20 +140,38 @@ protected:
         }
       }
 
-      // Find the lowest color that is not being used by any of the most
-      // saturated nodes neighbors, then color the most saturated node
+      // In balanced mode, prefer the smallest legal existing color class.
+      // A new color is created only if every existing color is forbidden.
       int lowest_color = 0;
-      int done = 0;
-      while (!done) {
-        done = 1;
-        for (unsigned i = 0; i < saturationColors.size(); i++) {
-          if (saturationColors[i] == lowest_color) {
-            lowest_color += 1;
-            done = 0;
+      if (BalanceColorClasses) {
+        int smallestSize = INT_MAX;
+        lowest_color = static_cast<int>(colorSizes.size());
+        for (int color = 0; color < static_cast<int>(colorSizes.size());
+             ++color) {
+          if (std::find(saturationColors.begin(), saturationColors.end(),
+                        color) == saturationColors.end() &&
+              colorSizes[color] < smallestSize) {
+            smallestSize = colorSizes[color];
+            lowest_color = color;
+          }
+        }
+      } else {
+        int done = 0;
+        while (!done) {
+          done = 1;
+          for (unsigned i = 0; i < saturationColors.size(); i++) {
+            if (saturationColors[i] == lowest_color) {
+              lowest_color += 1;
+              done = 0;
+            }
           }
         }
       }
       graphColors[saturationName] = lowest_color;
+      if (lowest_color == static_cast<int>(colorSizes.size())) {
+        colorSizes.push_back(0);
+      }
+      ++colorSizes[lowest_color];
 
       // Since we have colored another node, that nodes neighbors have now
       // become more saturated, so we increase each ones saturation level
@@ -302,3 +329,5 @@ protected:
     return conflictGraph;
   }
 };
+
+#endif // SPARSE_FUSION_GRAPHCOLORING_H

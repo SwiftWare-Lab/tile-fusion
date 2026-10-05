@@ -7,7 +7,6 @@
 #include "aggregation/sparse_io.h"
 #include "aggregation/sparse_utilities.h"
 #include "sparse-fusion/Fusion_Utils.h"
-#include "sparse-fusion/GraphColoring.h"
 #include "sparse-fusion/SparseFusion.h"
 #include <fstream>
 using namespace sym_lib;
@@ -101,6 +100,59 @@ int main(const int argc, const char *argv[]) {
   if (tp.print_header)
     std::cout << headerStat + spHeader + tpHeader + profHeader << std::endl;
   std::cout << unfusedParallelStat << spStat + tpStat + profStat << std::endl;
+
+  stats = new swiftware::benchmark::Stats(
+      "SpMM_SpMM_CSC_Colored_SP", "SpMM", 7, tp._matrix_name, numThread);
+  stats->OtherStats["PackingType"] = {Separated};
+  stats->OtherStats["TilingMethod"] = {Fixed};
+  auto *colored = new SpMMCSRSpMMCSCFusedColoringSP(inSpMM, stats, sp);
+  colored->run();
+  auto coloredStat = colored->printStats();
+  delete colored;
+  delete stats;
+  std::cout << coloredStat << spStat + tpStat + profStat << std::endl;
+
+  stats = new swiftware::benchmark::Stats(
+      "SpMM_SpMM_CSC_Colored_Balanced_SP", "SpMM", 7, tp._matrix_name,
+      numThread);
+  stats->OtherStats["PackingType"] = {Separated};
+  stats->OtherStats["TilingMethod"] = {Fixed};
+  auto *coloredBalanced =
+      new SpMMCSRSpMMCSCFusedColoringSP(inSpMM, stats, sp, true);
+  coloredBalanced->run();
+  auto coloredBalancedStat = coloredBalanced->printStats();
+  delete coloredBalanced;
+  delete stats;
+  std::cout << coloredBalancedStat << spStat + tpStat + profStat << std::endl;
+
+#ifdef __AVX2__
+  stats = new swiftware::benchmark::Stats(
+      "SpMM_SpMM_CSC_Colored_Avx256_SP", "SpMM", 7, tp._matrix_name,
+      numThread);
+  stats->OtherStats["PackingType"] = {Separated};
+  stats->OtherStats["TilingMethod"] = {Fixed};
+  auto *coloredAvx =
+      new SpMMCSRSpMMCSCFusedColoringAvx256SP(inSpMM, stats, sp);
+  coloredAvx->run();
+  auto coloredAvxStat = coloredAvx->printStats();
+  delete coloredAvx;
+  delete stats;
+  std::cout << coloredAvxStat << spStat + tpStat + profStat << std::endl;
+
+  stats = new swiftware::benchmark::Stats(
+      "SpMM_SpMM_CSC_Colored_Balanced_Avx256_SP", "SpMM", 7,
+      tp._matrix_name, numThread);
+  stats->OtherStats["PackingType"] = {Separated};
+  stats->OtherStats["TilingMethod"] = {Fixed};
+  auto *coloredBalancedAvx =
+      new SpMMCSRSpMMCSCFusedColoringAvx256SP(inSpMM, stats, sp, true);
+  coloredBalancedAvx->run();
+  auto coloredBalancedAvxStat = coloredBalancedAvx->printStats();
+  delete coloredBalancedAvx;
+  delete stats;
+  std::cout << coloredBalancedAvxStat << spStat + tpStat + profStat
+            << std::endl;
+#endif
 //  std::cout << fusedParallelVTStat << spStat + tpStat + profStat << std::endl;
 
 #ifdef MKL

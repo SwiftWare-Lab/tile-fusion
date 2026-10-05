@@ -462,6 +462,63 @@ void spmmCsrSpmmCscFusedColored(int M, int N, int K, int L, const int *Ap,
   }
 }
 
+void spmmCsrSpmmCscFusedColoredSP(
+    int M, int N, int K, int L, const int *Ap, const int *Ai, const float *Ax,
+    const int *Bp, const int *Bi, const float *Bx, const float *Cx, float *Dx,
+    float *ACx, int LevelNo, const int *LevelPtr, const int *Id, int TileSize,
+    int NThreads) {
+  const int lastTileSize = M % TileSize;
+  float *aCxi = new float[NThreads * TileSize * N];
+  pw_init_instruments;
+  for (int level = 0; level < LevelNo; ++level) {
+#pragma omp parallel num_threads(NThreads)
+    {
+      pw_start_instruments_loop(omp_get_thread_num());
+      const int threadId = omp_get_thread_num();
+      float *tileH = aCxi + threadId * TileSize * N;
+#pragma omp for
+      for (int tile = LevelPtr[level]; tile < LevelPtr[level + 1]; ++tile) {
+        const int rowBegin = Id[tile] * TileSize;
+        memset(tileH, 0, sizeof(float) * TileSize * N);
+        for (int ii = 0; ii < TileSize; ++ii) {
+          const int row = rowBegin + ii;
+          float *h = tileH + ii * N;
+          for (int p = Ap[row]; p < Ap[row + 1]; ++p) {
+            const int xOffset = Ai[p] * N;
+            for (int f = 0; f < N; ++f) {
+              h[f] += Ax[p] * Cx[xOffset + f];
+            }
+          }
+          for (int q = Bp[row]; q < Bp[row + 1]; ++q) {
+            const int yOffset = Bi[q] * N;
+            for (int f = 0; f < N; ++f) {
+              Dx[yOffset + f] += Bx[q] * h[f];
+            }
+          }
+        }
+      }
+      pw_stop_instruments_loop(omp_get_thread_num());
+    }
+  }
+  delete[] aCxi;
+
+  // The coloring excludes the incomplete final tile; process it serially.
+  for (int row = M - lastTileSize; row < M; ++row) {
+    for (int p = Ap[row]; p < Ap[row + 1]; ++p) {
+      const int xOffset = Ai[p] * N;
+      for (int f = 0; f < N; ++f) {
+        ACx[row * N + f] += Ax[p] * Cx[xOffset + f];
+      }
+    }
+    for (int q = Bp[row]; q < Bp[row + 1]; ++q) {
+      const int yOffset = Bi[q] * N;
+      for (int f = 0; f < N; ++f) {
+        Dx[yOffset + f] += Bx[q] * ACx[row * N + f];
+      }
+    }
+  }
+}
+
 void spmmCsrSpmmCscFusedColoredNTiling(int M, int N, int K, int L, const int *Ap,
                                 const int *Ai, const double *Ax, const int *Bp,
                                 const int *Bi, const double *Bx,

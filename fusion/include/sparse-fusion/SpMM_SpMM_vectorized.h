@@ -158,6 +158,11 @@ void spmmCsrSpmmCscFusedColoredAvx256(int M, int N, int K, int L, const int *Ap,
                                       double *Dx, double *ACx, int LevelNo,
                                       const int *LevelPtr, const int *Id,
                                       int TileSize, int NThreads);
+void spmmCsrSpmmCscFusedColoredAvx256SP(
+    int M, int N, int K, int L, const int *Ap, const int *Ai, const float *Ax,
+    const int *Bp, const int *Bi, const float *Bx, const float *Cx, float *Dx,
+    float *ACx, int LevelNo, const int *LevelPtr, const int *Id, int TileSize,
+    int NThreads);
 void spmmCsrSpmmCscFusedColoredAvx256Packed(
     int M, int N, int K, int L, const int *Ap, const int *Ai, const double *Ax,
     const int *Bp, const int *Bi, const double *Bx, const double *Cx,

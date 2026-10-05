@@ -1746,6 +1746,116 @@ void spmmCsrSpmmCscFusedColoredAvx256(int M, int N, int K, int L, const int *Ap,
   }
 }
 
+inline __m256 coloredFmaddAvx256SP(__m256 a, __m256 b, __m256 c) {
+#ifdef __FMA__
+  return _mm256_fmadd_ps(a, b, c);
+#else
+  return _mm256_add_ps(_mm256_mul_ps(a, b), c);
+#endif
+}
+
+inline void spmmCsrSpmmCscFusedColoredAvx256SPRow(
+    int row, int N, const int *Ap, const int *Ai, const float *Ax,
+    const int *Bp, const int *Bi, const float *Bx, const float *Cx, float *Dx,
+    float *ACx) {
+  int f = 0;
+  for (; f + 32 <= N; f += 32) {
+    __m256 h0 = ACx ? _mm256_loadu_ps(ACx + row * N + f)
+                   : _mm256_setzero_ps();
+    __m256 h1 = ACx ? _mm256_loadu_ps(ACx + row * N + f + 8)
+                   : _mm256_setzero_ps();
+    __m256 h2 = ACx ? _mm256_loadu_ps(ACx + row * N + f + 16)
+                   : _mm256_setzero_ps();
+    __m256 h3 = ACx ? _mm256_loadu_ps(ACx + row * N + f + 24)
+                   : _mm256_setzero_ps();
+    for (int p = Ap[row]; p < Ap[row + 1]; ++p) {
+      const float *x = Cx + Ai[p] * N + f;
+      const __m256 a = _mm256_set1_ps(Ax[p]);
+      h0 = coloredFmaddAvx256SP(a, _mm256_loadu_ps(x), h0);
+      h1 = coloredFmaddAvx256SP(a, _mm256_loadu_ps(x + 8), h1);
+      h2 = coloredFmaddAvx256SP(a, _mm256_loadu_ps(x + 16), h2);
+      h3 = coloredFmaddAvx256SP(a, _mm256_loadu_ps(x + 24), h3);
+    }
+    if (ACx) {
+      float *out = ACx + row * N + f;
+      _mm256_storeu_ps(out, h0);
+      _mm256_storeu_ps(out + 8, h1);
+      _mm256_storeu_ps(out + 16, h2);
+      _mm256_storeu_ps(out + 24, h3);
+    }
+    for (int q = Bp[row]; q < Bp[row + 1]; ++q) {
+      float *y = Dx + Bi[q] * N + f;
+      const __m256 b = _mm256_set1_ps(Bx[q]);
+      _mm256_storeu_ps(y, coloredFmaddAvx256SP(
+                              b, h0, _mm256_loadu_ps(y)));
+      _mm256_storeu_ps(y + 8, coloredFmaddAvx256SP(
+                                  b, h1, _mm256_loadu_ps(y + 8)));
+      _mm256_storeu_ps(y + 16, coloredFmaddAvx256SP(
+                                   b, h2, _mm256_loadu_ps(y + 16)));
+      _mm256_storeu_ps(y + 24, coloredFmaddAvx256SP(
+                                   b, h3, _mm256_loadu_ps(y + 24)));
+    }
+  }
+  for (; f + 8 <= N; f += 8) {
+    __m256 h = ACx ? _mm256_loadu_ps(ACx + row * N + f)
+                  : _mm256_setzero_ps();
+    for (int p = Ap[row]; p < Ap[row + 1]; ++p) {
+      const __m256 x = _mm256_loadu_ps(Cx + Ai[p] * N + f);
+      h = coloredFmaddAvx256SP(_mm256_set1_ps(Ax[p]), x, h);
+    }
+    if (ACx) {
+      _mm256_storeu_ps(ACx + row * N + f, h);
+    }
+    for (int q = Bp[row]; q < Bp[row + 1]; ++q) {
+      float *y = Dx + Bi[q] * N + f;
+      const __m256 result = coloredFmaddAvx256SP(
+          _mm256_set1_ps(Bx[q]), h, _mm256_loadu_ps(y));
+      _mm256_storeu_ps(y, result);
+    }
+  }
+  for (; f < N; ++f) {
+    float h = ACx ? ACx[row * N + f] : 0.0f;
+    for (int p = Ap[row]; p < Ap[row + 1]; ++p) {
+      h += Ax[p] * Cx[Ai[p] * N + f];
+    }
+    if (ACx) {
+      ACx[row * N + f] = h;
+    }
+    for (int q = Bp[row]; q < Bp[row + 1]; ++q) {
+      Dx[Bi[q] * N + f] += Bx[q] * h;
+    }
+  }
+}
+
+void spmmCsrSpmmCscFusedColoredAvx256SP(
+    int M, int N, int K, int L, const int *Ap, const int *Ai, const float *Ax,
+    const int *Bp, const int *Bi, const float *Bx, const float *Cx, float *Dx,
+    float *ACx, int LevelNo, const int *LevelPtr, const int *Id, int TileSize,
+    int NThreads) {
+  pw_init_instruments;
+  for (int level = 0; level < LevelNo; ++level) {
+#pragma omp parallel num_threads(NThreads)
+    {
+      pw_start_instruments_loop(omp_get_thread_num());
+#pragma omp for
+      for (int tile = LevelPtr[level]; tile < LevelPtr[level + 1]; ++tile) {
+        const int rowBegin = Id[tile] * TileSize;
+        for (int ii = 0; ii < TileSize; ++ii) {
+          spmmCsrSpmmCscFusedColoredAvx256SPRow(
+              rowBegin + ii, N, Ap, Ai, Ax, Bp, Bi, Bx, Cx, Dx, nullptr);
+        }
+      }
+      pw_stop_instruments_loop(omp_get_thread_num());
+    }
+  }
+
+  // The coloring excludes the incomplete final tile; process it serially.
+  for (int row = M - M % TileSize; row < M; ++row) {
+    spmmCsrSpmmCscFusedColoredAvx256SPRow(
+        row, N, Ap, Ai, Ax, Bp, Bi, Bx, Cx, Dx, ACx);
+  }
+}
+
 void spmmCsrSpmmCscFusedColoredAvx256Packed(int M, int N, int K, int L, const int *Ap,
                                       const int *Ai, const double *Ax, const int *Bp,
                                       const int *Bi, const double *Bx,
