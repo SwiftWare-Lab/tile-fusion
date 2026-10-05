@@ -5,7 +5,14 @@ import sys
 import os
 import numpy as np
 
+
+
 folder = sys.argv[1]
+num_threads = sys.argv[2]
+os.environ["OPENBLAS_NUM_THREADS"] = num_threads  # Adjust the number of threads as needed
+os.environ["MKL_NUM_THREADS"] = num_threads
+os.environ["OMP_NUM_THREADS"] = num_threads
+
 mat_list_file_name = os.path.join(folder, 'mat_list.txt')
 with open(mat_list_file_name, 'r+') as mtf:
     mat_list = mtf.readlines()
@@ -17,16 +24,20 @@ with open(mat_list_file_name, 'r+') as mtf:
         mat_path = os.path.join(folder, mat_path)
         mat = mmread(mat_path)
         mat_csr = mat.tocsr()
-        perm = reverse_cuthill_mckee(mat_csr)
-        mat_csr = mat_csr[perm, :][:, perm]
-        # features = features[perm, :]
-        # labels = labels[:, perm]
-        mat_name = mat_name + '_ordered'
-        mat_folder = os.path.join(folder, mat_name)
-        if not os.path.exists(mat_folder):
-            os.mkdir(mat_folder)
-        mat_path = os.path.join(folder, mat_name, mat_name+'.mtx')
-        mat_rel_path = os.path.join(mat_name, mat_name+'.mtx')
-        mmwrite(mat_path, mat_csr)
-        new_mat_list.append(mat_rel_path+'\n')
+        try:
+            perm = reverse_cuthill_mckee(mat_csr)
+            mat_csr = mat_csr[perm, :][:, perm]
+            # features = features[perm, :]
+            # labels = labels[:, perm]
+            mat_name = mat_name + '_ordered'
+            mat_folder = os.path.join(folder, mat_name)
+            if not os.path.exists(mat_folder):
+                os.mkdir(mat_folder)
+            mat_path = os.path.join(folder, mat_name, mat_name + '.mtx')
+            mat_rel_path = os.path.join(mat_name, mat_name + '.mtx')
+            mmwrite(mat_path, mat_csr)
+            new_mat_list.append(mat_rel_path + '\n')
+        except ValueError as ve:
+            print("error for matrix", mat)
+
     mtf.writelines(new_mat_list)

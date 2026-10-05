@@ -5,7 +5,7 @@
 #ifndef SPARSE_FUSION_CUDA_SPMM_SPMM_DEMO_UTILS_H
 #define SPARSE_FUSION_CUDA_SPMM_SPMM_DEMO_UTILS_H
 #include "Cuda_SpMM_Demo_Utils.h"
-//#include "SW_SpMM_Kernels.h"
+// #include "SW_SpMM_Kernels.h"
 
 #define CEIL(x, y) (((x) + (y)-1) / (y))
 #define MIN(a, b) ((a < b) ? a : b)
@@ -168,7 +168,7 @@ protected:
     MGridDim = CEIL(InTensor->M, MBlockDim);
   }
 
-  Timer execute() override{
+  Timer execute() override {
     OutTensor->reset();
     Timer t1;
     dim3 gridDim(MGridDim, NGridDim, 1);
@@ -190,10 +190,223 @@ protected:
     OutTensor->copyDeviceToHost();
     return t1;
   }
+
 public:
   SpMMSpMMSeqReduceRowBalance(CudaTensorInputs *In1, Stats *Stat1,
                               int ThreadPerBlock = 256)
-      : SeqSpMMSpMM(In1, Stat1), ThreadPerBlock(ThreadPerBlock) {
+      : SeqSpMMSpMM(In1, Stat1), ThreadPerBlock(ThreadPerBlock) {}
+};
+
+class SpMMSpMMSeqReduceRowBalanceCoarsenedRow :
+    public SpMMSpMMSeqReduceRowBalance{
+protected:
+  int RowTile;
+  void setup() override {
+    SeqSpMMSpMM::setup();
+    NGridDim = CEIL(InTensor->N, ThreadPerBlock);
+    NBlockDim = MIN(InTensor->N, ThreadPerBlock);
+    MBlockDim = CEIL(ThreadPerBlock, NBlockDim);
+    MGridDim = CEIL(InTensor->M, RowTile);
+  }
+  Timer execute() override {
+    OutTensor->reset();
+    int threadWorkReps = CEIL(RowTile, MBlockDim);
+    Timer t1;
+    dim3 gridDim(MGridDim, NGridDim, 1);
+    dim3 blockDim(NBlockDim, MBlockDim, 1);
+    t1.startGPU();
+    csrspmm_seqreduce_rowcoarsened_kernel<<<gridDim, blockDim>>>(
+        InTensor->M, InTensor->N, InTensor->K, threadWorkReps, InTensor->DACsrAp,
+        InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx);
+    // TODO: Since I know kernel calls are nonBlocking I used this. Is this the
+    // right way?
+    //  I might need to test without synchronization to make sure nonBlocking
+    //  property of kernel calls is valid.
+    cudaDeviceSynchronize();
+    csrspmm_seqreduce_rowcoarsened_kernel<<<gridDim, blockDim>>>(
+        InTensor->M, InTensor->N, InTensor->K, threadWorkReps, InTensor->DACsrAp,
+        InTensor->DACsrI, InTensor->DACsrVal, OutTensor->DACx, OutTensor->DXx);
+    cudaDeviceSynchronize();
+    t1.stopGPU("UnfusedSpMMSpMM");
+    OutTensor->copyDeviceToHost();
+    return t1;
+  }
+
+public:
+  SpMMSpMMSeqReduceRowBalanceCoarsenedRow(CudaTensorInputs *In1, Stats *Stat1,
+                              int ThreadPerBlock, int RowTile1)
+      : SpMMSpMMSeqReduceRowBalance(In1, Stat1, ThreadPerBlock), RowTile(RowTile1)
+  {}
+};
+
+class SpMMSpMMSeqReduceRowBalanceCoarsenedRowStride
+    : public SpMMSpMMSeqReduceRowBalanceCoarsenedRow{
+protected:
+  Timer execute() override{
+    OutTensor->reset();
+    int threadWorkReps = CEIL(RowTile, MBlockDim);
+    Timer t1;
+    dim3 gridDim(MGridDim, NGridDim, 1);
+    dim3 blockDim(NBlockDim, MBlockDim, 1);
+    t1.startGPU();
+    csrspmm_seqreduce_striderowcoarsened_kernel<<<gridDim, blockDim>>>(
+        InTensor->M, InTensor->N, InTensor->K, threadWorkReps, InTensor->DACsrAp,
+        InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx);
+    // TODO: Since I know kernel calls are nonBlocking I used this. Is this the
+    // right way?
+    //  I might need to test without synchronization to make sure nonBlocking
+    //  property of kernel calls is valid.
+    cudaDeviceSynchronize();
+    csrspmm_seqreduce_striderowcoarsened_kernel<<<gridDim, blockDim>>>(
+        InTensor->M, InTensor->N, InTensor->K, threadWorkReps, InTensor->DACsrAp,
+        InTensor->DACsrI, InTensor->DACsrVal, OutTensor->DACx, OutTensor->DXx);
+    cudaDeviceSynchronize();
+    t1.stopGPU("UnfusedSpMMSpMM");
+    OutTensor->copyDeviceToHost();
+    return t1;
+  }
+public:
+  SpMMSpMMSeqReduceRowBalanceCoarsenedRowStride(CudaTensorInputs *In1, Stats *Stat1,
+                              int ThreadPerBlock, int RowTile1)
+      : SpMMSpMMSeqReduceRowBalanceCoarsenedRow(In1, Stat1, ThreadPerBlock, RowTile1)
+  {}
+};
+
+class FusedSpMMSpMMCSRCSC: public SpMMSpMMSeqReduceRowBalance{
+protected:
+
+  Timer execute() override {
+    OutTensor->reset();
+    Timer t1;
+    dim3 gridDim(MGridDim, NGridDim, 1);
+    dim3 blockDim(NBlockDim, MBlockDim, 1);
+    t1.startGPU();
+    csr_fusedTile_multiplerow_1v1fusedParReduceAtomic_rowbalance_kernel<<<gridDim, blockDim>>>(
+        InTensor->M, InTensor->N, InTensor->K, InTensor->DACsrAp,
+        InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx,
+        OutTensor->DXx, InTensor->DACsrAp,
+        InTensor->DACsrI, InTensor->DACsrVal);
+    t1.stopGPU("UnfusedSpMMSpMM");
+    OutTensor->copyDeviceToHost();
+    return t1;
+  }
+
+public:
+  FusedSpMMSpMMCSRCSC(CudaTensorInputs *In1, Stats *Stat1,
+                              int ThreadPerBlock = 256)
+      : SpMMSpMMSeqReduceRowBalance(In1, Stat1, ThreadPerBlock) {}
+};
+
+class FusedSpMMSpMMCSRCSCNoAtomic: public SpMMSpMMSeqReduceRowBalance{
+protected:
+
+  Timer execute() override {
+    OutTensor->reset();
+    Timer t1;
+    dim3 gridDim(MGridDim, NGridDim, 1);
+    dim3 blockDim(NBlockDim, MBlockDim, 1);
+    t1.startGPU();
+    csr_fusedTile_multiplerow_1v1fusedParReduceNoAtomic_rowbalance_kernel<<<gridDim, blockDim>>>(
+        InTensor->M, InTensor->N, InTensor->K, InTensor->DACsrAp,
+        InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx,
+        OutTensor->DXx, InTensor->DACsrAp,
+        InTensor->DACsrI, InTensor->DACsrVal);
+    t1.stopGPU("UnfusedSpMMSpMM");
+    OutTensor->copyDeviceToHost();
+    return t1;
+  }
+
+public:
+  FusedSpMMSpMMCSRCSCNoAtomic(CudaTensorInputs *In1, Stats *Stat1,
+                      int ThreadPerBlock = 256)
+      : SpMMSpMMSeqReduceRowBalance(In1, Stat1, ThreadPerBlock) {}
+};
+
+class FusedSpMMSpMMSeqReduceRowBalanceRedundant
+    : public SpMMSpMMSeqReduceRowBalance {
+protected:
+    int *HL1Ptr;
+    int *DL1Ptr;
+    int *HL1Id;
+    int *DL1Id;
+  int RowTile;
+  int RowsPerThread;
+
+  Timer analysis() override {
+    Timer t1;
+    t1.start();
+    MGridDim = CEIL(InTensor->M, RowTile);
+    std::vector<std::set<int>> dependantL1Rows(MGridDim);
+    int rowTile = RowTile;
+    int *ap = InTensor->ACsr->p;
+    int *ai = InTensor->ACsr->i;
+    for (int i = 0; i < InTensor->M; i += rowTile) {
+      int t = i / rowTile;
+      int end = MIN(i + rowTile, InTensor->M);
+      for (int ii = i; ii < end; ii++) {
+        for (int j = ap[ii]; j < ap[ii + 1]; j++) {
+          dependantL1Rows[t].insert(ai[j]);
+        }
+      }
+    }
+    int dependantCount = 0;
+    int maxL1TileSize = 0;
+    for (int i = 0; i < dependantL1Rows.size(); i++) {
+      int tileDependantCount = dependantL1Rows[i].size();
+      if (tileDependantCount > maxL1TileSize){
+        maxL1TileSize = tileDependantCount;
+      }
+      dependantCount += tileDependantCount;
+    }
+    int ntiles = dependantL1Rows.size() + 1;
+    HL1Ptr = new int[dependantL1Rows.size() + 1];
+    HL1Id = new int[dependantCount];
+    HL1Ptr[0] = 0;
+    int ptr = 0;
+    for (int i = 0; i < dependantL1Rows.size(); i++) {
+      HL1Ptr[i + 1] = HL1Ptr[i] + dependantL1Rows[i].size();
+      for (int dr : dependantL1Rows[i]) {
+        HL1Id[ptr] = dr;
+        ptr++;
+      }
+    }
+    RowsPerThread = CEIL(maxL1TileSize,MBlockDim);
+    //    this->St->OtherStats["Number of Fused Rows"] = {(double)fIdCount};
+    //    this->St->OtherStats["Number of Fused Nnz"] = {(double)NnzCount};
+    cudaMalloc(&DL1Ptr, ntiles * sizeof(int));
+    cudaMalloc(&DL1Id, dependantCount * sizeof(int));
+    cudaMemcpy(DL1Ptr, HL1Ptr, ntiles * sizeof(int), cudaMemcpyHostToDevice);
+    cudaMemcpy(DL1Id, HL1Id, dependantCount * sizeof(int),
+               cudaMemcpyHostToDevice);
+    t1.stop();
+    return t1;
+  }
+
+  Timer execute() override {
+    Timer t1;
+    dim3 rGridDim(MGridDim, NGridDim, 1);
+    dim3 rBlockDim(NBlockDim, MBlockDim, 1);
+    t1.startGPU();
+    csr_redundantFusedTile_multiplerow_seqreduce_rowbalance_kernel<<<rGridDim, rBlockDim>>>(
+        InTensor->M, InTensor->N, InTensor->K, RowTile, InTensor->DACsrAp,
+        InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx,
+        OutTensor->DXx, DL1Ptr, DL1Id);
+    cudaDeviceSynchronize();
+    t1.stopGPU("RedundantFusedSpMMSpMM");
+    OutTensor->copyDeviceToHost();
+    return t1;
+  }
+public:
+  FusedSpMMSpMMSeqReduceRowBalanceRedundant(CudaTensorInputs *In1, Stats *Stat1,
+                                            int ThreadPerBlock,
+                                            int RowTileIn)
+      : SpMMSpMMSeqReduceRowBalance(In1, Stat1, ThreadPerBlock), RowTile(RowTileIn) {}
+
+  ~FusedSpMMSpMMSeqReduceRowBalanceRedundant(){
+    delete[] HL1Ptr;
+    delete[] HL1Id;
+    cudaFree(DL1Id);
+    cudaFree(DL1Ptr);
   }
 };
 
@@ -215,24 +428,19 @@ protected:
     std::vector<int> ufRows;
     std::vector<std::vector<int>> fRows(MGridDim);
     int rowTile = MBlockDim;
-    int* ap = InTensor->ACsr->p;
-    int* ai = InTensor->ACsr->i;
+    int *ap = InTensor->ACsr->p;
+    int *ai = InTensor->ACsr->i;
     int NnzCount = 0;
-    for (int i = 0; i < InTensor->M; i+=rowTile) {
+    for (int i = 0; i < InTensor->M; i += rowTile) {
       int t = i / rowTile;
       int end = MIN(i + rowTile, InTensor->M);
-      for (int ii = i; ii < end; ii++){
-        bool isUnfused = false;
-        for (int j = ap[ii]; j < ap[ii + 1]; j++){
-          if (ai[j] < i || ai[j] >= end){
-            ufRows.push_back(ii);
-            isUnfused = true;
-            break;
-          }
+      for (int ii = i; ii < end; ii++) {
+        if (ai[ap[ii]] < i || ai[ap[ii+1]-1] >= end) {
+          ufRows.push_back(ii);
         }
-        if (!isUnfused){
+        else {
           fRows[t].push_back(ii);
-          NnzCount += ap[ii+1] - ap[ii];
+          NnzCount += ap[ii + 1] - ap[ii];
         }
       }
     }
@@ -242,14 +450,14 @@ protected:
     HUFPtr = new int[ufCount];
     HFPtr = new int[fPtrCount];
     HFId = new int[fIdCount];
-    for (int i = 0; i < ufRows.size(); i++){
+    for (int i = 0; i < ufRows.size(); i++) {
       HUFPtr[i] = ufRows[i];
     }
     HFPtr[0] = 0;
-    for (int i = 0; i < fRows.size(); i++){
-      HFPtr[i+1] = HFPtr[i] + fRows[i].size();
-      for (int j = HFPtr[i]; j < HFPtr[i+1]; j++){
-        HFId[j] = fRows[i][j-HFPtr[i]];
+    for (int i = 0; i < fRows.size(); i++) {
+      HFPtr[i + 1] = HFPtr[i] + fRows[i].size();
+      for (int j = HFPtr[i]; j < HFPtr[i + 1]; j++) {
+        HFId[j] = fRows[i][j - HFPtr[i]];
       }
     }
     this->St->OtherStats["Number of Fused Rows"] = {(double)fIdCount};
@@ -266,22 +474,22 @@ protected:
     return t1;
   }
 
-  Timer execute() override{
+  Timer execute() override {
     Timer t1;
     dim3 fGridDim(MGridDim, NGridDim, 1);
     dim3 fBlockDim(NBlockDim, MBlockDim, 1);
     dim3 ufGridDim(UFMGridDim, NGridDim, 1);
     dim3 ufBlockDim(NBlockDim, MBlockDim, 1);
     t1.startGPU();
-    csr_fusedTile_spmmspmm_seqreduce_rowbalance_kernel<<<fGridDim, fBlockDim>>>
-        (InTensor->M, InTensor->N, InTensor->K, InTensor->DACsrAp,
-         InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx,
-         OutTensor->DXx, DFPtr, DFId);
+    csr_fusedTile_spmmspmm_seqreduce_rowbalance_kernel<<<fGridDim, fBlockDim>>>(
+        InTensor->M, InTensor->N, InTensor->K, InTensor->DACsrAp,
+        InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx,
+        OutTensor->DXx, DFPtr, DFId);
     cudaDeviceSynchronize();
-    csr_unfusedTile_spmmspmm_seqreduce_rowbalance_kernel<<<ufGridDim, ufBlockDim>>>
-        (UFDim, InTensor->N, InTensor->K, InTensor->DACsrAp,
-         InTensor->DACsrI, InTensor->DACsrVal, OutTensor->DACx, OutTensor->DXx,
-         DUFPtr);
+    csr_unfusedTile_spmmspmm_seqreduce_rowbalance_kernel<<<ufGridDim,
+                                                           ufBlockDim>>>(
+        UFDim, InTensor->N, InTensor->K, InTensor->DACsrAp, InTensor->DACsrI,
+        InTensor->DACsrVal, OutTensor->DACx, OutTensor->DXx, DUFPtr);
     cudaDeviceSynchronize();
     t1.stopGPU("FusedSpMMSpMM");
     OutTensor->copyDeviceToHost();
@@ -303,9 +511,8 @@ public:
   }
 };
 
-
-class FusedSpMMSpMMSeqReduceRowBalanceReordered: public FusedSpMMSpMMSeqReduceRowBalance
-{
+class FusedSpMMSpMMSeqReduceRowBalanceReordered
+    : public FusedSpMMSpMMSeqReduceRowBalance {
 protected:
   int *HROAp;
   int *HROAi;
@@ -320,25 +527,20 @@ protected:
     std::vector<int> ufRows;
     std::vector<std::vector<int>> fRows(MGridDim);
     int rowTile = MBlockDim;
-    int* ap = InTensor->ACsr->p;
-    int* ai = InTensor->ACsr->i;
-    float* ax = InTensor->HACsrVal;
+    int *ap = InTensor->ACsr->p;
+    int *ai = InTensor->ACsr->i;
+    float *ax = InTensor->HACsrVal;
     int NnzCount = 0;
-    for (int i = 0; i < InTensor->M; i+=rowTile) {
+    for (int i = 0; i < InTensor->M; i += rowTile) {
       int t = i / rowTile;
       int end = MIN(i + rowTile, InTensor->M);
-      for (int ii = i; ii < end; ii++){
-        bool isUnfused = false;
-        for (int j = ap[ii]; j < ap[ii + 1]; j++){
-          if (ai[j] < i || ai[j] >= end){
-            ufRows.push_back(ii);
-            isUnfused = true;
-            break;
-          }
+      for (int ii = i; ii < end; ii++) {
+        if (ai[ap[ii]] < i || ai[ap[ii+1]-1] >= end) {
+          ufRows.push_back(ii);
         }
-        if (!isUnfused){
+        else {
           fRows[t].push_back(ii);
-          NnzCount += ap[ii+1] - ap[ii];
+          NnzCount += ap[ii + 1] - ap[ii];
         }
       }
     }
@@ -347,26 +549,26 @@ protected:
     int fIdCount = InTensor->M - ufCount;
     int fPtrCount = MGridDim + 1;
     HUFPtr = new int[ufCount];
-    HROAp = new int[ufCount+1];
+    HROAp = new int[ufCount + 1];
     HROAi = new int[uFNnzCount];
     HROAx = new float[uFNnzCount];
     HFPtr = new int[fPtrCount];
     HFId = new int[fIdCount];
     HROAp[0] = 0;
-    for (int i = 0; i < ufRows.size(); i++){
+    for (int i = 0; i < ufRows.size(); i++) {
       HUFPtr[i] = ufRows[i];
-      int rowNnzCount = ap[ufRows[i]+1] - ap[ufRows[i]];
-      HROAp[i+1] = rowNnzCount + HROAp[i];
-      for(int j = 0; j < rowNnzCount; j++){
-        HROAi[HROAp[i]+j] = ai[ap[ufRows[i]] + j];
-        HROAx[HROAp[i]+j] = ax[ap[ufRows[i]] + j];
+      int rowNnzCount = ap[ufRows[i] + 1] - ap[ufRows[i]];
+      HROAp[i + 1] = rowNnzCount + HROAp[i];
+      for (int j = 0; j < rowNnzCount; j++) {
+        HROAi[HROAp[i] + j] = ai[ap[ufRows[i]] + j];
+        HROAx[HROAp[i] + j] = ax[ap[ufRows[i]] + j];
       }
     }
     HFPtr[0] = 0;
-    for (int i = 0; i < fRows.size(); i++){
-      HFPtr[i+1] = HFPtr[i] + fRows[i].size();
-      for (int j = HFPtr[i]; j < HFPtr[i+1]; j++){
-        HFId[j] = fRows[i][j-HFPtr[i]];
+    for (int i = 0; i < fRows.size(); i++) {
+      HFPtr[i + 1] = HFPtr[i] + fRows[i].size();
+      for (int j = HFPtr[i]; j < HFPtr[i + 1]; j++) {
+        HFId[j] = fRows[i][j - HFPtr[i]];
       }
     }
     this->St->OtherStats["Number of Fused Rows"] = {(double)fIdCount};
@@ -374,22 +576,24 @@ protected:
     UFDim = ufCount;
     UFMGridDim = CEIL(UFDim, MBlockDim);
     cudaMalloc(&DUFPtr, ufCount * sizeof(int));
-    cudaMalloc(&DROAp, (ufCount+1) * sizeof(int));
+    cudaMalloc(&DROAp, (ufCount + 1) * sizeof(int));
     cudaMalloc(&DROAi, uFNnzCount * sizeof(int));
     cudaMalloc(&DROAx, uFNnzCount * sizeof(float));
     cudaMalloc(&DFPtr, fPtrCount * sizeof(int));
     cudaMalloc(&DFId, fIdCount * sizeof(int));
     cudaMemcpy(DUFPtr, HUFPtr, ufCount * sizeof(int), cudaMemcpyHostToDevice);
-    cudaMemcpy(DROAp, HROAp, (ufCount+1) * sizeof(int), cudaMemcpyHostToDevice);
+    cudaMemcpy(DROAp, HROAp, (ufCount + 1) * sizeof(int),
+               cudaMemcpyHostToDevice);
     cudaMemcpy(DROAi, HROAi, uFNnzCount * sizeof(int), cudaMemcpyHostToDevice);
-    cudaMemcpy(DROAx, HROAx, uFNnzCount * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(DROAx, HROAx, uFNnzCount * sizeof(float),
+               cudaMemcpyHostToDevice);
     cudaMemcpy(DFPtr, HFPtr, fPtrCount * sizeof(int), cudaMemcpyHostToDevice);
     cudaMemcpy(DFId, HFId, fIdCount * sizeof(int), cudaMemcpyHostToDevice);
     t1.stop();
     return t1;
   }
 
-  Timer execute() override{
+  Timer execute() override {
     Timer t1;
     Timer t2;
     dim3 fGridDim(MGridDim, NGridDim, 1);
@@ -397,28 +601,29 @@ protected:
     dim3 ufGridDim(UFMGridDim, NGridDim, 1);
     dim3 ufBlockDim(NBlockDim, MBlockDim, 1);
     t1.startGPU();
-    csr_fusedTile_spmmspmm_seqreduce_rowbalance_kernel<<<fGridDim, fBlockDim>>>
-        (InTensor->M, InTensor->N, InTensor->K, InTensor->DACsrAp,
-         InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx,
-         OutTensor->DXx, DFPtr, DFId);
+    csr_fusedTile_spmmspmm_seqreduce_rowbalance_kernel<<<fGridDim, fBlockDim>>>(
+        InTensor->M, InTensor->N, InTensor->K, InTensor->DACsrAp,
+        InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx,
+        OutTensor->DXx, DFPtr, DFId);
     cudaDeviceSynchronize();
-//    t1.stopGPU("ROFusedTileSpMMSpMM");
-//    std::cout << "ROFusedTileSpMMSpMM: " << t1.printTimeCsv(0) << std::endl;
-//    t2.startGPU();
-    csr_reordered_unfusedTile_spmmspmm_seqreduce_rowbalance_kernel<<<ufGridDim, ufBlockDim>>>
-        (UFDim, InTensor->N, InTensor->K, DROAp,
-         DROAi, DROAx, OutTensor->DACx, OutTensor->DXx,
-         DUFPtr);
+    //    t1.stopGPU("ROFusedTileSpMMSpMM");
+    //    std::cout << "ROFusedTileSpMMSpMM: " << t1.printTimeCsv(0) <<
+    //    std::endl; t2.startGPU();
+    csr_reordered_unfusedTile_spmmspmm_seqreduce_rowbalance_kernel<<<
+        ufGridDim, ufBlockDim>>>(UFDim, InTensor->N, InTensor->K, DROAp, DROAi,
+                                 DROAx, OutTensor->DACx, OutTensor->DXx,
+                                 DUFPtr);
     cudaDeviceSynchronize();
     t1.stopGPU("ROUnFusedTileSpMMSpMM");
-//    std::cout << "ROUnFusedTileSpMMSpMM: " << t2.printTimeCsv(0) << std::endl;
+    //    std::cout << "ROUnFusedTileSpMMSpMM: " << t2.printTimeCsv(0) <<
+    //    std::endl;
     OutTensor->copyDeviceToHost();
     return t1;
   }
 
 public:
   FusedSpMMSpMMSeqReduceRowBalanceReordered(CudaTensorInputs *In1, Stats *Stat1,
-                                   int ThreadPerBlock = 256)
+                                            int ThreadPerBlock = 256)
       : FusedSpMMSpMMSeqReduceRowBalance(In1, Stat1, ThreadPerBlock) {}
 
   ~FusedSpMMSpMMSeqReduceRowBalanceReordered() {
@@ -431,30 +636,35 @@ public:
   }
 };
 
-
 class FusedSpMMSpMMHighFusionRatio
-    : public FusedSpMMSpMMSeqReduceRowBalanceReordered
-{
-  int RowPerThread;
-  int RowTile;
+    : public FusedSpMMSpMMSeqReduceRowBalanceReordered {
 protected:
+  int ThreadWorkReps;
+  int FusedThreadsPerBlock;
+  int RowTile;
+  int UFMBlockDim;
+  int UFNBlockDim;
+  int UFNGridDim;
+
   void setup() override {
     SeqSpMMSpMM::setup();
-//    if (InTensor->N == 32){
-//      RowTile = 256;
-//    } else if (InTensor ->N == 64){
-//      RowTile = 128;
-//    } else if (InTensor ->N == 128){
-//      RowTile = 64;
-//    }
-    //assert that bCols >= 32 and bCols is a product of 32.
-    NGridDim = CEIL(InTensor->N, ThreadPerBlock);
-    NBlockDim = MIN(InTensor->N, ThreadPerBlock);
-    MBlockDim = CEIL(ThreadPerBlock, NBlockDim);
+    //    if (InTensor->N == 32){
+    //      RowTile = 256;
+    //    } else if (InTensor ->N == 64){
+    //      RowTile = 128;
+    //    } else if (InTensor ->N == 128){
+    //      RowTile = 64;
+    //    }
+    UFNGridDim = CEIL(InTensor->N, ThreadPerBlock);
+    UFNBlockDim = MIN(InTensor->N, ThreadPerBlock);
+    UFMBlockDim = CEIL(ThreadPerBlock, UFNBlockDim);
+    // assert that bCols >= 32 and bCols is a product of 32.
+    NGridDim = CEIL(InTensor->N, FusedThreadsPerBlock);
+    NBlockDim = MIN(InTensor->N, FusedThreadsPerBlock);
+    MBlockDim = CEIL(FusedThreadsPerBlock, NBlockDim);
     MGridDim = CEIL(InTensor->M, RowTile);
-    RowPerThread = CEIL(RowTile, MBlockDim);
+    ThreadWorkReps = CEIL(RowTile, MBlockDim);
   }
-
 
   Timer analysis() override {
     Timer t1;
@@ -462,25 +672,20 @@ protected:
     std::vector<int> ufRows;
     std::vector<std::vector<int>> fRows(MGridDim);
     int rowTile = RowTile;
-    int* ap = InTensor->ACsr->p;
-    int* ai = InTensor->ACsr->i;
-    float* ax = InTensor->HACsrVal;
+    int *ap = InTensor->ACsr->p;
+    int *ai = InTensor->ACsr->i;
+    float *ax = InTensor->HACsrVal;
     int NnzCount = 0;
-    for (int i = 0; i < InTensor->M; i+=rowTile) {
+    for (int i = 0; i < InTensor->M; i += rowTile) {
       int t = i / rowTile;
       int end = MIN(i + rowTile, InTensor->M);
-      for (int ii = i; ii < end; ii++){
-        bool isUnfused = false;
-        for (int j = ap[ii]; j < ap[ii + 1]; j++){
-          if (ai[j] < i || ai[j] >= end){
-            ufRows.push_back(ii);
-            isUnfused = true;
-            break;
-          }
+      for (int ii = i; ii < end; ii++) {
+        if (ai[ap[ii]] < i || ai[ap[ii+1]-1] >= end) {
+          ufRows.push_back(ii);
         }
-        if (!isUnfused){
+        else {
           fRows[t].push_back(ii);
-          NnzCount += ap[ii+1] - ap[ii];
+          NnzCount += ap[ii + 1] - ap[ii];
         }
       }
     }
@@ -489,26 +694,415 @@ protected:
     int fIdCount = InTensor->M - ufCount;
     int fPtrCount = MGridDim + 1;
     HUFPtr = new int[ufCount];
-    HROAp = new int[ufCount+1];
+    HROAp = new int[ufCount + 1];
     HROAi = new int[uFNnzCount];
     HROAx = new float[uFNnzCount];
     HFPtr = new int[fPtrCount];
     HFId = new int[fIdCount];
     HROAp[0] = 0;
-    for (int i = 0; i < ufRows.size(); i++){
+    for (int i = 0; i < ufRows.size(); i++) {
       HUFPtr[i] = ufRows[i];
-      int rowNnzCount = ap[ufRows[i]+1] - ap[ufRows[i]];
-      HROAp[i+1] = rowNnzCount + HROAp[i];
-      for(int j = 0; j < rowNnzCount; j++){
-        HROAi[HROAp[i]+j] = ai[ap[ufRows[i]] + j];
-        HROAx[HROAp[i]+j] = ax[ap[ufRows[i]] + j];
+      int rowNnzCount = ap[ufRows[i] + 1] - ap[ufRows[i]];
+      HROAp[i + 1] = rowNnzCount + HROAp[i];
+      for (int j = 0; j < rowNnzCount; j++) {
+        HROAi[HROAp[i] + j] = ai[ap[ufRows[i]] + j];
+        HROAx[HROAp[i] + j] = ax[ap[ufRows[i]] + j];
       }
     }
     HFPtr[0] = 0;
-    for (int i = 0; i < fRows.size(); i++){
-      HFPtr[i+1] = HFPtr[i] + fRows[i].size();
-      for (int j = HFPtr[i]; j < HFPtr[i+1]; j++){
-        HFId[j] = fRows[i][j-HFPtr[i]];
+    for (int i = 0; i < fRows.size(); i++) {
+      HFPtr[i + 1] = HFPtr[i] + fRows[i].size();
+      for (int j = HFPtr[i]; j < HFPtr[i + 1]; j++) {
+        HFId[j] = fRows[i][j - HFPtr[i]];
+      }
+    }
+    this->St->OtherStats["Number of Fused Rows"] = {(double)fIdCount};
+    this->St->OtherStats["Number of Fused Nnz"] = {(double)NnzCount};
+    UFDim = ufCount;
+    UFMGridDim = CEIL(UFDim, UFMBlockDim);
+    cudaMalloc(&DUFPtr, ufCount * sizeof(int));
+    cudaMalloc(&DROAp, (ufCount + 1) * sizeof(int));
+    cudaMalloc(&DROAi, uFNnzCount * sizeof(int));
+    cudaMalloc(&DROAx, uFNnzCount * sizeof(float));
+    cudaMalloc(&DFPtr, fPtrCount * sizeof(int));
+    cudaMalloc(&DFId, fIdCount * sizeof(int));
+    cudaMemcpy(DUFPtr, HUFPtr, ufCount * sizeof(int), cudaMemcpyHostToDevice);
+    cudaMemcpy(DROAp, HROAp, (ufCount + 1) * sizeof(int),
+               cudaMemcpyHostToDevice);
+    cudaMemcpy(DROAi, HROAi, uFNnzCount * sizeof(int), cudaMemcpyHostToDevice);
+    cudaMemcpy(DROAx, HROAx, uFNnzCount * sizeof(float),
+               cudaMemcpyHostToDevice);
+    cudaMemcpy(DFPtr, HFPtr, fPtrCount * sizeof(int), cudaMemcpyHostToDevice);
+    cudaMemcpy(DFId, HFId, fIdCount * sizeof(int), cudaMemcpyHostToDevice);
+    t1.stop();
+    return t1;
+  }
+
+  Timer execute() override {
+    Timer t1;
+    dim3 fGridDim(MGridDim, NGridDim, 1);
+    dim3 fBlockDim(NBlockDim, MBlockDim, 1);
+    dim3 ufGridDim(UFMGridDim, UFNGridDim, 1);
+    dim3 ufBlockDim(UFNBlockDim, UFMBlockDim, 1);
+    t1.startGPU();
+    csr_fusedTile_multiplerow_seqreduce_rowbalance_kernel<<<fGridDim,
+                                                            fBlockDim>>>(
+        InTensor->M, InTensor->N, InTensor->K, ThreadWorkReps, InTensor->DACsrAp,
+        InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx,
+        OutTensor->DXx, DFPtr, DFId);
+    cudaDeviceSynchronize();
+    csr_reordered_unfusedTile_spmmspmm_seqreduce_rowbalance_kernel<<<
+        ufGridDim, ufBlockDim>>>(UFDim, InTensor->N, InTensor->K, DROAp, DROAi,
+                                 DROAx, OutTensor->DACx, OutTensor->DXx,
+                                 DUFPtr);
+    cudaDeviceSynchronize();
+    t1.stopGPU("UnFusedTileSpMMSpMM");
+    OutTensor->copyDeviceToHost();
+    return t1;
+  }
+
+
+public:
+  FusedSpMMSpMMHighFusionRatio(CudaTensorInputs *In1, Stats *Stat1,
+                               int FusedThreadsPerBlock, int ThreadPerBlock,
+                               int RowTile)
+      : FusedSpMMSpMMSeqReduceRowBalanceReordered(In1, Stat1, ThreadPerBlock),
+        FusedThreadsPerBlock(FusedThreadsPerBlock), RowTile(RowTile) {}
+};
+
+class FusedSpMMSpMMHighFusionRatioProductOf4Fused
+    : public FusedSpMMSpMMHighFusionRatio {
+protected:
+
+  Timer analysis() override{
+    Timer t1;
+    t1.start();
+    std::vector<int> ufRows;
+    std::vector<std::vector<int>> fRows(MGridDim);
+    int rowTile = RowTile;
+    int *ap = InTensor->ACsr->p;
+    int *ai = InTensor->ACsr->i;
+    float *ax = InTensor->HACsrVal;
+    int nnzCount = 0;
+    for (int i = 0; i < InTensor->M; i += rowTile) {
+      std::vector<int> tufRows;
+      int t = i / rowTile;
+      int end = MIN(i + rowTile, InTensor->M);
+      for (int ii = i; ii < end; ii++) {
+        if (ai[ap[ii]] < i || ai[ap[ii+1]-1] >= end) {
+          tufRows.push_back(ii);
+        }
+        else {
+          fRows[t].push_back(ii);
+          nnzCount += ap[ii + 1] - ap[ii];
+        }
+      }
+      while(fRows[t].size() % 4 != 0){
+        int fr = *(fRows[t].rbegin());
+        tufRows.push_back(fr);
+        fRows[t].pop_back();
+        nnzCount -= ap[fr + 1] - ap[fr];
+      }
+      std::sort(tufRows.begin(), tufRows.end());
+      std::copy(tufRows.begin(), tufRows.end(), std::back_inserter(ufRows));
+    }
+    int ufCount = ufRows.size();
+    int uFNnzCount = InTensor->ACsr->nnz - nnzCount;
+    int fIdCount = InTensor->M - ufCount;
+    int fPtrCount = MGridDim + 1;
+    HUFPtr = new int[ufCount];
+    HROAp = new int[ufCount + 1];
+    HROAi = new int[uFNnzCount];
+    HROAx = new float[uFNnzCount];
+    HFPtr = new int[fPtrCount];
+    HFId = new int[fIdCount];
+    HROAp[0] = 0;
+    for (int i = 0; i < ufRows.size(); i++) {
+      HUFPtr[i] = ufRows[i];
+      int rowNnzCount = ap[ufRows[i] + 1] - ap[ufRows[i]];
+      HROAp[i + 1] = rowNnzCount + HROAp[i];
+      for (int j = 0; j < rowNnzCount; j++) {
+        HROAi[HROAp[i] + j] = ai[ap[ufRows[i]] + j];
+        HROAx[HROAp[i] + j] = ax[ap[ufRows[i]] + j];
+      }
+    }
+    HFPtr[0] = 0;
+    for (int i = 0; i < fRows.size(); i++) {
+      HFPtr[i + 1] = HFPtr[i] + fRows[i].size();
+      for (int j = HFPtr[i]; j < HFPtr[i + 1]; j++) {
+        HFId[j] = fRows[i][j - HFPtr[i]];
+      }
+    }
+    this->St->OtherStats["Number of Fused Rows"] = {(double)fIdCount};
+    this->St->OtherStats["Number of Fused Nnz"] = {(double)nnzCount};
+    UFDim = ufCount;
+    UFMGridDim = CEIL(UFDim, UFMBlockDim);
+    cudaMalloc(&DUFPtr, ufCount * sizeof(int));
+    cudaMalloc(&DROAp, (ufCount + 1) * sizeof(int));
+    cudaMalloc(&DROAi, uFNnzCount * sizeof(int));
+    cudaMalloc(&DROAx, uFNnzCount * sizeof(float));
+    cudaMalloc(&DFPtr, fPtrCount * sizeof(int));
+    cudaMalloc(&DFId, fIdCount * sizeof(int));
+    cudaMemcpy(DUFPtr, HUFPtr, ufCount * sizeof(int), cudaMemcpyHostToDevice);
+    cudaMemcpy(DROAp, HROAp, (ufCount + 1) * sizeof(int),
+               cudaMemcpyHostToDevice);
+    cudaMemcpy(DROAi, HROAi, uFNnzCount * sizeof(int), cudaMemcpyHostToDevice);
+    cudaMemcpy(DROAx, HROAx, uFNnzCount * sizeof(float),
+               cudaMemcpyHostToDevice);
+    cudaMemcpy(DFPtr, HFPtr, fPtrCount * sizeof(int), cudaMemcpyHostToDevice);
+    cudaMemcpy(DFId, HFId, fIdCount * sizeof(int), cudaMemcpyHostToDevice);
+    t1.stop();
+    return t1;
+  }
+public:
+  FusedSpMMSpMMHighFusionRatioProductOf4Fused(CudaTensorInputs *In1, Stats *Stat1,
+                                     int FusedThreadsPerBlock, int ThreadPerBlock,
+                                     int RowTile)
+      : FusedSpMMSpMMHighFusionRatio(In1, Stat1, FusedThreadsPerBlock, ThreadPerBlock, RowTile)
+  {}
+
+};
+
+class FusedSpMMSpMMHighFusionRatioStride
+    : public FusedSpMMSpMMHighFusionRatio {
+protected:
+
+  Timer execute() override{
+    Timer t1;
+    dim3 fGridDim(MGridDim, NGridDim, 1);
+    dim3 fBlockDim(NBlockDim, MBlockDim, 1);
+    dim3 ufGridDim(UFMGridDim, UFNGridDim, 1);
+    dim3 ufBlockDim(UFNBlockDim, UFMBlockDim, 1);
+    t1.startGPU();
+    csr_fusedTile_multiplerow_seqreduce_striderowbalance_kernel<<<fGridDim,
+                                                                  fBlockDim>>>(
+        InTensor->M, InTensor->N, InTensor->K, ThreadWorkReps, InTensor->DACsrAp,
+        InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx,
+        OutTensor->DXx, DFPtr, DFId);
+    cudaDeviceSynchronize();
+    csr_reordered_unfusedTile_spmmspmm_seqreduce_rowbalance_kernel<<<
+        ufGridDim, ufBlockDim>>>(UFDim, InTensor->N, InTensor->K, DROAp, DROAi,
+                                 DROAx, OutTensor->DACx, OutTensor->DXx,
+                                 DUFPtr);
+    cudaDeviceSynchronize();
+    t1.stopGPU("UnFusedTileSpMMSpMM");
+    OutTensor->copyDeviceToHost();
+    return t1;
+  }
+
+public:
+  FusedSpMMSpMMHighFusionRatioStride(CudaTensorInputs *In1, Stats *Stat1,
+                               int FusedThreadsPerBlock, int ThreadPerBlock,
+                               int RowTile)
+      : FusedSpMMSpMMHighFusionRatio(In1, Stat1, FusedThreadsPerBlock, ThreadPerBlock, RowTile)
+  {}
+
+};
+
+
+//TODO: fix the offset
+class FusedSpMMSpMMHighFusionRatioResultPacked
+    : public FusedSpMMSpMMHighFusionRatio {
+protected:
+
+  Timer execute() override{
+    Timer t1;
+    dim3 fGridDim(MGridDim, NGridDim, 1);
+    dim3 fBlockDim(NBlockDim, MBlockDim, 1);
+    dim3 ufGridDim(UFMGridDim, UFNGridDim, 1);
+    dim3 ufBlockDim(UFNBlockDim, UFMBlockDim, 1);
+    t1.startGPU();
+    csr_fusedTile_multiplerow_seqreduce_resultpacking_rowbalance_kernel<<<fGridDim,
+                                                                  fBlockDim>>>(
+        InTensor->M, InTensor->N, InTensor->K, ThreadWorkReps, InTensor->DACsrAp,
+        InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx,
+        OutTensor->DXx, DFPtr, DFId);
+    cudaDeviceSynchronize();
+    csr_reorderedresultpacked_unfusedTile_spmmspmm_seqreduce_rowbalance_kernel<<<
+        ufGridDim, ufBlockDim>>>(UFDim, InTensor->N, InTensor->K, 0, DROAp, DROAi,
+                                 DROAx, OutTensor->DACx, OutTensor->DXx,
+                                 DUFPtr);
+    cudaDeviceSynchronize();
+    t1.stopGPU("UnFusedTileSpMMSpMM");
+    OutTensor->copyDeviceToHost();
+    return t1;
+  }
+
+public:
+  FusedSpMMSpMMHighFusionRatioResultPacked(CudaTensorInputs *In1, Stats *Stat1,
+                                     int FusedThreadsPerBlock, int ThreadPerBlock,
+                                     int RowTile)
+      : FusedSpMMSpMMHighFusionRatio(In1, Stat1, FusedThreadsPerBlock, ThreadPerBlock, RowTile)
+  {}
+
+};
+
+
+class FusedSpMMSpMMHighFusionRatioMultipleBCols
+    : public FusedSpMMSpMMHighFusionRatio{
+protected:
+  void setup() override {
+    SeqSpMMSpMM::setup();
+    //    if (InTensor->N == 32){
+    //      RowTile = 256;
+    //    } else if (InTensor ->N == 64){
+    //      RowTile = 128;
+    //    } else if (InTensor ->N == 128){
+    //      RowTile = 64;
+    //    }
+    UFNGridDim = CEIL(InTensor->N, ThreadPerBlock);
+    UFNBlockDim = MIN(InTensor->N, ThreadPerBlock);
+    UFMBlockDim = CEIL(ThreadPerBlock, UFNBlockDim);
+    // assert that bCols >= 32 and bCols is a product of 32.
+    //TODO: this needs generalization and factorization of bcol per thread and row per thread.
+    MGridDim = CEIL(InTensor->M, RowTile);
+    NGridDim = CEIL(InTensor->N,FusedThreadsPerBlock);
+    MBlockDim = RowTile;
+    NBlockDim = CEIL(FusedThreadsPerBlock, MBlockDim);
+    ThreadWorkReps = CEIL(InTensor->N, NBlockDim); //used as colPerThread
+  }
+
+  Timer execute() override {
+    Timer t1;
+    dim3 fGridDim(MGridDim, NGridDim, 1);
+    dim3 fBlockDim(NBlockDim, MBlockDim, 1);
+    dim3 ufGridDim(UFMGridDim, UFNGridDim, 1);
+    dim3 ufBlockDim(UFNBlockDim, UFMBlockDim, 1);
+    OutTensor->reset();
+    t1.startGPU();
+    csr_fusedTile_multiplecol_seqreduce_rowbalance_kernel<<<fGridDim,
+                                                            fBlockDim>>>(
+        InTensor->M, InTensor->N, InTensor->K, ThreadWorkReps, InTensor->DACsrAp,
+        InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx,
+        OutTensor->DXx, DFPtr, DFId);
+    cudaDeviceSynchronize();
+    csr_reordered_unfusedTile_spmmspmm_seqreduce_rowbalance_kernel<<<
+        ufGridDim, ufBlockDim>>>(UFDim, InTensor->N, InTensor->K, DROAp, DROAi,
+                                 DROAx, OutTensor->DACx, OutTensor->DXx,
+                                 DUFPtr);
+    cudaDeviceSynchronize();
+    t1.stopGPU("UnFusedTileSpMMSpMM");
+    OutTensor->copyDeviceToHost();
+    return t1;
+  }
+
+public:
+  FusedSpMMSpMMHighFusionRatioMultipleBCols(CudaTensorInputs *In1, Stats *Stat1,
+                                      int ThreadsPerBlock,
+                                      int RowTile)
+      : FusedSpMMSpMMHighFusionRatio(In1, Stat1, ThreadsPerBlock, ThreadsPerBlock, RowTile)
+  {}
+};
+
+class FusedSpMMSpMMHighFusionRatioNoSynch
+    : public FusedSpMMSpMMHighFusionRatio{
+protected:
+  Timer execute() override {
+    Timer t1;
+    int nBlockDimX = CEIL(32, MBlockDim);
+    int nBlockDimZ = CEIL(NBlockDim, nBlockDimX);
+    dim3 fGridDim(MGridDim, NGridDim, 1);
+    dim3 fBlockDim(nBlockDimX, MBlockDim, nBlockDimZ);
+    dim3 ufGridDim(UFMGridDim, UFNGridDim, 1);
+    dim3 ufBlockDim(UFNBlockDim, UFMBlockDim, 1);
+    t1.startGPU();
+    csr_fusedSynchTile_multiplerow_seqreduce_rowbalance_kernel<<<fGridDim,
+                                                            fBlockDim>>>(
+        InTensor->M, InTensor->N, InTensor->K, ThreadWorkReps, InTensor->DACsrAp,
+        InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx,
+        OutTensor->DXx, DFPtr, DFId);
+    cudaDeviceSynchronize();
+    csr_reordered_unfusedTile_spmmspmm_seqreduce_rowbalance_kernel<<<
+        ufGridDim, ufBlockDim>>>(UFDim, InTensor->N, InTensor->K, DROAp, DROAi,
+                                 DROAx, OutTensor->DACx, OutTensor->DXx,
+                                 DUFPtr);
+    cudaDeviceSynchronize();
+    t1.stopGPU("UnFusedTileSpMMSpMM");
+    OutTensor->copyDeviceToHost();
+    return t1;
+  }
+public:
+  FusedSpMMSpMMHighFusionRatioNoSynch(CudaTensorInputs *In1, Stats *Stat1,
+                                      int ThreadsPerBlock,
+                                      int RowTile)
+  : FusedSpMMSpMMHighFusionRatio(In1, Stat1, ThreadsPerBlock, ThreadsPerBlock, RowTile)
+  {}
+};
+
+class FusedSpMMSpMMHighFusionRatio2Level: public FusedSpMMSpMMHighFusionRatio{
+protected:
+
+  //TODO: Should not work for bcol=16
+  Timer analysis() override {
+    Timer t1;
+    t1.start();
+    std::vector<int> ufRows;
+    std::vector<std::vector<int>> fRows(MGridDim);
+    int rowTile = RowTile;
+    int *ap = InTensor->ACsr->p;
+    int *ai = InTensor->ACsr->i;
+    float *ax = InTensor->HACsrVal;
+    int l1TilesNum = MBlockDim;
+    int l1TileSize = ThreadWorkReps;
+    int NnzCount = 0;
+    for (int i = 0; i < InTensor->M; i += rowTile) {
+      int t = i / rowTile;
+      int end = MIN(i + rowTile, InTensor->M);
+      for (int ii = i; ii < end; ii++) {
+        if (ai[ap[ii]] < i || ai[ap[ii+1]-1] >= end) {
+          ufRows.push_back(ii);
+        }
+        else {
+          fRows[t].push_back(ii);
+          NnzCount += ap[ii + 1] - ap[ii];
+        }
+      }
+    }
+    int ufCount = ufRows.size();
+    int uFNnzCount = InTensor->ACsr->nnz - NnzCount;
+    int fIdCount = InTensor->M - ufCount;
+    int fPtrCount = MGridDim * (l1TilesNum+1) + 1;
+    HUFPtr = new int[ufCount];
+    HROAp = new int[ufCount + 1];
+    HROAi = new int[uFNnzCount];
+    HROAx = new float[uFNnzCount];
+    HFPtr = new int[fPtrCount];
+    HFId = new int[fIdCount];
+    HROAp[0] = 0;
+    for (int i = 0; i < ufRows.size(); i++) {
+      HUFPtr[i] = ufRows[i];
+      int rowNnzCount = ap[ufRows[i] + 1] - ap[ufRows[i]];
+      HROAp[i + 1] = rowNnzCount + HROAp[i];
+      for (int j = 0; j < rowNnzCount; j++) {
+        HROAi[HROAp[i] + j] = ai[ap[ufRows[i]] + j];
+        HROAx[HROAp[i] + j] = ax[ap[ufRows[i]] + j];
+      }
+    }
+    HFPtr[0] = 0;
+    for (int i = 0; i < fRows.size(); i++) {
+      std::vector<std::vector<int>> innerTiles(l1TilesNum+1);
+      for (int k = 0; k < fRows[i].size(); k++){
+        bool l1Fused = false;
+        int row = fRows[i][k];
+        for(int j = 0; j < l1TilesNum; j++){
+          int s = i * RowTile + j * ThreadWorkReps;
+          int e = i * RowTile + (j+1) * (ThreadWorkReps);
+//          std::cout << s << " " << e << std::endl;
+          if (ai[ap[row]] >= s && ai[ap[row+1]-1] < e){
+              innerTiles[j].push_back(row);
+              l1Fused = true;
+          }
+        }
+        if (!l1Fused){
+          innerTiles[l1TilesNum].push_back(row);
+        }
+      }
+      for(int j = 0; j < l1TilesNum+1; j++){
+        int sp = i*(l1TilesNum+1) + j;
+        HFPtr[sp+1] = HFPtr[sp] + innerTiles[j].size();
+        for (int k = HFPtr[sp]; k < HFPtr[sp+1]; k++) {
+          HFId[k] = innerTiles[j][k - HFPtr[sp]];
+        }
       }
     }
     this->St->OtherStats["Number of Fused Rows"] = {(double)fIdCount};
@@ -516,54 +1110,254 @@ protected:
     UFDim = ufCount;
     UFMGridDim = CEIL(UFDim, MBlockDim);
     cudaMalloc(&DUFPtr, ufCount * sizeof(int));
-    cudaMalloc(&DROAp, (ufCount+1) * sizeof(int));
+    cudaMalloc(&DROAp, (ufCount + 1) * sizeof(int));
     cudaMalloc(&DROAi, uFNnzCount * sizeof(int));
     cudaMalloc(&DROAx, uFNnzCount * sizeof(float));
     cudaMalloc(&DFPtr, fPtrCount * sizeof(int));
     cudaMalloc(&DFId, fIdCount * sizeof(int));
     cudaMemcpy(DUFPtr, HUFPtr, ufCount * sizeof(int), cudaMemcpyHostToDevice);
-    cudaMemcpy(DROAp, HROAp, (ufCount+1) * sizeof(int), cudaMemcpyHostToDevice);
+    cudaMemcpy(DROAp, HROAp, (ufCount + 1) * sizeof(int),
+               cudaMemcpyHostToDevice);
     cudaMemcpy(DROAi, HROAi, uFNnzCount * sizeof(int), cudaMemcpyHostToDevice);
-    cudaMemcpy(DROAx, HROAx, uFNnzCount * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(DROAx, HROAx, uFNnzCount * sizeof(float),
+               cudaMemcpyHostToDevice);
     cudaMemcpy(DFPtr, HFPtr, fPtrCount * sizeof(int), cudaMemcpyHostToDevice);
     cudaMemcpy(DFId, HFId, fIdCount * sizeof(int), cudaMemcpyHostToDevice);
     t1.stop();
     return t1;
   }
 
-
-  Timer execute() override{
+  Timer execute() override {
     Timer t1;
     dim3 fGridDim(MGridDim, NGridDim, 1);
     dim3 fBlockDim(NBlockDim, MBlockDim, 1);
-    dim3 ufGridDim(UFMGridDim, NGridDim, 1);
-    dim3 ufBlockDim(NBlockDim, MBlockDim, 1);
+    dim3 ufGridDim(UFMGridDim, UFNGridDim, 1);
+    dim3 ufBlockDim(UFNBlockDim, UFMBlockDim, 1);
     t1.startGPU();
-    csr_fusedTile_multiplerow_seqreduce_rowbalance_kernel<<<fGridDim, fBlockDim>>>
-        (InTensor->M, InTensor->N, InTensor->K, RowPerThread, InTensor->DACsrAp,
-         InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx,
-         OutTensor->DXx, DFPtr, DFId);
+    csr_2LfusedTile_multiplerow_seqreduce_rowbalance_kernel<<<fGridDim,
+                                                            fBlockDim>>>(
+        InTensor->M, InTensor->N, InTensor->K, ThreadWorkReps, InTensor->DACsrAp,
+        InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx,
+        OutTensor->DXx, DFPtr, DFId);
     cudaDeviceSynchronize();
-    csr_reordered_unfusedTile_spmmspmm_seqreduce_rowbalance_kernel<<<ufGridDim, ufBlockDim>>>
-        (UFDim, InTensor->N, InTensor->K, DROAp,
-         DROAi, DROAx, OutTensor->DACx, OutTensor->DXx,
-         DUFPtr);
+    csr_reordered_unfusedTile_spmmspmm_seqreduce_rowbalance_kernel<<<
+        ufGridDim, ufBlockDim>>>(UFDim, InTensor->N, InTensor->K, DROAp, DROAi,
+                                 DROAx, OutTensor->DACx, OutTensor->DXx,
+                                 DUFPtr);
     cudaDeviceSynchronize();
     t1.stopGPU("UnFusedTileSpMMSpMM");
     OutTensor->copyDeviceToHost();
     return t1;
   }
+
 public:
-  FusedSpMMSpMMHighFusionRatio(CudaTensorInputs *In1, Stats *Stat1,
-                                            int ThreadPerBlock, int RowTile)
-      : FusedSpMMSpMMSeqReduceRowBalanceReordered(In1, Stat1, ThreadPerBlock), RowTile(RowTile) {}
+  FusedSpMMSpMMHighFusionRatio2Level(CudaTensorInputs *In1, Stats *Stat1,
+                                     int ThreadsPerBlock,
+                                     int RowTile)
+      : FusedSpMMSpMMHighFusionRatio(In1, Stat1, ThreadsPerBlock, ThreadsPerBlock, RowTile)
+  {}
+
 };
 
-
-class FusedSpMMSpMMSeqReduceBColsBlocking: public FusedSpMMSpMMSeqReduceRowBalance
-{
+class FusedSpMMSpMMFusedParReduce: public FusedSpMMSpMMHighFusionRatio{
 protected:
+  int* HFAp;
+  int* HFAi;
+  float* HFAx;
+  int* DFAp;
+  int* DFAi;
+  float* DFAx;
 
+
+  //TODO: Complete the code and clean if necessary.
+  Timer analysis() override {
+    Timer t1;
+    t1.start();
+    std::vector<int> ufRows;
+    std::vector<std::vector<int>> fRows(MGridDim);
+    int rowTile = RowTile;
+    int *ap = InTensor->ACsr->p;
+    int *ai = InTensor->ACsr->i;
+    float *ax = InTensor->HACsrVal;
+    int NnzCount = 0;
+    std::vector<int> fusedPtr;
+    std::vector<int> fusedRowInd;
+    std::vector<float> fusedRowVal;
+    fusedPtr.push_back(0);
+    int cntr = 0;
+    for (int i = 0; i < InTensor->M; i += rowTile) {
+      std::vector<std::vector<int>> colNnzRow(rowTile);
+      std::vector<std::vector<float>> colNnzVal(rowTile);
+      int t = i / rowTile;
+      int end = MIN(i + rowTile, InTensor->M);
+      for (int ii = i; ii < end; ii++) {
+          if (ai[ap[ii]] < i || ai[ap[ii+1]-1] >= end) {
+              ufRows.push_back(ii);
+          }
+        else {
+          fRows[t].push_back(ii);
+          for (int j = ap[ii]; j < ap[ii+1]; j++){
+              colNnzRow[ai[j]-i].push_back(ii);
+              colNnzVal[ai[j]-i].push_back(ax[j]);
+          }
+          NnzCount += ap[ii + 1] - ap[ii];
+        }
+      }
+      for (int ii = 0; ii < rowTile; ii++) {
+        for(int j = 0; j < colNnzRow[ii].size(); j++){
+          fusedRowInd.push_back(colNnzRow[ii][j]);
+          fusedRowVal.push_back(colNnzVal[ii][j]);
+          cntr++;
+        }
+        fusedPtr.push_back(cntr);
+      }
+    }
+
+    //TODO:Copy fused packing vectors to packing arrays.
+    int ufCount = ufRows.size();
+    int fApCount = fusedPtr.size();
+    int fNnzCount = fusedRowVal.size();
+    int uFNnzCount = InTensor->ACsr->nnz - NnzCount;
+    HFAp = new int[fApCount];
+    HFAi = new int[fNnzCount];
+    HFAx = new float[fNnzCount];
+    HUFPtr = new int[ufCount];
+    HROAp = new int[ufCount + 1];
+    HROAi = new int[uFNnzCount];
+    HROAx = new float[uFNnzCount];
+    HFPtr = nullptr; //TODO: Fix these.
+    HFId = nullptr;
+    HROAp[0] = 0;
+    for (int i = 0; i < ufRows.size(); i++) {
+      HUFPtr[i] = ufRows[i];
+      int rowNnzCount = ap[ufRows[i] + 1] - ap[ufRows[i]];
+      HROAp[i + 1] = rowNnzCount + HROAp[i];
+      for (int j = 0; j < rowNnzCount; j++) {
+        HROAi[HROAp[i] + j] = ai[ap[ufRows[i]] + j];
+        HROAx[HROAp[i] + j] = ax[ap[ufRows[i]] + j];
+      }
+    }
+//    HFPtr[0] = 0;
+//    for (int i = 0; i < fRows.size(); i++) {
+//      HFPtr[i + 1] = HFPtr[i] + fRows[i].size();
+//      for (int j = HFPtr[i]; j < HFPtr[i + 1]; j++) {
+//        HFId[j] = fRows[i][j - HFPtr[i]];
+//      }
+//    }
+    for(int i = 0; i < fApCount; i++){
+      HFAp[i] = fusedPtr[i];
+    }
+    for(int i = 0; i < fNnzCount; i++){
+      HFAi[i] = fusedRowInd[i];
+      HFAx[i] = fusedRowVal[i];
+    }
+    this->St->OtherStats["Number of Fused Rows"] = {(double)fApCount};
+    this->St->OtherStats["Number of Fused Nnz"] = {(double)NnzCount};
+    UFDim = ufCount;
+    UFMGridDim = CEIL(UFDim, MBlockDim);
+    cudaMalloc(&DUFPtr, ufCount * sizeof(int));
+    cudaMalloc(&DROAp, (ufCount + 1) * sizeof(int));
+    cudaMalloc(&DROAi, uFNnzCount * sizeof(int));
+    cudaMalloc(&DROAx, uFNnzCount * sizeof(float));
+//    cudaMalloc(&DFPtr, fPtrCount * sizeof(int));
+//    cudaMalloc(&DFId, fIdCount * sizeof(int));
+    cudaMalloc(&DFAp, fApCount * sizeof(int));
+    cudaMalloc(&DFAi, fNnzCount * sizeof(int));
+    cudaMalloc(&DFAx, fNnzCount * sizeof(float));
+    cudaMemcpy(DUFPtr, HUFPtr, ufCount * sizeof(int), cudaMemcpyHostToDevice);
+    cudaMemcpy(DROAp, HROAp, (ufCount + 1) * sizeof(int),
+               cudaMemcpyHostToDevice);
+    cudaMemcpy(DROAi, HROAi, uFNnzCount * sizeof(int), cudaMemcpyHostToDevice);
+    cudaMemcpy(DROAx, HROAx, uFNnzCount * sizeof(float),
+               cudaMemcpyHostToDevice);
+//    cudaMemcpy(DFPtr, HFPtr, fPtrCount * sizeof(int), cudaMemcpyHostToDevice);
+//    cudaMemcpy(DFId, HFId, fIdCount * sizeof(int), cudaMemcpyHostToDevice);
+    cudaMemcpy(DFAp, HFAp, fApCount * sizeof(int), cudaMemcpyHostToDevice);
+    cudaMemcpy(DFAi, HFAi, fNnzCount * sizeof(int), cudaMemcpyHostToDevice);
+    cudaMemcpy(DFAx, HFAx, fNnzCount * sizeof(float), cudaMemcpyHostToDevice);
+    t1.stop();
+    return t1;
+  }
+
+  Timer execute() override {
+    Timer t1;
+    dim3 fGridDim(MGridDim, NGridDim, 1);
+    dim3 fBlockDim(NBlockDim, MBlockDim, 1);
+    dim3 ufGridDim(UFMGridDim, UFNGridDim, 1);
+    dim3 ufBlockDim(UFNBlockDim, UFMBlockDim, 1);
+    OutTensor->reset();
+    t1.startGPU();
+    csr_fusedTile_multiplerow_fusedParReduce_rowbalance_kernel<<<fGridDim,
+                                                            fBlockDim>>>(
+        InTensor->M, InTensor->N, InTensor->K, ThreadWorkReps, InTensor->DACsrAp,
+        InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx,
+        OutTensor->DXx, DFAp, DFAi, DFAx);
+    cudaDeviceSynchronize();
+    csr_reordered_unfusedTile_spmmspmm_seqreduce_rowbalance_kernel<<<
+        ufGridDim, ufBlockDim>>>(UFDim, InTensor->N, InTensor->K, DROAp, DROAi,
+                                 DROAx, OutTensor->DACx, OutTensor->DXx,
+                                 DUFPtr);
+    cudaDeviceSynchronize();
+    t1.stopGPU("UnFusedTileSpMMSpMM");
+    OutTensor->copyDeviceToHost();
+    return t1;
+  }
+
+public:
+
+  FusedSpMMSpMMFusedParReduce(CudaTensorInputs *In1, Stats *Stat1,
+                              int ThreadsPerBlock,
+                              int RowTile)
+      : FusedSpMMSpMMHighFusionRatio(In1, Stat1, ThreadsPerBlock, ThreadsPerBlock, RowTile){}
+
+  ~FusedSpMMSpMMFusedParReduce(){
+    delete[] HFAp;
+    delete[] HFAi;
+    delete[] HFAx;
+    cudaFree(DFAp);
+    cudaFree(DFAi);
+    cudaFree(DFAx);
+  }
+};
+
+//TODO: Wrong
+class FusedSpMMSpMMFusedParReduceNoAtomic: public FusedSpMMSpMMFusedParReduce{
+protected:
+  Timer execute() override {
+    Timer t1;
+    dim3 fGridDim(MGridDim, NGridDim, 1);
+    dim3 fBlockDim(NBlockDim, MBlockDim, 1);
+    dim3 ufGridDim(UFMGridDim, UFNGridDim, 1);
+    dim3 ufBlockDim(UFNBlockDim, UFMBlockDim, 1);
+    OutTensor->reset();
+    t1.startGPU();
+    csr_fusedTile_multiplerow_fusedParReduceNoAtomic_rowbalance_kernel<<<fGridDim,
+                                                                 fBlockDim>>>(
+        InTensor->M, InTensor->N, InTensor->K, ThreadWorkReps, InTensor->DACsrAp,
+        InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx,
+        OutTensor->DXx, DFAp, DFAi, DFAx);
+    cudaDeviceSynchronize();
+    csr_reordered_unfusedTile_spmmspmm_seqreduce_rowbalance_kernel<<<
+        ufGridDim, ufBlockDim>>>(UFDim, InTensor->N, InTensor->K, DROAp, DROAi,
+                                 DROAx, OutTensor->DACx, OutTensor->DXx,
+                                 DUFPtr);
+    cudaDeviceSynchronize();
+    t1.stopGPU("UnFusedTileSpMMSpMM");
+    OutTensor->copyDeviceToHost();
+    return t1;
+  }
+
+public:
+
+  FusedSpMMSpMMFusedParReduceNoAtomic(CudaTensorInputs *In1, Stats *Stat1,
+                              int ThreadsPerBlock,
+                              int RowTile)
+      : FusedSpMMSpMMFusedParReduce(In1, Stat1, ThreadsPerBlock, RowTile){}
+};
+
+class FusedSpMMSpMMSeqReduceBColsBlocking
+    : public FusedSpMMSpMMSeqReduceRowBalance {
+protected:
   int NTile;
   void setup() override {
     NGridDim = CEIL(InTensor->N, NTile);
@@ -572,16 +1366,15 @@ protected:
     MGridDim = CEIL(InTensor->M, MBlockDim);
   }
 
-
 public:
   FusedSpMMSpMMSeqReduceBColsBlocking(CudaTensorInputs *In1, Stats *Stat1,
                                       int ThreadPerBlock, int NTile)
-      : FusedSpMMSpMMSeqReduceRowBalance(In1, Stat1, ThreadPerBlock), NTile(NTile) {}
+      : FusedSpMMSpMMSeqReduceRowBalance(In1, Stat1, ThreadPerBlock),
+        NTile(NTile) {}
 };
 
-
-class FusedSpMMSpMMSeqReduceBColsBlockingWithSharedMem: public FusedSpMMSpMMSeqReduceRowBalance
-{
+class FusedSpMMSpMMSeqReduceBColsBlockingWithSharedMem
+    : public FusedSpMMSpMMSeqReduceRowBalance {
 protected:
   int SharedMemSize;
   int NTile;
@@ -593,32 +1386,35 @@ protected:
     SharedMemSize = NBlockDim * MBlockDim * sizeof(float);
   }
 
-  Timer execute() override{
+  Timer execute() override {
     Timer t1;
     dim3 fGridDim(MGridDim, NGridDim, 1);
     dim3 fBlockDim(NBlockDim, MBlockDim, 1);
     dim3 ufGridDim(UFMGridDim, NGridDim, 1);
     dim3 ufBlockDim(NBlockDim, MBlockDim, 1);
     t1.startGPU();
-    csr_fusedTile_spmmspmm_seqreduce_rowbalance_sm_kernel<<<fGridDim, fBlockDim, SharedMemSize>>>
-        (InTensor->M, InTensor->N, InTensor->K, InTensor->DACsrAp,
-         InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx,
-         OutTensor->DXx, DFPtr, DFId);
+    csr_fusedTile_spmmspmm_seqreduce_rowbalance_sm_kernel<<<fGridDim, fBlockDim,
+                                                            SharedMemSize>>>(
+        InTensor->M, InTensor->N, InTensor->K, InTensor->DACsrAp,
+        InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx,
+        OutTensor->DXx, DFPtr, DFId);
     cudaDeviceSynchronize();
-    csr_unfusedTile_spmmspmm_seqreduce_rowbalance_kernel<<<ufGridDim, ufBlockDim>>>
-        (UFDim, InTensor->N, InTensor->K, InTensor->DACsrAp,
-         InTensor->DACsrI, InTensor->DACsrVal, OutTensor->DACx, OutTensor->DXx,
-         DUFPtr);
+    csr_unfusedTile_spmmspmm_seqreduce_rowbalance_kernel<<<ufGridDim,
+                                                           ufBlockDim>>>(
+        UFDim, InTensor->N, InTensor->K, InTensor->DACsrAp, InTensor->DACsrI,
+        InTensor->DACsrVal, OutTensor->DACx, OutTensor->DXx, DUFPtr);
     cudaDeviceSynchronize();
     t1.stopGPU("FusedSpMMSpMM");
     OutTensor->copyDeviceToHost();
     return t1;
   }
 
-
 public:
-  FusedSpMMSpMMSeqReduceBColsBlockingWithSharedMem(CudaTensorInputs *In1, Stats *Stat1,
-                                      int ThreadPerBlock, int NTile)
-      : FusedSpMMSpMMSeqReduceRowBalance(In1, Stat1, ThreadPerBlock), NTile(NTile) {}
+  FusedSpMMSpMMSeqReduceBColsBlockingWithSharedMem(CudaTensorInputs *In1,
+                                                   Stats *Stat1,
+                                                   int ThreadPerBlock,
+                                                   int NTile)
+      : FusedSpMMSpMMSeqReduceRowBalance(In1, Stat1, ThreadPerBlock),
+        NTile(NTile) {}
 };
 #endif // SPARSE_FUSION_CUDA_SPMM_SPMM_DEMO_UTILS_H

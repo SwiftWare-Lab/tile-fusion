@@ -1,11 +1,16 @@
 //
 // Created by salehm32 on 18/06/24.
 //
+
+#ifndef SPMM_KERNELS_H
+#define SPMM_KERNELS_H
+
 #include <aggregation/def.h>
 #include <cooperative_groups.h>
 #include <cublas_v2.h>
 #include <cuda.h>
 #include <cusparse.h>
+#include <cuda_fp16.h>
 
 namespace cg = cooperative_groups;
 
@@ -989,6 +994,131 @@ csrspmm_seqreduce_rowbalance_kernel(const int nr, const int nv, const int nc,
   }
 }
 
+__global__ void
+csrspmm_seqreduce_rowbalance_kernel(const int nr, const int nv, const int nc,
+                                    const int rowPtr[], const int colIdx[],
+                                    const __half values[], const __half2 dnInput[],
+                                    __half2 dnOutput[]) {
+  int row_tile = blockDim.y;
+  int subwarp_id = threadIdx.y;
+  int stride = row_tile * gridDim.x;
+  int row = blockIdx.x * row_tile + subwarp_id;
+//  printf("row: %d\n", row);
+  int v_id = (blockIdx.y * blockDim.x) + threadIdx.x;
+  if (v_id < nv) {
+    dnInput += v_id;
+    dnOutput += v_id;
+
+    __half2 res = __float2half2_rn(0.);
+    __half val;
+    int col;
+    for (; row < nr; row += stride) {
+      int start = __ldg(rowPtr + row);
+      int end = __ldg(rowPtr + row + 1);
+      for (int p = start; p < end; p++) {
+        col = __ldg(colIdx + p);
+        val = __guard_load_default_one<__half>(values, p);
+        res = __hfma2(__halves2half2(val,val), __ldg(dnInput + col * nv), res);
+      }
+      dnOutput[row * nv] = res;
+    }
+  }
+}
+
+__global__ void csrspmm_seqreduce_rowcoarsened_kernel(
+    const int nr, const int nv, const int nc, const int RowPerThread,
+    const int rowPtr[], const int colIdx[], const float values[],
+    const float dnInput[], float dnOutput[]) {
+  int row_tile = blockDim.y * RowPerThread;
+  int subwarp_id = threadIdx.y;
+//  int stride = row_tile * gridDim.x;
+  int row_start = blockIdx.x * row_tile + subwarp_id * RowPerThread;
+  int row_end = min(row_start + RowPerThread, nr);
+//  printf("row: %d, row_end: %d\n", row, row_end);
+  int v_id = (blockIdx.y * blockDim.x) + threadIdx.x;
+  if (v_id < nv) {
+    dnInput += v_id;
+    dnOutput += v_id;
+
+    float res, val;
+    int col;
+    for (int row = row_start; row < row_end; row += 1) {
+      res=0;
+      int start = __ldg(rowPtr + row);
+      int end = __ldg(rowPtr + row + 1);
+      for (int p = start; p < end; p++) {
+        col = __ldg(colIdx + p);
+        val = __guard_load_default_one<float>(values, p);
+        res += val * __ldg(dnInput + col * nv);
+      }
+      dnOutput[row * nv] = res;
+    }
+  }
+}
+
+__global__ void csrspmm_seqreduce_rowcoarsened_kernel(
+    const int nr, const int nv, const int nc, const int RowPerThread,
+    const int rowPtr[], const int colIdx[], const __half values[],
+    const __half2 dnInput[], __half2 dnOutput[]) {
+  int row_tile = blockDim.y * RowPerThread;
+  int subwarp_id = threadIdx.y;
+  //  int stride = row_tile * gridDim.x;
+  int row_start = blockIdx.x * row_tile + subwarp_id * RowPerThread;
+  int row_end = min(row_start + RowPerThread, nr);
+  //  printf("row: %d, row_end: %d\n", row, row_end);
+  int v_id = (blockIdx.y * blockDim.x) + threadIdx.x;
+  if (v_id < nv) {
+    dnInput += v_id;
+    dnOutput += v_id;
+
+    __half2 res;
+    __half val;
+    int col;
+    for (int row = row_start; row < row_end; row += 1) {
+      res=__float2half2_rn(0.);
+      int start = __ldg(rowPtr + row);
+      int end = __ldg(rowPtr + row + 1);
+      for (int p = start; p < end; p++) {
+        col = __ldg(colIdx + p);
+        val = __guard_load_default_one<__half>(values, p);
+        res = __hfma2(__halves2half2(val,val), __ldg(dnInput + col * nv), res);
+      }
+      dnOutput[row * nv] = res;
+    }
+  }
+}
+
+__global__ void csrspmm_seqreduce_striderowcoarsened_kernel(
+    const int nr, const int nv, const int nc, const int RowPerThread,
+    const int rowPtr[], const int colIdx[], const float values[],
+    const float dnInput[], float dnOutput[]) {
+  int row_tile = blockDim.y * RowPerThread;
+  int subwarp_id = threadIdx.y;
+  int stride = blockDim.y;
+  int row_start = blockIdx.x * row_tile + subwarp_id;
+  int row_end = min(row_start + row_tile, nr);
+  //  printf("row: %d, row_end: %d\n", row, row_end);
+  int v_id = (blockIdx.y * blockDim.x) + threadIdx.x;
+  if (v_id < nv) {
+    dnInput += v_id;
+    dnOutput += v_id;
+
+    float res, val;
+    int col;
+    for (int row = row_start; row < row_end; row += stride) {
+      res=0;
+      int start = __ldg(rowPtr + row);
+      int end = __ldg(rowPtr + row + 1);
+      for (int p = start; p < end; p++) {
+        col = __ldg(colIdx + p);
+        val = __guard_load_default_one<float>(values, p);
+        res += val * __ldg(dnInput + col * nv);
+      }
+      dnOutput[row * nv] = res;
+    }
+  }
+}
+
 __global__ void csr_fusedTile_spmmspmm_seqreduce_rowbalance_kernel(
     const int M, const int N, const int K, const int Ap[], const int Ai[],
     const float Ax[], const float Bx[], float ACx[], float Xx[],
@@ -1026,6 +1156,113 @@ __global__ void csr_fusedTile_spmmspmm_seqreduce_rowbalance_kernel(
     int rowInd = firstInd + threadIdx.y;
     if (rowInd < lastInd) {
       row = __ldg(FId + rowInd);
+      res = 0;
+      int start = __ldg(Ap + row);
+      int end = __ldg(Ap + row + 1);
+      for (int p = start; p < end; p++) {
+        col = __ldg(Ai + p);
+        val = __guard_load_default_one<float>(Ax, p);
+        res += val * aCxTemp[col * N];
+      }
+      Xx[row * N] = res;
+    }
+  }
+}
+
+__global__ void csr_fusedTile_spmmspmm_seqreduce_rowbalance_kernel(
+    const int M, const int N, const int K, const int Ap[], const int Ai[],
+    const __half Ax[], const __half2 Bx[], __half2 ACx[], __half2 Xx[],
+    const int FPtr[], const int FId[]) {
+  int row_tile = blockDim.y;
+  int subwarp_id = threadIdx.y;
+  int stride = row_tile * gridDim.x;
+  int row = blockIdx.x * row_tile + subwarp_id;
+  int v_id = (blockIdx.y * blockDim.x) + threadIdx.x;
+  if (v_id < N) {
+    Bx += v_id;
+    __half2* aCxTemp = ACx + v_id;
+    __half2 res = __float2half2_rn(0.);
+    __half val;
+    int col;
+    for (; row < M; row += stride) {
+      int start = __ldg(Ap + row);
+      int end = __ldg(Ap + row + 1);
+      for (int p = start; p < end; p++) {
+        col = __ldg(Ai + p);
+        val = __guard_load_default_one<__half>(Ax, p);
+        __hfma2(__halves2half2(val, val), __ldg(Bx + col * N), res);
+      }
+      aCxTemp[row * N] = res;
+    }
+  }
+  __syncthreads();
+  if (v_id < N) {
+    Xx += v_id;
+    __half2* aCxTemp = ACx + v_id;
+    __half2 res;
+    __half val;
+    int col;
+    int rowTileId = blockIdx.x;
+    int firstInd = __ldg(FPtr + rowTileId);
+    int lastInd = __ldg(FPtr + rowTileId + 1);
+    int rowInd = firstInd + threadIdx.y;
+    if (rowInd < lastInd) {
+      row = __ldg(FId + rowInd);
+      res = __float2half2_rn(0);
+      int start = __ldg(Ap + row);
+      int end = __ldg(Ap + row + 1);
+      for (int p = start; p < end; p++) {
+        col = __ldg(Ai + p);
+        val = __guard_load_default_one<__half>(Ax, p);
+        __hfma2(__halves2half2(val, val), aCxTemp[col*N], res);
+      }
+      Xx[row * N] = res;
+    }
+  }
+}
+
+
+
+//TODO: Remove ACx and use shared memory instead -> needs the l1MaxTileSize value to configure the shared memory.
+__global__ void csr_redundantFusedTile_multiplerow_seqreduce_rowbalance_kernel(
+    const int M, const int N, const int K, const int RowTileSize, const int Ap[],
+    const int Ai[], const float Ax[], const float Bx[], float ACx[], float Xx[], const int L1Ptr[],
+    const int L1Id[]){
+  int v_id = (blockIdx.y * blockDim.x) + threadIdx.x;
+  int stride = blockDim.y;
+  if(v_id < N){
+    Bx += v_id;
+    float *aCxTemp = ACx + v_id;
+    int tileId = blockIdx.x;
+    int rowIndStart = threadIdx.y;
+    int tileIndStart = __ldg(L1Ptr + tileId);
+    int tileIndEnd = __ldg(L1Ptr + tileId + 1);
+    int rowInd = tileIndStart + rowIndStart;
+    float res, val;
+    int col;
+    for (; rowInd < tileIndEnd; rowInd+=stride) {
+      int row = __ldg(L1Id + rowInd);
+      res = 0;
+      int start = __ldg(Ap + row);
+      int end = __ldg(Ap + row + 1);
+      for (int p = start; p < end; p++) {
+        col = __ldg(Ai + p);
+        val = __guard_load_default_one<float>(Ax, p);
+        res += val * __ldg(Bx + col * N);
+      }
+      aCxTemp[row * N] = res;
+    }
+  }
+  __syncthreads();
+  if(v_id < N){
+    int subRowId = threadIdx.y;
+    int rowStart = blockIdx.x * RowTileSize + subRowId;
+    Xx += v_id;
+    float* aCxTemp = ACx + v_id;
+    float res, val;
+    int col;
+    int rowEnd = rowStart + RowTileSize;
+    for (int row=rowStart; row < rowEnd; row+=stride){
       res = 0;
       int start = __ldg(Ap + row);
       int end = __ldg(Ap + row + 1);
@@ -1093,6 +1330,652 @@ __global__ void csr_fusedTile_multiplerow_seqreduce_rowbalance_kernel(
   }
 }
 
+__global__ void csr_fusedTile_multiplerow_seqreduce_rowbalance_kernel(
+    const int M, const int N, const int K, const int RowPerThread, const int Ap[], const int Ai[],
+    const __half Ax[], const __half2 Bx[], __half2 ACx[], __half2 Xx[],
+    const int FPtr[], const int FId[]) {
+  int row_tile = blockDim.y * RowPerThread;
+  int sub_row_id = threadIdx.y;
+  int row_start = blockIdx.x * row_tile + sub_row_id * RowPerThread;
+  int row_end = min(row_start + RowPerThread, M);
+  int v_id = (blockIdx.y * blockDim.x) + threadIdx.x;
+  if (v_id < N) {
+    Bx += v_id;
+    __half2 *aCxTemp = ACx + v_id;
+    __half2 res;
+    __half val;
+    int col;
+    for (int row = row_start; row < row_end; row += 1) {
+      res = __float2half2_rn(0);
+      int start = __ldg(Ap + row);
+      int end = __ldg(Ap + row + 1);
+      for (int p = start; p < end; p++) {
+        col = __ldg(Ai + p);
+        val = __guard_load_default_one<__half>(Ax, p);
+        res = __hfma2(__halves2half2(val, val), __ldg(Bx + col * N), res);
+      }
+      aCxTemp[row * N] = res;
+    }
+  }
+  __syncthreads();
+  if (v_id < N) {
+    Xx += v_id;
+    __half2* aCxTemp = ACx + v_id;
+    __half2 res;
+    __half val;
+    int col;
+    int rowTileId = blockIdx.x;
+    int firstInd = __ldg(FPtr + rowTileId);
+    int lastInd = __ldg(FPtr + rowTileId + 1);
+    int fusedNum = lastInd - firstInd;
+    int stride = blockDim.y;
+    int rowInd = firstInd + threadIdx.y;
+    for (; rowInd < lastInd; rowInd+=stride) {
+      int row = __ldg(FId + rowInd);
+      res = __float2half2_rn(0.);
+      int start = __ldg(Ap + row);
+      int end = __ldg(Ap + row + 1);
+      for (int p = start; p < end; p++) {
+        col = __ldg(Ai + p);
+        val = __guard_load_default_one<__half>(Ax, p);
+        res = __hfma2(__halves2half2(val, val), aCxTemp[col * N], res);
+      }
+      Xx[row * N] = res;
+    }
+  }
+}
+
+__global__ void csr_fusedTile_multiplerow_seqreduce_resultpacking_rowbalance_kernel(
+    const int M, const int N, const int K, const int RowPerThread, const int Ap[], const int Ai[],
+    const float Ax[], const float Bx[], float ACx[], float Xx[],
+    const int FPtr[], const int FId[]) {
+  int row_tile = blockDim.y * RowPerThread;
+  int sub_row_id = threadIdx.y;
+  int row_start = blockIdx.x * row_tile + sub_row_id * RowPerThread;
+  int row_end = min(row_start + RowPerThread, M);
+  int v_id = (blockIdx.y * blockDim.x) + threadIdx.x;
+  if (v_id < N) {
+    Bx += v_id;
+    float *aCxTemp = ACx + v_id;
+    float res, val;
+    int col;
+    for (int row = row_start; row < row_end; row += 1) {
+      res = 0;
+      int start = __ldg(Ap + row);
+      int end = __ldg(Ap + row + 1);
+      for (int p = start; p < end; p++) {
+        col = __ldg(Ai + p);
+        val = __guard_load_default_one<float>(Ax, p);
+        res += val * __ldg(Bx + col * N);
+      }
+      aCxTemp[row * N] = res;
+    }
+  }
+  __syncthreads();
+  if (v_id < N) {
+    Xx += v_id;
+    float* aCxTemp = ACx + v_id;
+    float res = 0, val;
+    int col;
+    int rowTileId = blockIdx.x;
+    int firstInd = __ldg(FPtr + rowTileId);
+    int lastInd = __ldg(FPtr + rowTileId + 1);
+    int fusedNum = lastInd - firstInd;
+    int stride = blockDim.y;
+    int rowInd = firstInd + threadIdx.y;
+    for (; rowInd < lastInd; rowInd+=stride) {
+      int row = __ldg(FId + rowInd);
+      res = 0;
+      int start = __ldg(Ap + row);
+      int end = __ldg(Ap + row + 1);
+      for (int p = start; p < end; p++) {
+        col = __ldg(Ai + p);
+        val = __guard_load_default_one<float>(Ax, p);
+        res += val * aCxTemp[col * N];
+      }
+      Xx[rowInd * N] = res;
+    }
+  }
+}
+
+__global__ void csr_fusedTile_multiplerow_seqreduce_striderowbalance_kernel(
+    const int M, const int N, const int K, const int RowPerThread, const int Ap[], const int Ai[],
+    const float Ax[], const float Bx[], float ACx[], float Xx[],
+    const int FPtr[], const int FId[]) {
+  int row_tile = blockDim.y * RowPerThread;
+  int sub_row_id = threadIdx.y;
+  int row_start = blockIdx.x * row_tile + sub_row_id;
+  int stride = blockDim.y;
+  int row_end = min(row_start + row_tile, M);
+  int v_id = (blockIdx.y * blockDim.x) + threadIdx.x;
+  if (v_id < N) {
+    Bx += v_id;
+    float *aCxTemp = ACx + v_id;
+    float res, val;
+    int col;
+    for (int row = row_start; row < row_end; row += stride) {
+      res = 0;
+      int start = __ldg(Ap + row);
+      int end = __ldg(Ap + row + 1);
+      for (int p = start; p < end; p++) {
+        col = __ldg(Ai + p);
+        val = __guard_load_default_one<float>(Ax, p);
+        res += val * __ldg(Bx + col * N);
+      }
+      aCxTemp[row * N] = res;
+    }
+  }
+  __syncthreads();
+  if (v_id < N) {
+    Xx += v_id;
+    float* aCxTemp = ACx + v_id;
+    float res = 0, val;
+    int col;
+    int rowTileId = blockIdx.x;
+    int firstInd = __ldg(FPtr + rowTileId);
+    int lastInd = __ldg(FPtr + rowTileId + 1);
+    int fusedNum = lastInd - firstInd;
+    int stride = blockDim.y;
+    int rowInd = firstInd + threadIdx.y;
+    for (; rowInd < lastInd; rowInd+=stride) {
+      int row = __ldg(FId + rowInd);
+      res = 0;
+      int start = __ldg(Ap + row);
+      int end = __ldg(Ap + row + 1);
+      for (int p = start; p < end; p++) {
+        col = __ldg(Ai + p);
+        val = __guard_load_default_one<float>(Ax, p);
+        res += val * aCxTemp[col * N];
+      }
+      Xx[row * N] = res;
+    }
+  }
+}
+
+__global__ void csr_2LfusedTile_multiplerow_seqreduce_rowbalance_kernel(
+    const int M, const int N, const int K, const int RowPerThread, const int Ap[], const int Ai[],
+    const float Ax[], const float Bx[], float ACx[], float Xx[],
+    const int FPtr[], const int FId[]) {
+  int row_tile = blockDim.y * RowPerThread;
+  int sub_row_id = threadIdx.y;
+  int row_start = blockIdx.x * row_tile + sub_row_id * RowPerThread;
+//  int warpId = (threadIdx.y * blockDim.x + threadIdx.x) / 32;
+  int row_end = min(row_start + RowPerThread, M);
+  int v_id = (blockIdx.y * blockDim.x) + threadIdx.x;
+  int l1TilesNum = blockDim.y;
+  if (v_id < N) {
+    Bx += v_id;
+    float *aCxTemp = ACx + v_id;
+    float *xxTemp = Xx + v_id;
+    float res, val;
+    int col;
+    for (int row = row_start; row < row_end; row += 1) {
+      res = 0;
+      int start = __ldg(Ap + row);
+      int end = __ldg(Ap + row + 1);
+      for (int p = start; p < end; p++) {
+        col = __ldg(Ai + p);
+        val = __guard_load_default_one<float>(Ax, p);
+        res += val * __ldg(Bx + col * N);
+      }
+      aCxTemp[row * N] = res;
+    }
+    int rowTileId = blockIdx.x;
+    int fOffset = rowTileId *  (l1TilesNum + 1) + sub_row_id;
+    int firstInd = __ldg(FPtr + fOffset);
+    int lastInd = __ldg(FPtr + fOffset + 1);
+    int rowInd = firstInd;
+    for (; rowInd < lastInd; rowInd+=1){
+      res = 0;
+      int row = __ldg(FId + rowInd);
+      int start = __ldg(Ap + row);
+      int end = __ldg(Ap + row + 1);
+      for (int p = start; p < end; p++) {
+        col = __ldg(Ai + p);
+        val = __guard_load_default_one<float>(Ax, p);
+        res += val * aCxTemp[col * N];
+      }
+      xxTemp[row * N] = res;
+    }
+  }
+  __syncthreads();
+  if (v_id < N) {
+    float* aCxTemp = ACx + v_id;
+    float *xxTemp = Xx + v_id;
+    float res = 0, val;
+    int col;
+    int rowTileId = blockIdx.x;
+    int fOffset = rowTileId * (l1TilesNum + 1) + l1TilesNum;
+    int firstInd = __ldg(FPtr + fOffset);
+    int lastInd = __ldg(FPtr + fOffset  + 1);
+    int fusedNum = lastInd - firstInd;
+    int stride = blockDim.y;
+    int rowInd = firstInd + threadIdx.y;
+    for (; rowInd < lastInd; rowInd+=stride) {
+      int row = __ldg(FId + rowInd);
+      res = 0;
+      int start = __ldg(Ap + row);
+      int end = __ldg(Ap + row + 1);
+      for (int p = start; p < end; p++) {
+        col = __ldg(Ai + p);
+        val = __guard_load_default_one<float>(Ax, p);
+        res += val * aCxTemp[col * N];
+      }
+      xxTemp[row * N] = res;
+    }
+  }
+}
+
+__global__ void csr_2LfusedTile_multiplerow_seqreduce_rowbalance_kernel(
+    const int M, const int N, const int K, const int RowPerThread, const int Ap[], const int Ai[],
+    const __half Ax[], const __half2 Bx[], __half2 ACx[], __half2 Xx[],
+    const int FPtr[], const int FId[]) {
+  int row_tile = blockDim.y * RowPerThread;
+  int sub_row_id = threadIdx.y;
+  int row_start = blockIdx.x * row_tile + sub_row_id * RowPerThread;
+  //  int warpId = (threadIdx.y * blockDim.x + threadIdx.x) / 32;
+  int row_end = min(row_start + RowPerThread, M);
+  int v_id = (blockIdx.y * blockDim.x) + threadIdx.x;
+  int l1TilesNum = blockDim.y;
+  if (v_id < N) {
+    Bx += v_id;
+    __half2 *aCxTemp = ACx + v_id;
+    __half2 *xxTemp = Xx + v_id;
+    __half2 res;
+    __half val;
+    int col;
+    for (int row = row_start; row < row_end; row += 1) {
+      res = __float2half2_rn(0.);
+      int start = __ldg(Ap + row);
+      int end = __ldg(Ap + row + 1);
+      for (int p = start; p < end; p++) {
+        col = __ldg(Ai + p);
+        val = __guard_load_default_one<__half>(Ax, p);
+        res = __hfma2(__halves2half2(val, val), __ldg(Bx + col * N), res);
+      }
+      aCxTemp[row * N] = res;
+    }
+    int rowTileId = blockIdx.x;
+    int fOffset = rowTileId *  (l1TilesNum + 1) + sub_row_id;
+    int firstInd = __ldg(FPtr + fOffset);
+    int lastInd = __ldg(FPtr + fOffset + 1);
+    int rowInd = firstInd;
+    for (; rowInd < lastInd; rowInd+=1){
+      res = __float2half2_rn(0.);
+      int row = __ldg(FId + rowInd);
+      int start = __ldg(Ap + row);
+      int end = __ldg(Ap + row + 1);
+      for (int p = start; p < end; p++) {
+        col = __ldg(Ai + p);
+        val = __guard_load_default_one<__half>(Ax, p);
+        res = __hfma2(__halves2half2(val, val), aCxTemp[col * N], res);
+      }
+      xxTemp[row * N] = res;
+    }
+  }
+  __syncthreads();
+  if (v_id < N) {
+    __half2 *aCxTemp = ACx + v_id;
+    __half2 *xxTemp = Xx + v_id;
+    __half2 res;
+    __half val;
+    int col;
+    int rowTileId = blockIdx.x;
+    int fOffset = rowTileId * (l1TilesNum + 1) + l1TilesNum;
+    int firstInd = __ldg(FPtr + fOffset);
+    int lastInd = __ldg(FPtr + fOffset  + 1);
+    int fusedNum = lastInd - firstInd;
+    int stride = blockDim.y;
+    int rowInd = firstInd + threadIdx.y;
+    for (; rowInd < lastInd; rowInd+=stride) {
+      int row = __ldg(FId + rowInd);
+      res = __float2half2_rn(0.);
+      int start = __ldg(Ap + row);
+      int end = __ldg(Ap + row + 1);
+      for (int p = start; p < end; p++) {
+        col = __ldg(Ai + p);
+        val = __guard_load_default_one<__half>(Ax, p);
+        res = __hfma2(__halves2half2(val, val), aCxTemp[col * N], res);
+      }
+      xxTemp[row * N] = res;
+    }
+  }
+}
+
+__global__ void csr_fusedTile_multiplerow_fusedParReduce_rowbalance_kernel(
+    const int M, const int N, const int K, const int RowPerThread, const int Ap[], const int Ai[],
+    const float Ax[], const float Bx[], float ACx[], float Xx[],
+    const int FAp[], const int FAi[], const float FAx[]) {
+  int row_tile = blockDim.y * RowPerThread;
+  int sub_row_id = threadIdx.y;
+  int row_start = blockIdx.x * row_tile + sub_row_id * RowPerThread;
+  int row_end = min(row_start + RowPerThread, M);
+  int v_id = (blockIdx.y * blockDim.x) + threadIdx.x;
+  if (v_id < N) {
+    Bx += v_id;
+    float *aCxTemp = ACx + v_id;
+    float *xxTemp = Xx + v_id;
+    float res, val;
+    int col;
+    for (int row = row_start; row < row_end; row += 1) {
+      res = 0;
+      int start = __ldg(Ap + row);
+      int end = __ldg(Ap + row + 1);
+      for (int p = start; p < end; p++) {
+        col = __ldg(Ai + p);
+        val = __guard_load_default_one<float>(Ax, p);
+        res += val * __ldg(Bx + col * N);
+      }
+      int startF = __ldg(FAp + row);
+      int endF = __ldg(FAp + row + 1);
+      for (int p = startF; p < endF; p++) {
+        int rowF = __ldg(FAi + p);
+        val = __guard_load_default_one<float>(FAx, p);
+        float resF = val * res;
+//        xxTemp[rowF * N] += resF;
+        atomicAdd_block(xxTemp + rowF * N, resF);
+      }
+      aCxTemp[row * N] = res;
+    }
+  }
+}
+
+__global__ void csr_fusedTile_multiplerow_fusedParReduce_rowbalance_kernel(
+    const int M, const int N, const int K, const int RowPerThread, const int Ap[], const int Ai[],
+    const __half Ax[], const __half2 Bx[], __half2 ACx[], __half2 Xx[],
+    const int FAp[], const int FAi[], const __half FAx[]) {
+  int row_tile = blockDim.y * RowPerThread;
+  int sub_row_id = threadIdx.y;
+  int row_start = blockIdx.x * row_tile + sub_row_id * RowPerThread;
+  int row_end = min(row_start + RowPerThread, M);
+  int v_id = (blockIdx.y * blockDim.x) + threadIdx.x;
+  if (v_id < N) {
+    Bx += v_id;
+    __half2 *aCxTemp = ACx + v_id;
+    __half2 *xxTemp = Xx + v_id;
+    __half2 res;
+    __half val;
+    int col;
+    for (int row = row_start; row < row_end; row += 1) {
+      res = __float2half2_rn(0.);
+      int start = __ldg(Ap + row);
+      int end = __ldg(Ap + row + 1);
+      for (int p = start; p < end; p++) {
+        col = __ldg(Ai + p);
+        val = __guard_load_default_one<__half>(Ax, p);
+        res = __hfma2(__halves2half2(val, val), __ldg(Bx + col * N), res);
+      }
+      int startF = __ldg(FAp + row);
+      int endF = __ldg(FAp + row + 1);
+      for (int p = startF; p < endF; p++) {
+        int rowF = __ldg(FAi + p);
+        val = __guard_load_default_one<__half>(FAx, p);
+        __half2 resF;
+        resF = __hmul2(__halves2half2(val, val), resF);
+        //        xxTemp[rowF * N] += resF;
+        atomicAdd(xxTemp + rowF * N, resF);
+      }
+      aCxTemp[row * N] = res;
+    }
+  }
+}
+
+//TODO: Wrong
+__global__ void csr_fusedTile_multiplerow_fusedParReduceNoAtomic_rowbalance_kernel(
+    const int M, const int N, const int K, const int RowPerThread, const int Ap[], const int Ai[],
+    const float Ax[], const float Bx[], float ACx[], float Xx[],
+    const int FAp[], const int FAi[], const float FAx[]) {
+  int row_tile = blockDim.y * RowPerThread;
+  int sub_row_id = threadIdx.y;
+  int row_start = blockIdx.x * row_tile + sub_row_id * RowPerThread;
+  int row_end = min(row_start + RowPerThread, M);
+  int v_id = (blockIdx.y * blockDim.x) + threadIdx.x;
+  if (v_id < N) {
+    Bx += v_id;
+    float *aCxTemp = ACx + v_id;
+    float *xxTemp = Xx + v_id;
+    float res, val;
+    int col;
+    for (int row = row_start; row < row_end; row += 1) {
+      res = 0;
+      int start = __ldg(Ap + row);
+      int end = __ldg(Ap + row + 1);
+      for (int p = start; p < end; p++) {
+        col = __ldg(Ai + p);
+        val = __guard_load_default_one<float>(Ax, p);
+        res += val * __ldg(Bx + col * N);
+      }
+      int startF = __ldg(FAp + row);
+      int endF = __ldg(FAp + row + 1);
+      for (int p = startF; p < endF; p++) {
+        int rowF = __ldg(FAi + p);
+        val = __guard_load_default_one<float>(FAx, p);
+        float resF = val * res;
+        xxTemp[rowF * N] += resF;
+//        atomicAdd_block(xxTemp + rowF * N, resF);
+      }
+      aCxTemp[row * N] = res;
+    }
+  }
+}
+
+//TODO: for testing complete atomic
+__global__ void csr_fusedTile_multiplerow_1v1fusedParReduceAtomic_rowbalance_kernel(
+    const int M, const int N, const int K, const int Ap[], const int Ai[],
+    const float Ax[], const float Bx[], float ACx[], float Xx[],
+    const int FAp[], const int FAi[], const float FAx[]) {
+  int row_tile = blockDim.y;
+  int subwarp_id = threadIdx.y;
+  int stride = row_tile * gridDim.x;
+  int row = blockIdx.x * row_tile + subwarp_id;
+  int v_id = (blockIdx.y * blockDim.x) + threadIdx.x;
+  if (v_id < N) {
+    Bx += v_id;
+    float *aCxTemp = ACx + v_id;
+    float *xxTemp = Xx + v_id;
+    float res, val;
+    int col;
+    for (; row < M; row += stride) {
+      res = 0;
+      int start = __ldg(Ap + row);
+      int end = __ldg(Ap + row + 1);
+      for (int p = start; p < end; p++) {
+        col = __ldg(Ai + p);
+        val = __guard_load_default_one<float>(Ax, p);
+        res += val * __ldg(Bx + col * N);
+      }
+      int startF = __ldg(FAp + row);
+      int endF = __ldg(FAp + row + 1);
+      for (int p = startF; p < endF; p++) {
+        int rowF = __ldg(FAi + p);
+        val = __guard_load_default_one<float>(FAx, p);
+        float resF = val * res;
+//        xxTemp[rowF * N] += resF;
+        atomicAdd(xxTemp + rowF * N, resF);
+      }
+      aCxTemp[row * N] = res;
+    }
+  }
+}
+
+__global__ void csr_fusedTile_multiplerow_1v1fusedParReduceAtomic_rowbalance_kernel(
+    const int M, const int N, const int K, const int Ap[], const int Ai[],
+    const __half Ax[], const __half2 Bx[], __half2 ACx[], __half2 Xx[],
+    const int FAp[], const int FAi[], const __half FAx[]) {
+  int row_tile = blockDim.y;
+  int subwarp_id = threadIdx.y;
+  int stride = row_tile * gridDim.x;
+  int row = blockIdx.x * row_tile + subwarp_id;
+  int v_id = (blockIdx.y * blockDim.x) + threadIdx.x;
+  if (v_id < N) {
+    Bx += v_id;
+    __half2 *aCxTemp = ACx + v_id;
+    __half2 *xxTemp = Xx + v_id;
+    __half2 res;
+    __half val;
+    int col;
+    for (; row < M; row += stride) {
+      res = __float2half2_rn(0.);
+      int start = __ldg(Ap + row);
+      int end = __ldg(Ap + row + 1);
+      for (int p = start; p < end; p++) {
+        col = __ldg(Ai + p);
+        val = __guard_load_default_one<__half>(Ax, p);
+        res = __hfma2(__halves2half2(val, val), __ldg(Bx + col * N), res);
+      }
+      int startF = __ldg(FAp + row);
+      int endF = __ldg(FAp + row + 1);
+      for (int p = startF; p < endF; p++) {
+        int rowF = __ldg(FAi + p);
+        val = __guard_load_default_one<__half>(FAx, p);
+        __half2 resF;
+        resF = __hmul2(__halves2half2(val, val), resF);
+        //        xxTemp[rowF * N] += resF;
+        atomicAdd(xxTemp + rowF * N, resF);
+      }
+      aCxTemp[row * N] = res;
+    }
+  }
+}
+
+__global__ void csr_fusedTile_multiplerow_1v1fusedParReduceNoAtomic_rowbalance_kernel(
+    const int M, const int N, const int K, const int Ap[], const int Ai[],
+    const float Ax[], const float Bx[], float ACx[], float Xx[],
+    const int FAp[], const int FAi[], const float FAx[]) {
+  int row_tile = blockDim.y;
+  int subwarp_id = threadIdx.y;
+  int stride = row_tile * gridDim.x;
+  int row = blockIdx.x * row_tile + subwarp_id;
+  int v_id = (blockIdx.y * blockDim.x) + threadIdx.x;
+  if (v_id < N) {
+    Bx += v_id;
+    float *aCxTemp = ACx + v_id;
+    float *xxTemp = Xx + v_id;
+    float res, val;
+    int col;
+    for (; row < M; row += stride) {
+      res = 0;
+      int start = __ldg(Ap + row);
+      int end = __ldg(Ap + row + 1);
+      for (int p = start; p < end; p++) {
+        col = __ldg(Ai + p);
+        val = __guard_load_default_one<float>(Ax, p);
+        res += val * __ldg(Bx + col * N);
+      }
+      int startF = __ldg(FAp + row);
+      int endF = __ldg(FAp + row + 1);
+      for (int p = startF; p < endF; p++) {
+        int rowF = __ldg(FAi + p);
+        val = __guard_load_default_one<float>(FAx, p);
+        float resF = val * res;
+        xxTemp[rowF * N] += resF;
+//        atomicAdd_block(xxTemp + rowF * N, resF);
+      }
+      aCxTemp[row * N] = res;
+    }
+  }
+}
+
+
+//TODO: test this kernel.
+__global__ void csr_fusedTile_multiplecol_seqreduce_rowbalance_kernel(
+    const int M, const int N, const int K, const int ColPerThread, const int Ap[], const int Ai[],
+    const float Ax[], const float Bx[], float ACx[], float Xx[],
+    const int FPtr[], const int FId[]) {
+  int sub_row_id = threadIdx.y;
+  int row = blockIdx.x * blockDim.y + sub_row_id;
+  int v_id_s = (blockIdx.y * blockDim.x * ColPerThread) + threadIdx.x * ColPerThread;
+
+  if (v_id_s < N) {
+    int v_id_e = min(v_id_s + ColPerThread, N);
+    float val;
+    int col;
+    int start = __ldg(Ap + row);
+    int end = __ldg(Ap + row + 1);
+    for (int p = start; p < end; p++) {
+      col = __ldg(Ai + p);
+      val = __guard_load_default_one<float>(Ax, p);
+      for (int v_id = v_id_s; v_id < v_id_e; v_id++) {
+        ACx[row * N + v_id] += val * __ldg(Bx + v_id + col * N);
+      }
+    }
+  }
+  __syncthreads();
+  int rowTileId = blockIdx.x;
+  int firstInd = __ldg(FPtr + rowTileId);
+  int lastInd = __ldg(FPtr + rowTileId + 1);
+  int rowInd = firstInd + threadIdx.y;
+  int fusedNum = lastInd - firstInd;
+  int fusedColPerThread = ceil(float(N) / ((float(blockDim.x * blockDim.y) / fusedNum)));
+  v_id_s = (blockIdx.y * blockDim.x * fusedColPerThread) + threadIdx.x * fusedColPerThread;
+  if (v_id_s < N && rowInd < lastInd) {
+
+    int v_id_e = min(v_id_s + fusedColPerThread, N);
+    float val;
+    int col;
+    int row = __ldg(FId + rowInd);
+    int start = __ldg(Ap + row);
+    int end = __ldg(Ap + row + 1);
+    for (int p = start; p < end; p++) {
+      val = __guard_load_default_one<float>(Ax, p);
+      col = __ldg(Ai + p);
+      for (int v_id = v_id_s; v_id < v_id_e; v_id++) {
+        Xx[row * N + v_id] += val * ACx[col * N + v_id];
+      }
+    }
+  }
+}
+
+
+//TODO: Assigning all rows to one warp
+
+__global__ void csr_fusedSynchTile_multiplerow_seqreduce_rowbalance_kernel(
+    const int M, const int N, const int K, const int RowPerThread, const int Ap[], const int Ai[],
+    const float Ax[], const float Bx[], float ACx[], float Xx[],
+    const int FPtr[], const int FId[]) {
+  int row_tile = blockDim.y * RowPerThread;
+  int sub_row_id = threadIdx.y;
+  int row_start = blockIdx.x * row_tile + sub_row_id * RowPerThread;
+  int row_end = min(row_start + RowPerThread, M);
+  int v_id = (blockIdx.y * blockDim.x * blockDim.z) + (threadIdx.z * blockDim.x) + threadIdx.x;
+  if (v_id < N) {
+    Bx += v_id;
+    float *aCxTemp = ACx + v_id;
+    float res, val;
+    int col;
+    for (int row = row_start; row < row_end; row += 1) {
+      res = 0;
+      int start = __ldg(Ap + row);
+      int end = __ldg(Ap + row + 1);
+      for (int p = start; p < end; p++) {
+        col = __ldg(Ai + p);
+        val = __guard_load_default_one<float>(Ax, p);
+        res += val * __ldg(Bx + col * N);
+      }
+      aCxTemp[row * N] = res;
+    }
+    Xx += v_id;
+    int rowTileId = blockIdx.x;
+    int firstInd = __ldg(FPtr + rowTileId);
+    int lastInd = __ldg(FPtr + rowTileId + 1);
+    int fusedNum = lastInd - firstInd;
+    int stride = blockDim.y;
+    int rowInd = firstInd + threadIdx.y;
+    for (; rowInd < lastInd; rowInd += stride) {
+      int row = __ldg(FId + rowInd);
+      res = 0;
+      int start = __ldg(Ap + row);
+      int end = __ldg(Ap + row + 1);
+      for (int p = start; p < end; p++) {
+        col = __ldg(Ai + p);
+        val = __guard_load_default_one<float>(Ax, p);
+        res += val * aCxTemp[col * N];
+      }
+      Xx[row * N] = res;
+    }
+  }
+}
+
 __global__ void csr_unfusedTile_spmmspmm_seqreduce_rowbalance_kernel(
     const int UFDim, const int N, const int K, const int Ap[], const int Ai[],
     const float Ax[], const float ACx[], float Xx[], const int UFPtr[]) {
@@ -1115,6 +1998,35 @@ __global__ void csr_unfusedTile_spmmspmm_seqreduce_rowbalance_kernel(
         col = __ldg(Ai + p);
         val = __guard_load_default_one<float>(Ax, p);
         res += val * __ldg(ACx + col * N);
+      }
+      Xx[row * N] = res;
+    }
+  }
+}
+
+__global__ void csr_unfusedTile_spmmspmm_seqreduce_rowbalance_kernel(
+    const int UFDim, const int N, const int K, const int Ap[], const int Ai[],
+    const __half Ax[], const __half2 ACx[], __half2 Xx[], const int UFPtr[]) {
+  int row_tile = blockDim.y;
+  int subwarp_id = threadIdx.y;
+  int stride = row_tile * gridDim.x;
+  int rowInd = blockIdx.x * row_tile + subwarp_id;
+  int rowTileId = blockIdx.y * blockDim.x;
+  int v_id = (rowTileId) + threadIdx.x;
+  if (v_id < N) {
+    Xx += v_id;
+    ACx += v_id;
+    __half2 res = __float2half2_rn(0.);
+    __half val;
+    int col;
+    if (rowInd < UFDim) {
+      int row = __ldg(UFPtr + rowInd);
+      int start = __ldg(Ap + row);
+      int end = __ldg(Ap + row + 1);
+      for (int p = start; p < end; p++) {
+        col = __ldg(Ai + p);
+        val = __guard_load_default_one<__half>(Ax, p);
+        __hfma2(__halves2half2(val, val), __ldg(ACx + col * N), res);
       }
       Xx[row * N] = res;
     }
@@ -1145,6 +2057,64 @@ __global__ void csr_reordered_unfusedTile_spmmspmm_seqreduce_rowbalance_kernel(
         res += val * __ldg(ACx + col * N);
       }
       Xx[row * N] = res;
+    }
+  }
+}
+
+__global__ void csr_reordered_unfusedTile_spmmspmm_seqreduce_rowbalance_kernel(
+    const int UFDim, const int N, const int K, const int Ap[], const int Ai[],
+    const __half Ax[], const __half2 ACx[], __half2 Xx[], const int UFPtr[]) {
+  int row_tile = blockDim.y;
+  int subwarp_id = threadIdx.y;
+  int stride = row_tile * gridDim.x;
+  int rowInd = blockIdx.x * row_tile + subwarp_id;
+  int rowTileId = blockIdx.y * blockDim.x;
+  int v_id = (rowTileId) + threadIdx.x;
+  if (v_id < N) {
+    Xx += v_id;
+    ACx += v_id;
+    __half2 res = __float2half2_rn(0);
+    __half val;
+    int col;
+    if (rowInd < UFDim) {
+      int row = __ldg(UFPtr + rowInd);
+      int start = __ldg(Ap + rowInd);
+      int end = __ldg(Ap + rowInd + 1);
+      for (int p = start; p < end; p++) {
+        col = __ldg(Ai + p);
+        val = __guard_load_default_one<__half>(Ax, p);
+        res = __hfma2(__halves2half2(val, val), __ldg(ACx + col * N), res);
+      }
+      Xx[row * N] = res;
+    }
+  }
+}
+
+
+__global__ void csr_reorderedresultpacked_unfusedTile_spmmspmm_seqreduce_rowbalance_kernel(
+    const int UFDim, const int N, const int K, const int resultOffset, const int Ap[], const int Ai[],
+    const float Ax[], const float ACx[], float Xx[], const int UFPtr[]) {
+  int row_tile = blockDim.y;
+  int subwarp_id = threadIdx.y;
+  int stride = row_tile * gridDim.x;
+  int rowInd = blockIdx.x * row_tile + subwarp_id;
+  int rowTileId = blockIdx.y * blockDim.x;
+  int v_id = (rowTileId) + threadIdx.x;
+  if (v_id < N) {
+    Xx += v_id + resultOffset*N;
+    ACx += v_id;
+    float res = 0, val;
+    int col;
+    if (rowInd < UFDim) {
+      int row = __ldg(UFPtr + rowInd);
+      int start = __ldg(Ap + rowInd);
+      int end = __ldg(Ap + rowInd + 1);
+      for (int p = start; p < end; p++) {
+        col = __ldg(Ai + p);
+        val = __guard_load_default_one<float>(Ax, p);
+        res += val * __ldg(ACx + col * N);
+      }
+      Xx[rowInd * N] = res;
     }
   }
 }
@@ -1484,3 +2454,5 @@ void csrspmm_seqreduce_nnzbalance(const int M, const int N, const int K,
 //       tile_k, 1), dim3(8,8,1)>>>(
 //           M, N, ANnz, nnz_per_warp, ARowInd, AColInd, Ax, Bx, Cx);
 // }
+
+#endif //SPMM_SPMM_KERNELS_H

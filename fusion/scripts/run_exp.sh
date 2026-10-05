@@ -14,10 +14,17 @@ ID=$8
 export OMP_NUM_THREADS=$THRDS
 export MKL_NUM_THREADS=$THRDS
 
+
 header=1
+PROFILING_DIR=$LOGS/profiling_${BCOL}/
+if [ -d "$PROFILING_DIR" ]; then
+  echo "Deleting existing $PROFILING_DIR."
+  rm -rf $PROFILING_DIR
+fi
+mkdir $PROFILING_DIR
 
 if [ -z $ID ]; then
-  OUTPUT_FILE=$LOGS/spmv_spmv_$BCOL.csv
+  OUTPUT_FILE=$LOGS/spmv_spmv_${BCOL}.csv
 else
   OUTPUT_FILE=$LOGS/spmv_spmv_${BCOL}_${ID}.csv
 fi
@@ -127,6 +134,7 @@ if [ "$TUNED" ==  6 ]; then
   done < ${MATLIST}
 fi
 
+<<<<<<< HEAD
 # shellcheck disable=SC2039
 
 # shellcheck disable=SC2039
@@ -157,3 +165,22 @@ if [ "$TUNED" ==  7 ]; then
 #    done
   done < ${MATLIST}
 fi
+=======
+#For CUDA code profiling
+if [ "$TUNED" ==  7 ]; then
+  while read line; do
+    mat=$line
+      k=4
+      echo "for $line"
+      if [ $header -eq 1 ]; then
+        ncu -o "$PROFILING_DIR/$mat" $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -ah -bc $BCOL
+        header=0
+      else
+        ncu -o "$PROFILING_DIR/$mat" $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -bc $BCOL
+      fi
+#    done
+  done < ${MATLIST}
+fi
+
+# shellcheck disable=SC2039
+>>>>>>> 4802109bfec15a240324a17a8334937db49c6090

@@ -10,7 +10,6 @@
 #endif
 #include <cassert>
 #include <cstring>
-#include <immintrin.h>
 #include <iostream>
 #include <omp.h>
 namespace swiftware {

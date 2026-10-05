@@ -1,0 +1,106 @@
+impls:
+- name: "GPU_Unfused_SeqReduceRowBalance"
+  repr: "Unfused Baseline"
+- name: "GPU_Unfused_SeqReduceRowCoarsened"
+  repr: "Unfused Coarsened"
+  row_tiles:
+    - 8
+    - 16
+    - 32
+    - 64
+#    - 128
+#- name: "GPU_Unfused_SeqReduceRowCoarsenedStride"
+#  repr: "Unfused Coarsened + Strided Mapping"
+#  row_tiles:
+#    - 8
+#    - 16
+#    - 32
+#    - 64
+- name: "GPU_Fused_Reordered_HighFusionRatio"
+  repr: "Tile Fused"
+  row_tiles:
+    - 8
+    - 16
+    - 32
+    - 64
+#    - 128
+#- name: "GPU_Fused_ReorderedResultPacked_HighFusionRatio"
+#  repr: "Fused + Unfused/Result Packing"
+#  row_tiles:
+#    - 8
+#    - 16
+#    - 32
+#    - 64
+#- name: "GPU_Fused_Reordered_HighFusionRatio_P4"
+#  repr: "Fused P4 + Unfused Packing"
+#  row_tiles:
+#    - 8
+#    - 16
+#    - 32
+#    - 64
+
+#- name: "GPU_Fused_Reordered_HighFusionRatioStride"
+#  repr: "Fused + Unfused Packing + Strided Mapping"
+#  row_tiles:
+#    - 8
+#    - 16
+#    - 32
+#    - 64
+#- name: "GPU_Fused_Reordered_HighFusionRatio_MBC"
+#  repr: "Fused + Unfused Packing + BCol Coarsened"
+#  row_tiles:
+#    - 8
+#    - 16
+#    - 32
+#    - 64
+#- name: "GPU_Fused_Redundant_HighFusionRatio"
+#  repr: "Fused + Unfused Packing + Redundant"
+#  row_tiles:
+#    - 8
+#    - 16
+#    - 32
+#    - 64
+#- name: "GPU_FusedNoSynch_Reordered_HighFusionRatio"
+#  repr: "FusedNoSynch + Unfused Packing"
+#  row_tiles:
+#    - 8
+#    - 16
+#    - 32
+#    - 64
+#- name: "GPU_2LFused_Reordered_HighFusionRatio"
+#  repr: "Recursive Fused + Unfused Packing"
+#  row_tiles:
+#    - 8
+#    - 16
+#    - 32
+#    - 64
+- name: "GPU_AtomicFused_Reordered_HighFusionRatio"
+  repr: "Atomic Tiled Fused"
+  row_tiles:
+    - 8
+    - 16
+    - 32
+    - 64
+#    - 128
+#- name: "GPU_NoAtomicFused_Reordered_HighFusionRatio"
+#  repr: "No Atomic Fused + Unfused Packing"
+#  row_tiles:
+#    - 8
+#    - 16
+#    - 32
+#    - 64
+#- name: "GPU_CSRCSCNoAtomicFused_Reordered_HighFusionRatio"
+#  repr: "1v1 no atomic Fused"
+#  row_tiles:
+#    - 8
+#    - 16
+#    - 32
+#    - 64
+- name: "GPU_CSRCSCAtomicFused_Reordered_HighFusionRatio"
+  repr: "1v1 Atomic Fused"
+  row_tiles:
+    - 8
+    - 16
+    - 32
+    - 64
+#    - 128

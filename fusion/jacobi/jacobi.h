@@ -1,8 +1,9 @@
 //
 // Created by kazem on 1/19/24.
 //
-
+#if  defined(__AVX2__) || defined(__AVX512F__)
 #include <immintrin.h>
+#endif
 #ifdef MKL
 #include <mkl.h>
 #endif
