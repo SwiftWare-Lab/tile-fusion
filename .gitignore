@@ -9,3 +9,6 @@ venv/
 plots/
 papi/
 dataset/
+.agents/
+.codex/
+*.csv
