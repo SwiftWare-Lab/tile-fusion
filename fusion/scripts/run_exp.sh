@@ -134,11 +134,26 @@ if [ "$TUNED" ==  6 ]; then
   done < ${MATLIST}
 fi
 
-<<<<<<< HEAD
+#For CUDA code profiling
+if [ "$TUNED" ==  7 ]; then
+  while read line; do
+    mat=$line
+      k=4
+      echo "for $line"
+      if [ $header -eq 1 ]; then
+        ncu -o "$PROFILING_DIR/$mat" $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -ah -bc $BCOL
+        header=0
+      else
+        ncu -o "$PROFILING_DIR/$mat" $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -bc $BCOL
+      fi
+#    done
+  done < ${MATLIST}
+fi
+
 # shellcheck disable=SC2039
 
 # shellcheck disable=SC2039
-if [ "$TUNED" ==  7 ]; then
+if [ "$TUNED" ==  8 ]; then
   while read line; do
     mat=$line
     # shellcheck disable=SC2039
@@ -165,22 +180,3 @@ if [ "$TUNED" ==  7 ]; then
 #    done
   done < ${MATLIST}
 fi
-=======
-#For CUDA code profiling
-if [ "$TUNED" ==  7 ]; then
-  while read line; do
-    mat=$line
-      k=4
-      echo "for $line"
-      if [ $header -eq 1 ]; then
-        ncu -o "$PROFILING_DIR/$mat" $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -ah -bc $BCOL
-        header=0
-      else
-        ncu -o "$PROFILING_DIR/$mat" $BINLIB  -sm $PATHMAIN/$mat -nt $THRDS -bc $BCOL
-      fi
-#    done
-  done < ${MATLIST}
-fi
-
-# shellcheck disable=SC2039
->>>>>>> 4802109bfec15a240324a17a8334937db49c6090

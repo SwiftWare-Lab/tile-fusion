@@ -3,6 +3,8 @@ cmake_minimum_required( VERSION 3.20)
 
 project(sparse_fusion CXX C)
 
+option(ENABLE_CUDA "Build CUDA benchmarks" ON)
+
 if(PROFILING_WITH_PAPI)
     message(STATUS "Profiling with PAPI")
     add_definitions(-DPROF_WITH_PAPI)
@@ -19,13 +21,8 @@ if(PROFILING_WITH_PAPI)
 endif()
 
 set(CMAKE_CXX_STANDARD 11)
-<<<<<<< HEAD
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native")
 #set(OpenMP_CXX_LIB_NAMES "libiomp5")
-=======
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mcpu=native")
-
->>>>>>> 4802109bfec15a240324a17a8334937db49c6090
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/lib/)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/lib/)
 
@@ -75,17 +72,13 @@ target_link_libraries(fusion PRIVATE
 
 
 
-add_subdirectory(gpu)
 add_subdirectory(example)
 add_subdirectory(gcn)
 add_subdirectory(spmv-spmv)
-<<<<<<< HEAD
-if (ENABLE_CUDA)
+if(ENABLE_CUDA)
     message(STATUS "CUDA is enabled")
     find_package(CUDA OPTIONAL_COMPONENTS)
     find_package(CUDAToolkit OPTIONAL_COMPONENTS)
     add_subdirectory(gpu)
 endif()
-=======
 #add_subdirectory(torch)
->>>>>>> 4802109bfec15a240324a17a8334937db49c6090

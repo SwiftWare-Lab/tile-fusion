@@ -5,11 +5,16 @@
 #ifndef SPARSE_FUSION_CUDA_SPMM_SPMM_DEMO_UTILS_H
 #define SPARSE_FUSION_CUDA_SPMM_SPMM_DEMO_UTILS_H
 #include "Cuda_SpMM_Demo_Utils.h"
+#include <algorithm>
+#include <stdexcept>
+#include <vector>
 // #include "SW_SpMM_Kernels.h"
 
 #define CEIL(x, y) (((x) + (y)-1) / (y))
 #define MIN(a, b) ((a < b) ? a : b)
 
+// Launches and GPU timing events below use the default stream. Its in-order
+// execution enforces kernel dependencies, and stopGPU waits for completion.
 class SeqSpMMSpMM : public SWTensorBench<float> {
 protected:
   CudaTensorInputs *InTensor;
@@ -17,6 +22,7 @@ protected:
   void setup() override {
     this->St->OtherStats["Number of Fused Rows"] = {0.};
     this->St->OtherStats["Number of Fused Nnz"] = {0.};
+    this->St->OtherStats["Color Count"] = {0.};
   }
 
   void preExecute() override {}
@@ -128,7 +134,6 @@ protected:
     t.startGPU();
     cusparseSpMM(cusparse_handle, transA, transB, &alpha, matA, matB, &beta,
                  matC, CUDA_R_32F, Alg, WorkspaceMul1);
-    cudaDeviceSynchronize();
     cusparseSpMM(cusparse_handle, transA, transB, &alpha, matA, matC, &beta,
                  matD, CUDA_R_32F, Alg, WorkspaceMul2);
     t.stopGPU("CuSparseSpMMSpMM_CSR");
@@ -177,15 +182,9 @@ protected:
     csrspmm_seqreduce_rowbalance_kernel<<<gridDim, blockDim>>>(
         InTensor->M, InTensor->N, InTensor->K, InTensor->DACsrAp,
         InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx);
-    // TODO: Since I know kernel calls are nonBlocking I used this. Is this the
-    // right way?
-    //  I might need to test without synchronization to make sure nonBlocking
-    //  property of kernel calls is valid.
-    cudaDeviceSynchronize();
     csrspmm_seqreduce_rowbalance_kernel<<<gridDim, blockDim>>>(
         InTensor->M, InTensor->N, InTensor->K, InTensor->DACsrAp,
         InTensor->DACsrI, InTensor->DACsrVal, OutTensor->DACx, OutTensor->DXx);
-    cudaDeviceSynchronize();
     t1.stopGPU("UnfusedSpMMSpMM");
     OutTensor->copyDeviceToHost();
     return t1;
@@ -218,15 +217,9 @@ protected:
     csrspmm_seqreduce_rowcoarsened_kernel<<<gridDim, blockDim>>>(
         InTensor->M, InTensor->N, InTensor->K, threadWorkReps, InTensor->DACsrAp,
         InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx);
-    // TODO: Since I know kernel calls are nonBlocking I used this. Is this the
-    // right way?
-    //  I might need to test without synchronization to make sure nonBlocking
-    //  property of kernel calls is valid.
-    cudaDeviceSynchronize();
     csrspmm_seqreduce_rowcoarsened_kernel<<<gridDim, blockDim>>>(
         InTensor->M, InTensor->N, InTensor->K, threadWorkReps, InTensor->DACsrAp,
         InTensor->DACsrI, InTensor->DACsrVal, OutTensor->DACx, OutTensor->DXx);
-    cudaDeviceSynchronize();
     t1.stopGPU("UnfusedSpMMSpMM");
     OutTensor->copyDeviceToHost();
     return t1;
@@ -252,15 +245,9 @@ protected:
     csrspmm_seqreduce_striderowcoarsened_kernel<<<gridDim, blockDim>>>(
         InTensor->M, InTensor->N, InTensor->K, threadWorkReps, InTensor->DACsrAp,
         InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx);
-    // TODO: Since I know kernel calls are nonBlocking I used this. Is this the
-    // right way?
-    //  I might need to test without synchronization to make sure nonBlocking
-    //  property of kernel calls is valid.
-    cudaDeviceSynchronize();
     csrspmm_seqreduce_striderowcoarsened_kernel<<<gridDim, blockDim>>>(
         InTensor->M, InTensor->N, InTensor->K, threadWorkReps, InTensor->DACsrAp,
         InTensor->DACsrI, InTensor->DACsrVal, OutTensor->DACx, OutTensor->DXx);
-    cudaDeviceSynchronize();
     t1.stopGPU("UnfusedSpMMSpMM");
     OutTensor->copyDeviceToHost();
     return t1;
@@ -320,6 +307,728 @@ public:
   FusedSpMMSpMMCSRCSCNoAtomic(CudaTensorInputs *In1, Stats *Stat1,
                       int ThreadPerBlock = 256)
       : SpMMSpMMSeqReduceRowBalance(In1, Stat1, ThreadPerBlock) {}
+};
+
+// A true CSR producer / CSC consumer pair. The consumer CSC is constructed
+// once in analysis(), not in the measured execution loop.
+class FusedSpMMSpMMCSRCSCPrepared : public SeqSpMMSpMM {
+protected:
+  sym_lib::CSC *ConsumerCSC = nullptr;
+  int *DConsumerPtr = nullptr;
+  int *DConsumerIdx = nullptr;
+  float *DConsumerVal = nullptr;
+  int ThreadsPerBlock;
+
+  void prepareConsumer() {
+    ConsumerCSC = sym_lib::csr_to_csc(InTensor->BCsr);
+    std::vector<float> values(ConsumerCSC->nnz);
+    for (int p = 0; p < ConsumerCSC->nnz; ++p)
+      values[p] = static_cast<float>(ConsumerCSC->x[p]);
+    cudaMalloc(&DConsumerPtr, (ConsumerCSC->n + 1) * sizeof(int));
+    cudaMalloc(&DConsumerIdx, ConsumerCSC->nnz * sizeof(int));
+    cudaMalloc(&DConsumerVal, ConsumerCSC->nnz * sizeof(float));
+    cudaMemcpy(DConsumerPtr, ConsumerCSC->p,
+               (ConsumerCSC->n + 1) * sizeof(int), cudaMemcpyHostToDevice);
+    cudaMemcpy(DConsumerIdx, ConsumerCSC->i,
+               ConsumerCSC->nnz * sizeof(int), cudaMemcpyHostToDevice);
+    cudaMemcpy(DConsumerVal, values.data(),
+               ConsumerCSC->nnz * sizeof(float), cudaMemcpyHostToDevice);
+  }
+
+public:
+  FusedSpMMSpMMCSRCSCPrepared(CudaTensorInputs *inputs, Stats *stats,
+                              int threadsPerBlock)
+      : SeqSpMMSpMM(inputs, stats), ThreadsPerBlock(threadsPerBlock) {}
+
+  ~FusedSpMMSpMMCSRCSCPrepared() {
+    cudaFree(DConsumerPtr);
+    cudaFree(DConsumerIdx);
+    cudaFree(DConsumerVal);
+    delete ConsumerCSC;
+  }
+};
+
+class FusedSpMMSpMMCSRCSCAtomic : public FusedSpMMSpMMCSRCSCPrepared {
+protected:
+  int RowsPerBlock;
+
+  Timer analysis() override {
+    Timer timer;
+    timer.start();
+    prepareConsumer();
+    timer.stop("CSRCSC_Convert");
+    return timer;
+  }
+
+  Timer execute() override {
+    OutTensor->reset();
+    // Other benchmark variants may leave an unrelated launch error pending.
+    cudaGetLastError();
+    Timer timer;
+    timer.startGPU();
+    const int featureThreads = std::min(
+        ThreadsPerBlock, std::max(32, 32 * CEIL(InTensor->N, 32)));
+    const int blockThreads = featureThreads * RowsPerBlock;
+    if (blockThreads > 1024)
+      throw std::runtime_error("CSR-CSC atomic block exceeds 1024 threads");
+    if (InTensor->M > 0)
+      spmm_spmm_csr_csc_atomic_kernel<<<CEIL(InTensor->M, RowsPerBlock),
+                                        blockThreads>>>(
+          InTensor->M, InTensor->N, RowsPerBlock, featureThreads,
+          InTensor->DACsrAp, InTensor->DACsrI,
+          InTensor->DACsrVal, DConsumerPtr, DConsumerIdx, DConsumerVal,
+          InTensor->DBx, OutTensor->DACx, OutTensor->DXx);
+    const cudaError_t launchStatus = cudaGetLastError();
+    if (launchStatus != cudaSuccess)
+      throw std::runtime_error(std::string("atomic kernel launch: ") +
+                               cudaGetErrorString(launchStatus));
+    timer.stopGPU("CSRCSC_Atomic");
+    OutTensor->copyDeviceToHost();
+    return timer;
+  }
+
+public:
+  FusedSpMMSpMMCSRCSCAtomic(CudaTensorInputs *inputs, Stats *stats,
+                            int threadsPerBlock = 128, int rowsPerBlock = 1)
+      : FusedSpMMSpMMCSRCSCPrepared(inputs, stats, threadsPerBlock),
+        RowsPerBlock(rowsPerBlock) {
+    if (rowsPerBlock < 1)
+      throw std::invalid_argument("CSR-CSC atomic rowsPerBlock must be positive");
+  }
+};
+
+class FusedSpMMSpMMCSRCSCConflictReduce
+    : public FusedSpMMSpMMCSRCSCPrepared {
+protected:
+  struct ConflictEdge {
+    int Destination;
+    int LocalRow;
+    int OriginalPosition;
+    float Value;
+  };
+
+  int RowsPerBlock;
+  int MinSavingsPercent;
+  int *DBlockGroupPtr = nullptr;
+  int *DConsumerEdgeGroup = nullptr;
+  int *DGroupDst = nullptr;
+  int *DGroupEdgePtr = nullptr;
+  int *DGroupEdgeLocalRow = nullptr;
+  float *DGroupEdgeVal = nullptr;
+
+  template <typename T>
+  static void uploadVector(T *&device, const std::vector<T> &host,
+                           const char *description) {
+    if (host.empty()) return;
+    cudaError_t status = cudaMalloc(&device, host.size() * sizeof(T));
+    if (status != cudaSuccess)
+      throw std::runtime_error(std::string("cudaMalloc ") + description +
+                               ": " + cudaGetErrorString(status));
+    status = cudaMemcpy(device, host.data(), host.size() * sizeof(T),
+                        cudaMemcpyHostToDevice);
+    if (status != cudaSuccess)
+      throw std::runtime_error(std::string("cudaMemcpy ") + description +
+                               ": " + cudaGetErrorString(status));
+  }
+
+  void prepareConflictGroups() {
+    prepareConsumer();
+    const int blockCount = CEIL(InTensor->M, RowsPerBlock);
+    std::vector<int> blockGroupPtr(1, 0);
+    std::vector<int> consumerEdgeGroup(ConsumerCSC->nnz, -1);
+    std::vector<int> groupDst;
+    std::vector<int> groupEdgePtr(1, 0);
+    std::vector<int> groupEdgeLocalRow;
+    std::vector<float> groupEdgeVal;
+    long long groupedRows = 0;
+    long long eliminatedEdges = 0;
+
+    for (int block = 0; block < blockCount; ++block) {
+      const int firstRow = block * RowsPerBlock;
+      const int lastRow = std::min(firstRow + RowsPerBlock, InTensor->M);
+      int edgeCount = 0;
+      for (int row = firstRow; row < lastRow; ++row)
+        edgeCount += ConsumerCSC->p[row + 1] - ConsumerCSC->p[row];
+      std::vector<ConflictEdge> edges;
+      edges.reserve(edgeCount);
+      for (int row = firstRow; row < lastRow; ++row)
+        for (int p = ConsumerCSC->p[row]; p < ConsumerCSC->p[row + 1]; ++p)
+          edges.push_back({ConsumerCSC->i[p], row - firstRow,
+                           p,
+                           static_cast<float>(ConsumerCSC->x[p])});
+      std::sort(edges.begin(), edges.end(),
+                [](const ConflictEdge &left, const ConflictEdge &right) {
+                  if (left.Destination != right.Destination)
+                    return left.Destination < right.Destination;
+                  return left.LocalRow < right.LocalRow;
+                });
+
+      int uniqueDestinations = 0;
+      for (size_t p = 0; p < edges.size();) {
+        ++uniqueDestinations;
+        const int destination = edges[p].Destination;
+        while (p < edges.size() && edges[p].Destination == destination) ++p;
+      }
+      const int savings = edgeCount - uniqueDestinations;
+      const bool useGroups = savings > 0 &&
+          100LL * savings >=
+              static_cast<long long>(MinSavingsPercent) * edgeCount;
+      if (useGroups) {
+        groupedRows += lastRow - firstRow;
+        eliminatedEdges += savings;
+        for (size_t p = 0; p < edges.size();) {
+          const int destination = edges[p].Destination;
+          size_t end = p + 1;
+          while (end < edges.size() &&
+                 edges[end].Destination == destination)
+            ++end;
+          if (end - p == 1) {
+            p = end;
+            continue;
+          }
+          const int group = static_cast<int>(groupDst.size());
+          groupDst.push_back(destination);
+          do {
+            consumerEdgeGroup[edges[p].OriginalPosition] = group;
+            groupEdgeLocalRow.push_back(edges[p].LocalRow);
+            groupEdgeVal.push_back(edges[p].Value);
+            ++p;
+          } while (p < end);
+          groupEdgePtr.push_back(static_cast<int>(groupEdgeVal.size()));
+        }
+      }
+      blockGroupPtr.push_back(static_cast<int>(groupDst.size()));
+    }
+
+    uploadVector(DBlockGroupPtr, blockGroupPtr, "conflict block offsets");
+    uploadVector(DConsumerEdgeGroup, consumerEdgeGroup,
+                 "consumer conflict groups");
+    uploadVector(DGroupDst, groupDst, "conflict group destinations");
+    uploadVector(DGroupEdgePtr, groupEdgePtr, "conflict group offsets");
+    uploadVector(DGroupEdgeLocalRow, groupEdgeLocalRow,
+                 "conflict edge local rows");
+    uploadVector(DGroupEdgeVal, groupEdgeVal, "conflict edge values");
+    this->St->OtherStats["Number of Fused Rows"] = {
+        static_cast<double>(groupedRows)};
+    this->St->OtherStats["Number of Fused Nnz"] = {
+        static_cast<double>(eliminatedEdges)};
+  }
+
+  Timer analysis() override {
+    Timer timer;
+    timer.start();
+    prepareConflictGroups();
+    timer.stop("CSRCSC_Conflict_Preprocess");
+    return timer;
+  }
+
+  Timer execute() override {
+    OutTensor->reset();
+    cudaGetLastError();
+    Timer timer;
+    timer.startGPU();
+    const int featureThreads = std::min(
+        ThreadsPerBlock, std::max(32, 32 * CEIL(InTensor->N, 32)));
+    const int blockThreads = featureThreads * RowsPerBlock;
+    if (blockThreads > 1024)
+      throw std::runtime_error(
+          "CSR-CSC conflict-reduction block exceeds 1024 threads");
+    const size_t sharedBytes = static_cast<size_t>(RowsPerBlock) *
+                               InTensor->N * sizeof(float);
+    if (InTensor->M > 0)
+      spmm_spmm_csr_csc_conflict_reduce_kernel
+          <<<CEIL(InTensor->M, RowsPerBlock), blockThreads, sharedBytes>>>(
+              InTensor->M, InTensor->N, RowsPerBlock, featureThreads,
+              InTensor->DACsrAp, InTensor->DACsrI, InTensor->DACsrVal,
+              DConsumerPtr, DConsumerIdx, DConsumerVal, DBlockGroupPtr,
+              DConsumerEdgeGroup, DGroupDst, DGroupEdgePtr,
+              DGroupEdgeLocalRow, DGroupEdgeVal, InTensor->DBx,
+              OutTensor->DACx, OutTensor->DXx);
+    const cudaError_t launchStatus = cudaGetLastError();
+    if (launchStatus != cudaSuccess)
+      throw std::runtime_error(std::string("conflict-reduction kernel launch: ") +
+                               cudaGetErrorString(launchStatus));
+    timer.stopGPU("CSRCSC_ConflictReduce");
+    OutTensor->copyDeviceToHost();
+    return timer;
+  }
+
+public:
+  FusedSpMMSpMMCSRCSCConflictReduce(
+      CudaTensorInputs *inputs, Stats *stats, int threadsPerBlock = 128,
+      int rowsPerBlock = 4, int minSavingsPercent = 40)
+      : FusedSpMMSpMMCSRCSCPrepared(inputs, stats, threadsPerBlock),
+        RowsPerBlock(rowsPerBlock), MinSavingsPercent(minSavingsPercent) {
+    if (rowsPerBlock < 2)
+      throw std::invalid_argument(
+          "CSR-CSC conflict reduction needs at least two rows per block");
+    if (minSavingsPercent < 0 || minSavingsPercent > 100)
+      throw std::invalid_argument(
+          "CSR-CSC conflict min savings must be between 0 and 100");
+  }
+
+  ~FusedSpMMSpMMCSRCSCConflictReduce() {
+    cudaFree(DBlockGroupPtr);
+    cudaFree(DConsumerEdgeGroup);
+    cudaFree(DGroupDst);
+    cudaFree(DGroupEdgePtr);
+    cudaFree(DGroupEdgeLocalRow);
+    cudaFree(DGroupEdgeVal);
+  }
+};
+
+class FusedSpMMSpMMCSRCSCColored : public FusedSpMMSpMMCSRCSCPrepared {
+protected:
+  int TileSize;
+  int *DColorTileIds = nullptr;
+  std::vector<int> ColorOffsets;
+
+  void prepareColored() {
+    prepareConsumer();
+
+    // Size-balanced greedy coloring of the implicit tile-conflict graph.
+    // Two tiles conflict iff their CSC columns reach the same output row.
+    const int tileCount = CEIL(InTensor->M, TileSize);
+    std::vector<std::vector<int>> rowColors(InTensor->L);
+    std::vector<std::vector<int>> colorTiles;
+    std::vector<int> lastSeen(InTensor->L, -1);
+    std::vector<int> forbidden;
+    std::vector<int> touched;
+    for (int tile = 0; tile < tileCount; ++tile) {
+      touched.clear();
+      for (int row = tile * TileSize;
+           row < std::min((tile + 1) * TileSize, InTensor->M); ++row) {
+        for (int p = ConsumerCSC->p[row]; p < ConsumerCSC->p[row + 1]; ++p) {
+          int outputRow = ConsumerCSC->i[p];
+          if (lastSeen[outputRow] != tile) {
+            lastSeen[outputRow] = tile;
+            touched.push_back(outputRow);
+          }
+        }
+      }
+      if (forbidden.size() < colorTiles.size())
+        forbidden.resize(colorTiles.size(), -1);
+      for (int outputRow : touched)
+        for (int color : rowColors[outputRow])
+          forbidden[color] = tile;
+      const int existingColors = static_cast<int>(colorTiles.size());
+      int color = existingColors;
+      for (int candidate = 0; candidate < existingColors; ++candidate)
+        if (forbidden[candidate] != tile &&
+            (color == existingColors ||
+             colorTiles[candidate].size() < colorTiles[color].size()))
+          color = candidate;
+      if (color == existingColors)
+        colorTiles.emplace_back();
+      colorTiles[color].push_back(tile);
+      for (int outputRow : touched)
+        rowColors[outputRow].push_back(color);
+    }
+
+    std::vector<int> tileIds;
+    ColorOffsets.push_back(0);
+    for (const auto &tiles : colorTiles) {
+      tileIds.insert(tileIds.end(), tiles.begin(), tiles.end());
+      ColorOffsets.push_back(static_cast<int>(tileIds.size()));
+    }
+    if (!tileIds.empty()) {
+      cudaMalloc(&DColorTileIds, tileIds.size() * sizeof(int));
+      cudaMemcpy(DColorTileIds, tileIds.data(), tileIds.size() * sizeof(int),
+                 cudaMemcpyHostToDevice);
+    }
+    this->St->OtherStats["Color Count"] = {
+        static_cast<double>(colorTiles.size())};
+  }
+
+  void launchColors(cudaStream_t stream) {
+    const int featureThreads = std::min(
+        ThreadsPerBlock, std::max(32, 32 * CEIL(InTensor->N, 32)));
+    for (size_t color = 0; color + 1 < ColorOffsets.size(); ++color) {
+      int offset = ColorOffsets[color];
+      int count = ColorOffsets[color + 1] - offset;
+      spmm_spmm_csr_csc_colored_kernel<<<count, featureThreads, 0, stream>>>(
+          InTensor->M, InTensor->N, TileSize, DColorTileIds + offset,
+          InTensor->DACsrAp, InTensor->DACsrI, InTensor->DACsrVal,
+          DConsumerPtr, DConsumerIdx, DConsumerVal, InTensor->DBx,
+          OutTensor->DACx, OutTensor->DXx);
+    }
+  }
+
+  Timer analysis() override {
+    Timer timer;
+    timer.start();
+    prepareColored();
+    timer.stop("CSRCSC_Coloring");
+    return timer;
+  }
+
+  Timer execute() override {
+    OutTensor->reset();
+    cudaGetLastError();
+    Timer timer;
+    timer.startGPU();
+    launchColors(0);
+    const cudaError_t launchStatus = cudaGetLastError();
+    if (launchStatus != cudaSuccess)
+      throw std::runtime_error(std::string("direct colored kernel launch: ") +
+                               cudaGetErrorString(launchStatus));
+    timer.stopGPU("CSRCSC_Colored");
+    OutTensor->copyDeviceToHost();
+    return timer;
+  }
+
+public:
+  FusedSpMMSpMMCSRCSCColored(CudaTensorInputs *inputs, Stats *stats,
+                             int threadsPerBlock, int tileSize)
+      : FusedSpMMSpMMCSRCSCPrepared(inputs, stats, threadsPerBlock),
+        TileSize(tileSize) {}
+
+  ~FusedSpMMSpMMCSRCSCColored() { cudaFree(DColorTileIds); }
+};
+
+// Fuse only producer rows with 1..MaxRowNnz entries. The remaining producer
+// rows and their consumer contributions use separate CSR kernels. Coloring is
+// built solely from the compact list of fused producer rows.
+class FusedSpMMSpMMCSRCSCHybridColored
+    : public FusedSpMMSpMMCSRCSCPrepared {
+  int TileSize;
+  int MaxRowNnz;
+  bool RowParallel128;
+  bool Cooperative;
+  int CooperativeGridBlocks = 0;
+  int FusedRowCount = 0;
+  int UnfusedRowCount = 0;
+  int *DFusedRows = nullptr;
+  int *DUnfusedRows = nullptr;
+  int *DFusedMask = nullptr;
+  int *DColorTileIds = nullptr;
+  int *DColorOffsets = nullptr;
+  int *DConsumerCsrPtr = nullptr;
+  int *DConsumerCsrIdx = nullptr;
+  float *DConsumerCsrVal = nullptr;
+  std::vector<int> ColorOffsets;
+
+  static void checkCuda(cudaError_t result, const char *operation) {
+    if (result != cudaSuccess)
+      throw std::runtime_error(std::string(operation) + ": " +
+                               cudaGetErrorString(result));
+  }
+
+  Timer analysis() override {
+    Timer timer;
+    timer.start();
+    prepareConsumer();
+
+    // The existing CUDA inputs upload the producer CSR only. Keep a separate
+    // consumer CSR for the unfused gather, which also supports A != B.
+    const auto *consumer = InTensor->BCsr;
+    std::vector<float> consumerValues(consumer->nnz);
+    for (int p = 0; p < consumer->nnz; ++p)
+      consumerValues[p] = static_cast<float>(consumer->x[p]);
+    checkCuda(cudaMalloc(&DConsumerCsrPtr, (consumer->m + 1) * sizeof(int)),
+              "cudaMalloc consumer CSR ptr");
+    checkCuda(cudaMemcpy(DConsumerCsrPtr, consumer->p,
+                         (consumer->m + 1) * sizeof(int),
+                         cudaMemcpyHostToDevice), "cudaMemcpy consumer CSR ptr");
+    if (consumer->nnz > 0) {
+      checkCuda(cudaMalloc(&DConsumerCsrIdx, consumer->nnz * sizeof(int)),
+                "cudaMalloc consumer CSR idx");
+      checkCuda(cudaMalloc(&DConsumerCsrVal, consumer->nnz * sizeof(float)),
+                "cudaMalloc consumer CSR values");
+      checkCuda(cudaMemcpy(DConsumerCsrIdx, consumer->i,
+                           consumer->nnz * sizeof(int), cudaMemcpyHostToDevice),
+                "cudaMemcpy consumer CSR idx");
+      checkCuda(cudaMemcpy(DConsumerCsrVal, consumerValues.data(),
+                           consumer->nnz * sizeof(float), cudaMemcpyHostToDevice),
+                "cudaMemcpy consumer CSR values");
+    }
+
+    std::vector<int> fusedRows, unfusedRows, fusedMask(InTensor->M, 0);
+    int fusedNnz = 0;
+    for (int row = 0; row < InTensor->M; ++row) {
+      const int nnz = InTensor->ACsr->p[row + 1] - InTensor->ACsr->p[row];
+      if (nnz > 0 && nnz <= MaxRowNnz) {
+        fusedMask[row] = 1;
+        fusedRows.push_back(row);
+        fusedNnz += nnz;
+      } else {
+        unfusedRows.push_back(row);
+      }
+    }
+    FusedRowCount = static_cast<int>(fusedRows.size());
+    UnfusedRowCount = static_cast<int>(unfusedRows.size());
+    if (FusedRowCount) {
+      checkCuda(cudaMalloc(&DFusedRows, FusedRowCount * sizeof(int)),
+                "cudaMalloc fused rows");
+      checkCuda(cudaMemcpy(DFusedRows, fusedRows.data(),
+                           FusedRowCount * sizeof(int), cudaMemcpyHostToDevice),
+                "cudaMemcpy fused rows");
+    }
+    if (UnfusedRowCount) {
+      checkCuda(cudaMalloc(&DUnfusedRows, UnfusedRowCount * sizeof(int)),
+                "cudaMalloc unfused rows");
+      checkCuda(cudaMemcpy(DUnfusedRows, unfusedRows.data(),
+                           UnfusedRowCount * sizeof(int), cudaMemcpyHostToDevice),
+                "cudaMemcpy unfused rows");
+      checkCuda(cudaMalloc(&DFusedMask, InTensor->M * sizeof(int)),
+                "cudaMalloc fused mask");
+      checkCuda(cudaMemcpy(DFusedMask, fusedMask.data(),
+                           InTensor->M * sizeof(int), cudaMemcpyHostToDevice),
+                "cudaMemcpy fused mask");
+    }
+
+    const int tileCount = CEIL(FusedRowCount, TileSize);
+    std::vector<std::vector<int>> rowColors(InTensor->L);
+    std::vector<std::vector<int>> colorTiles;
+    std::vector<int> lastSeen(InTensor->L, -1), forbidden, touched;
+    for (int tile = 0; tile < tileCount; ++tile) {
+      touched.clear();
+      const int end = std::min((tile + 1) * TileSize, FusedRowCount);
+      for (int position = tile * TileSize; position < end; ++position) {
+        const int row = fusedRows[position];
+        for (int p = ConsumerCSC->p[row]; p < ConsumerCSC->p[row + 1]; ++p) {
+          const int outputRow = ConsumerCSC->i[p];
+          if (lastSeen[outputRow] != tile) {
+            lastSeen[outputRow] = tile;
+            touched.push_back(outputRow);
+          }
+        }
+      }
+      if (forbidden.size() < colorTiles.size())
+        forbidden.resize(colorTiles.size(), -1);
+      for (int outputRow : touched)
+        for (int color : rowColors[outputRow])
+          forbidden[color] = tile;
+      const int existingColors = static_cast<int>(colorTiles.size());
+      int color = existingColors;
+      for (int candidate = 0; candidate < existingColors; ++candidate)
+        if (forbidden[candidate] != tile &&
+            (color == existingColors ||
+             colorTiles[candidate].size() < colorTiles[color].size()))
+          color = candidate;
+      if (color == existingColors)
+        colorTiles.emplace_back();
+      colorTiles[color].push_back(tile);
+      for (int outputRow : touched)
+        rowColors[outputRow].push_back(color);
+    }
+    std::vector<int> tileIds;
+    ColorOffsets.push_back(0);
+    for (const auto &tiles : colorTiles) {
+      tileIds.insert(tileIds.end(), tiles.begin(), tiles.end());
+      ColorOffsets.push_back(static_cast<int>(tileIds.size()));
+    }
+    if (!tileIds.empty()) {
+      checkCuda(cudaMalloc(&DColorTileIds, tileIds.size() * sizeof(int)),
+                "cudaMalloc colored tile ids");
+      checkCuda(cudaMemcpy(DColorTileIds, tileIds.data(),
+                           tileIds.size() * sizeof(int), cudaMemcpyHostToDevice),
+                "cudaMemcpy colored tile ids");
+    }
+    if (Cooperative) {
+      int device = 0, supportsCooperative = 0, multiprocessors = 0;
+      int residentBlocksPerSm = 0;
+      checkCuda(cudaGetDevice(&device), "cudaGetDevice");
+      checkCuda(cudaDeviceGetAttribute(&supportsCooperative,
+                                       cudaDevAttrCooperativeLaunch, device),
+                "cudaDevAttrCooperativeLaunch");
+      if (!supportsCooperative)
+        throw std::runtime_error("device does not support cooperative launches");
+      checkCuda(cudaDeviceGetAttribute(&multiprocessors,
+                                       cudaDevAttrMultiProcessorCount, device),
+                "cudaDevAttrMultiProcessorCount");
+      checkCuda(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+                    &residentBlocksPerSm,
+                    spmm_spmm_csr_csc_hybrid_cooperative_kernel, 128, 0),
+                "cudaOccupancyMaxActiveBlocksPerMultiprocessor");
+      if (residentBlocksPerSm < 1)
+        throw std::runtime_error("cooperative kernel has no resident blocks");
+      int largestColor = 0;
+      for (size_t color = 0; color + 1 < ColorOffsets.size(); ++color)
+        largestColor = std::max(
+            largestColor, ColorOffsets[color + 1] - ColorOffsets[color]);
+      CooperativeGridBlocks = std::min(
+          multiprocessors * residentBlocksPerSm,
+          std::max(multiprocessors,
+                   std::min(multiprocessors * 4, largestColor)));
+      checkCuda(cudaMalloc(&DColorOffsets,
+                           ColorOffsets.size() * sizeof(int)),
+                "cudaMalloc color offsets");
+      checkCuda(cudaMemcpy(DColorOffsets, ColorOffsets.data(),
+                           ColorOffsets.size() * sizeof(int),
+                           cudaMemcpyHostToDevice),
+                "cudaMemcpy color offsets");
+    }
+    this->St->OtherStats["Number of Fused Rows"] = {
+        static_cast<double>(FusedRowCount)};
+    this->St->OtherStats["Number of Fused Nnz"] = {
+        static_cast<double>(fusedNnz)};
+    this->St->OtherStats["Color Count"] = {
+        static_cast<double>(colorTiles.size())};
+    timer.stop("CSRCSC_HybridColoring");
+    return timer;
+  }
+
+  Timer execute() override {
+    if (!Cooperative)
+      OutTensor->reset();
+    cudaGetLastError();
+    Timer timer;
+    timer.startGPU();
+    if (Cooperative) {
+      SpmmSpmmHybridCooperativeArgs args = {
+          FusedRowCount, UnfusedRowCount, InTensor->L, InTensor->N, TileSize,
+          static_cast<int>(ColorOffsets.size()) - 1,
+          DColorOffsets, DColorTileIds, DFusedRows, DUnfusedRows, DFusedMask,
+          InTensor->DACsrAp, InTensor->DACsrI, DConsumerPtr, DConsumerIdx,
+          DConsumerCsrPtr, DConsumerCsrIdx, InTensor->DACsrVal,
+          DConsumerVal, DConsumerCsrVal, InTensor->DBx, OutTensor->DACx,
+          OutTensor->DXx};
+      void *launchArgs[] = {&args};
+      checkCuda(cudaLaunchCooperativeKernel(
+                    reinterpret_cast<const void *>(
+                        spmm_spmm_csr_csc_hybrid_cooperative_kernel),
+                    CooperativeGridBlocks, 128, launchArgs, 0, 0),
+                "cudaLaunchCooperativeKernel");
+    } else if (RowParallel128) {
+      if (UnfusedRowCount)
+        spmm_spmm_hybrid_unfused_producer_rows4_kernel
+            <<<CEIL(UnfusedRowCount, 4), 128>>>(
+                UnfusedRowCount, InTensor->N, DUnfusedRows,
+                InTensor->DACsrAp, InTensor->DACsrI, InTensor->DACsrVal,
+                InTensor->DBx, OutTensor->DACx);
+      for (size_t color = 0; color + 1 < ColorOffsets.size(); ++color) {
+        const int offset = ColorOffsets[color];
+        const int count = ColorOffsets[color + 1] - offset;
+        spmm_spmm_csr_csc_hybrid_colored_rows4_kernel<<<count, 128>>>(
+            FusedRowCount, InTensor->N, TileSize, DColorTileIds + offset,
+            DFusedRows, InTensor->DACsrAp, InTensor->DACsrI,
+            InTensor->DACsrVal, DConsumerPtr, DConsumerIdx, DConsumerVal,
+            InTensor->DBx, OutTensor->DACx, OutTensor->DXx);
+      }
+      if (UnfusedRowCount && InTensor->L > 0)
+        spmm_spmm_hybrid_unfused_consumer_rows4_kernel
+            <<<CEIL(InTensor->L, 4), 128>>>(
+                InTensor->L, InTensor->N, DConsumerCsrPtr, DConsumerCsrIdx,
+                DConsumerCsrVal, DFusedMask, OutTensor->DACx,
+                OutTensor->DXx);
+    } else {
+      const int featureThreads = std::min(
+          ThreadsPerBlock, std::max(32, 32 * CEIL(InTensor->N, 32)));
+      if (UnfusedRowCount)
+        spmm_spmm_hybrid_unfused_producer_kernel
+            <<<UnfusedRowCount, featureThreads>>>(
+                InTensor->N, DUnfusedRows, InTensor->DACsrAp,
+                InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx,
+                OutTensor->DACx);
+      for (size_t color = 0; color + 1 < ColorOffsets.size(); ++color) {
+        const int offset = ColorOffsets[color];
+        const int count = ColorOffsets[color + 1] - offset;
+        spmm_spmm_csr_csc_hybrid_colored_kernel<<<count, featureThreads>>>(
+            FusedRowCount, InTensor->N, TileSize, DColorTileIds + offset,
+            DFusedRows, InTensor->DACsrAp, InTensor->DACsrI,
+            InTensor->DACsrVal, DConsumerPtr, DConsumerIdx, DConsumerVal,
+            InTensor->DBx, OutTensor->DACx, OutTensor->DXx);
+      }
+      if (UnfusedRowCount && InTensor->L > 0)
+        spmm_spmm_hybrid_unfused_consumer_kernel
+            <<<InTensor->L, featureThreads>>>(
+                InTensor->L, InTensor->N, DConsumerCsrPtr, DConsumerCsrIdx,
+                DConsumerCsrVal, DFusedMask, OutTensor->DACx,
+                OutTensor->DXx);
+    }
+    checkCuda(cudaGetLastError(), "hybrid kernel launch");
+    timer.stopGPU("CSRCSC_HybridColored");
+    OutTensor->copyDeviceToHost();
+    return timer;
+  }
+
+public:
+  FusedSpMMSpMMCSRCSCHybridColored(CudaTensorInputs *inputs, Stats *stats,
+                                   int threadsPerBlock, int tileSize,
+                                   int maxRowNnz, bool rowParallel128 = false,
+                                   bool cooperative = false)
+      : FusedSpMMSpMMCSRCSCPrepared(inputs, stats, threadsPerBlock),
+        TileSize(tileSize), MaxRowNnz(maxRowNnz),
+        RowParallel128(rowParallel128), Cooperative(cooperative) {
+    if (tileSize <= 0 || maxRowNnz <= 0)
+      throw std::invalid_argument("tile size and row nnz threshold must be positive");
+    if (rowParallel128 && threadsPerBlock != 128)
+      throw std::invalid_argument("row-parallel hybrid requires 128 threads per block");
+    if (cooperative && !rowParallel128)
+      throw std::invalid_argument("cooperative hybrid requires row-parallel mode");
+  }
+
+  ~FusedSpMMSpMMCSRCSCHybridColored() {
+    cudaFree(DFusedRows);
+    cudaFree(DUnfusedRows);
+    cudaFree(DFusedMask);
+    cudaFree(DColorTileIds);
+    cudaFree(DColorOffsets);
+    cudaFree(DConsumerCsrPtr);
+    cudaFree(DConsumerCsrIdx);
+    cudaFree(DConsumerCsrVal);
+  }
+};
+
+class FusedSpMMSpMMCSRCSCColoredGraph
+    : public FusedSpMMSpMMCSRCSCColored {
+protected:
+  cudaGraph_t Graph = nullptr;
+  cudaGraphExec_t GraphExec = nullptr;
+
+  static void checkCuda(cudaError_t result, const char *operation) {
+    if (result != cudaSuccess)
+      throw std::runtime_error(std::string(operation) + ": " +
+                               cudaGetErrorString(result));
+  }
+
+  Timer analysis() override {
+    Timer timer;
+    timer.start();
+    prepareColored();
+    if (ColorOffsets.size() > 1) {
+      cudaGetLastError();
+      // The legacy default stream cannot be captured. The resulting graph
+      // can still be replayed on the default stream alongside the baselines.
+      cudaStream_t captureStream = nullptr;
+      checkCuda(cudaStreamCreateWithFlags(&captureStream, cudaStreamNonBlocking),
+                "cudaStreamCreateWithFlags");
+      checkCuda(cudaStreamBeginCapture(captureStream, cudaStreamCaptureModeGlobal),
+                "cudaStreamBeginCapture");
+      launchColors(captureStream);
+      checkCuda(cudaGetLastError(), "colored kernel capture");
+      checkCuda(cudaStreamEndCapture(captureStream, &Graph),
+                "cudaStreamEndCapture");
+      checkCuda(cudaStreamDestroy(captureStream), "cudaStreamDestroy");
+      checkCuda(cudaGraphInstantiate(&GraphExec, Graph, 0),
+                "cudaGraphInstantiate");
+    }
+    timer.stop("CSRCSC_ColorGraphSetup");
+    return timer;
+  }
+
+  Timer execute() override {
+    OutTensor->reset();
+    cudaGetLastError();
+    Timer timer;
+    timer.startGPU();
+    if (GraphExec)
+      checkCuda(cudaGraphLaunch(GraphExec, 0), "cudaGraphLaunch");
+    timer.stopGPU("CSRCSC_ColoredGraph");
+    OutTensor->copyDeviceToHost();
+    return timer;
+  }
+
+public:
+  FusedSpMMSpMMCSRCSCColoredGraph(CudaTensorInputs *inputs, Stats *stats,
+                                  int threadsPerBlock, int tileSize)
+      : FusedSpMMSpMMCSRCSCColored(inputs, stats, threadsPerBlock, tileSize) {}
+
+  ~FusedSpMMSpMMCSRCSCColoredGraph() {
+    if (GraphExec) cudaGraphExecDestroy(GraphExec);
+    if (Graph) cudaGraphDestroy(Graph);
+  }
 };
 
 class FusedSpMMSpMMSeqReduceRowBalanceRedundant
@@ -391,7 +1100,6 @@ protected:
         InTensor->M, InTensor->N, InTensor->K, RowTile, InTensor->DACsrAp,
         InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx,
         OutTensor->DXx, DL1Ptr, DL1Id);
-    cudaDeviceSynchronize();
     t1.stopGPU("RedundantFusedSpMMSpMM");
     OutTensor->copyDeviceToHost();
     return t1;
@@ -485,12 +1193,10 @@ protected:
         InTensor->M, InTensor->N, InTensor->K, InTensor->DACsrAp,
         InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx,
         OutTensor->DXx, DFPtr, DFId);
-    cudaDeviceSynchronize();
     csr_unfusedTile_spmmspmm_seqreduce_rowbalance_kernel<<<ufGridDim,
                                                            ufBlockDim>>>(
         UFDim, InTensor->N, InTensor->K, InTensor->DACsrAp, InTensor->DACsrI,
         InTensor->DACsrVal, OutTensor->DACx, OutTensor->DXx, DUFPtr);
-    cudaDeviceSynchronize();
     t1.stopGPU("FusedSpMMSpMM");
     OutTensor->copyDeviceToHost();
     return t1;
@@ -605,7 +1311,6 @@ protected:
         InTensor->M, InTensor->N, InTensor->K, InTensor->DACsrAp,
         InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx,
         OutTensor->DXx, DFPtr, DFId);
-    cudaDeviceSynchronize();
     //    t1.stopGPU("ROFusedTileSpMMSpMM");
     //    std::cout << "ROFusedTileSpMMSpMM: " << t1.printTimeCsv(0) <<
     //    std::endl; t2.startGPU();
@@ -613,7 +1318,6 @@ protected:
         ufGridDim, ufBlockDim>>>(UFDim, InTensor->N, InTensor->K, DROAp, DROAi,
                                  DROAx, OutTensor->DACx, OutTensor->DXx,
                                  DUFPtr);
-    cudaDeviceSynchronize();
     t1.stopGPU("ROUnFusedTileSpMMSpMM");
     //    std::cout << "ROUnFusedTileSpMMSpMM: " << t2.printTimeCsv(0) <<
     //    std::endl;
@@ -750,12 +1454,10 @@ protected:
         InTensor->M, InTensor->N, InTensor->K, ThreadWorkReps, InTensor->DACsrAp,
         InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx,
         OutTensor->DXx, DFPtr, DFId);
-    cudaDeviceSynchronize();
     csr_reordered_unfusedTile_spmmspmm_seqreduce_rowbalance_kernel<<<
         ufGridDim, ufBlockDim>>>(UFDim, InTensor->N, InTensor->K, DROAp, DROAi,
                                  DROAx, OutTensor->DACx, OutTensor->DXx,
                                  DUFPtr);
-    cudaDeviceSynchronize();
     t1.stopGPU("UnFusedTileSpMMSpMM");
     OutTensor->copyDeviceToHost();
     return t1;
@@ -879,12 +1581,10 @@ protected:
         InTensor->M, InTensor->N, InTensor->K, ThreadWorkReps, InTensor->DACsrAp,
         InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx,
         OutTensor->DXx, DFPtr, DFId);
-    cudaDeviceSynchronize();
     csr_reordered_unfusedTile_spmmspmm_seqreduce_rowbalance_kernel<<<
         ufGridDim, ufBlockDim>>>(UFDim, InTensor->N, InTensor->K, DROAp, DROAi,
                                  DROAx, OutTensor->DACx, OutTensor->DXx,
                                  DUFPtr);
-    cudaDeviceSynchronize();
     t1.stopGPU("UnFusedTileSpMMSpMM");
     OutTensor->copyDeviceToHost();
     return t1;
@@ -917,12 +1617,10 @@ protected:
         InTensor->M, InTensor->N, InTensor->K, ThreadWorkReps, InTensor->DACsrAp,
         InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx,
         OutTensor->DXx, DFPtr, DFId);
-    cudaDeviceSynchronize();
     csr_reorderedresultpacked_unfusedTile_spmmspmm_seqreduce_rowbalance_kernel<<<
         ufGridDim, ufBlockDim>>>(UFDim, InTensor->N, InTensor->K, 0, DROAp, DROAi,
                                  DROAx, OutTensor->DACx, OutTensor->DXx,
                                  DUFPtr);
-    cudaDeviceSynchronize();
     t1.stopGPU("UnFusedTileSpMMSpMM");
     OutTensor->copyDeviceToHost();
     return t1;
@@ -975,12 +1673,10 @@ protected:
         InTensor->M, InTensor->N, InTensor->K, ThreadWorkReps, InTensor->DACsrAp,
         InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx,
         OutTensor->DXx, DFPtr, DFId);
-    cudaDeviceSynchronize();
     csr_reordered_unfusedTile_spmmspmm_seqreduce_rowbalance_kernel<<<
         ufGridDim, ufBlockDim>>>(UFDim, InTensor->N, InTensor->K, DROAp, DROAi,
                                  DROAx, OutTensor->DACx, OutTensor->DXx,
                                  DUFPtr);
-    cudaDeviceSynchronize();
     t1.stopGPU("UnFusedTileSpMMSpMM");
     OutTensor->copyDeviceToHost();
     return t1;
@@ -1011,12 +1707,10 @@ protected:
         InTensor->M, InTensor->N, InTensor->K, ThreadWorkReps, InTensor->DACsrAp,
         InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx,
         OutTensor->DXx, DFPtr, DFId);
-    cudaDeviceSynchronize();
     csr_reordered_unfusedTile_spmmspmm_seqreduce_rowbalance_kernel<<<
         ufGridDim, ufBlockDim>>>(UFDim, InTensor->N, InTensor->K, DROAp, DROAi,
                                  DROAx, OutTensor->DACx, OutTensor->DXx,
                                  DUFPtr);
-    cudaDeviceSynchronize();
     t1.stopGPU("UnFusedTileSpMMSpMM");
     OutTensor->copyDeviceToHost();
     return t1;
@@ -1139,12 +1833,10 @@ protected:
         InTensor->M, InTensor->N, InTensor->K, ThreadWorkReps, InTensor->DACsrAp,
         InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx,
         OutTensor->DXx, DFPtr, DFId);
-    cudaDeviceSynchronize();
     csr_reordered_unfusedTile_spmmspmm_seqreduce_rowbalance_kernel<<<
         ufGridDim, ufBlockDim>>>(UFDim, InTensor->N, InTensor->K, DROAp, DROAi,
                                  DROAx, OutTensor->DACx, OutTensor->DXx,
                                  DUFPtr);
-    cudaDeviceSynchronize();
     t1.stopGPU("UnFusedTileSpMMSpMM");
     OutTensor->copyDeviceToHost();
     return t1;
@@ -1292,12 +1984,10 @@ protected:
         InTensor->M, InTensor->N, InTensor->K, ThreadWorkReps, InTensor->DACsrAp,
         InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx,
         OutTensor->DXx, DFAp, DFAi, DFAx);
-    cudaDeviceSynchronize();
     csr_reordered_unfusedTile_spmmspmm_seqreduce_rowbalance_kernel<<<
         ufGridDim, ufBlockDim>>>(UFDim, InTensor->N, InTensor->K, DROAp, DROAi,
                                  DROAx, OutTensor->DACx, OutTensor->DXx,
                                  DUFPtr);
-    cudaDeviceSynchronize();
     t1.stopGPU("UnFusedTileSpMMSpMM");
     OutTensor->copyDeviceToHost();
     return t1;
@@ -1336,12 +2026,10 @@ protected:
         InTensor->M, InTensor->N, InTensor->K, ThreadWorkReps, InTensor->DACsrAp,
         InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx,
         OutTensor->DXx, DFAp, DFAi, DFAx);
-    cudaDeviceSynchronize();
     csr_reordered_unfusedTile_spmmspmm_seqreduce_rowbalance_kernel<<<
         ufGridDim, ufBlockDim>>>(UFDim, InTensor->N, InTensor->K, DROAp, DROAi,
                                  DROAx, OutTensor->DACx, OutTensor->DXx,
                                  DUFPtr);
-    cudaDeviceSynchronize();
     t1.stopGPU("UnFusedTileSpMMSpMM");
     OutTensor->copyDeviceToHost();
     return t1;
@@ -1398,12 +2086,10 @@ protected:
         InTensor->M, InTensor->N, InTensor->K, InTensor->DACsrAp,
         InTensor->DACsrI, InTensor->DACsrVal, InTensor->DBx, OutTensor->DACx,
         OutTensor->DXx, DFPtr, DFId);
-    cudaDeviceSynchronize();
     csr_unfusedTile_spmmspmm_seqreduce_rowbalance_kernel<<<ufGridDim,
                                                            ufBlockDim>>>(
         UFDim, InTensor->N, InTensor->K, InTensor->DACsrAp, InTensor->DACsrI,
         InTensor->DACsrVal, OutTensor->DACx, OutTensor->DXx, DUFPtr);
-    cudaDeviceSynchronize();
     t1.stopGPU("FusedSpMMSpMM");
     OutTensor->copyDeviceToHost();
     return t1;

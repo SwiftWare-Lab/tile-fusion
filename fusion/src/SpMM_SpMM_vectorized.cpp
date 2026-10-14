@@ -9,6 +9,7 @@
 #define pw_stop_instruments_loop(th)
 #endif
 
+#include <immintrin.h>
 #include <omp.h>
 namespace swiftware {
 namespace sparse {

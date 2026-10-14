@@ -14,6 +14,347 @@
 
 namespace cg = cooperative_groups;
 
+// Each feature-thread group owns one producer row; a block can process one or
+// more rows. Consumer columns are stored as CSC so a computed producer row can
+// be scattered immediately to its output rows.
+__global__ void spmm_spmm_csr_csc_atomic_kernel(
+    int rows, int features, int rowsPerBlock, int featureThreads,
+    const int *producerPtr, const int *producerIdx,
+    const float *producerVal, const int *consumerPtr, const int *consumerIdx,
+    const float *consumerVal, const float *input, float *intermediate,
+    float *output) {
+  int row = blockIdx.x * rowsPerBlock + threadIdx.x / featureThreads;
+  if (row >= rows) return;
+  for (int feature = threadIdx.x % featureThreads; feature < features;
+       feature += featureThreads) {
+    float value = 0.0f;
+    for (int p = producerPtr[row]; p < producerPtr[row + 1]; ++p)
+      value += producerVal[p] * input[producerIdx[p] * features + feature];
+    intermediate[row * features + feature] = value;
+    for (int p = consumerPtr[row]; p < consumerPtr[row + 1]; ++p)
+      atomicAdd(output + consumerIdx[p] * features + feature,
+                consumerVal[p] * value);
+  }
+}
+
+// Several producer rows share a block. Their intermediate feature vectors are
+// staged in shared memory, then consumer edges with the same destination row
+// are reduced before a single global atomic is issued for each feature. The
+// grouped edge lists are built once on the CPU. Blocks without enough repeated
+// destinations take the original register-only direct-scatter path.
+__global__ void spmm_spmm_csr_csc_conflict_reduce_kernel(
+    int rows, int features, int rowsPerBlock, int featureThreads,
+    const int *producerPtr, const int *producerIdx,
+    const float *producerVal, const int *consumerPtr, const int *consumerIdx,
+    const float *consumerVal, const int *blockGroupPtr,
+    const int *consumerEdgeGroup, const int *groupDst,
+    const int *groupEdgePtr, const int *groupEdgeLocalRow,
+    const float *groupEdgeVal, const float *input, float *intermediate,
+    float *output) {
+  extern __shared__ float rowValues[];
+  const int localRow = threadIdx.x / featureThreads;
+  const int featureLane = threadIdx.x % featureThreads;
+  const int row = blockIdx.x * rowsPerBlock + localRow;
+  const int firstGroup = blockGroupPtr[blockIdx.x];
+  const int groupCount = blockGroupPtr[blockIdx.x + 1] - firstGroup;
+
+  // This branch is uniform across the block, so blocks without selected
+  // conflicts avoid the shared-memory round trip and block barrier.
+  if (groupCount == 0) {
+    if (row < rows) {
+      for (int feature = featureLane; feature < features;
+           feature += featureThreads) {
+        float value = 0.0f;
+        for (int p = producerPtr[row]; p < producerPtr[row + 1]; ++p)
+          value += producerVal[p] *
+                   input[producerIdx[p] * features + feature];
+        intermediate[row * features + feature] = value;
+        for (int p = consumerPtr[row]; p < consumerPtr[row + 1]; ++p)
+          atomicAdd(output + consumerIdx[p] * features + feature,
+                    consumerVal[p] * value);
+      }
+    }
+    return;
+  }
+
+  if (row < rows) {
+    for (int feature = featureLane; feature < features;
+         feature += featureThreads) {
+      float value = 0.0f;
+      for (int p = producerPtr[row]; p < producerPtr[row + 1]; ++p)
+        value += producerVal[p] * input[producerIdx[p] * features + feature];
+      rowValues[localRow * features + feature] = value;
+      intermediate[row * features + feature] = value;
+    }
+  }
+  __syncthreads();
+
+  if (row < rows) {
+    for (int feature = featureLane; feature < features;
+         feature += featureThreads) {
+      const float value = rowValues[localRow * features + feature];
+      for (int p = consumerPtr[row]; p < consumerPtr[row + 1]; ++p)
+        if (consumerEdgeGroup[p] < 0)
+          atomicAdd(output + consumerIdx[p] * features + feature,
+                    consumerVal[p] * value);
+    }
+  }
+
+  // Only repeated destinations are represented here; singleton edges remain
+  // on the direct path. With 32 features, each warp reduces one destination.
+  const int workCount = groupCount * features;
+  for (int work = threadIdx.x; work < workCount; work += blockDim.x) {
+    const int group = firstGroup + work / features;
+    const int feature = work % features;
+    float value = 0.0f;
+    for (int p = groupEdgePtr[group]; p < groupEdgePtr[group + 1]; ++p)
+      value += groupEdgeVal[p] *
+               rowValues[groupEdgeLocalRow[p] * features + feature];
+    atomicAdd(output + groupDst[group] * features + feature, value);
+  }
+}
+
+// Distinct tiles in one color cannot write the same output row. Rows within
+// one tile are processed in order by each feature thread, so they cannot race
+// with each other either. Consecutive colors run in default-stream order.
+__global__ void spmm_spmm_csr_csc_colored_kernel(
+    int rows, int features, int tileSize, const int *tileIds,
+    const int *producerPtr, const int *producerIdx, const float *producerVal,
+    const int *consumerPtr, const int *consumerIdx, const float *consumerVal,
+    const float *input, float *intermediate, float *output) {
+  int tile = tileIds[blockIdx.x];
+  int end = min((tile + 1) * tileSize, rows);
+  for (int feature = threadIdx.x; feature < features; feature += blockDim.x) {
+    for (int row = tile * tileSize; row < end; ++row) {
+      float value = 0.0f;
+      for (int p = producerPtr[row]; p < producerPtr[row + 1]; ++p)
+        value += producerVal[p] * input[producerIdx[p] * features + feature];
+      intermediate[row * features + feature] = value;
+      for (int p = consumerPtr[row]; p < consumerPtr[row + 1]; ++p)
+        output[consumerIdx[p] * features + feature] +=
+            consumerVal[p] * value;
+    }
+  }
+}
+
+// Hybrid tiles contain only selected producer rows. Coloring guarantees that
+// separate tiles of one color never update the same consumer output row.
+__global__ void spmm_spmm_csr_csc_hybrid_colored_kernel(
+    int fusedRowCount, int features, int tileSize, const int *tileIds,
+    const int *fusedRows, const int *producerPtr, const int *producerIdx,
+    const float *producerVal, const int *consumerPtr, const int *consumerIdx,
+    const float *consumerVal, const float *input, float *intermediate,
+    float *output) {
+  int tile = tileIds[blockIdx.x];
+  int end = min((tile + 1) * tileSize, fusedRowCount);
+  for (int feature = threadIdx.x; feature < features; feature += blockDim.x) {
+    for (int position = tile * tileSize; position < end; ++position) {
+      int row = fusedRows[position];
+      float value = 0.0f;
+      for (int p = producerPtr[row]; p < producerPtr[row + 1]; ++p)
+        value += producerVal[p] * input[producerIdx[p] * features + feature];
+      intermediate[row * features + feature] = value;
+      for (int p = consumerPtr[row]; p < consumerPtr[row + 1]; ++p)
+        output[consumerIdx[p] * features + feature] +=
+            consumerVal[p] * value;
+    }
+  }
+}
+
+// Four warps compute four producer rows in parallel. Scattering remains
+// ordered within the tile: different rows in one tile may share output rows,
+// so only warp 0 scatters after all four intermediate rows are ready.
+// Launch with exactly 128 threads (four warps).
+__device__ __forceinline__ void spmm_spmm_csr_csc_hybrid_rows4_tile(
+    int tile, int fusedRowCount, int features, int tileSize,
+    const int *fusedRows, const int *producerPtr, const int *producerIdx,
+    const float *producerVal, const int *consumerPtr, const int *consumerIdx,
+    const float *consumerVal, const float *input, float *intermediate,
+    float *output) {
+  const int end = min((tile + 1) * tileSize, fusedRowCount);
+  const int warp = threadIdx.x >> 5;
+  const int lane = threadIdx.x & 31;
+  for (int first = tile * tileSize; first < end; first += 4) {
+    const int position = first + warp;
+    if (position < end) {
+      const int row = fusedRows[position];
+      for (int feature = lane; feature < features; feature += 32) {
+        float value = 0.0f;
+        for (int p = producerPtr[row]; p < producerPtr[row + 1]; ++p)
+          value += producerVal[p] * input[producerIdx[p] * features + feature];
+        intermediate[row * features + feature] = value;
+      }
+    }
+    __syncthreads();
+    if (warp == 0) {
+      const int groupEnd = min(first + 4, end);
+      for (int pRow = first; pRow < groupEnd; ++pRow) {
+        const int row = fusedRows[pRow];
+        for (int feature = lane; feature < features; feature += 32) {
+          const float value = intermediate[row * features + feature];
+          for (int p = consumerPtr[row]; p < consumerPtr[row + 1]; ++p)
+            output[consumerIdx[p] * features + feature] +=
+                consumerVal[p] * value;
+        }
+      }
+    }
+    __syncthreads();
+  }
+}
+
+__global__ void spmm_spmm_csr_csc_hybrid_colored_rows4_kernel(
+    int fusedRowCount, int features, int tileSize, const int *tileIds,
+    const int *fusedRows, const int *producerPtr, const int *producerIdx,
+    const float *producerVal, const int *consumerPtr, const int *consumerIdx,
+    const float *consumerVal, const float *input, float *intermediate,
+    float *output) {
+  spmm_spmm_csr_csc_hybrid_rows4_tile(
+      tileIds[blockIdx.x], fusedRowCount, features, tileSize, fusedRows,
+      producerPtr, producerIdx, producerVal, consumerPtr, consumerIdx,
+      consumerVal, input, intermediate, output);
+}
+
+// One warp per unfused producer row; four rows per 128-thread block.
+__device__ __forceinline__ void spmm_spmm_hybrid_unfused_producer_rows4(
+    int group, int unfusedRowCount, int features, const int *unfusedRows,
+    const int *producerPtr, const int *producerIdx, const float *producerVal,
+    const float *input, float *intermediate) {
+  const int position = group * 4 + (threadIdx.x >> 5);
+  if (position >= unfusedRowCount) return;
+  const int row = unfusedRows[position];
+  const int lane = threadIdx.x & 31;
+  for (int feature = lane; feature < features; feature += 32) {
+    float value = 0.0f;
+    for (int p = producerPtr[row]; p < producerPtr[row + 1]; ++p)
+      value += producerVal[p] * input[producerIdx[p] * features + feature];
+    intermediate[row * features + feature] = value;
+  }
+}
+
+__global__ void spmm_spmm_hybrid_unfused_producer_rows4_kernel(
+    int unfusedRowCount, int features, const int *unfusedRows,
+    const int *producerPtr, const int *producerIdx, const float *producerVal,
+    const float *input, float *intermediate) {
+  spmm_spmm_hybrid_unfused_producer_rows4(
+      blockIdx.x, unfusedRowCount, features, unfusedRows, producerPtr,
+      producerIdx, producerVal, input, intermediate);
+}
+
+// One warp per output row for the unfused consumer gather.
+__device__ __forceinline__ void spmm_spmm_hybrid_unfused_consumer_rows4(
+    int group, int outputRows, int features, const int *consumerPtr,
+    const int *consumerIdx, const float *consumerVal, const int *fusedMask,
+    const float *intermediate, float *output) {
+  const int row = group * 4 + (threadIdx.x >> 5);
+  if (row >= outputRows) return;
+  const int lane = threadIdx.x & 31;
+  for (int feature = lane; feature < features; feature += 32) {
+    float value = 0.0f;
+    for (int p = consumerPtr[row]; p < consumerPtr[row + 1]; ++p) {
+      const int producerRow = consumerIdx[p];
+      if (!fusedMask[producerRow])
+        value += consumerVal[p] *
+                 intermediate[producerRow * features + feature];
+    }
+    output[row * features + feature] += value;
+  }
+}
+
+__global__ void spmm_spmm_hybrid_unfused_consumer_rows4_kernel(
+    int outputRows, int features, const int *consumerPtr,
+    const int *consumerIdx, const float *consumerVal, const int *fusedMask,
+    const float *intermediate, float *output) {
+  spmm_spmm_hybrid_unfused_consumer_rows4(
+      blockIdx.x, outputRows, features, consumerPtr, consumerIdx, consumerVal,
+      fusedMask, intermediate, output);
+}
+
+struct SpmmSpmmHybridCooperativeArgs {
+  int fusedRowCount, unfusedRowCount, outputRows, features, tileSize,
+      colorCount;
+  const int *colorOffsets, *tileIds, *fusedRows, *unfusedRows, *fusedMask;
+  const int *producerPtr, *producerIdx, *consumerCscPtr, *consumerCscIdx;
+  const int *consumerCsrPtr, *consumerCsrIdx;
+  const float *producerVal, *consumerCscVal, *consumerCsrVal, *input;
+  float *intermediate, *output;
+};
+
+// A cooperative launch keeps a resident grid alive across all colors. Every
+// block must reach each grid-wide barrier, including blocks with no tile in
+// that color. The caller must limit gridDim.x to cooperative residency.
+__global__ void spmm_spmm_csr_csc_hybrid_cooperative_kernel(
+    SpmmSpmmHybridCooperativeArgs args) {
+  cg::grid_group grid = cg::this_grid();
+  const size_t thread = static_cast<size_t>(blockIdx.x) * blockDim.x +
+                        threadIdx.x;
+  const size_t stride = static_cast<size_t>(gridDim.x) * blockDim.x;
+  const size_t outputCount = static_cast<size_t>(args.outputRows) * args.features;
+  for (size_t p = thread; p < outputCount; p += stride)
+    args.output[p] = 0.0f;
+  grid.sync();
+
+  for (int group = blockIdx.x; group < (args.unfusedRowCount + 3) / 4;
+       group += gridDim.x)
+    spmm_spmm_hybrid_unfused_producer_rows4(
+        group, args.unfusedRowCount, args.features, args.unfusedRows,
+        args.producerPtr, args.producerIdx, args.producerVal, args.input,
+        args.intermediate);
+  grid.sync();
+
+  for (int color = 0; color < args.colorCount; ++color) {
+    for (int p = args.colorOffsets[color] + blockIdx.x;
+         p < args.colorOffsets[color + 1]; p += gridDim.x)
+      spmm_spmm_csr_csc_hybrid_rows4_tile(
+          args.tileIds[p], args.fusedRowCount, args.features, args.tileSize,
+          args.fusedRows, args.producerPtr, args.producerIdx, args.producerVal,
+          args.consumerCscPtr, args.consumerCscIdx, args.consumerCscVal,
+          args.input, args.intermediate, args.output);
+    grid.sync();
+  }
+
+  if (args.unfusedRowCount > 0)
+    for (int group = blockIdx.x; group < (args.outputRows + 3) / 4;
+         group += gridDim.x)
+      spmm_spmm_hybrid_unfused_consumer_rows4(
+          group, args.outputRows, args.features, args.consumerCsrPtr,
+          args.consumerCsrIdx, args.consumerCsrVal, args.fusedMask,
+          args.intermediate, args.output);
+}
+
+// The unfused producer pass computes only rows excluded from colored tiles.
+__global__ void spmm_spmm_hybrid_unfused_producer_kernel(
+    int features, const int *unfusedRows, const int *producerPtr,
+    const int *producerIdx, const float *producerVal, const float *input,
+    float *intermediate) {
+  int row = unfusedRows[blockIdx.x];
+  for (int feature = threadIdx.x; feature < features; feature += blockDim.x) {
+    float value = 0.0f;
+    for (int p = producerPtr[row]; p < producerPtr[row + 1]; ++p)
+      value += producerVal[p] * input[producerIdx[p] * features + feature];
+    intermediate[row * features + feature] = value;
+  }
+}
+
+// Gather only contributions from excluded producer rows. Fused contributions
+// are already in output, so this pass adds rather than overwrites them.
+__global__ void spmm_spmm_hybrid_unfused_consumer_kernel(
+    int outputRows, int features, const int *consumerPtr,
+    const int *consumerIdx, const float *consumerVal, const int *fusedMask,
+    const float *intermediate, float *output) {
+  int row = blockIdx.x;
+  if (row >= outputRows) return;
+  for (int feature = threadIdx.x; feature < features; feature += blockDim.x) {
+    float value = 0.0f;
+    for (int p = consumerPtr[row]; p < consumerPtr[row + 1]; ++p) {
+      int producerRow = consumerIdx[p];
+      if (!fusedMask[producerRow])
+        value += consumerVal[p] *
+                 intermediate[producerRow * features + feature];
+    }
+    output[row * features + feature] += value;
+  }
+}
+
 __device__ __forceinline__ float sum_reduce(float acc, float x) {
   return acc + x;
 }
